@@ -14,6 +14,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/credentialmanifest"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 )
 
 var (
@@ -30,7 +33,7 @@ var (
 const invalidJSONPath = "%InvalidJSONPath"
 
 func TestCredentialManifest_Unmarshal(t *testing.T) {
-	t.Run("Valid credential manifest", func(t *testing.T) {
+	t.Run("Valid Credential Manifest", func(t *testing.T) {
 		makeCredentialManifestFromBytes(t, validCredentialManifest)
 	})
 	t.Run("Missing issuer ID", func(t *testing.T) {
@@ -150,7 +153,9 @@ func TestCredentialManifest_ResolveOutputDescriptors(t *testing.T) {
 			err := json.Unmarshal(validCredentialManifest, &credentialManifest)
 			require.NoError(t, err)
 
-			resolvedDataDisplayDescriptors, err := credentialManifest.ResolveOutputDescriptors(validVC)
+			vc := parseTestCredential(t, validVC)
+
+			resolvedDataDisplayDescriptors, err := credentialManifest.ResolveOutputDescriptors(vc)
 			require.NoError(t, err)
 
 			require.Len(t, resolvedDataDisplayDescriptors, 1)
@@ -167,8 +172,10 @@ func TestCredentialManifest_ResolveOutputDescriptors(t *testing.T) {
 			err := json.Unmarshal(validCredentialManifest, &credentialManifest)
 			require.NoError(t, err)
 
+			vc := parseTestCredential(t, createValidVCMissingSomeFields(t))
+
 			resolvedDataDisplayDescriptors, err :=
-				credentialManifest.ResolveOutputDescriptors(createValidVCMissingSomeFields(t))
+				credentialManifest.ResolveOutputDescriptors(vc)
 			require.NoError(t, err)
 
 			require.Len(t, resolvedDataDisplayDescriptors, 1)
@@ -185,17 +192,21 @@ func TestCredentialManifest_ResolveOutputDescriptors(t *testing.T) {
 	t.Run("Fail to resolve title display mapping object", func(t *testing.T) {
 		credentialManifest := createCredentialManifestWithInvalidTitleJSONPath(t)
 
-		resolvedDataDisplayDescriptors, err := credentialManifest.ResolveOutputDescriptors(validVC)
+		vc := parseTestCredential(t, validVC)
+
+		resolvedDataDisplayDescriptors, err := credentialManifest.ResolveOutputDescriptors(vc)
 		require.EqualError(t, err, "failed to resolve output descriptors at index 0: failed to resolve "+
 			`title display mapping object: parsing error: %InvalidJSONPath	:1:1 - 1:2 unexpected "%" while `+
 			"scanning extensions")
 		require.Nil(t, resolvedDataDisplayDescriptors)
 	})
 	t.Run("Fail to resolve display mapping object", func(t *testing.T) {
+		vc := parseTestCredential(t, validVC)
+
 		t.Run("Display title", func(t *testing.T) {
 			credentialManifest := createCredentialManifestWithInvalidTitleJSONPath(t)
 
-			resolvedDataDisplayDescriptors, err := credentialManifest.ResolveOutputDescriptors(validVC)
+			resolvedDataDisplayDescriptors, err := credentialManifest.ResolveOutputDescriptors(vc)
 			require.EqualError(t, err, "failed to resolve output descriptors at index 0: failed to resolve "+
 				`title display mapping object: parsing error: %InvalidJSONPath	:1:1 - 1:2 unexpected "%" while `+
 				"scanning extensions")
@@ -204,7 +215,7 @@ func TestCredentialManifest_ResolveOutputDescriptors(t *testing.T) {
 		t.Run("Display subtitle", func(t *testing.T) {
 			credentialManifest := createCredentialManifestWithInvalidSubtitleJSONPath(t)
 
-			resolvedDataDisplayDescriptors, err := credentialManifest.ResolveOutputDescriptors(validVC)
+			resolvedDataDisplayDescriptors, err := credentialManifest.ResolveOutputDescriptors(vc)
 			require.EqualError(t, err, "failed to resolve output descriptors at index 0: failed to resolve "+
 				`subtitle display mapping object: parsing error: %InvalidJSONPath	:1:1 - 1:2 unexpected "%" while `+
 				"scanning extensions")
@@ -213,7 +224,7 @@ func TestCredentialManifest_ResolveOutputDescriptors(t *testing.T) {
 		t.Run("Display description", func(t *testing.T) {
 			credentialManifest := createCredentialManifestWithInvalidDescriptionJSONPath(t)
 
-			resolvedDataDisplayDescriptors, err := credentialManifest.ResolveOutputDescriptors(validVC)
+			resolvedDataDisplayDescriptors, err := credentialManifest.ResolveOutputDescriptors(vc)
 			require.EqualError(t, err, "failed to resolve output descriptors at index 0: failed to resolve "+
 				`description display mapping object: parsing error: %InvalidJSONPath	:1:1 - 1:2 unexpected "%" `+
 				"while scanning extensions")
@@ -222,7 +233,7 @@ func TestCredentialManifest_ResolveOutputDescriptors(t *testing.T) {
 		t.Run("Display property", func(t *testing.T) {
 			credentialManifest := createCredentialManifestWithInvalidPropertyJSONPath(t)
 
-			resolvedDataDisplayDescriptors, err := credentialManifest.ResolveOutputDescriptors(validVC)
+			resolvedDataDisplayDescriptors, err := credentialManifest.ResolveOutputDescriptors(vc)
 			require.EqualError(t, err, "failed to resolve output descriptors at index 0: failed to resolve "+
 				`the display mapping object for the property at index 0: parsing error: %InvalidJSONPath	:1:1 - `+
 				`1:2 unexpected "%" while scanning extensions`)
@@ -360,6 +371,24 @@ func makeCredentialManifestFromBytes(t *testing.T,
 	require.NoError(t, err)
 
 	return credentialManifest
+}
+
+func parseTestCredential(t *testing.T, vcData []byte) *verifiable.Credential {
+	t.Helper()
+
+	vc, err := verifiable.ParseCredential(vcData, verifiable.WithJSONLDDocumentLoader(createTestDocumentLoader(t)))
+	require.NoError(t, err)
+
+	return vc
+}
+
+func createTestDocumentLoader(t *testing.T) *ld.DocumentLoader {
+	t.Helper()
+
+	loader, err := ldtestutil.DocumentLoader()
+	require.NoError(t, err)
+
+	return loader
 }
 
 // Two of the fields that JSONPaths in the valid credential manifest point to are deleted here.
