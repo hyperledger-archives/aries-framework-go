@@ -9,7 +9,6 @@ package webkms
 import (
 	"bytes"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -26,15 +25,10 @@ import (
 
 const (
 	// KeystoreEndpoint represents a remote keystore endpoint with swappable {serverEndpoint} value.
-	KeystoreEndpoint = "{serverEndpoint}/kms/keystores"
+	KeystoreEndpoint = "{serverEndpoint}/v1/keystores"
 
 	// ContentType is remoteKMS http content-type.
 	ContentType = "application/json"
-
-	// LocationHeader is remoteKMS http header set by the key server (usually to identify a keystore or key url).
-	LocationHeader = "Location"
-	// XRootCapabilityHeader defines XRootCapability header.
-	XRootCapabilityHeader = "X-ROOTCAPABILITY"
 )
 
 var logger = log.New("aries-framework/kms/webkms")
@@ -49,32 +43,41 @@ type errMessage struct {
 }
 
 type createKeystoreReq struct {
-	Controller string `json:"controller,omitempty"`
-	VaultID    string `json:"vaultID,omitempty"`
+	Controller string      `json:"controller,omitempty"`
+	EDV        *edvOptions `json:"edv"`
+}
+
+type edvOptions struct {
+	VaultURL   string `json:"vault_url"`
+	Capability []byte `json:"capability"`
+}
+
+type createKeyStoreResp struct {
+	KeyStoreURL string `json:"key_store_url"`
+	Capability  string `json:"capability"`
 }
 
 type createKeyReq struct {
-	KeyType   string `json:"keyType,omitempty"`
-	ExportKey bool   `json:"export,omitempty"`
+	KeyType kms.KeyType `json:"key_type"`
 }
 
-type createResp struct {
-	Location string `json:"location,omitempty"`
-	KeyBytes string `json:"publicKey,omitempty"`
+type createKeyResp struct {
+	KeyURL    string `json:"key_url"`
+	PublicKey []byte `json:"public_key"`
 }
 
 type exportKeyResp struct {
-	KeyBytes string `json:"publicKey,omitempty"`
+	PublicKey []byte `json:"public_key"`
 }
 
 type importKeyReq struct {
-	KeyBytes string `json:"keyBytes,omitempty"`
-	KeyType  string `json:"keyType,omitempty"`
-	KeyID    string `json:"keyID,omitempty"`
+	Key     []byte      `json:"key"`
+	KeyType kms.KeyType `json:"key_type"`
+	KeyID   string      `json:"key_id,omitempty"`
 }
 
 type importKeyResp struct {
-	Location string `json:"location,omitempty"`
+	KeyURL string `json:"key_url"`
 }
 
 type marshalFunc func(interface{}) ([]byte, error)
@@ -113,8 +116,8 @@ func checkError(resp *http.Response) error {
 // Returns:
 //  - keystore URL (if successful)
 //  - error (if error encountered)
-func CreateKeyStore(httpClient HTTPClient, keyserverURL, controller, vaultID string, // nolint: funlen
-	opts ...Opt) (string, string, error) {
+func CreateKeyStore(httpClient HTTPClient, keyserverURL, controller, vaultURL string, // nolint: funlen
+	capability []byte, opts ...Opt) (string, string, error) {
 	createKeyStoreStart := time.Now()
 	kmsOpts := NewOpt()
 
@@ -127,8 +130,11 @@ func CreateKeyStore(httpClient HTTPClient, keyserverURL, controller, vaultID str
 		Controller: controller,
 	}
 
-	if vaultID != "" {
-		httpReqJSON.VaultID = vaultID
+	if vaultURL != "" {
+		httpReqJSON.EDV = &edvOptions{
+			VaultURL:   vaultURL,
+			Capability: capability,
+		}
 	}
 
 	mReq, err := kmsOpts.marshal(httpReqJSON)
@@ -164,19 +170,17 @@ func CreateKeyStore(httpClient HTTPClient, keyserverURL, controller, vaultID str
 	// handle response
 	defer closeResponseBody(resp.Body, logger, "CreateKeyStore")
 
-	err = checkError(resp)
+	var httpResp createKeyStoreResp
+	err = readResponse(resp, &httpResp, json.Unmarshal)
+
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("create keystore failed [%s, %w]", destination, err)
 	}
 
 	logger.Debugf("call of CreateStore http request duration: %s", time.Since(start))
-
-	keystoreURL := resp.Header.Get(LocationHeader)
-	capability := resp.Header.Get(XRootCapabilityHeader)
-
 	logger.Debugf("overall CreateStore duration: %s", time.Since(createKeyStoreStart))
 
-	return keystoreURL, capability, nil
+	return httpResp.KeyStoreURL, httpResp.Capability, nil
 }
 
 // New creates a new remoteKMS instance using http client connecting to keystoreURL.
@@ -198,6 +202,10 @@ func New(keystoreURL string, client HTTPClient, opts ...Opt) *RemoteKMS {
 
 func (r *RemoteKMS) postHTTPRequest(destination string, mReq []byte) (*http.Response, error) {
 	return r.doHTTPRequest(http.MethodPost, destination, mReq)
+}
+
+func (r *RemoteKMS) putHTTPRequest(destination string, mReq []byte) (*http.Response, error) {
+	return r.doHTTPRequest(http.MethodPut, destination, mReq)
 }
 
 func (r *RemoteKMS) getHTTPRequest(destination string) (*http.Response, error) {
@@ -254,7 +262,7 @@ func (r *RemoteKMS) doHTTPRequest(method, destination string, mReq []byte) (*htt
 func (r *RemoteKMS) Create(kt kms.KeyType) (string, interface{}, error) {
 	startCreate := time.Now()
 
-	keyURL, _, err := r.createKey(kt, false)
+	keyURL, _, err := r.createKey(kt)
 	if err != nil {
 		return "", nil, err
 	}
@@ -266,12 +274,11 @@ func (r *RemoteKMS) Create(kt kms.KeyType) (string, interface{}, error) {
 	return kid, keyURL, nil
 }
 
-func (r *RemoteKMS) createKey(kt kms.KeyType, exportKey bool) (string, []byte, error) {
+func (r *RemoteKMS) createKey(kt kms.KeyType) (string, []byte, error) {
 	destination := r.keystoreURL + "/keys"
 
 	httpReqJSON := &createKeyReq{
-		KeyType:   string(kt),
-		ExportKey: exportKey,
+		KeyType: kt,
 	}
 
 	marshaledReq, err := r.marshalFunc(httpReqJSON)
@@ -287,39 +294,14 @@ func (r *RemoteKMS) createKey(kt kms.KeyType, exportKey bool) (string, []byte, e
 	// handle response
 	defer closeResponseBody(resp.Body, logger, "Create")
 
-	err = checkError(resp)
+	var httpResp createKeyResp
+
+	err = readResponse(resp, &httpResp, r.unmarshalFunc)
 	if err != nil {
-		return "", nil, err
+		return "", nil, fmt.Errorf("create key failed [%s, %w]", destination, err)
 	}
 
-	keyURL := resp.Header.Get(LocationHeader)
-
-	if keyURL != "" && !exportKey {
-		return keyURL, nil, nil
-	}
-
-	respBody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", nil, fmt.Errorf("read key response for Create failed [%s, %w]", destination, err)
-	}
-
-	var httpResp createResp
-
-	err = r.unmarshalFunc(respBody, &httpResp)
-	if err != nil {
-		return "", nil, fmt.Errorf("unmarshal key for Create failed [%s, %w]", destination, err)
-	}
-
-	if keyURL == "" {
-		keyURL = httpResp.Location
-	}
-
-	keyBytes, err := base64.URLEncoding.DecodeString(httpResp.KeyBytes)
-	if err != nil {
-		return "", nil, err
-	}
-
-	return keyURL, keyBytes, nil
+	return httpResp.KeyURL, httpResp.PublicKey, nil
 }
 
 // Get key handle for the given KeyID remotely
@@ -363,31 +345,16 @@ func (r *RemoteKMS) ExportPubKeyBytes(keyID string) ([]byte, error) {
 	// handle response
 	defer closeResponseBody(resp.Body, logger, "ExportPubKeyBytes")
 
-	err = checkError(resp)
-	if err != nil {
-		return nil, err
-	}
-
-	respBody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read key response for ExportPubKeyBytes failed [%s, %w]", destination, err)
-	}
-
 	httpResp := &exportKeyResp{}
 
-	err = r.unmarshalFunc(respBody, httpResp)
+	err = readResponse(resp, &httpResp, r.unmarshalFunc)
 	if err != nil {
-		return nil, fmt.Errorf("unmarshal key for ExportPubKeyBytes failed [%s, %w]", destination, err)
-	}
-
-	keyBytes, err := base64.URLEncoding.DecodeString(httpResp.KeyBytes)
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("export pub key bytes failed [%s, %w]", destination, err)
 	}
 
 	logger.Debugf("overall ExportPubKeyBytes duration: %s", time.Since(startExport))
 
-	return keyBytes, nil
+	return httpResp.PublicKey, nil
 }
 
 // CreateAndExportPubKeyBytes will remotely create a key of type kt and export its public key in raw bytes and returns
@@ -399,7 +366,7 @@ func (r *RemoteKMS) ExportPubKeyBytes(keyID string) ([]byte, error) {
 func (r *RemoteKMS) CreateAndExportPubKeyBytes(kt kms.KeyType) (string, []byte, error) {
 	start := time.Now()
 
-	keyURL, keyBytes, err := r.createKey(kt, true)
+	keyURL, keyBytes, err := r.createKey(kt)
 	if err != nil {
 		return "", nil, err
 	}
@@ -434,7 +401,7 @@ func (r *RemoteKMS) ImportPrivateKey(privKey interface{}, kt kms.KeyType,
 		opt(pOpts)
 	}
 
-	destination := r.keystoreURL + "/import"
+	destination := r.keystoreURL + "/keys"
 
 	keyBytes, err := x509.MarshalPKCS8PrivateKey(privKey)
 	if err != nil {
@@ -442,9 +409,9 @@ func (r *RemoteKMS) ImportPrivateKey(privKey interface{}, kt kms.KeyType,
 	}
 
 	httpReqJSON := &importKeyReq{
-		KeyBytes: base64.URLEncoding.EncodeToString(keyBytes),
-		KeyType:  string(kt),
-		KeyID:    pOpts.KsID(),
+		Key:     keyBytes,
+		KeyType: kt,
+		KeyID:   pOpts.KsID(),
 	}
 
 	marshaledReq, err := r.marshalFunc(httpReqJSON)
@@ -452,7 +419,7 @@ func (r *RemoteKMS) ImportPrivateKey(privKey interface{}, kt kms.KeyType,
 		return "", nil, fmt.Errorf("failed to marshal ImportKey request [%s, %w]", destination, err)
 	}
 
-	resp, err := r.postHTTPRequest(destination, marshaledReq)
+	resp, err := r.putHTTPRequest(destination, marshaledReq)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to post ImportKey request [%s, %w]", destination, err)
 	}
@@ -460,28 +427,14 @@ func (r *RemoteKMS) ImportPrivateKey(privKey interface{}, kt kms.KeyType,
 	// handle response
 	defer closeResponseBody(resp.Body, logger, "ImportPrivateKey")
 
-	err = checkError(resp)
+	var httpResp importKeyResp
+	err = readResponse(resp, &httpResp, r.unmarshalFunc)
+
 	if err != nil {
-		return "", nil, err
+		return "", nil, fmt.Errorf("import key failed [%s, %w]", destination, err)
 	}
 
-	keyURL := resp.Header.Get(LocationHeader)
-
-	if keyURL == "" {
-		respBody, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return "", nil, fmt.Errorf("failed to read response for ImportKey [%s, %w]", destination, err)
-		}
-
-		var httpResp importKeyResp
-
-		err = r.unmarshalFunc(respBody, &httpResp)
-		if err != nil {
-			return "", nil, fmt.Errorf("failed to unmarshal response body for ImportKey [%s, %w]", destination, err)
-		}
-
-		keyURL = httpResp.Location
-	}
+	keyURL := httpResp.KeyURL
 
 	kid := keyURL[strings.LastIndex(keyURL, "/")+1:]
 
@@ -494,4 +447,23 @@ func closeResponseBody(respBody io.Closer, logger spi.Logger, action string) {
 	if err != nil {
 		logger.Errorf("Failed to close response body for '%s' REST call: %s", action, err.Error())
 	}
+}
+
+func readResponse(resp *http.Response, httpResp interface{}, unmarshal unmarshalFunc) error {
+	err := checkError(resp)
+	if err != nil {
+		return err
+	}
+
+	respBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("read response failed: %w", err)
+	}
+
+	err = unmarshal(respBody, httpResp)
+	if err != nil {
+		return fmt.Errorf("unmarshal failed: %w", err)
+	}
+
+	return nil
 }

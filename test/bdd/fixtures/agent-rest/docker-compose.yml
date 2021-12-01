@@ -293,7 +293,7 @@ services:
     container_name: kms.example.com
     image: ${KMS_REST_IMAGE}:${KMS_REST_TAG}
     environment:
-      - KMS_HOST_URL=0.0.0.0:8076
+      - KMS_HOST=0.0.0.0:8076
       - KMS_BASE_URL=https://localhost:8076
       - KMS_TLS_CACERTS=/etc/tls/ec-cacert.pem
       - KMS_TLS_SERVE_CERT=/etc/tls/ec-pubCert.pem
@@ -301,26 +301,14 @@ services:
       - KMS_DATABASE_TYPE=couchdb
       - KMS_DATABASE_URL=${COUCHDB_USERNAME}:${COUCHDB_PASSWORD}@couchdb.example.com:${COUCHDB_PORT}
       - KMS_DATABASE_PREFIX=keystore
-      - KMS_SECRET_LOCK_KEY_PATH=/etc/tls/secret-lock.key
-      - KMS_PRIMARY_KEY_DATABASE_TYPE=couchdb
-      - KMS_PRIMARY_KEY_DATABASE_URL=${COUCHDB_USERNAME}:${COUCHDB_PASSWORD}@couchdb.example.com:${COUCHDB_PORT}
-      - KMS_PRIMARY_KEY_DATABASE_PREFIX=kmspk
-      - KMS_LOCAL_KMS_DATABASE_TYPE=couchdb
-      - KMS_LOCAL_KMS_DATABASE_URL=${COUCHDB_USERNAME}:${COUCHDB_PASSWORD}@couchdb.example.com:${COUCHDB_PORT}
-      - KMS_LOCAL_KMS_DATABASE_PREFIX=kmslocal
-      - KMS_KEY_MANAGER_STORAGE_TYPE=couchdb
-      - KMS_KEY_MANAGER_STORAGE_URL=${COUCHDB_USERNAME}:${COUCHDB_PASSWORD}@couchdb.example.com:${COUCHDB_PORT}
-      - KMS_KEY_MANAGER_STORAGE_PREFIX=kmskm
-      #- KMS_KEY_MANAGER_STORAGE_TYPE=edv
-      #- KMS_KEY_MANAGER_STORAGE_URL=https://edv.example.com:8081
       - KMS_CACHE_EXPIRATION=10m
+      - KMS_SECRET_LOCK_TYPE=local
+      - KMS_SECRET_LOCK_KEY_PATH=/etc/tls/secret-lock.key
       - KMS_ZCAP_ENABLE=false
       - KMS_LOG_LEVEL=debug
     ports:
       - 8076:8076
-    entrypoint: ""
-    # TODO add retry for couchdb
-    command: /bin/sh -c "sleep 5;kms-rest start"
+    command: start
     volumes:
       - ../keys/tls:/etc/tls
     depends_on:

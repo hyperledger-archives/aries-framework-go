@@ -299,7 +299,7 @@ func withRemoteKMSCrypto(kmsURL, controller string) createAgentOption {
 			},
 		}
 
-		keyStoreURL, _, err := webkms.CreateKeyStore(httpClient, kmsURL, controller, "")
+		keyStoreURL, _, err := webkms.CreateKeyStore(httpClient, kmsURL, controller, "", nil)
 		if err != nil {
 			return nil, fmt.Errorf("error calling CreateKeystore: %w", err)
 		}
