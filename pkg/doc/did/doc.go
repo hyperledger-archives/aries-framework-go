@@ -1199,9 +1199,15 @@ func populateRawServices(services []Service, didID, baseURI string) []map[string
 
 		rawService[jsonldType] = services[i].Type
 		rawService[jsonldServicePoint] = services[i].ServiceEndpoint
-		rawService[jsonldRecipientKeys] = recipientKeys
-		rawService[jsonldRoutingKeys] = routingKeys
 		rawService[jsonldPriority] = services[i].Priority
+
+		if len(recipientKeys) > 0 {
+			rawService[jsonldRecipientKeys] = recipientKeys
+		}
+
+		if len(routingKeys) > 0 {
+			rawService[jsonldRoutingKeys] = routingKeys
+		}
 
 		rawServices = append(rawServices, rawService)
 	}
