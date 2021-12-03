@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package webkms
 
 import (
-	"encoding/base64"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -24,33 +23,33 @@ import (
 // TODO delete this file and its corresponding test file when LegacyPacker is removed.
 
 type easyReq struct {
-	Payload  string `json:"payload"`
-	Nonce    string `json:"nonce"`
-	TheirPub string `json:"theirPub"`
+	Payload  []byte `json:"payload"`
+	Nonce    []byte `json:"nonce"`
+	TheirPub []byte `json:"their_pub"`
 }
 
 type easyResp struct {
-	CipherText string `json:"cipherText"`
+	Ciphertext []byte `json:"ciphertext"`
 }
 
 type easyOpenReq struct {
-	CipherText string `json:"cipherText"`
-	Nonce      string `json:"nonce"`
-	TheirPub   string `json:"theirPub"`
-	MyPub      string `json:"myPub"`
+	Ciphertext []byte `json:"ciphertext"`
+	Nonce      []byte `json:"nonce"`
+	TheirPub   []byte `json:"their_pub"`
+	MyPub      []byte `json:"my_pub"`
 }
 
 type easyOpenResp struct {
-	PlainText string `json:"plainText"`
+	Plaintext []byte `json:"plaintext"`
 }
 
 type sealOpenReq struct {
-	CipherText string `json:"cipherText"`
-	MyPub      string `json:"myPub"`
+	Ciphertext []byte `json:"ciphertext"`
+	MyPub      []byte `json:"my_pub"`
 }
 
 type sealOpenResp struct {
-	PlainText string `json:"plainText"`
+	Plaintext []byte `json:"plaintext"`
 }
 
 const (
@@ -91,9 +90,9 @@ func (b *CryptoBox) Easy(payload, nonce, theirPub []byte, myKID string) ([]byte,
 	destination := keyURL + easyURL
 
 	httpReqJSON := &easyReq{
-		Payload:  base64.URLEncoding.EncodeToString(payload),
-		Nonce:    base64.URLEncoding.EncodeToString(nonce),
-		TheirPub: base64.URLEncoding.EncodeToString(theirPub),
+		Payload:  payload,
+		Nonce:    nonce,
+		TheirPub: theirPub,
 	}
 
 	marshaledReq, err := b.km.marshalFunc(httpReqJSON)
@@ -126,14 +125,9 @@ func (b *CryptoBox) Easy(payload, nonce, theirPub []byte, myKID string) ([]byte,
 		return nil, fmt.Errorf("unmarshal ciphertext for Easy failed [%s, %w]", destination, err)
 	}
 
-	ciphertext, err := base64.URLEncoding.DecodeString(httpResp.CipherText)
-	if err != nil {
-		return nil, err
-	}
-
 	logger.Debugf("overall Easy duration: %s", time.Since(easyStart))
 
-	return ciphertext, nil
+	return httpResp.Ciphertext, nil
 }
 
 // EasyOpen remotely unseals a message sealed with Easy, where the nonce is provided.
@@ -143,10 +137,10 @@ func (b *CryptoBox) EasyOpen(cipherText, nonce, theirPub, myPub []byte) ([]byte,
 	destination := b.km.keystoreURL + easyOpenURL
 
 	httpReqJSON := &easyOpenReq{
-		CipherText: base64.URLEncoding.EncodeToString(cipherText),
-		Nonce:      base64.URLEncoding.EncodeToString(nonce),
-		TheirPub:   base64.URLEncoding.EncodeToString(theirPub),
-		MyPub:      base64.URLEncoding.EncodeToString(myPub),
+		Ciphertext: cipherText,
+		Nonce:      nonce,
+		TheirPub:   theirPub,
+		MyPub:      myPub,
 	}
 
 	marshaledReq, err := b.km.marshalFunc(httpReqJSON)
@@ -179,14 +173,9 @@ func (b *CryptoBox) EasyOpen(cipherText, nonce, theirPub, myPub []byte) ([]byte,
 		return nil, fmt.Errorf("unmarshal plaintext for EasyOpen failed [%s, %w]", destination, err)
 	}
 
-	plainText, err := base64.URLEncoding.DecodeString(httpResp.PlainText)
-	if err != nil {
-		return nil, err
-	}
-
 	logger.Debugf("overall easyOpen duration: %s", time.Since(easyOpenStart))
 
-	return plainText, nil
+	return httpResp.Plaintext, nil
 }
 
 // Seal seals a payload using the equivalent of libsodium box_seal. This is an exact copy of localkms's CryptoBox.Seal()
@@ -228,8 +217,8 @@ func (b *CryptoBox) SealOpen(cipherText, myPub []byte) ([]byte, error) {
 	destination := b.km.keystoreURL + sealOpenURL
 
 	httpReqJSON := &sealOpenReq{
-		CipherText: base64.URLEncoding.EncodeToString(cipherText),
-		MyPub:      base64.URLEncoding.EncodeToString(myPub),
+		Ciphertext: cipherText,
+		MyPub:      myPub,
 	}
 
 	marshaledReq, err := b.km.marshalFunc(httpReqJSON)
@@ -262,12 +251,7 @@ func (b *CryptoBox) SealOpen(cipherText, myPub []byte) ([]byte, error) {
 		return nil, fmt.Errorf("unmarshal plaintext for SealOpen failed [%s, %w]", destination, err)
 	}
 
-	plaintext, err := base64.URLEncoding.DecodeString(httpResp.PlainText)
-	if err != nil {
-		return nil, err
-	}
-
 	logger.Debugf("overall SealOpen duration: %s", time.Since(sealOpenStart))
 
-	return plaintext, nil
+	return httpResp.Plaintext, nil
 }

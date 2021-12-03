@@ -34,6 +34,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/rfc0593"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/verifiable"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/webkms"
 )
 
 const (
@@ -209,5 +210,6 @@ func features() []feature {
 		ld.NewLDControllerSteps(),
 		ld.NewSDKSteps(),
 		connection.NewSDKSteps(),
+		webkms.NewCryptoSDKSteps(),
 	}
 }

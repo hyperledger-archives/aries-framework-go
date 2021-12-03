@@ -13,7 +13,6 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -51,10 +50,9 @@ func TestRemoteKeyStore(t *testing.T) {
 	require.NoError(t, err)
 
 	marshalledPubKey := elliptic.Marshal(pvKey.PublicKey.Curve, pvKey.PublicKey.X, pvKey.PublicKey.Y)
-	defaultExportPubKey := base64.URLEncoding.EncodeToString(marshalledPubKey)
 
 	hf := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		err = processPOSTRequest(w, r, defaultKeyStoreID, defaultKID, defaultExportPubKey)
+		err = processPOSTRequest(w, r, defaultKeyStoreID, defaultKID, marshalledPubKey)
 		w.WriteHeader(http.StatusCreated)
 		require.NoError(t, err)
 	})
@@ -70,12 +68,12 @@ func TestRemoteKeyStore(t *testing.T) {
 
 	t.Run("CreateKeyStore failures", func(t *testing.T) {
 		blankClient := &http.Client{}
-		_, _, err = CreateKeyStore(blankClient, url, controller, "")
+		_, _, err = CreateKeyStore(blankClient, url, controller, "", nil)
 		require.Contains(t, err.Error(), "posting Create keystore failed")
 
-		_, _, err = CreateKeyStore(blankClient, "``#$%", controller, "")
-		require.EqualError(t, err, "build request for Create keystore error: parse \"``#$%/kms/keystores\": "+
-			"invalid URL escape \"%/k\"")
+		_, _, err = CreateKeyStore(blankClient, "``#$%", controller, "", nil)
+		require.EqualError(t, err, "build request for Create keystore error: parse \"``#$%/v1/keystores\": "+
+			"invalid URL escape \"%/v\"")
 	})
 
 	t.Run("CreateKeyStore API error", func(t *testing.T) {
@@ -89,7 +87,7 @@ func TestRemoteKeyStore(t *testing.T) {
 
 		defer func() { require.NoError(t, srv.Close()) }()
 
-		_, _, err = CreateKeyStore(_client, _url, controller, "")
+		_, _, err = CreateKeyStore(_client, _url, controller, "", nil)
 		require.Contains(t, err.Error(), "api error msg")
 	})
 
@@ -104,18 +102,18 @@ func TestRemoteKeyStore(t *testing.T) {
 
 		defer func() { require.NoError(t, srv.Close()) }()
 
-		_, _, err = CreateKeyStore(_client, _url, controller, "")
+		_, _, err = CreateKeyStore(_client, _url, controller, "", nil)
 		require.Contains(t, err.Error(), "cannot unmarshal array into Go value")
 	})
 
 	t.Run("CreateKeyStore json marshal failure", func(t *testing.T) {
-		_, _, err = CreateKeyStore(client, url, controller, "", WithMarshalFn(failingMarshal))
+		_, _, err = CreateKeyStore(client, url, controller, "", nil, WithMarshalFn(failingMarshal))
 		require.Contains(t, err.Error(), "failed to marshal Create keystore request")
 		require.Contains(t, err.Error(), "failingMarshal always fails")
 	})
 
 	t.Run("CreateKeyStore success", func(t *testing.T) {
-		ksID, capability, e := CreateKeyStore(client, url, controller, "vaultID")
+		ksID, capability, e := CreateKeyStore(client, url, controller, "vaultID", []byte("capability"))
 		require.NoError(t, e)
 		require.Equal(t, capability, xRootCapabilityHeaderValue)
 		require.EqualValues(t, defaultKeystoreURL, ksID)
@@ -207,7 +205,7 @@ func TestRemoteKeyStore(t *testing.T) {
 			// switch the marshaller in remoteKMS3 to force an error in ExportPubKeyBytes
 			remoteKMS3.unmarshalFunc = failingUnmarshal
 			_, err = remoteKMS3.ExportPubKeyBytes(kid1)
-			require.Contains(t, err.Error(), "unmarshal key for ExportPubKeyBytes failed")
+			require.Contains(t, err.Error(), "unmarshal failed")
 			require.Contains(t, err.Error(), "failingUnmarshal always fails")
 
 			remoteKMS3.unmarshalFunc = json.Unmarshal
@@ -269,7 +267,7 @@ func TestCreateKeyWithLocationInResponseBody(t *testing.T) {
 
 	remoteKMS.unmarshalFunc = failingUnmarshal
 	_, _, err = remoteKMS.Create(kms.ED25519Type)
-	require.Contains(t, err.Error(), "unmarshal key for Create failed")
+	require.Contains(t, err.Error(), "unmarshal failed")
 	require.Contains(t, err.Error(), "failingUnmarshal always fails")
 }
 
@@ -282,10 +280,9 @@ func TestRemoteKeyStoreWithHeadersFunc(t *testing.T) {
 	require.NoError(t, err)
 
 	marshalledPubKey := elliptic.Marshal(pvKey.PublicKey.Curve, pvKey.PublicKey.X, pvKey.PublicKey.Y)
-	defaultExportPubKey := base64.URLEncoding.EncodeToString(marshalledPubKey)
 
 	hf := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		err = processPOSTRequest(w, r, defaultKeyStoreID, defaultKID, defaultExportPubKey)
+		err = processPOSTRequest(w, r, defaultKeyStoreID, defaultKID, marshalledPubKey)
 		w.WriteHeader(http.StatusCreated)
 		require.NoError(t, err)
 	})
@@ -300,7 +297,7 @@ func TestRemoteKeyStoreWithHeadersFunc(t *testing.T) {
 	}()
 
 	t.Run("CreateKeyStore with http header opt success", func(t *testing.T) {
-		ksID, capability, e := CreateKeyStore(client, url, controller, "vaultID",
+		ksID, capability, e := CreateKeyStore(client, url, controller, "vaultID", []byte("capability"),
 			WithHeaders(mockAddHeadersFuncSuccess), WithCache(1))
 		require.NoError(t, e)
 		require.Equal(t, capability, xRootCapabilityHeaderValue)
@@ -308,7 +305,7 @@ func TestRemoteKeyStoreWithHeadersFunc(t *testing.T) {
 	})
 
 	t.Run("CreateKeyStore with http header opt failure", func(t *testing.T) {
-		_, _, e := CreateKeyStore(client, url, controller, "vaultID",
+		_, _, e := CreateKeyStore(client, url, controller, "vaultID", []byte("capability"),
 			WithHeaders(mockAddHeadersFuncError))
 		require.EqualError(t, e, fmt.Errorf("add optional request headers error: %w", errAddHeadersFunc).Error())
 	})
@@ -319,7 +316,7 @@ func TestRemoteKeyStoreWithHeadersFunc(t *testing.T) {
 		kid, keyURL, e := remoteKMS.Create(kms.ED25519Type)
 		require.NoError(t, e)
 		require.Equal(t, defaultKID, kid)
-		require.Contains(t, keyURL, fmt.Sprintf("/kms/keystores/%s/keys/%s", defaultKeyStoreID, defaultKID))
+		require.Contains(t, keyURL, fmt.Sprintf("/v1/keystores/%s/keys/%s", defaultKeyStoreID, defaultKID))
 	})
 
 	t.Run("test New with invalid http header func option", func(t *testing.T) {
@@ -374,7 +371,7 @@ func TestImportPrivateKey(t *testing.T) {
 	remoteKMS.unmarshalFunc = failingUnmarshal
 
 	_, _, err = remoteKMS.ImportPrivateKey(privateKey, kms.ED25519Type)
-	require.Contains(t, err.Error(), "failed to unmarshal response body for ImportKey")
+	require.Contains(t, err.Error(), "unmarshal failed")
 	require.Contains(t, err.Error(), "failingUnmarshal always fails")
 
 	remoteKMS.unmarshalFunc = json.Unmarshal
@@ -401,7 +398,8 @@ func TestCloseResponseBody(t *testing.T) {
 	closeResponseBody(&errFailingCloser{}, logger, "testing close fail should log: errFailingCloser always fails")
 }
 
-func processPOSTRequest(w http.ResponseWriter, r *http.Request, keysetID, kid, defaultExportPubKey string) error {
+func processPOSTRequest(w http.ResponseWriter, r *http.Request, keysetID, kid string,
+	defaultExportPubKey []byte) error {
 	if valid := validateHTTPMethod(w, r); !valid {
 		return errors.New("http method invalid")
 	}
@@ -409,8 +407,6 @@ func processPOSTRequest(w http.ResponseWriter, r *http.Request, keysetID, kid, d
 	if valid := validatePostPayload(r, w); !valid {
 		return errors.New("http request body invalid")
 	}
-
-	w.Header().Add(XRootCapabilityHeader, xRootCapabilityHeaderValue)
 
 	if strings.LastIndex(r.URL.Path, "/keys") == len(r.URL.Path)-len("/keys") {
 		return processCreateKeyRequest(w, r, keysetID, kid, defaultExportPubKey)
@@ -420,41 +416,52 @@ func processPOSTRequest(w http.ResponseWriter, r *http.Request, keysetID, kid, d
 		return processExportKeyRequest(w, defaultExportPubKey)
 	}
 
-	w.Header().Add(LocationHeader, fmt.Sprintf("https://%s/kms/keystores/%s", r.Host, keysetID))
+	resp := &createKeyStoreResp{
+		KeyStoreURL: fmt.Sprintf("https://%s/v1/keystores/%s", r.Host, keysetID),
+		Capability:  xRootCapabilityHeaderValue,
+	}
+
+	mResp, err := json.Marshal(resp)
+	if err != nil {
+		return err
+	}
+
+	_, err = w.Write(mResp)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
 
-func processCreateKeyRequest(w http.ResponseWriter, r *http.Request, keysetID, kid, defaultExportPubKey string) error {
+func processCreateKeyRequest(w http.ResponseWriter, r *http.Request, keysetID, kid string,
+	defaultExportPubKey []byte) error {
 	var req createKeyReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return err
 	}
 
-	w.Header().Add(LocationHeader, fmt.Sprintf("https://%s/kms/keystores/%s/keys/%s", r.Host, keysetID, kid))
+	resp := &createKeyResp{
+		KeyURL:    fmt.Sprintf("https://%s/v1/keystores/%s/keys/%s", r.Host, keysetID, kid),
+		PublicKey: defaultExportPubKey,
+	}
 
-	if req.ExportKey {
-		resp := &createResp{
-			KeyBytes: defaultExportPubKey,
-		}
+	mResp, err := json.Marshal(resp)
+	if err != nil {
+		return err
+	}
 
-		mResp, err := json.Marshal(resp)
-		if err != nil {
-			return err
-		}
-
-		_, err = w.Write(mResp)
-		if err != nil {
-			return err
-		}
+	_, err = w.Write(mResp)
+	if err != nil {
+		return err
 	}
 
 	return nil
 }
 
-func processExportKeyRequest(w io.Writer, defaultExportPubKey string) error {
+func processExportKeyRequest(w io.Writer, defaultExportPubKey []byte) error {
 	resp := &exportKeyResp{
-		KeyBytes: defaultExportPubKey,
+		PublicKey: defaultExportPubKey,
 	}
 
 	mResp, err := json.Marshal(resp)
@@ -479,13 +486,13 @@ func processPOSTRequestForCreateWithResponseBody(w http.ResponseWriter, r *http.
 		return errors.New("http request body invalid")
 	}
 
-	locationHeaderURL := "https://" + r.Host + "/kms/keystores/" + keysetID
+	locationHeaderURL := "https://" + r.Host + "/v1/keystores/" + keysetID
 
 	if strings.LastIndex(r.URL.Path, "/keys") == len(r.URL.Path)-len("/keys") {
 		locationHeaderURL += "/keys/" + kid
 
-		resp := &createResp{
-			Location: locationHeaderURL,
+		resp := &createKeyResp{
+			KeyURL: locationHeaderURL,
 		}
 
 		mResp, err := json.Marshal(resp)
@@ -511,13 +518,13 @@ func processPOSTRequestForImportKey(w http.ResponseWriter, r *http.Request, keys
 		return errors.New("http request body invalid")
 	}
 
-	locationHeaderURL := "https://" + r.Host + "/kms/keystores/" + keysetID
+	locationHeaderURL := "https://" + r.Host + "/v1/keystores/" + keysetID
 
-	if strings.LastIndex(r.URL.Path, "/import") == len(r.URL.Path)-len("/import") {
+	if strings.LastIndex(r.URL.Path, "/keys") == len(r.URL.Path)-len("/keys") {
 		locationHeaderURL += "/keys/" + kid
 
 		resp := &importKeyResp{
-			Location: locationHeaderURL,
+			KeyURL: locationHeaderURL,
 		}
 
 		mResp, err := json.Marshal(resp)
@@ -537,7 +544,7 @@ func processPOSTRequestForImportKey(w http.ResponseWriter, r *http.Request, keys
 // validateHTTPMethod validate HTTP method and content-type.
 func validateHTTPMethod(w http.ResponseWriter, r *http.Request) bool {
 	switch r.Method {
-	case http.MethodPost, http.MethodGet:
+	case http.MethodPost, http.MethodPut, http.MethodGet:
 	default:
 		http.Error(w, "HTTP Method not allowed", http.StatusMethodNotAllowed)
 		return false

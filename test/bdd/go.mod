@@ -28,6 +28,7 @@ require (
 	github.com/moby/term v0.0.0-20201110203204-bea5bbe245bf // indirect
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/piprate/json-gold v0.4.1-0.20210813112359-33b90c4ca86c
+	github.com/teserakt-io/golang-ed25519 v0.0.0-20210104091850-3888c087a4c8
 	github.com/trustbloc/sidetree-core-go v0.6.0
 	go.opencensus.io v0.22.5 // indirect
 	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a // indirect
