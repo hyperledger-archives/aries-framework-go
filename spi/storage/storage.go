@@ -116,11 +116,21 @@ type Tag struct {
 	Value string `json:"value,omitempty"`
 }
 
+// PutOptions represents options for a Put Operation.
+type PutOptions struct {
+	// This is an optimization for a Put Operation. Some storage providers may be able to store data faster if they
+	// know beforehand that this key does not currently exist in the database. Unexpected behaviour may occur if
+	// this is set to true and the key already exists. See the documentation for the specific storage provider to
+	// see if and how this option is used.
+	IsNewKey bool `json:"isNewKey,omitempty"`
+}
+
 // Operation represents an operation to be performed in the Batch method.
 type Operation struct {
-	Key   string `json:"key,omitempty"`
-	Value []byte `json:"value,omitempty"` // A nil value will result in a delete operation.
-	Tags  []Tag  `json:"tags,omitempty"`  // Optional.
+	Key        string      `json:"key,omitempty"`
+	Value      []byte      `json:"value,omitempty"`      // A nil value will result in a delete operation.
+	Tags       []Tag       `json:"tags,omitempty"`       // Optional.
+	PutOptions *PutOptions `json:"putOptions,omitempty"` // Optional. Only used for Put Operations.
 }
 
 // Provider represents a storage provider.
@@ -163,7 +173,8 @@ type Provider interface {
 
 // Store represents a storage database.
 type Store interface {
-	// Put stores the key + value pair along with the (optional) tags.
+	// Put stores the key + value pair along with the (optional) tags. If the key already exists in the database,
+	// then the value and tags will be overwritten silently.
 	// If value is a JSON-formatted object, then an underlying storage implementation may store it in a way that
 	// does not preserve the order of the fields. Therefore, you should avoid doing direct byte-for-byte comparisons
 	// with data put in and data retrieved, as the marshalled representation may be different - always unmarshal data
@@ -204,7 +215,10 @@ type Store interface {
 	// If key is empty, then an error will be returned.
 	Delete(key string) error
 
-	// Batch performs multiple Put and/or Delete operations in order.
+	// Batch performs multiple Put and/or Delete operations in order. The Puts and Deletes here follow the same rules
+	// as described in the Put and Delete method documentation. The only exception is if the operation makes use of
+	// the PutOptions.IsNewKey optimization, in which case unexpected behaviour may occur if it's enabled and a
+	// key is used that already exists in the database.
 	// Depending on the implementation, this method may be faster than repeated Put and/or Delete calls.
 	// If any of the given keys are empty, or the operations slice is empty or nil, then an error will be returned.
 	Batch(operations []Operation) error
