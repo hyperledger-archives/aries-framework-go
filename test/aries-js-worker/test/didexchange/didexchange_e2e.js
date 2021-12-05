@@ -81,6 +81,19 @@ export const didExchangeClient = class {
         return await connections
     }
 
+    async createDIDCommV2Connection() {
+        let connections = await this.performDIDExchangeE2E()
+
+        let setToV2Resp = await Promise.all([
+            this.agent1.connection.SetConnectionToDIDCommV2({id: connections[0]}),
+            this.agent2.connection.SetConnectionToDIDCommV2({id: connections[1]})
+        ])
+
+        assert.isNotEmpty(setToV2Resp);
+
+        return connections
+    }
+
     static async addRouter(mode, agent) {
         try {
             let resp = await agent.mediator.getConnections()

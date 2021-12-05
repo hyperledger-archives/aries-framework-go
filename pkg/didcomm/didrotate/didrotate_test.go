@@ -70,8 +70,8 @@ func TestDIDRotator_HandleInboundMessage(t *testing.T) {
 
 		// invalid didcomm message
 		msg = service.DIDCommMsgMap{
-			"@id":  "12345",
-			"type": "abc",
+			"foo": "12345",
+			"bar": "abc",
 		}
 
 		err = dr.HandleInboundMessage(msg, "", "")
@@ -261,8 +261,8 @@ func TestDIDRotator_HandleOutboundMessage(t *testing.T) {
 
 		// invalid didcomm message
 		msg = service.DIDCommMsgMap{
-			"@id":  "12345",
-			"type": "abc",
+			"foo": "12345",
+			"bar": "abc",
 		}
 
 		_, err = dr.HandleOutboundMessage(msg, &connection.Record{})

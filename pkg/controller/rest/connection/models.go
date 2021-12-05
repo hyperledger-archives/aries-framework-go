@@ -8,7 +8,7 @@ package connection
 
 // rotateDIDRequest model
 //
-// This is used for removing connection request
+// This is used for connection did rotation request
 //
 // swagger:parameters rotateDID
 type rotateDIDRequest struct { // nolint: unused,deadcode
@@ -31,4 +31,26 @@ type rotateDIDRequest struct { // nolint: unused,deadcode
 type rotateDIDResponse struct { // nolint: unused,deadcode
 	// in: body
 	Body struct{}
+}
+
+// createConnectionRequest model
+//
+// Request to create a didcomm v2 connection
+//
+// swagger:parameters createConnectionV2
+type createConnectionRequest struct { // nolint: unused,deadcode
+	MyDID    string `json:"my_did"`
+	TheirDID string `json:"their_did"`
+}
+
+// createConnectionV2Response model
+//
+// response of create didcomm v2 connection action
+//
+// swagger:response createConnectionV2Response
+type createConnectionV2Response struct { // nolint: unused,deadcode
+	// in: body
+	Body struct {
+		ID string `json:"id"`
+	}
 }

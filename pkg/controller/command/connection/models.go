@@ -12,3 +12,17 @@ type RotateDIDRequest struct {
 	KID    string `json:"kid"`
 	NewDID string `json:"new_did"`
 }
+
+// CreateConnectionRequest request to create a didcomm v2 connection.
+type CreateConnectionRequest struct {
+	MyDID    string `json:"my_did"`
+	TheirDID string `json:"their_did"`
+}
+
+// IDMessage is either a request or response message, holding connection ID.
+// Used for:
+// - response from creating a didcomm v2 connection.
+// - request to set a connection to didcomm v2.
+type IDMessage struct {
+	ConnectionID string `json:"id"`
+}

@@ -39,13 +39,63 @@ func (s *SDKSteps) SetContext(ctx *bddctx.BDDContext) {
 
 // RegisterSteps registers the BDD steps on the suite.
 func (s *SDKSteps) RegisterSteps(suite *godog.Suite) {
+	suite.Step(`^"([^"]*)" and "([^"]*)" have a DIDComm v2 connection$`, s.hasDIDCommV2Connection)
 	suite.Step(`^"([^"]*)" rotates their connection to "([^"]*)" to new DID$`, s.rotateDID)
 }
 
-func (s *SDKSteps) rotateDID(agentID, otherAgent string) error { // nolint:gocyclo
+func (s *SDKSteps) hasDIDCommV2Connection(agent1, agent2 string) error {
+	err := s.connectAgentToOther(agent1, agent2)
+	if err != nil {
+		return fmt.Errorf("connecting [%s] to [%s]: %w", agent1, agent2, err)
+	}
+
+	err = s.connectAgentToOther(agent2, agent1)
+	if err != nil {
+		return fmt.Errorf("connecting [%s] to [%s]: %w", agent2, agent1, err)
+	}
+
+	return nil
+}
+
+func (s *SDKSteps) connectAgentToOther(agent, other string) error {
+	myDoc, ok := s.bddContext.PublicDIDDocs[agent]
+	if !ok {
+		return fmt.Errorf("can't find public DID doc for agent '%s'", agent)
+	}
+
+	theirDoc, ok := s.bddContext.PublicDIDDocs[other]
+	if !ok {
+		return fmt.Errorf("can't find public DID doc for agent '%s'", other)
+	}
+
+	agentCtx := s.bddContext.AgentCtx[agent]
+
+	agentClient, err := connection.New(agentCtx)
+	if err != nil {
+		return fmt.Errorf(": %w", err)
+	}
+
+	connID, err := agentClient.CreateConnectionV2(myDoc.ID, theirDoc.ID, connection.WithTheirLabel(other))
+	if err != nil {
+		return err
+	}
+
+	idMap, ok := s.bddContext.ConnectionIDs[agent]
+	if !ok {
+		s.bddContext.ConnectionIDs[agent] = make(map[string]string)
+		idMap = s.bddContext.ConnectionIDs[agent]
+	}
+
+	idMap[other] = connID
+
+	return nil
+}
+
+func (s *SDKSteps) rotateDID(agentID, otherAgent string) error { // nolint:gocyclo,funlen
+	agentCtx := s.bddContext.AgentCtx[agentID]
+
 	// TODO: find connectionID for connection to other agent (which is given by name, not by DID)
 	// TODO: then call RotateDID.
-	agentCtx := s.bddContext.AgentCtx[agentID]
 
 	myDoc := s.bddContext.PublicDIDDocs[agentID]
 	theirDoc := s.bddContext.PublicDIDDocs[otherAgent]
@@ -95,7 +145,10 @@ func (s *SDKSteps) rotateDID(agentID, otherAgent string) error { // nolint:gocyc
 		return fmt.Errorf("expected a DID doc to rotate to")
 	}
 
-	client := connection.New(agentCtx)
+	client, err := connection.New(agentCtx)
+	if err != nil {
+		return fmt.Errorf("creating connection client: %w", err)
+	}
 
 	err = client.RotateDID(connID, authKID, newDoc.ID)
 	if err != nil {
@@ -108,11 +161,12 @@ func (s *SDKSteps) rotateDID(agentID, otherAgent string) error { // nolint:gocyc
 // createConnection returns the connectionID of the created connection.
 func (s *SDKSteps) createConnection(agentCtx *context.Provider, myDID string, target *did.Doc) (string, error) {
 	conn := &connection2.Record{
-		ConnectionID: uuid.New().String(),
-		State:        connection2.StateNameCompleted,
-		TheirDID:     target.ID,
-		MyDID:        myDID,
-		Namespace:    connection2.MyNSPrefix,
+		ConnectionID:   uuid.New().String(),
+		State:          connection2.StateNameCompleted,
+		TheirDID:       target.ID,
+		MyDID:          myDID,
+		Namespace:      connection2.MyNSPrefix,
+		DIDCommVersion: service.V2,
 	}
 
 	destination, err := service.CreateDestination(target)

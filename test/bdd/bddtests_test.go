@@ -210,6 +210,7 @@ func features() []feature {
 		ld.NewLDControllerSteps(),
 		ld.NewSDKSteps(),
 		connection.NewSDKSteps(),
+		connection.NewControllerSteps(),
 		webkms.NewCryptoSDKSteps(),
 	}
 }

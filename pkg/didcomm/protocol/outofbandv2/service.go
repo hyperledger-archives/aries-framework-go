@@ -194,7 +194,7 @@ func (s *Service) HandleOutbound(_ service.DIDCommMsg, _, _ string) (string, err
 
 // AcceptInvitation from another agent.
 //nolint:funlen,gocyclo
-func (s *Service) AcceptInvitation(i *Invitation) (string, error) {
+func (s *Service) AcceptInvitation(i *Invitation) (string, error) { // nolint: gocognit
 	msg := service.NewDIDCommMsgMap(i)
 
 	err := validateInvitationAcceptance(msg, s.myMediaTypeProfiles)
@@ -259,12 +259,17 @@ func (s *Service) AcceptInvitation(i *Invitation) (string, error) {
 			continue
 		}
 
-		senderDID, ok := didCommMsgRequest["from"]
+		senderDID, ok := didCommMsgRequest["from"].(string)
 		if !ok {
 			logger.Debugf("oob/2.0 fetching attachment request does not have from field, skipping " +
 				"attachment entry..")
 
 			continue
+		}
+
+		senderDoc, err := s.vdrRegistry.Resolve(senderDID)
+		if err != nil {
+			return "", fmt.Errorf("failed to resolve inviter DID: %w", err)
 		}
 
 		myDID, err := s.vdrRegistry.Create(peer.DIDMethod, newDID)
@@ -274,19 +279,26 @@ func (s *Service) AcceptInvitation(i *Invitation) (string, error) {
 			continue
 		}
 
+		destination, err := service.CreateDestination(senderDoc.DIDDocument)
+		if err != nil {
+			return "", fmt.Errorf("failed to create destination: %w", err)
+		}
+
 		connRecord := &connection.Record{
 			ConnectionID:      uuid.New().String(),
 			ParentThreadID:    i.ID,
 			State:             "null",
 			InvitationID:      i.ID,
-			ServiceEndPoint:   newDID.Service[0].ServiceEndpoint,
-			RecipientKeys:     newDID.Service[0].RecipientKeys,
+			ServiceEndPoint:   destination.ServiceEndpoint,
+			RecipientKeys:     destination.RecipientKeys,
+			RoutingKeys:       destination.RoutingKeys,
 			TheirLabel:        i.Label,
-			TheirDID:          senderDID.(string),
+			TheirDID:          senderDID,
 			Namespace:         "my",
 			MediaTypeProfiles: s.myMediaTypeProfiles,
 			Implicit:          true,
 			InvitationDID:     myDID.DIDDocument.ID,
+			DIDCommVersion:    service.V2,
 		}
 
 		if err := s.connectionRecorder.SaveConnectionRecord(connRecord); err != nil {
@@ -336,6 +348,7 @@ func (s *Service) handleInboundService(serviceURL string, srvc dispatcher.Protoc
 			continue
 		}
 
+		// TODO bug: most services don't return a connection ID from handleInbound, we can't expect it from there.
 		connID, err := srvc.HandleInbound(didCommMsgRequest, service.NewDIDCommContext(myDID.DIDDocument.ID,
 			senderDID.(string), nil))
 		if err != nil {

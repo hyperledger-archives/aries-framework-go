@@ -25,6 +25,7 @@ import (
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	"github.com/hyperledger/aries-framework-go/pkg/store/did"
 	"github.com/hyperledger/aries-framework-go/pkg/store/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
@@ -68,6 +69,7 @@ type Provider struct {
 	getDIDsBackOffDuration     time.Duration
 	inboundEnvelopeHandler     InboundEnvelopeHandler
 	didRotator                 *didrotate.DIDRotator
+	connectionRecorder         *connection.Recorder
 }
 
 // InboundEnvelopeHandler handles inbound envelopes, processing then dispatching to a protocol service based on the
@@ -107,7 +109,21 @@ func New(opts ...ProviderOption) (*Provider, error) {
 		}
 	}
 
+	if ctxProvider.storeProvider != nil && ctxProvider.protocolStateStoreProvider != nil {
+		recorder, err := connection.NewRecorder(&ctxProvider)
+		if err != nil {
+			return nil, fmt.Errorf("initialize context connection recorder: %w", err)
+		}
+
+		ctxProvider.connectionRecorder = recorder
+	}
+
 	return &ctxProvider, nil
+}
+
+// ConnectionLookup returns a connection.Lookup initialized on this context's stores.
+func (p *Provider) ConnectionLookup() *connection.Lookup {
+	return p.connectionRecorder.Lookup
 }
 
 // OutboundDispatcher returns an outbound dispatcher.

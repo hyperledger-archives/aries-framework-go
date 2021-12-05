@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	didcomm "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
@@ -59,14 +60,15 @@ type Record struct {
 	TheirLabel        string
 	TheirDID          string
 	MyDID             string
-	ServiceEndPoint   string
-	RecipientKeys     []string
-	RoutingKeys       []string
+	ServiceEndPoint   string   // ServiceEndPoint is 'their' DIDComm service endpoint.
+	RecipientKeys     []string // RecipientKeys holds 'their' DIDComm recipient keys.
+	RoutingKeys       []string // RoutingKeys holds 'their' DIDComm routing keys.
 	InvitationID      string
 	InvitationDID     string
 	Implicit          bool
 	Namespace         string
 	MediaTypeProfiles []string
+	DIDCommVersion    didcomm.Version
 	MyDIDRotation     *DIDRotationRecord `json:"myDIDRotation,omitempty"`
 }
 

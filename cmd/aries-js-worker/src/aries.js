@@ -823,6 +823,21 @@ const Aries = function (opts) {
             }
         },
 
+        /*
+        * Connection methods.
+        */
+        connection: {
+            pkgname: "connection",
+
+            createConnectionV2: async function (req) {
+                return invoke(aw, pending, this.pkgname, "CreateConnectionV2", req, "timeout while creating didcomm v2 connection")
+            },
+
+            SetConnectionToDIDCommV2: async function (req) {
+                return invoke(aw, pending, this.pkgname, "SetConnectionToDIDCommV2", req, "timeout while setting connection to didcomm v2")
+            }
+        },
+
         /**
          * DIDComm Messaging methods - Refer to [OpenAPI spec](docs/rest/openapi_spec.md#generate-openapi-spec) for
          * input params and output return json values.

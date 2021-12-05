@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/client/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
+	"github.com/hyperledger/aries-framework-go/pkg/client/outofbandv2"
 	"github.com/hyperledger/aries-framework-go/pkg/client/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
@@ -145,6 +146,9 @@ type Wallet struct {
 	// out of band client
 	oobClient *outofband.Client
 
+	// out of band v2 client
+	oobV2Client *outofbandv2.Client
+
 	// did-exchange client
 	didexchangeClient *didexchange.Client
 
@@ -182,6 +186,11 @@ func New(userID string, ctx provider) (*Wallet, error) {
 		return nil, fmt.Errorf("failed to initialize out-of-band client: %w", err)
 	}
 
+	oobV2Client, err := outofbandv2.New(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize out-of-band v2 client: %w", err)
+	}
+
 	connectionLookup, err := connection.NewLookup(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize connection lookup: %w", err)
@@ -203,6 +212,7 @@ func New(userID string, ctx provider) (*Wallet, error) {
 		presentProofClient:    presentProofClient,
 		issueCredentialClient: issueCredentialClient,
 		oobClient:             oobClient,
+		oobV2Client:           oobV2Client,
 		didexchangeClient:     didexchangeClient,
 		connectionLookup:      connectionLookup,
 	}, nil
@@ -697,15 +707,30 @@ func (c *Wallet) Connect(authToken string, invitation *outofband.Invitation, opt
 // 		- DIDCommMsgMap containing request presentation message if operation is successful.
 // 		- error if operation fails.
 //
-func (c *Wallet) ProposePresentation(authToken string, invitation *outofband.Invitation, options ...InitiateInteractionOption) (*service.DIDCommMsgMap, error) { //nolint: lll
+func (c *Wallet) ProposePresentation(authToken string, invitation *GenericInvitation, options ...InitiateInteractionOption) (*service.DIDCommMsgMap, error) { //nolint: lll
 	opts := &initiateInteractionOpts{}
 	for _, opt := range options {
 		opt(opts)
 	}
 
-	connID, err := c.Connect(authToken, invitation, opts.connectOpts...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to perform did connection : %w", err)
+	var (
+		connID string
+		err    error
+	)
+
+	switch invitation.Version() {
+	default:
+		fallthrough
+	case service.V1:
+		connID, err = c.Connect(authToken, (*outofband.Invitation)(invitation.AsV1()), opts.connectOpts...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to perform did connection : %w", err)
+		}
+	case service.V2:
+		connID, err = c.oobV2Client.AcceptInvitation(invitation.AsV2())
+		if err != nil {
+			return nil, fmt.Errorf("failed to accept OOB v2 invitation : %w", err)
+		}
 	}
 
 	connRecord, err := c.connectionLookup.GetConnectionRecord(connID)
@@ -715,8 +740,7 @@ func (c *Wallet) ProposePresentation(authToken string, invitation *outofband.Inv
 
 	opts = prepareInteractionOpts(connRecord, opts)
 
-	_, err = c.presentProofClient.SendProposePresentation(&presentproof.ProposePresentation{}, connRecord.MyDID,
-		opts.from)
+	_, err = c.presentProofClient.SendProposePresentation(&presentproof.ProposePresentation{}, connRecord)
 	if err != nil {
 		return nil, fmt.Errorf("failed to propose presentation from wallet: %w", err)
 	}
@@ -756,10 +780,8 @@ func (c *Wallet) PresentProof(authToken, thID string, options ...ConcludeInterac
 	}
 
 	err := c.presentProofClient.AcceptRequestPresentation(thID, &presentproof.Presentation{
-		Type: presentproofSvc.PresentationMsgTypeV2,
-		PresentationsAttach: []decorator.Attachment{{
-			ID:       uuid.New().String(),
-			MimeType: ldJSONMimeType,
+		Attachments: []decorator.GenericAttachment{{
+			ID: uuid.New().String(),
 			Data: decorator.AttachmentData{
 				JSON: presentation,
 			},

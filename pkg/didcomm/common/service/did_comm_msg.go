@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/mitchellh/mapstructure"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -109,14 +110,14 @@ func IsDIDCommV2(msg *DIDCommMsgMap) (bool, error) {
 	// TODO: see issue: https://github.com/hyperledger/aries-framework-go/issues/3039
 	// _, hasBodyV2 := (*msg)["body"]
 
-	if hasIDV2 && hasTypeV2 /* && hasBodyV2 */ {
+	if hasIDV2 || hasTypeV2 /* && hasBodyV2 */ {
 		return true, nil
 	}
 
 	_, hasIDV1 := (*msg)["@id"]
 	_, hasTypeV1 := (*msg)["@type"]
 
-	if hasIDV1 && hasTypeV1 {
+	if hasIDV1 || hasTypeV1 {
 		return false, nil
 	}
 
@@ -131,6 +132,21 @@ func NewDIDCommMsgMap(v interface{}) DIDCommMsgMap {
 
 	// sets empty metadata
 	msg[jsonMetadata] = map[string]interface{}{}
+
+	_, hasIDV1 := msg["@id"]
+	_, hasTypeV1 := msg["@type"]
+	_, hasIDV2 := msg["id"]
+	_, hasTypeV2 := msg["type"]
+
+	if hasIDV1 || hasIDV2 {
+		return msg
+	}
+
+	if hasTypeV2 && !hasIDV2 {
+		msg["id"] = uuid.New().String()
+	} else if hasTypeV1 && !hasIDV1 {
+		msg["@id"] = uuid.New().String()
+	}
 
 	return msg
 }

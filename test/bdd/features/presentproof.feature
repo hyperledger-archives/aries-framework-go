@@ -195,6 +195,7 @@ Feature: Present Proof protocol
      And "Florence" creates public DID for did method "sidetree"
     Then "Clarence" waits for public did to become available in sidetree for up to 10 seconds
     And "Florence" waits for public did to become available in sidetree for up to 10 seconds
+    And "Clarence" and "Florence" have a DIDComm v2 connection
     Then "Clarence" sends a request presentation v3 to the "Florence"
     And "Florence" accepts a request and sends a presentation v3 to the "Clarence"
     And "Clarence" accepts a presentation with name "license"

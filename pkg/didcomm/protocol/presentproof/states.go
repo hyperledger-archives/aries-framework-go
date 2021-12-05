@@ -214,7 +214,7 @@ func (s *requestReceived) Execute(md *metaData) (state, stateAction, error) {
 		return &presentationSent{V: s.V, WillConfirm: req.Body.WillConfirm}, zeroAction, nil
 	}
 
-	var req *RequestPresentation
+	var req *RequestPresentationV2
 
 	if err := md.Msg.Decode(&req); err != nil {
 		return nil, nil, err
@@ -262,7 +262,7 @@ func (s *requestSent) Execute(md *metaData) (state, stateAction, error) {
 			return &noOp{}, forwardInitial(md, getDIDVersion(s.V)), nil
 		}
 
-		var req *RequestPresentation
+		var req *RequestPresentationV2
 
 		if err := md.Msg.Decode(&req); err != nil {
 			return nil, nil, err

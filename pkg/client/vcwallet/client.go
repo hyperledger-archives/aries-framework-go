@@ -388,7 +388,7 @@ func (c *Client) Connect(invitation *outofband.Invitation, options ...wallet.Con
 // 		- DIDCommMsgMap containing request presentation message if operation is successful.
 // 		- error if operation fails.
 //
-func (c *Client) ProposePresentation(invitation *outofband.Invitation, options ...wallet.InitiateInteractionOption) (*service.DIDCommMsgMap, error) { //nolint: lll
+func (c *Client) ProposePresentation(invitation *wallet.GenericInvitation, options ...wallet.InitiateInteractionOption) (*service.DIDCommMsgMap, error) { //nolint: lll
 	auth, err := c.auth()
 	if err != nil {
 		return nil, err

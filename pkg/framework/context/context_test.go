@@ -60,6 +60,14 @@ func TestNewProvider(t *testing.T) {
 		require.NoError(t, prov.OutboundDispatcher().Send(nil, "", nil))
 	})
 
+	t.Run("test new with stores", func(t *testing.T) {
+		store := mockstorage.NewMockStoreProvider()
+
+		prov, err := New(WithStorageProvider(store), WithProtocolStateStorageProvider(store))
+		require.NoError(t, err)
+		require.NotNil(t, prov.ConnectionLookup())
+	})
+
 	t.Run("test error return from options", func(t *testing.T) {
 		_, err := New(func(opts *Provider) error {
 			return errors.New("error creating the framework option")

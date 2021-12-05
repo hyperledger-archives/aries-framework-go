@@ -32,11 +32,11 @@ type Metadata interface {
 	// Message contains the original inbound/outbound message
 	Message() service.DIDCommMsg
 	// Presentation is pointer to the message provided by the user through the Continue function.
-	Presentation() *Presentation
+	Presentation() *PresentationV2
 	// ProposePresentation is pointer to the message provided by the user through the Continue function.
-	ProposePresentation() *ProposePresentation
+	ProposePresentation() *ProposePresentationV2
 	// RequestPresentation is pointer to the message provided by the user through the Continue function.
-	RequestPresentation() *RequestPresentation
+	RequestPresentation() *RequestPresentationV2
 	// PresentationV3 is pointer to the message provided by the user through the Continue function.
 	PresentationV3() *PresentationV3
 	// ProposePresentationV3 is pointer to the message provided by the user through the Continue function.

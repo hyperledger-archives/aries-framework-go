@@ -125,7 +125,7 @@ func getAttachments(msg service.DIDCommMsg) ([]decorator.AttachmentData, error) 
 		return filterByMediaType(presentation.Attachments, mimeTypeAll), nil
 	}
 
-	presentation := presentproof.Presentation{}
+	presentation := presentproof.PresentationV2{}
 	if err := msg.Decode(&presentation); err != nil {
 		return nil, fmt.Errorf("decode: %w", err)
 	}
@@ -228,7 +228,7 @@ func PresentationDefinition(p Provider, opts ...OptPD) presentproof.Middleware {
 
 				attachments = filterByMediaType(metadata.PresentationV3().Attachments, mimeTypeApplicationLdJSON)
 			} else {
-				request := presentproof.RequestPresentation{}
+				request := presentproof.RequestPresentationV2{}
 				if err = msg.Decode(&request); err != nil {
 					return fmt.Errorf("decode: %w", err)
 				}

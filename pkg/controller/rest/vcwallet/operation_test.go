@@ -32,10 +32,12 @@ import (
 	issuecredentialsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	outofbandSvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
+	oobv2 "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofbandv2"
 	presentproofSvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	mockoutofbandv2 "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/client/outofbandv2"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/didexchange"
@@ -1533,7 +1535,7 @@ func TestOperation_ProposePresentation(t *testing.T) {
 				return []presentproofSvc.Action{
 					{
 						PIID: thID,
-						Msg: service.NewDIDCommMsgMap(&presentproofSvc.RequestPresentation{
+						Msg: service.NewDIDCommMsgMap(&presentproofSvc.RequestPresentationV2{
 							Comment: "mock msg",
 						}),
 						MyDID:    myDID,
@@ -1563,7 +1565,7 @@ func TestOperation_ProposePresentation(t *testing.T) {
 
 		request := &vcwallet.ProposePresentationRequest{
 			WalletAuth: vcwallet.WalletAuth{UserID: sampleDIDCommUser, Auth: token},
-			Invitation: &outofbandClient.Invitation{},
+			Invitation: &wallet.GenericInvitation{},
 		}
 
 		rq := httptest.NewRequest(http.MethodPost, ProposeCredentialPath, getReader(t, request))
@@ -1591,7 +1593,7 @@ func TestOperation_ProposePresentation(t *testing.T) {
 
 		request := &vcwallet.ProposePresentationRequest{
 			WalletAuth: vcwallet.WalletAuth{UserID: sampleDIDCommUser, Auth: token},
-			Invitation: &outofbandClient.Invitation{},
+			Invitation: &wallet.GenericInvitation{},
 		}
 
 		rq := httptest.NewRequest(http.MethodPost, ProposePresentationPath, getReader(t, request))
@@ -2014,6 +2016,7 @@ func newMockProvider(t *testing.T) *mockprovider.Provider {
 		didexchange.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{},
 		mediator.Coordination:   &mockmediator.MockMediatorSvc{},
 		issuecredentialsvc.Name: &mockissuecredential.MockIssueCredentialSvc{},
+		oobv2.Name:              &mockoutofbandv2.MockOobService{},
 	}
 
 	return &mockprovider.Provider{

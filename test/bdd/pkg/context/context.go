@@ -46,6 +46,7 @@ type BDDContext struct {
 	MessageRegistrar   map[string]*msghandler.Registrar
 	Messengers         map[string]service.Messenger
 	Args               map[string]string
+	ConnectionIDs      map[string]map[string]string
 	controllerURLs     map[string]string
 	webhookURLs        map[string]string
 	webSocketConns     map[string]*websocket.Conn
@@ -70,6 +71,7 @@ func NewBDDContext() *BDDContext {
 		MessageRegistrar:   make(map[string]*msghandler.Registrar),
 		Messengers:         make(map[string]service.Messenger),
 		Args:               make(map[string]string),
+		ConnectionIDs:      make(map[string]map[string]string),
 		controllerURLs:     make(map[string]string),
 		webhookURLs:        make(map[string]string),
 		webSocketConns:     make(map[string]*websocket.Conn),

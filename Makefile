@@ -207,6 +207,7 @@ mocks: depend clean-mocks
 	$(call create_mock,pkg/didcomm/messenger,Provider)
 	$(call create_mock,pkg/store/verifiable,Store)
 	$(call create_mock,pkg/store/did,ConnectionStore)
+	$(call create_mock,pkg/controller/command/presentproof,Provider)
 	$(call create_mock,pkg/controller/webnotifier,Notifier)
 	$(call create_spi_provider_mocks,spi/storage,Provider;Store)
 
