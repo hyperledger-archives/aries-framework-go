@@ -54,6 +54,8 @@ type Aries struct {
 
 // NewAries returns a new Aries instance that contains handlers and an Aries framework instance.
 func NewAries(opts *config.Options) (*Aries, error) {
+	opts.MsgHandler = msghandler.NewRegistrar()
+
 	options, err := prepareFrameworkOptions(opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare framework options: %w", err)
@@ -74,6 +76,7 @@ func NewAries(opts *config.Options) (*Aries, error) {
 	commandHandlers, err := controller.GetCommandHandlers(context,
 		controller.WithNotifier(notifier.NewNotifier(notifications)),
 		controller.WithAutoAccept(opts.AutoAccept),
+		controller.WithMessageHandler(opts.MsgHandler),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get command handlers: %w", err)
@@ -95,10 +98,8 @@ func NewAries(opts *config.Options) (*Aries, error) {
 }
 
 func prepareFrameworkOptions(opts *config.Options) ([]aries.Option, error) {
-	msgHandler := msghandler.NewRegistrar()
-
 	var options []aries.Option
-	options = append(options, aries.WithMessageServiceProvider(msgHandler))
+	options = append(options, aries.WithMessageServiceProvider(opts.MsgHandler))
 
 	if opts.TransportReturnRoute != "" {
 		options = append(options, aries.WithTransportReturnRoute(opts.TransportReturnRoute))
