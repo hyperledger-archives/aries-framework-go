@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
 	mocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/client/presentproof"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
 const (
@@ -65,7 +66,13 @@ func TestClient_SendRequestPresentation(t *testing.T) {
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		result, err := client.SendRequestPresentation(&RequestPresentation{}, Alice, Bob)
+		conn := connection.Record{
+			ConnectionID: uuid.New().String(),
+			MyDID:        Alice,
+			TheirDID:     Bob,
+		}
+
+		result, err := client.SendRequestPresentation(&RequestPresentation{}, &conn)
 		require.NoError(t, err)
 		require.Equal(t, thid, result)
 	})
@@ -77,7 +84,13 @@ func TestClient_SendRequestPresentation(t *testing.T) {
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		_, err = client.SendRequestPresentation(nil, Alice, Bob)
+		conn := connection.Record{
+			ConnectionID: uuid.New().String(),
+			MyDID:        Alice,
+			TheirDID:     Bob,
+		}
+
+		_, err = client.SendRequestPresentation(nil, &conn)
 		require.EqualError(t, err, errEmptyRequestPresentation.Error())
 	})
 }
@@ -102,7 +115,14 @@ func TestClient_SendRequestPresentationV3(t *testing.T) {
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		result, err := client.SendRequestPresentationV3(&RequestPresentationV3{}, Alice, Bob)
+		conn := connection.Record{
+			ConnectionID:   uuid.New().String(),
+			MyDID:          Alice,
+			TheirDID:       Bob,
+			DIDCommVersion: service.V2,
+		}
+
+		result, err := client.SendRequestPresentation(&RequestPresentation{}, &conn)
 		require.NoError(t, err)
 		require.Equal(t, thid, result)
 	})
@@ -114,7 +134,14 @@ func TestClient_SendRequestPresentationV3(t *testing.T) {
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		_, err = client.SendRequestPresentationV3(nil, Alice, Bob)
+		conn := connection.Record{
+			ConnectionID:   uuid.New().String(),
+			MyDID:          Alice,
+			TheirDID:       Bob,
+			DIDCommVersion: service.V2,
+		}
+
+		_, err = client.SendRequestPresentation(nil, &conn)
 		require.EqualError(t, err, errEmptyRequestPresentation.Error())
 	})
 }
@@ -139,7 +166,13 @@ func TestClient_SendProposePresentation(t *testing.T) {
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		result, err := client.SendProposePresentation(&ProposePresentation{}, Alice, Bob)
+		conn := connection.Record{
+			ConnectionID: uuid.New().String(),
+			MyDID:        Alice,
+			TheirDID:     Bob,
+		}
+
+		result, err := client.SendProposePresentation(&ProposePresentation{}, &conn)
 		require.NoError(t, err)
 		require.Equal(t, thid, result)
 	})
@@ -151,7 +184,13 @@ func TestClient_SendProposePresentation(t *testing.T) {
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		_, err = client.SendProposePresentation(nil, Alice, Bob)
+		conn := connection.Record{
+			ConnectionID: uuid.New().String(),
+			MyDID:        Alice,
+			TheirDID:     Bob,
+		}
+
+		_, err = client.SendProposePresentation(nil, &conn)
 		require.EqualError(t, err, errEmptyProposePresentation.Error())
 	})
 }
@@ -176,7 +215,14 @@ func TestClient_SendProposePresentationV3(t *testing.T) {
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		result, err := client.SendProposePresentationV3(&ProposePresentationV3{}, Alice, Bob)
+		conn := connection.Record{
+			ConnectionID:   uuid.New().String(),
+			MyDID:          Alice,
+			TheirDID:       Bob,
+			DIDCommVersion: service.V2,
+		}
+
+		result, err := client.SendProposePresentation(&ProposePresentation{}, &conn)
 		require.NoError(t, err)
 		require.Equal(t, thid, result)
 	})
@@ -188,7 +234,14 @@ func TestClient_SendProposePresentationV3(t *testing.T) {
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		_, err = client.SendProposePresentationV3(nil, Alice, Bob)
+		conn := connection.Record{
+			ConnectionID:   uuid.New().String(),
+			MyDID:          Alice,
+			TheirDID:       Bob,
+			DIDCommVersion: service.V2,
+		}
+
+		_, err = client.SendProposePresentation(nil, &conn)
 		require.EqualError(t, err, errEmptyProposePresentation.Error())
 	})
 }
@@ -207,22 +260,6 @@ func TestClient_AcceptRequestPresentation(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, client.AcceptRequestPresentation("PIID", &Presentation{}, nil))
-}
-
-func TestClient_AcceptRequestPresentationV3(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	provider := mocks.NewMockProvider(ctrl)
-
-	svc := mocks.NewMockProtocolService(ctrl)
-	svc.EXPECT().ActionContinue("PIID", gomock.Any()).Return(nil)
-
-	provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
-	client, err := New(provider)
-	require.NoError(t, err)
-
-	require.NoError(t, client.AcceptRequestPresentationV3("PIID", &PresentationV3{}, nil))
 }
 
 func TestClient_DeclineRequestPresentation(t *testing.T) {
@@ -270,7 +307,7 @@ func TestClient_AcceptProposePresentationV3(t *testing.T) {
 	client, err := New(provider)
 	require.NoError(t, err)
 
-	require.NoError(t, client.AcceptProposePresentationV3("PIID", &RequestPresentationV3{}))
+	require.NoError(t, client.AcceptProposePresentation("PIID", &RequestPresentation{}))
 }
 
 func TestClient_DeclineProposePresentation(t *testing.T) {
@@ -369,20 +406,4 @@ func TestClient_NegotiateRequestPresentation(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, client.NegotiateRequestPresentation("PIID", &ProposePresentation{}))
-}
-
-func TestClient_NegotiateRequestPresentationV3(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	provider := mocks.NewMockProvider(ctrl)
-
-	svc := mocks.NewMockProtocolService(ctrl)
-	svc.EXPECT().ActionContinue("PIID", gomock.Any()).Return(nil)
-
-	provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
-	client, err := New(provider)
-	require.NoError(t, err)
-
-	require.NoError(t, client.NegotiateRequestPresentationV3("PIID", &ProposePresentationV3{}))
 }

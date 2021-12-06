@@ -86,7 +86,7 @@ func (a *ControllerSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" retrieves connection record through controller and validates that connection state is "([^"]*)"$`,
 		a.validateConnections)
 	// public DID steps
-	s.Step(`^"([^"]*)" creates "([^"]*)" public DID through controller`, a.createPublicDID)
+	s.Step(`^"([^"]*)" creates "([^"]*)" public DID through controller`, a.CreatePublicDID)
 	s.Step(`^"([^"]*)" creates invitation through controller using public DID and label "([^"]*)"$`,
 		a.createInvitationWithDID)
 	s.Step(`^"([^"]*)" approves exchange invitation with public DID through controller`,
@@ -551,7 +551,8 @@ func (a *ControllerSteps) verifyConnectionList(agentID, queryState, verifyID str
 	return nil
 }
 
-func (a *ControllerSteps) createPublicDID(agentID, _ string) error { //nolint:funlen,gocyclo
+// CreatePublicDID step creates a public sidetree DID for the given agent. Second parameter is ignored.
+func (a *ControllerSteps) CreatePublicDID(agentID, _ string) error { //nolint:funlen,gocyclo
 	destination, ok := a.bddContext.GetControllerURL(agentID)
 	if !ok {
 		return fmt.Errorf(" unable to find controller URL registered for agent [%s]", agentID)

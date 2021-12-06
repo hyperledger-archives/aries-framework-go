@@ -6,7 +6,9 @@ SPDX-License-Identifier: Apache-2.0
 
 package presentproof
 
-import "github.com/hyperledger/aries-framework-go/pkg/client/presentproof"
+import (
+	"github.com/hyperledger/aries-framework-go/pkg/client/presentproof"
+)
 
 // DeclinePresentationArgs model
 //
@@ -104,6 +106,17 @@ type AcceptRequestPresentationArgs struct {
 	Presentation *presentproof.Presentation `json:"presentation"`
 }
 
+// AcceptRequestPresentationV2Args model
+//
+// This is used for accepting a request presentation.
+//
+type AcceptRequestPresentationV2Args struct {
+	// PIID Protocol instance ID
+	PIID string `json:"piid"`
+	// Presentation is a message that contains signed presentations.
+	Presentation *presentproof.PresentationV2 `json:"presentation"`
+}
+
 // AcceptRequestPresentationV3Args model
 //
 // This is used for accepting a request presentation.
@@ -130,6 +143,17 @@ type AcceptProposePresentationArgs struct {
 	PIID string `json:"piid"`
 	// RequestPresentation describes values that need to be revealed and predicates that need to be fulfilled.
 	RequestPresentation *presentproof.RequestPresentation `json:"request_presentation"`
+}
+
+// AcceptProposePresentationV2Args model
+//
+// This is used for accepting a propose presentation.
+//
+type AcceptProposePresentationV2Args struct {
+	// PIID Protocol instance ID
+	PIID string `json:"piid"`
+	// RequestPresentation describes values that need to be revealed and predicates that need to be fulfilled.
+	RequestPresentation *presentproof.RequestPresentationV2 `json:"request_presentation"`
 }
 
 // AcceptProposePresentationV3Args model
@@ -159,6 +183,18 @@ type NegotiateRequestPresentationArgs struct {
 	// ProposePresentation is a response message to a request-presentation message when the Prover wants to
 	// propose using a different presentation format.
 	ProposePresentation *presentproof.ProposePresentation `json:"propose_presentation"`
+}
+
+// NegotiateRequestPresentationV2Args model
+//
+// This is used by the Prover to counter a presentation request they received with a proposal.
+//
+type NegotiateRequestPresentationV2Args struct {
+	// PIID Protocol instance ID
+	PIID string `json:"piid"`
+	// ProposePresentation is a response message to a request-presentation message when the Prover wants to
+	// propose using a different presentation format.
+	ProposePresentation *presentproof.ProposePresentationV2 `json:"propose_presentation"`
 }
 
 // NegotiateRequestPresentationV3Args model
@@ -191,6 +227,20 @@ type SendProposePresentationArgs struct {
 	// ProposePresentation is a message sent by the Prover to the verifier to initiate a proof
 	// presentation process.
 	ProposePresentation *presentproof.ProposePresentation `json:"propose_presentation"`
+}
+
+// SendProposePresentationV2Args model
+//
+// This is used for sending a propose presentation.
+//
+type SendProposePresentationV2Args struct {
+	// MyDID sender's did
+	MyDID string `json:"my_did"`
+	// TheirDID receiver's did
+	TheirDID string `json:"their_did"`
+	// ProposePresentation is a message sent by the Prover to the verifier to initiate a proof
+	// presentation process.
+	ProposePresentation *presentproof.ProposePresentationV2 `json:"propose_presentation"`
 }
 
 // SendProposePresentationV3Args model
@@ -227,6 +277,19 @@ type SendRequestPresentationArgs struct {
 	TheirDID string `json:"their_did"`
 	// RequestPresentation describes values that need to be revealed and predicates that need to be fulfilled.
 	RequestPresentation *presentproof.RequestPresentation `json:"request_presentation"`
+}
+
+// SendRequestPresentationV2Args model
+//
+// This is used for sending a request presentation.
+//
+type SendRequestPresentationV2Args struct {
+	// MyDID sender's did
+	MyDID string `json:"my_did"`
+	// TheirDID receiver's did
+	TheirDID string `json:"their_did"`
+	// RequestPresentation describes values that need to be revealed and predicates that need to be fulfilled.
+	RequestPresentation *presentproof.RequestPresentationV2 `json:"request_presentation"`
 }
 
 // SendRequestPresentationV3Args model

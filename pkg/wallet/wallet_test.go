@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
@@ -33,12 +34,14 @@ import (
 	issuecredentialsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	outofbandSvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
+	oobv2 "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofbandv2"
 	presentproofSvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	mockoutofbandv2 "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/client/outofbandv2"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
@@ -2718,7 +2721,7 @@ func TestWallet_ProposePresentation(t *testing.T) {
 		theirDID = "did:theirdid:123"
 	)
 
-	t.Run("test propose presentation success", func(t *testing.T) {
+	t.Run("test propose presentation success - didcomm v1", func(t *testing.T) {
 		sampleConnID := uuid.New().String()
 
 		oobSvc := &mockoutofband.MockOobService{
@@ -2748,7 +2751,7 @@ func TestWallet_ProposePresentation(t *testing.T) {
 				return []presentproofSvc.Action{
 					{
 						PIID: thID,
-						Msg: service.NewDIDCommMsgMap(&presentproofSvc.RequestPresentation{
+						Msg: service.NewDIDCommMsgMap(&presentproofSvc.RequestPresentationV2{
 							Comment: "mock msg",
 						}),
 						MyDID:    myDID,
@@ -2786,7 +2789,98 @@ func TestWallet_ProposePresentation(t *testing.T) {
 
 		defer wallet.Close()
 
-		msg, err := wallet.ProposePresentation(token, &outofband.Invitation{},
+		invitation := GenericInvitation{}
+		err = json.Unmarshal([]byte(`{
+			"@id": "abc123",
+			"@type": "https://didcomm.org/out-of-band/1.0/invitation"
+		}`), &invitation)
+		require.NoError(t, err)
+
+		msg, err := wallet.ProposePresentation(token, &invitation,
+			WithConnectOptions(WithConnectTimeout(1*time.Millisecond)))
+		require.NoError(t, err)
+		require.NotEmpty(t, msg)
+
+		// empty invitation defaults to DIDComm v1
+		msg, err = wallet.ProposePresentation(token, &GenericInvitation{},
+			WithConnectOptions(WithConnectTimeout(1*time.Millisecond)))
+		require.NoError(t, err)
+		require.NotEmpty(t, msg)
+
+		// invitation with unknown version defaults to DIDComm v1
+		msg, err = wallet.ProposePresentation(token, &GenericInvitation{version: "unknown"},
+			WithConnectOptions(WithConnectTimeout(1*time.Millisecond)))
+		require.NoError(t, err)
+		require.NotEmpty(t, msg)
+	})
+
+	t.Run("test propose presentation success - didcomm v2", func(t *testing.T) {
+		sampleConnID := uuid.New().String()
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		oobv2Svc := mockoutofbandv2.NewMockOobService(ctrl)
+		oobv2Svc.EXPECT().AcceptInvitation(gomock.Any()).Return(sampleConnID, nil).AnyTimes()
+
+		mockctx.ServiceMap[oobv2.Name] = oobv2Svc
+
+		thID := uuid.New().String()
+
+		ppSvc := &mockpresentproof.MockPresentProofSvc{
+			ActionsFunc: func() ([]presentproofSvc.Action, error) {
+				return []presentproofSvc.Action{
+					{
+						PIID: thID,
+						Msg: service.NewDIDCommMsgMap(&presentproofSvc.RequestPresentationV3{
+							Body: presentproofSvc.RequestPresentationV3Body{
+								Comment: "mock msg",
+							},
+						}),
+						MyDID:    myDID,
+						TheirDID: theirDID,
+					},
+				}, nil
+			},
+			HandleFunc: func(service.DIDCommMsg) (string, error) {
+				return thID, nil
+			},
+		}
+
+		mockctx.ServiceMap[presentproofSvc.Name] = ppSvc
+
+		connRec, err := connection.NewRecorder(mockctx)
+		require.NoError(t, err)
+
+		record := &connection.Record{
+			ConnectionID:   sampleConnID,
+			MyDID:          myDID,
+			TheirDID:       theirDID,
+			DIDCommVersion: service.V2,
+			State:          connection.StateNameCompleted,
+		}
+
+		err = connRec.SaveConnectionRecord(record)
+		require.NoError(t, err)
+
+		wallet, err := New(sampleDIDCommUser, mockctx)
+		require.NoError(t, err)
+		require.NotEmpty(t, wallet)
+
+		token, err := wallet.Open(WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+		require.NotEmpty(t, token)
+
+		defer wallet.Close()
+
+		invitation := GenericInvitation{}
+		err = json.Unmarshal([]byte(`{
+			"id": "abc123",
+			"type": "https://didcomm.org/out-of-band/2.0/invitation"
+		}`), &invitation)
+		require.NoError(t, err)
+
+		msg, err := wallet.ProposePresentation(token, &invitation,
 			WithConnectOptions(WithConnectTimeout(1*time.Millisecond)))
 		require.NoError(t, err)
 		require.NotEmpty(t, msg)
@@ -2810,7 +2904,7 @@ func TestWallet_ProposePresentation(t *testing.T) {
 
 		defer wallet.Close()
 
-		msg, err := wallet.ProposePresentation(token, &outofband.Invitation{})
+		msg, err := wallet.ProposePresentation(token, &GenericInvitation{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), sampleWalletErr)
 		require.Contains(t, err.Error(), "failed to perform did connection")
@@ -2850,7 +2944,7 @@ func TestWallet_ProposePresentation(t *testing.T) {
 
 		defer wallet.Close()
 
-		msg, err := wallet.ProposePresentation(token, &outofband.Invitation{})
+		msg, err := wallet.ProposePresentation(token, &GenericInvitation{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to lookup connection")
 		require.Empty(t, msg)
@@ -2911,7 +3005,7 @@ func TestWallet_ProposePresentation(t *testing.T) {
 
 		defer wallet.Close()
 
-		msg, err := wallet.ProposePresentation(token, &outofband.Invitation{})
+		msg, err := wallet.ProposePresentation(token, &GenericInvitation{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), sampleWalletErr)
 		require.Contains(t, err.Error(), "failed to propose presentation from wallet")
@@ -2970,7 +3064,7 @@ func TestWallet_ProposePresentation(t *testing.T) {
 
 		defer wallet.Close()
 
-		msg, err := wallet.ProposePresentation(token, &outofband.Invitation{}, WithInitiateTimeout(600*time.Millisecond))
+		msg, err := wallet.ProposePresentation(token, &GenericInvitation{}, WithInitiateTimeout(600*time.Millisecond))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "timeout waiting for request presentation message")
 		require.Empty(t, msg)
@@ -3030,11 +3124,86 @@ func TestWallet_ProposePresentation(t *testing.T) {
 
 		defer wallet.Close()
 
-		msg, err := wallet.ProposePresentation(token, &outofband.Invitation{}, WithInitiateTimeout(1*time.Millisecond),
+		msg, err := wallet.ProposePresentation(token, &GenericInvitation{}, WithInitiateTimeout(1*time.Millisecond),
 			WithFromDID("did:sample:from"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "timeout waiting for request presentation message")
 		require.Empty(t, msg)
+	})
+
+	t.Run("test propose presentation failure - oob v2 accept error", func(t *testing.T) {
+		sampleConnID := uuid.New().String()
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		expectErr := fmt.Errorf("expected error")
+
+		oobv2Svc := mockoutofbandv2.NewMockOobService(ctrl)
+		oobv2Svc.EXPECT().AcceptInvitation(gomock.Any()).Return("", expectErr).AnyTimes()
+
+		mockctx.ServiceMap[oobv2.Name] = oobv2Svc
+
+		thID := uuid.New().String()
+
+		ppSvc := &mockpresentproof.MockPresentProofSvc{
+			ActionsFunc: func() ([]presentproofSvc.Action, error) {
+				return []presentproofSvc.Action{
+					{
+						PIID: thID,
+						Msg: service.NewDIDCommMsgMap(&presentproofSvc.RequestPresentationV3{
+							Body: presentproofSvc.RequestPresentationV3Body{
+								Comment: "mock msg",
+							},
+						}),
+						MyDID:    myDID,
+						TheirDID: theirDID,
+					},
+				}, nil
+			},
+			HandleFunc: func(service.DIDCommMsg) (string, error) {
+				return thID, nil
+			},
+		}
+
+		mockctx.ServiceMap[presentproofSvc.Name] = ppSvc
+
+		connRec, err := connection.NewRecorder(mockctx)
+		require.NoError(t, err)
+
+		record := &connection.Record{
+			ConnectionID:   sampleConnID,
+			MyDID:          myDID,
+			TheirDID:       theirDID,
+			DIDCommVersion: service.V2,
+			State:          connection.StateNameCompleted,
+		}
+
+		err = connRec.SaveConnectionRecord(record)
+		require.NoError(t, err)
+
+		wallet, err := New(sampleDIDCommUser, mockctx)
+		require.NoError(t, err)
+		require.NotEmpty(t, wallet)
+
+		token, err := wallet.Open(WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+		require.NotEmpty(t, token)
+
+		defer wallet.Close()
+
+		invitation := GenericInvitation{}
+		err = json.Unmarshal([]byte(`{
+			"id": "abc123",
+			"type": "https://didcomm.org/out-of-band/2.0/invitation"
+		}`), &invitation)
+		require.NoError(t, err)
+
+		_, err = wallet.ProposePresentation(token, &invitation,
+			WithConnectOptions(WithConnectTimeout(1*time.Millisecond)))
+		require.Error(t, err)
+		require.ErrorIs(t, err, expectErr)
+		require.Contains(t, err.Error(), "failed to accept OOB v2 invitation")
 	})
 }
 
@@ -3814,7 +3983,7 @@ func TestWallet_RequestCredential(t *testing.T) {
 		defer wallet.Close()
 
 		response, err := wallet.RequestCredential(token, thID, FromPresentation(&verifiable.Presentation{}),
-			WaitForDone(1*time.Millisecond))
+			WaitForDone(10*time.Millisecond))
 		require.NoError(t, err)
 		require.NotEmpty(t, response)
 		require.Equal(t, model.AckStatusOK, response.Status)
@@ -4041,6 +4210,7 @@ func newMockProvider(t *testing.T) *mockprovider.Provider {
 		didexchange.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{},
 		mediator.Coordination:   &mockmediator.MockMediatorSvc{},
 		issuecredentialsvc.Name: &mockissuecredential.MockIssueCredentialSvc{},
+		oobv2.Name:              &mockoutofbandv2.MockOobService{},
 	}
 
 	return &mockprovider.Provider{

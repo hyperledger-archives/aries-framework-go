@@ -52,6 +52,12 @@ type Provider struct {
 	GetDIDsBackoffDurationValue       time.Duration
 	GetDIDsMaxRetriesValue            uint64
 	DIDRotatorValue                   didrotate.DIDRotator
+	MessengerValue                    service.Messenger
+}
+
+// Messenger return messenger.
+func (p *Provider) Messenger() service.Messenger {
+	return p.MessengerValue
 }
 
 // MessageServiceProvider return message service provider.

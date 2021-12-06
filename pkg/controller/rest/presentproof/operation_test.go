@@ -15,16 +15,21 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/require"
 
-	client "github.com/hyperledger/aries-framework-go/pkg/client/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
+	didcomm "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	mocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/client/presentproof"
+	mocks2 "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/controller/command/presentproof"
 	mocknotifier "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/controller/webnotifier"
+	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
+	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
-func provider(ctrl *gomock.Controller) client.Provider {
+func provider(ctrl *gomock.Controller, lookup *connection.Lookup) *mocks2.MockProvider {
 	service := mocks.NewMockProtocolService(ctrl)
 	service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
 	service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
@@ -32,8 +37,9 @@ func provider(ctrl *gomock.Controller) client.Provider {
 	service.EXPECT().ActionStop(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 	service.EXPECT().HandleOutbound(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 
-	provider := mocks.NewMockProvider(ctrl)
+	provider := mocks2.NewMockProvider(ctrl)
 	provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+	provider.EXPECT().ConnectionLookup().Return(lookup).AnyTimes()
 
 	return provider
 }
@@ -43,7 +49,7 @@ func TestOperation_SendRequestPresentation(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("No MyID", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl, nil), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
@@ -57,7 +63,15 @@ func TestOperation_SendRequestPresentation(t *testing.T) {
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		rec := mockConnectionRecorder(t, connection.Record{
+			MyDID:          "1",
+			TheirDID:       "2",
+			DIDCommVersion: didcomm.V1,
+		})
+
+		p := provider(ctrl, rec.Lookup)
+
+		operation, err := New(p, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -76,7 +90,7 @@ func TestOperation_SendRequestPresentationV3(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("No MyID", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl, nil), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
@@ -90,7 +104,13 @@ func TestOperation_SendRequestPresentationV3(t *testing.T) {
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		lookup := mockConnectionRecorder(t, connection.Record{
+			MyDID:          "1",
+			TheirDID:       "2",
+			DIDCommVersion: didcomm.V2,
+		}).Lookup
+
+		operation, err := New(provider(ctrl, lookup), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -109,7 +129,7 @@ func TestOperation_SendProposePresentation(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("No MyID", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl, nil), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
@@ -123,7 +143,13 @@ func TestOperation_SendProposePresentation(t *testing.T) {
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		rec := mockConnectionRecorder(t, connection.Record{
+			MyDID:          "1",
+			TheirDID:       "2",
+			DIDCommVersion: didcomm.V1,
+		})
+
+		operation, err := New(provider(ctrl, rec.Lookup), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -142,7 +168,7 @@ func TestOperation_SendProposePresentationV3(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("No MyID", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl, nil), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
@@ -156,7 +182,13 @@ func TestOperation_SendProposePresentationV3(t *testing.T) {
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		lookup := mockConnectionRecorder(t, connection.Record{
+			MyDID:          "1",
+			TheirDID:       "2",
+			DIDCommVersion: didcomm.V2,
+		}).Lookup
+
+		operation, err := New(provider(ctrl, lookup), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -175,7 +207,7 @@ func TestOperation_AcceptRequestPresentation(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("No payload", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl, nil), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
@@ -189,7 +221,7 @@ func TestOperation_AcceptRequestPresentation(t *testing.T) {
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl, nil), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -208,7 +240,7 @@ func TestOperation_AcceptRequestPresentationV3(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("No payload", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl, nil), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
@@ -222,7 +254,7 @@ func TestOperation_AcceptRequestPresentationV3(t *testing.T) {
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl, nil), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -241,7 +273,7 @@ func TestOperation_DeclineRequestPresentation(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl, nil), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -260,7 +292,7 @@ func TestOperation_AcceptProblemReport(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl, nil), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -279,7 +311,7 @@ func TestOperation_AcceptProposePresentation(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("No payload", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl, nil), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
@@ -293,7 +325,7 @@ func TestOperation_AcceptProposePresentation(t *testing.T) {
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl, nil), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -312,7 +344,7 @@ func TestOperation_AcceptProposePresentationV3(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("No payload", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl, nil), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
@@ -326,7 +358,7 @@ func TestOperation_AcceptProposePresentationV3(t *testing.T) {
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl, nil), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -345,7 +377,7 @@ func TestOperation_DeclineProposePresentation(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl, nil), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -364,7 +396,7 @@ func TestOperation_AcceptPresentation(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("Empty payload (success)", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl, nil), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -378,7 +410,7 @@ func TestOperation_AcceptPresentation(t *testing.T) {
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl, nil), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -397,7 +429,7 @@ func TestOperation_DeclinePresentation(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl, nil), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -416,7 +448,7 @@ func TestOperation_NegotiateRequestPresentation(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("No payload", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl, nil), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
@@ -430,7 +462,7 @@ func TestOperation_NegotiateRequestPresentation(t *testing.T) {
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl, nil), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -449,7 +481,7 @@ func TestOperation_NegotiateRequestPresentationV3(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("No payload", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl, nil), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
@@ -463,7 +495,7 @@ func TestOperation_NegotiateRequestPresentationV3(t *testing.T) {
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
+		operation, err := New(provider(ctrl, nil), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -514,4 +546,35 @@ func sendRequestToHandler(handler rest.Handler, requestBody io.Reader, path stri
 	router.ServeHTTP(rr, req)
 
 	return rr.Body, rr.Code, nil
+}
+
+func mockConnectionRecorder(t *testing.T, records ...connection.Record) *connection.Recorder {
+	t.Helper()
+
+	storeProv := mockstore.NewMockStoreProvider()
+
+	prov := mockprovider.Provider{
+		StorageProviderValue:              storeProv,
+		ProtocolStateStorageProviderValue: storeProv,
+	}
+
+	recorder, err := connection.NewRecorder(&prov)
+	require.NoError(t, err)
+
+	for i := 0; i < len(records); i++ {
+		rec := records[i]
+
+		if rec.ConnectionID == "" {
+			rec.ConnectionID = uuid.New().String()
+		}
+
+		if rec.State == "" {
+			rec.State = connection.StateNameCompleted
+		}
+
+		err = recorder.SaveConnectionRecord(&rec)
+		require.NoError(t, err)
+	}
+
+	return recorder
 }

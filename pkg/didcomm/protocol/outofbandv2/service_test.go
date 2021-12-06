@@ -26,14 +26,18 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/messagepickup"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/jwkkid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
 	mocksvc "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/service"
+	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 )
 
 func TestNew(t *testing.T) {
@@ -190,6 +194,15 @@ func TestAcceptInvitation(t *testing.T) {
 		s := newAutoService(t, provider)
 		inv := newInvitation()
 		inv.Body.Accept = []string{transport.MediaTypeDIDCommV2Profile}
+
+		s.vdrRegistry = &mockvdr.MockVDRegistry{
+			ResolveFunc: func(id string, _ ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+				return &did.DocResolution{
+					DIDDocument: mockdiddoc.GetMockDIDDoc(t),
+				}, nil
+			},
+		}
+
 		connID, err := s.AcceptInvitation(inv)
 		require.NoError(t, err)
 		require.NotEmpty(t, connID)
@@ -229,6 +242,14 @@ func TestAcceptInvitation(t *testing.T) {
 				Data: decorator.AttachmentData{
 					JSON: msg,
 				},
+			},
+		}
+
+		s.vdrRegistry = &mockvdr.MockVDRegistry{
+			ResolveFunc: func(id string, _ ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+				return &did.DocResolution{
+					DIDDocument: mockdiddoc.GetMockDIDDoc(t),
+				}, nil
 			},
 		}
 
@@ -318,7 +339,9 @@ func TestAcceptInvitation(t *testing.T) {
 		}
 
 		didCommMsg := service.NewDIDCommMsgMap(ppv3Response)
-		didCommMsg["from"] = `{"from":"did:example:alice"}`
+		didCommMsg["from"] = "did:example:alice"
+		didCommMsg["id"] = "12345"
+		didCommMsg["type"] = "https://didcomm.org/present-proof/3.0/propose-presentation"
 
 		inv.Requests = []*decorator.AttachmentV2{
 			{
@@ -337,6 +360,14 @@ func TestAcceptInvitation(t *testing.T) {
 			CreateAndExportPubKeyBytes(provider.KeyTypeValue).Return("", ed25519RawKey, nil)
 		provider.CustomKMS.(*mockkms.MockKeyManager).EXPECT().
 			CreateAndExportPubKeyBytes(provider.KeyAgreementTypeValue).Return("", p384KeyMarshalled, nil)
+
+		s.vdrRegistry = &mockvdr.MockVDRegistry{
+			ResolveFunc: func(id string, _ ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+				return &did.DocResolution{
+					DIDDocument: mockdiddoc.GetMockDIDDoc(t),
+				}, nil
+			},
+		}
 
 		connID, err = s.AcceptInvitation(inv)
 		require.NoError(t, err)

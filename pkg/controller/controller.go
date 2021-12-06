@@ -226,7 +226,10 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 	// JSON-LD REST operation
 	ldOp := ldrest.New(restAPIOpts.ldService, ldrest.WithHTTPClient(restAPIOpts.httpClient))
 
-	connOp := connectionrest.New(ctx)
+	connOp, err := connectionrest.New(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("create connection rest command : %w", err)
+	}
 
 	// creat handlers from all operations
 	var allHandlers []rest.Handler
@@ -340,7 +343,10 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 	kmscmd := kms.New(ctx)
 
 	// connection command operation
-	conncmd := connection.New(ctx)
+	conncmd, err := connection.New(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("create connection command : %w", err)
+	}
 
 	// vc wallet command controller
 	wallet := vcwalletcmd.New(ctx, cmdOpts.walletConf)

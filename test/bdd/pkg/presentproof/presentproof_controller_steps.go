@@ -33,6 +33,7 @@ import (
 	docverifiable "github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	arieskms "github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/connection"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	didexsteps "github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/util"
@@ -82,6 +83,7 @@ func (s *ControllerSteps) SetContext(ctx *context.BDDContext) {
 // nolint:lll
 func (s *ControllerSteps) RegisterSteps(gs *godog.Suite) {
 	gs.Step(`^"([^"]*)" has established connection with "([^"]*)" through PresentProof controller$`, s.establishConnection)
+	gs.Step(`^"([^"]*)" has established DIDComm v2 connection with "([^"]*)" through PresentProof controller$`, s.establishDIDCommV2Connection)
 	gs.Step(`^"([^"]*)" sends a propose presentation to "([^"]*)" through PresentProof controller$`, s.sendProposePresentation)
 	gs.Step(`^"([^"]*)" sends a propose presentation v3 to "([^"]*)" through PresentProof controller$`, s.sendProposePresentationV3)
 	gs.Step(`^"([^"]*)" negotiates about the request presentation with a proposal through PresentProof controller$`, s.negotiateRequestPresentation)
@@ -116,6 +118,36 @@ func (s *ControllerSteps) establishConnection(inviter, invitee string) error {
 	}
 
 	s.did[invitee] = inviteeDID
+
+	return nil
+}
+
+func (s *ControllerSteps) establishDIDCommV2Connection(agent1, agent2 string) error {
+	didexSteps := didexsteps.NewDIDExchangeControllerSteps()
+	didexSteps.SetContext(s.bddContext)
+
+	connSteps := connection.NewControllerSteps()
+	connSteps.SetContext(s.bddContext)
+
+	err := didexSteps.CreatePublicDID(agent1, "")
+	if err != nil {
+		return fmt.Errorf("create public DID for [%s] using didexchange controller step: %w", agent1, err)
+	}
+
+	err = didexSteps.CreatePublicDID(agent2, "")
+	if err != nil {
+		return fmt.Errorf("create public DID for [%s] using didexchange controller step: %w", agent2, err)
+	}
+
+	err = connSteps.HasDIDCommV2Connection(agent1, agent2)
+	if err != nil {
+		return fmt.Errorf(
+			"creating DIDComm v2 connection for [%s] and [%s] using connection controller step: %w",
+			agent1, agent2, err)
+	}
+
+	s.did[agent1] = s.bddContext.PublicDIDs[agent1]
+	s.did[agent2] = s.bddContext.PublicDIDs[agent2]
 
 	return nil
 }
@@ -186,7 +218,7 @@ func (s *ControllerSteps) sendMessage(verifier, msgFile, prover string) error {
 }
 
 func sendPresentationMsg(url, piid string, msg []byte) error {
-	var presentation *presentproof.Presentation
+	var presentation *presentproof.PresentationV2
 
 	err := json.Unmarshal(msg, &presentation)
 	if err != nil {
@@ -240,9 +272,10 @@ func sendPresentationMsg(url, piid string, msg []byte) error {
 		}
 	}
 
-	return postToURL(url+fmt.Sprintf(acceptRequestPresentation, piid), presentproofcmd.AcceptRequestPresentationArgs{
-		Presentation: presentation,
-	}, nil)
+	return postToURL(url+fmt.Sprintf(acceptRequestPresentation, piid),
+		presentproofcmd.AcceptRequestPresentationV2Args{
+			Presentation: presentation,
+		}, nil)
 }
 
 func sendPresentationMsgV3(url, piid string, msg []byte) error {
@@ -300,20 +333,21 @@ func sendPresentationMsgV3(url, piid string, msg []byte) error {
 		}
 	}
 
-	return postToURL(url+fmt.Sprintf(acceptRequestPresentationV3, piid), presentproofcmd.AcceptRequestPresentationV3Args{
-		Presentation: presentation,
-	}, nil)
+	return postToURL(url+fmt.Sprintf(acceptRequestPresentationV3, piid),
+		presentproofcmd.AcceptRequestPresentationV3Args{
+			Presentation: presentation,
+		}, nil)
 }
 
 func sendRequestPresentationMsg(url, myDID, theirDID string, msg []byte) error {
-	var requestPresentation *presentproof.RequestPresentation
+	var requestPresentation *presentproof.RequestPresentationV2
 
 	err := json.Unmarshal(msg, &requestPresentation)
 	if err != nil {
 		return err
 	}
 
-	return postToURL(url+sendRequestPresentation, presentproofcmd.SendRequestPresentationArgs{
+	return postToURL(url+sendRequestPresentation, presentproofcmd.SendRequestPresentationV2Args{
 		MyDID:               myDID,
 		TheirDID:            theirDID,
 		RequestPresentation: requestPresentation,
@@ -336,16 +370,17 @@ func sendRequestPresentationMsgV3(url, myDID, theirDID string, msg []byte) error
 }
 
 func sendAcceptProposePresentation(url, piid string, msg []byte) error {
-	var requestPresentation *presentproof.RequestPresentation
+	var requestPresentation *presentproof.RequestPresentationV2
 
 	err := json.Unmarshal(msg, &requestPresentation)
 	if err != nil {
 		return err
 	}
 
-	return postToURL(url+fmt.Sprintf(acceptProposePresentation, piid), presentproofcmd.AcceptProposePresentationArgs{
-		RequestPresentation: requestPresentation,
-	}, nil)
+	return postToURL(url+fmt.Sprintf(acceptProposePresentation, piid),
+		presentproofcmd.AcceptProposePresentationV2Args{
+			RequestPresentation: requestPresentation,
+		}, nil)
 }
 
 func sendAcceptProposePresentationV3(url, piid string, msg []byte) error {
@@ -356,9 +391,10 @@ func sendAcceptProposePresentationV3(url, piid string, msg []byte) error {
 		return err
 	}
 
-	return postToURL(url+fmt.Sprintf(acceptProposePresentationV3, piid), presentproofcmd.AcceptProposePresentationV3Args{
-		RequestPresentation: requestPresentation,
-	}, nil)
+	return postToURL(url+fmt.Sprintf(acceptProposePresentationV3, piid),
+		presentproofcmd.AcceptProposePresentationV3Args{
+			RequestPresentation: requestPresentation,
+		}, nil)
 }
 
 func (s *ControllerSteps) sendProposePresentation(prover, verifier string) error {
@@ -367,10 +403,10 @@ func (s *ControllerSteps) sendProposePresentation(prover, verifier string) error
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", prover)
 	}
 
-	return postToURL(url+sendProposalPresentation, presentproofcmd.SendProposePresentationArgs{
+	return postToURL(url+sendProposalPresentation, presentproofcmd.SendProposePresentationV2Args{
 		MyDID:               s.did[prover],
 		TheirDID:            s.did[verifier],
-		ProposePresentation: &presentproof.ProposePresentation{},
+		ProposePresentation: &presentproof.ProposePresentationV2{},
 	}, nil)
 }
 
@@ -398,9 +434,12 @@ func (s *ControllerSteps) negotiateRequestPresentation(agent string) error {
 		return err
 	}
 
-	return postToURL(url+fmt.Sprintf(negotiateRequestPresentation, piid), presentproofcmd.NegotiateRequestPresentationArgs{
-		ProposePresentation: &presentproof.ProposePresentation{},
-	}, nil)
+	return postToURL(
+		url+fmt.Sprintf(negotiateRequestPresentation, piid),
+		presentproofcmd.NegotiateRequestPresentationV2Args{
+			ProposePresentation: &presentproof.ProposePresentationV2{},
+		},
+		nil)
 }
 
 func (s *ControllerSteps) negotiateRequestPresentationV3(agent string) error {
@@ -536,7 +575,8 @@ func (s *ControllerSteps) validateState(agent, state, redirect, status string) e
 	}
 
 	if redirect != msg.Message.Properties["url"] {
-		return fmt.Errorf("failed redirect URL validation, expected[%s]: found[%s]", redirect, msg.Message.Properties["url"])
+		return fmt.Errorf("failed redirect URL validation, expected[%s]: found[%s]",
+			redirect, msg.Message.Properties["url"])
 	}
 
 	return nil
@@ -555,7 +595,8 @@ func (s *ControllerSteps) agentDID(ds *didexsteps.ControllerSteps, agent string)
 
 	var response didexcmd.QueryConnectionResponse
 
-	err := util.SendHTTP(http.MethodGet, fmt.Sprintf("%s/connections/%s", controllerURL, connectionID), nil, &response)
+	err := util.SendHTTP(http.MethodGet, fmt.Sprintf("%s/connections/%s", controllerURL, connectionID),
+		nil, &response)
 	if err != nil {
 		return "", fmt.Errorf("failed to query connections: %w", err)
 	}

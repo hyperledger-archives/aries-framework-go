@@ -434,6 +434,17 @@ const pkgs = {
             pathParam: "piid"
         },
     },
+    connection: {
+        CreateConnectionV2: {
+            path: "/connections/create-v2",
+            method: "POST"
+        },
+        SetConnectionToDIDCommV2: {
+            path: "/connections/{id}/use-v2",
+            method: "POST",
+            pathParam: "id"
+        }
+    },
     kms: {
         CreateKeySet: {
             path: "/kms/keyset",
