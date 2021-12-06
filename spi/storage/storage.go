@@ -20,11 +20,15 @@ type MultiError interface {
 	Errors() []error // Errors returns the error objects for all operations.
 }
 
-// ErrStoreNotFound is returned when a store is not found.
-var ErrStoreNotFound = errors.New("store not found")
-
-// ErrDataNotFound is returned when data is not found.
-var ErrDataNotFound = errors.New("data not found")
+var (
+	// ErrStoreNotFound is returned when a store is not found.
+	ErrStoreNotFound = errors.New("store not found")
+	// ErrDataNotFound is returned when data is not found.
+	ErrDataNotFound = errors.New("data not found")
+	// ErrDuplicateKey is returned when a call is made to Store.Batch using the IsNewKey PutOption with a key that
+	// already exists in the database.
+	ErrDuplicateKey = errors.New("duplicate key")
+)
 
 // StoreConfiguration represents the configuration of a store.
 // Currently, it's only used for creating indexes in underlying storage databases.
@@ -217,8 +221,8 @@ type Store interface {
 
 	// Batch performs multiple Put and/or Delete operations in order. The Puts and Deletes here follow the same rules
 	// as described in the Put and Delete method documentation. The only exception is if the operation makes use of
-	// the PutOptions.IsNewKey optimization, in which case unexpected behaviour may occur if it's enabled and a
-	// key is used that already exists in the database.
+	// the PutOptions.IsNewKey optimization, in which case an error wrapping an ErrDuplicateKey may be returned if it's
+	// enabled and a key is used that already exists in the database.
 	// Depending on the implementation, this method may be faster than repeated Put and/or Delete calls.
 	// If any of the given keys are empty, or the operations slice is empty or nil, then an error will be returned.
 	Batch(operations []Operation) error
