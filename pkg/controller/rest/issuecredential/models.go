@@ -23,7 +23,7 @@ type issueCredentialAcceptProposalRequest struct { // nolint: unused,deadcode
 	// in: body
 	Body struct {
 		// required: true
-		OfferCredential struct{ *protocol.OfferCredential } `json:"offer_credential"`
+		OfferCredential struct{ *protocol.OfferCredentialV2 } `json:"offer_credential"`
 	}
 }
 
@@ -94,7 +94,7 @@ type issueCredentialAcceptRequestRequest struct { // nolint: unused,deadcode
 	// in: body
 	Body struct {
 		// required: true
-		IssueCredential struct{ *protocol.IssueCredential } `json:"issue_credential"`
+		IssueCredential struct{ *protocol.IssueCredentialV2 } `json:"issue_credential"`
 	}
 }
 
@@ -279,7 +279,7 @@ type issueCredentialNegotiateProposalRequest struct { // nolint: unused,deadcode
 	// in: body
 	Body struct {
 		// required: true
-		ProposeCredential struct{ *protocol.ProposeCredential } `json:"propose_credential"`
+		ProposeCredential struct{ *protocol.ProposeCredentialV2 } `json:"propose_credential"`
 	}
 }
 
@@ -348,7 +348,7 @@ type issueCredentialSendOfferRequest struct { // nolint: unused,deadcode
 		// OfferCredential is a message describing the credential intend to offer and
 		// possibly the price they expect to be paid.
 		// required: true
-		OfferCredential struct{ *protocol.OfferCredential } `json:"offer_credential"`
+		OfferCredential struct{ *protocol.OfferCredentialV2 } `json:"offer_credential"`
 	}
 }
 
@@ -402,7 +402,7 @@ type issueCredentialSendProposalRequest struct { // nolint: unused,deadcode
 		TheirDID string `json:"their_did"`
 		// ProposeCredential is a message sent by the potential Holder to the Issuer to initiate the protocol
 		// required: true
-		ProposeCredential struct{ *protocol.ProposeCredential } `json:"propose_credential"`
+		ProposeCredential struct{ *protocol.ProposeCredentialV2 } `json:"propose_credential"`
 	}
 }
 
@@ -456,7 +456,7 @@ type issueCredentialSendRequestRequest struct { // nolint: unused,deadcode
 		// RequestCredential is a message sent by the potential Holder to the Issuer,
 		// to request the issuance of a credential.
 		// required: true
-		RequestCredential struct{ *protocol.RequestCredential } `json:"request_credential"`
+		RequestCredential struct{ *protocol.RequestCredentialV2 } `json:"request_credential"`
 	}
 }
 

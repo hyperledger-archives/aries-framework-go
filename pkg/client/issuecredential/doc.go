@@ -31,23 +31,23 @@ SPDX-License-Identifier: Apache-2.0
 //
 //        if event.Message.Type() == presentproof.ProposeCredentialMsgType {
 //          // If Issuer is willing to accept the proposal.
-//          client.AcceptProposal(piid, &OfferCredential{})
+//          client.AcceptProposalV2(piid, &OfferCredentialV2{})
 //          // If Issuer is not willing to accept the proposal.
 //          client.DeclineProposal(piid, reason)
 //        }
 //
 //        if event.Message.Type() == presentproof.OfferCredentialMsgType {
 //          // If Holder is willing to accept the offer.
-//          client.AcceptOffer(piid)
+//          client.AcceptOfferV2(piid)
 //          // If Holder wants to counter an offer they received with a proposal.
-//          client.NegotiateProposal(piid, &ProposeCredential{})
+//          client.NegotiateProposalV2(piid, &ProposeCredentialV2{})
 //          // If Holder is not willing to accept the offer.
 //          client.DeclineOffer(piid, reason)
 //        }
 //
 //        if event.Message.Type() == presentproof.RequestCredentialMsgType {
 //          // If Issuer is willing to accept the request.
-//          client.AcceptRequest(piid, &IssueCredential{})
+//          client.AcceptRequestV2(piid, &IssueCredentialV2{})
 //          // If Issuer is not willing to accept the request.
 //          client.DeclineRequest(piid, reason)
 //        }
@@ -69,12 +69,12 @@ SPDX-License-Identifier: Apache-2.0
 // How to initiate the protocol?
 // The protocol can be initiated by the Issuer or by the Holder.
 // Issuer initiates the protocol.
-//  client.SendOffer(&OfferCredential{}, myDID, theirDID)
+//  client.SendOfferV2(&OfferCredentialV2{}, myDID, theirDID)
 // Holder initiates the protocol. There are two options of how to initiate the protocol.
 //
 // 1. The Holder can begin with a proposal.
-//  client.SendProposal(&ProposeCredential{}, myDID, theirDID)
+//  client.SendProposalV2(&ProposeCredentialV2{}, myDID, theirDID)
 // 2. Holder can begin with a request.
-//  client.SendRequest(&RequestCredential{}, myDID, theirDID)
+//  client.SendRequestV2(&RequestCredentialV2{}, myDID, theirDID)
 //
 package issuecredential

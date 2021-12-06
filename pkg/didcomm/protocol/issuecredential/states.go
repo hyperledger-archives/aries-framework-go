@@ -214,7 +214,7 @@ func (s *offerSent) CanTransitionTo(st state) bool {
 }
 
 func (s *offerSent) ExecuteInbound(md *MetaData) (state, stateAction, error) {
-	if md.offerCredential == nil && md.offerCredentialV3 == nil {
+	if md.offerCredentialV2 == nil && md.offerCredentialV3 == nil {
 		return nil, nil, errors.New("offer credential was not provided")
 	}
 
@@ -229,9 +229,9 @@ func (s *offerSent) ExecuteInbound(md *MetaData) (state, stateAction, error) {
 		}
 
 		// sets message type.
-		md.offerCredential.Type = OfferCredentialMsgTypeV2
+		md.offerCredentialV2.Type = OfferCredentialMsgTypeV2
 
-		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.offerCredential), md.MyDID, md.TheirDID,
+		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.offerCredentialV2), md.MyDID, md.TheirDID,
 			service.WithVersion(getDIDVersion(s.V)))
 	}
 
@@ -261,7 +261,7 @@ func (s *requestReceived) CanTransitionTo(st state) bool {
 }
 
 func (s *requestReceived) ExecuteInbound(md *MetaData) (state, stateAction, error) {
-	if md.issueCredential == nil && md.issueCredentialV3 == nil {
+	if md.issueCredentialV2 == nil && md.issueCredentialV3 == nil {
 		return nil, nil, errors.New("issue credential was not provided")
 	}
 
@@ -276,9 +276,9 @@ func (s *requestReceived) ExecuteInbound(md *MetaData) (state, stateAction, erro
 		}
 
 		// sets message type
-		md.issueCredential.Type = IssueCredentialMsgTypeV2
+		md.issueCredentialV2.Type = IssueCredentialMsgTypeV2
 
-		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.issueCredential), md.MyDID, md.TheirDID,
+		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.issueCredentialV2), md.MyDID, md.TheirDID,
 			service.WithVersion(getDIDVersion(s.V)))
 	}
 
@@ -324,7 +324,7 @@ func (s *proposalSent) CanTransitionTo(st state) bool {
 }
 
 func (s *proposalSent) ExecuteInbound(md *MetaData) (state, stateAction, error) {
-	if md.proposeCredential == nil && md.proposeCredentialV3 == nil {
+	if md.proposeCredentialV2 == nil && md.proposeCredentialV3 == nil {
 		return nil, nil, errors.New("propose credential was not provided")
 	}
 
@@ -339,9 +339,9 @@ func (s *proposalSent) ExecuteInbound(md *MetaData) (state, stateAction, error) 
 		}
 
 		// sets message type
-		md.proposeCredential.Type = ProposeCredentialMsgTypeV2
+		md.proposeCredentialV2.Type = ProposeCredentialMsgTypeV2
 
-		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.proposeCredential), md.MyDID, md.TheirDID,
+		return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(md.proposeCredentialV2), md.MyDID, md.TheirDID,
 			service.WithVersion(getDIDVersion(s.V)))
 	}
 
@@ -374,7 +374,7 @@ func (s *offerReceived) CanTransitionTo(st state) bool {
 
 func (s *offerReceived) ExecuteInbound(md *MetaData) (state, stateAction, error) {
 	// sends propose credential if it was provided
-	if md.proposeCredential != nil || md.proposeCredentialV3 != nil {
+	if md.proposeCredentialV2 != nil || md.proposeCredentialV3 != nil {
 		return &proposalSent{V: s.V}, zeroAction, nil
 	}
 
@@ -407,19 +407,19 @@ func (s *offerReceived) ExecuteInbound(md *MetaData) (state, stateAction, error)
 				service.WithVersion(getDIDVersion(s.V)))
 		}
 	} else {
-		offer := OfferCredential{}
+		offer := OfferCredentialV2{}
 		if err := md.Msg.Decode(&offer); err != nil {
 			return nil, nil, fmt.Errorf("decode: %w", err)
 		}
 
-		response := &RequestCredential{
+		response := &RequestCredentialV2{
 			Type:           RequestCredentialMsgTypeV2,
 			Formats:        offer.Formats,
 			RequestsAttach: offer.OffersAttach,
 		}
 
-		if md.RequestCredential() != nil {
-			response = md.RequestCredential()
+		if md.RequestCredentialV2() != nil {
+			response = md.RequestCredentialV2()
 			response.Type = RequestCredentialMsgTypeV2
 		}
 

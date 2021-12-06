@@ -32,7 +32,7 @@ func TestMiddleware(t *testing.T) {
 		attachID := uuid.New().String()
 
 		thid := uuid.New().String()
-		msg := service.NewDIDCommMsgMap(&issuecredential.RequestCredential{
+		msg := service.NewDIDCommMsgMap(&issuecredential.RequestCredentialV2{
 			Type: issuecredential.RequestCredentialMsgTypeV2,
 			Formats: []issuecredential.Format{{
 				AttachID: attachID,
@@ -77,7 +77,7 @@ func TestMiddleware(t *testing.T) {
 		mw, err := rfc0593.NewMiddleware(agent(t))
 		require.NoError(t, err)
 
-		msg := service.NewDIDCommMsgMap(&issuecredential.ProposeCredential{
+		msg := service.NewDIDCommMsgMap(&issuecredential.ProposeCredentialV2{
 			Type: issuecredential.ProposeCredentialMsgTypeV2,
 			Formats: []issuecredential.Format{{
 				AttachID: "123",
@@ -113,7 +113,7 @@ func TestMiddleware(t *testing.T) {
 		mw, err := rfc0593.NewMiddleware(agent(t))
 		require.NoError(t, err)
 
-		msg := service.NewDIDCommMsgMap(&issuecredential.RequestCredential{
+		msg := service.NewDIDCommMsgMap(&issuecredential.RequestCredentialV2{
 			Type: issuecredential.RequestCredentialMsgTypeV2,
 			Formats: []issuecredential.Format{{
 				AttachID: "123",
@@ -158,7 +158,7 @@ func TestMiddleware(t *testing.T) {
 		mw, err := rfc0593.NewMiddleware(provider)
 		require.NoError(t, err)
 
-		msg := service.NewDIDCommMsgMap(&issuecredential.RequestCredential{
+		msg := service.NewDIDCommMsgMap(&issuecredential.RequestCredentialV2{
 			Type: issuecredential.RequestCredentialMsgTypeV2,
 			Formats: []issuecredential.Format{{
 				AttachID: "123",
@@ -252,19 +252,19 @@ func (m *mockMetadata) Message() service.DIDCommMsg {
 	return m.msg
 }
 
-func (m *mockMetadata) OfferCredential() *issuecredential.OfferCredential {
+func (m *mockMetadata) OfferCredentialV2() *issuecredential.OfferCredentialV2 {
 	panic("implement me")
 }
 
-func (m *mockMetadata) ProposeCredential() *issuecredential.ProposeCredential {
+func (m *mockMetadata) ProposeCredentialV2() *issuecredential.ProposeCredentialV2 {
 	panic("implement me")
 }
 
-func (m *mockMetadata) IssueCredential() *issuecredential.IssueCredential {
+func (m *mockMetadata) IssueCredentialV2() *issuecredential.IssueCredentialV2 {
 	panic("implement me")
 }
 
-func (m *mockMetadata) RequestCredential() *issuecredential.RequestCredential {
+func (m *mockMetadata) RequestCredentialV2() *issuecredential.RequestCredentialV2 {
 	panic("implement me")
 }
 

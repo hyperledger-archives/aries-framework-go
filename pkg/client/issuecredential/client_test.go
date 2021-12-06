@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
 	mocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/client/issuecredential"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
 const (
@@ -46,44 +47,7 @@ func TestNew(t *testing.T) {
 	})
 }
 
-func TestClient_SendOfferV3(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	t.Run("Success", func(t *testing.T) {
-		provider := mocks.NewMockProvider(ctrl)
-
-		svc := mocks.NewMockProtocolService(ctrl)
-		svc.EXPECT().HandleOutbound(gomock.Any(), Alice, Bob).
-			DoAndReturn(func(msg service.DIDCommMsg, _, _ string) (string, error) {
-				require.Equal(t, msg.Type(), issuecredential.OfferCredentialMsgTypeV3)
-
-				return expectedPiid, nil
-			})
-
-		provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
-		client, err := New(provider)
-		require.NoError(t, err)
-
-		piid, err := client.SendOfferV3(&OfferCredentialV3{}, Alice, Bob)
-		require.Equal(t, expectedPiid, piid)
-		require.NoError(t, err)
-	})
-
-	t.Run("Empty offer", func(t *testing.T) {
-		provider := mocks.NewMockProvider(ctrl)
-
-		provider.EXPECT().Service(gomock.Any()).Return(mocks.NewMockProtocolService(ctrl), nil)
-		client, err := New(provider)
-		require.NoError(t, err)
-
-		piid, err := client.SendOfferV3(nil, Alice, Bob)
-		require.Empty(t, piid)
-		require.EqualError(t, err, errEmptyOffer.Error())
-	})
-}
-
-func TestClient_SendOfferV2(t *testing.T) {
+func TestClient_SendOffer(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -102,35 +66,21 @@ func TestClient_SendOfferV2(t *testing.T) {
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		piid, err := client.SendOffer(&OfferCredential{}, Alice, Bob)
+		piid, err := client.SendOffer(&OfferCredential{}, &connection.Record{
+			MyDID:    Alice,
+			TheirDID: Bob,
+		})
 		require.Equal(t, expectedPiid, piid)
 		require.NoError(t, err)
 	})
 
-	t.Run("Empty offer", func(t *testing.T) {
-		provider := mocks.NewMockProvider(ctrl)
-
-		provider.EXPECT().Service(gomock.Any()).Return(mocks.NewMockProtocolService(ctrl), nil)
-		client, err := New(provider)
-		require.NoError(t, err)
-
-		piid, err := client.SendOffer(nil, Alice, Bob)
-		require.Empty(t, piid)
-		require.EqualError(t, err, errEmptyOffer.Error())
-	})
-}
-
-func TestClient_SendProposalV3(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	t.Run("Success", func(t *testing.T) {
+	t.Run("Success v3", func(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
 
 		svc := mocks.NewMockProtocolService(ctrl)
 		svc.EXPECT().HandleOutbound(gomock.Any(), Alice, Bob).
 			DoAndReturn(func(msg service.DIDCommMsg, _, _ string) (string, error) {
-				require.Equal(t, msg.Type(), issuecredential.ProposeCredentialMsgTypeV3)
+				require.Equal(t, msg.Type(), issuecredential.OfferCredentialMsgTypeV3)
 
 				return expectedPiid, nil
 			})
@@ -139,25 +89,32 @@ func TestClient_SendProposalV3(t *testing.T) {
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		piid, err := client.SendProposalV3(&ProposeCredentialV3{}, Alice, Bob)
+		piid, err := client.SendOffer(&OfferCredential{}, &connection.Record{
+			MyDID:          Alice,
+			TheirDID:       Bob,
+			DIDCommVersion: service.V2,
+		})
 		require.Equal(t, expectedPiid, piid)
 		require.NoError(t, err)
 	})
 
 	t.Run("Empty offer", func(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
-		provider.EXPECT().Service(gomock.Any()).Return(mocks.NewMockProtocolService(ctrl), nil)
 
+		provider.EXPECT().Service(gomock.Any()).Return(mocks.NewMockProtocolService(ctrl), nil)
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		piid, err := client.SendProposalV3(nil, Alice, Bob)
+		piid, err := client.SendOffer(nil, &connection.Record{
+			MyDID:    Alice,
+			TheirDID: Bob,
+		})
 		require.Empty(t, piid)
-		require.EqualError(t, err, errEmptyProposal.Error())
+		require.EqualError(t, err, errEmptyOffer.Error())
 	})
 }
 
-func TestClient_SendProposalV2(t *testing.T) {
+func TestClient_SendProposal(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -176,35 +133,21 @@ func TestClient_SendProposalV2(t *testing.T) {
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		piid, err := client.SendProposal(&ProposeCredential{}, Alice, Bob)
+		piid, err := client.SendProposal(&ProposeCredential{}, &connection.Record{
+			MyDID:    Alice,
+			TheirDID: Bob,
+		})
 		require.Equal(t, expectedPiid, piid)
 		require.NoError(t, err)
 	})
 
-	t.Run("Empty offer", func(t *testing.T) {
-		provider := mocks.NewMockProvider(ctrl)
-		provider.EXPECT().Service(gomock.Any()).Return(mocks.NewMockProtocolService(ctrl), nil)
-
-		client, err := New(provider)
-		require.NoError(t, err)
-
-		piid, err := client.SendProposal(nil, Alice, Bob)
-		require.Empty(t, piid)
-		require.EqualError(t, err, errEmptyProposal.Error())
-	})
-}
-
-func TestClient_SendRequestV3(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	t.Run("Success", func(t *testing.T) {
+	t.Run("Success v3", func(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
 
 		svc := mocks.NewMockProtocolService(ctrl)
 		svc.EXPECT().HandleOutbound(gomock.Any(), Alice, Bob).
 			DoAndReturn(func(msg service.DIDCommMsg, _, _ string) (string, error) {
-				require.Equal(t, msg.Type(), issuecredential.RequestCredentialMsgTypeV3)
+				require.Equal(t, msg.Type(), issuecredential.ProposeCredentialMsgTypeV3)
 
 				return expectedPiid, nil
 			})
@@ -213,7 +156,11 @@ func TestClient_SendRequestV3(t *testing.T) {
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		piid, err := client.SendRequestV3(&RequestCredentialV3{}, Alice, Bob)
+		piid, err := client.SendProposal(&ProposeCredential{}, &connection.Record{
+			MyDID:          Alice,
+			TheirDID:       Bob,
+			DIDCommVersion: service.V2,
+		})
 		require.Equal(t, expectedPiid, piid)
 		require.NoError(t, err)
 	})
@@ -225,13 +172,16 @@ func TestClient_SendRequestV3(t *testing.T) {
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		piid, err := client.SendRequestV3(nil, Alice, Bob)
+		piid, err := client.SendProposal(nil, &connection.Record{
+			MyDID:    Alice,
+			TheirDID: Bob,
+		})
 		require.Empty(t, piid)
-		require.EqualError(t, err, errEmptyRequest.Error())
+		require.EqualError(t, err, errEmptyProposal.Error())
 	})
 }
 
-func TestClient_SendRequestV2(t *testing.T) {
+func TestClient_SendRequest(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -250,7 +200,34 @@ func TestClient_SendRequestV2(t *testing.T) {
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		piid, err := client.SendRequest(&RequestCredential{}, Alice, Bob)
+		piid, err := client.SendRequest(&RequestCredential{}, &connection.Record{
+			MyDID:    Alice,
+			TheirDID: Bob,
+		})
+		require.Equal(t, expectedPiid, piid)
+		require.NoError(t, err)
+	})
+
+	t.Run("Success v3", func(t *testing.T) {
+		provider := mocks.NewMockProvider(ctrl)
+
+		svc := mocks.NewMockProtocolService(ctrl)
+		svc.EXPECT().HandleOutbound(gomock.Any(), Alice, Bob).
+			DoAndReturn(func(msg service.DIDCommMsg, _, _ string) (string, error) {
+				require.Equal(t, msg.Type(), issuecredential.RequestCredentialMsgTypeV3)
+
+				return expectedPiid, nil
+			})
+
+		provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
+		client, err := New(provider)
+		require.NoError(t, err)
+
+		piid, err := client.SendRequest(&RequestCredential{}, &connection.Record{
+			MyDID:          Alice,
+			TheirDID:       Bob,
+			DIDCommVersion: service.V2,
+		})
 		require.Equal(t, expectedPiid, piid)
 		require.NoError(t, err)
 	})
@@ -262,26 +239,13 @@ func TestClient_SendRequestV2(t *testing.T) {
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		piid, err := client.SendRequest(nil, Alice, Bob)
+		piid, err := client.SendRequest(nil, &connection.Record{
+			MyDID:    Alice,
+			TheirDID: Bob,
+		})
 		require.Empty(t, piid)
 		require.EqualError(t, err, errEmptyRequest.Error())
 	})
-}
-
-func TestClient_AcceptProposalV3(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	provider := mocks.NewMockProvider(ctrl)
-
-	svc := mocks.NewMockProtocolService(ctrl)
-	svc.EXPECT().ActionContinue("PIID", gomock.Any()).Return(nil)
-
-	provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
-	client, err := New(provider)
-	require.NoError(t, err)
-
-	require.NoError(t, client.AcceptProposalV3("PIID", &OfferCredentialV3{}))
 }
 
 func TestClient_AcceptProposal(t *testing.T) {
@@ -364,22 +328,6 @@ func TestClient_AcceptRequest(t *testing.T) {
 	require.NoError(t, client.AcceptRequest("PIID", &IssueCredential{}))
 }
 
-func TestClient_AcceptRequestV3(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	provider := mocks.NewMockProvider(ctrl)
-
-	svc := mocks.NewMockProtocolService(ctrl)
-	svc.EXPECT().ActionContinue("PIID", gomock.Any()).Return(nil)
-
-	provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
-	client, err := New(provider)
-	require.NoError(t, err)
-
-	require.NoError(t, client.AcceptRequestV3("PIID", &IssueCredentialV3{}))
-}
-
 func TestClient_DeclineRequest(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -426,22 +374,6 @@ func TestClient_NegotiateProposal(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, client.NegotiateProposal("PIID", &ProposeCredential{}))
-}
-
-func TestClient_NegotiateProposalV3(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	provider := mocks.NewMockProvider(ctrl)
-
-	svc := mocks.NewMockProtocolService(ctrl)
-	svc.EXPECT().ActionContinue("PIID", gomock.Any()).Return(nil)
-
-	provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
-	client, err := New(provider)
-	require.NoError(t, err)
-
-	require.NoError(t, client.NegotiateProposalV3("PIID", &ProposeCredentialV3{}))
 }
 
 func TestClient_AcceptCredential(t *testing.T) {

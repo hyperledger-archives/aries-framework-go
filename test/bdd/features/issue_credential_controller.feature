@@ -25,7 +25,7 @@ Feature: Issue Credential using controller API
   Scenario: The Holder begins with a request v3
     Given "DriverV3" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
     And "InstitutionV3" agent is running on "localhost" port "11011" with controller "https://localhost:11012"
-    And "DriverV3" has established connection with "InstitutionV3" through IssueCredential controller
+    And "DriverV3" has established DIDComm V2 connection with "InstitutionV3" through IssueCredential controller
 
     When "DriverV3" requests credential V3 from "InstitutionV3" through IssueCredential controller
     And "InstitutionV3" accepts request V3 and sends credential to the Holder through IssueCredential controller
@@ -50,7 +50,7 @@ Feature: Issue Credential using controller API
   Scenario: The Issuer begins with an offer v3
     Given "CitizenV3" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
     And "GovernmentV3" agent is running on "localhost" port "11011" with controller "https://localhost:11012"
-    And "CitizenV3" has established connection with "GovernmentV3" through IssueCredential controller
+    And "CitizenV3" has established DIDComm V2 connection with "GovernmentV3" through IssueCredential controller
 
     When  "GovernmentV3" sends an offer V3 to the "CitizenV3" through IssueCredential controller
     And "CitizenV3" accepts an offer and sends a request to the Issuer through IssueCredential controller
@@ -77,7 +77,7 @@ Feature: Issue Credential using controller API
   Scenario: The Holder begins with a proposal v3
     Given "StudentV3" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
     And "UniversityV3" agent is running on "localhost" port "11011" with controller "https://localhost:11012"
-    And "StudentV3" has established connection with "UniversityV3" through IssueCredential controller
+    And "StudentV3" has established DIDComm V2 connection with "UniversityV3" through IssueCredential controller
 
     When  "StudentV3" sends proposal credential V3 to the "UniversityV3" through IssueCredential controller
     And "UniversityV3" accepts a proposal V3 and sends an offer to the Holder through IssueCredential controller
@@ -108,7 +108,7 @@ Feature: Issue Credential using controller API
   Scenario: The Holder begins with a proposal v3 (negotiation)
     Given "GraduateV3" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
     And "Stanford UniversityV3" agent is running on "localhost" port "11011" with controller "https://localhost:11012"
-    And "GraduateV3" has established connection with "Stanford UniversityV3" through IssueCredential controller
+    And "GraduateV3" has established DIDComm V2 connection with "Stanford UniversityV3" through IssueCredential controller
 
     When  "GraduateV3" sends proposal credential V3 to the "Stanford UniversityV3" through IssueCredential controller
     And "Stanford UniversityV3" accepts a proposal V3 and sends an offer to the Holder through IssueCredential controller

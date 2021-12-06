@@ -21,6 +21,8 @@ import (
 
 const (
 	createConnectionEndpoint = connectionrest.CreateConnectionV2Path
+	connectionBasePath       = connectionrest.OperationID + "/"
+	setConnectionToV2Path    = "/use-v2"
 )
 
 // ControllerSteps holds connection BDD steps using AFGO's REST API.
@@ -102,10 +104,33 @@ func (s *ControllerSteps) connectAgentToOther(agent, other string) error {
 	return nil
 }
 
+// SetConnectionToDIDCommV2 sets the given connection for the given agent to DIDComm V2.
+func (s *ControllerSteps) SetConnectionToDIDCommV2(agent, connID string) error {
+	controllerURL, ok := s.bddContext.GetControllerURL(agent)
+	if !ok {
+		return fmt.Errorf(" unable to find controller URL registered for agent [%s]", agent)
+	}
+
+	path := fmt.Sprintf("%s%s%s%s", controllerURL, connectionBasePath, connID, setConnectionToV2Path)
+
+	err := postToURL(path, connection.IDMessage{
+		ConnectionID: connID,
+	}, nil)
+	if err != nil {
+		return fmt.Errorf("error in request to agent [%s] to set connection [%s] to didcomm v2: %w", agent, connID, err)
+	}
+
+	return nil
+}
+
 func postToURL(url string, payload, resp interface{}) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
-		return err
+		return fmt.Errorf("marshalling payload: %w", err)
+	}
+
+	if resp == nil {
+		return util.SendHTTP(http.MethodPost, url, body, nil)
 	}
 
 	return util.SendHTTP(http.MethodPost, url, body, &resp)

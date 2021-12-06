@@ -21,6 +21,7 @@ import (
 	dispatchermocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/dispatcher"
 	messengermocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/messenger"
 	protocolmocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/presentproof"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
 // payload represents a transport message structure.
@@ -159,7 +160,7 @@ func ExampleClient_SendOffer() {
 	// Bob.
 	waitForBob := waitForFn(clientBob)
 
-	_, err = clientAlice.SendOffer(&OfferCredential{}, Alice, Bob)
+	_, err = clientAlice.SendOffer(&OfferCredential{}, &connection.Record{MyDID: Alice, TheirDID: Bob})
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -252,7 +253,7 @@ func ExampleClient_SendProposal() {
 	// Bob.
 	waitForBob := waitForFn(clientBob)
 
-	_, err = clientBob.SendProposal(&ProposeCredential{}, Bob, Alice)
+	_, err = clientBob.SendProposal(&ProposeCredential{}, &connection.Record{MyDID: Bob, TheirDID: Alice})
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -324,7 +325,7 @@ func ExampleClient_SendRequest() {
 	// Bob.
 	waitForBob := waitForFn(clientBob)
 
-	_, err = clientBob.SendRequest(&RequestCredential{}, Bob, Alice)
+	_, err = clientBob.SendRequest(&RequestCredential{}, &connection.Record{MyDID: Bob, TheirDID: Alice})
 	if err != nil {
 		fmt.Println(err)
 	}

@@ -28,14 +28,14 @@ func (hf HandlerFunc) Handle(metadata Metadata) error {
 type Metadata interface {
 	// Message contains the original inbound/outbound message
 	Message() service.DIDCommMsg
-	// OfferCredential is pointer to the message provided by the user through the Continue function.
-	OfferCredential() *OfferCredential
-	// ProposeCredential is pointer to the message provided by the user through the Continue function.
-	ProposeCredential() *ProposeCredential
+	// OfferCredentialV2 is pointer to the message provided by the user through the Continue function.
+	OfferCredentialV2() *OfferCredentialV2
+	// ProposeCredentialV2 is pointer to the message provided by the user through the Continue function.
+	ProposeCredentialV2() *ProposeCredentialV2
 	// IssueCredential is pointer to the message provided by the user through the Continue function.
-	IssueCredential() *IssueCredential
+	IssueCredentialV2() *IssueCredentialV2
 	// RequestCredential is pointer to message provided by the user through the Continue function.
-	RequestCredential() *RequestCredential
+	RequestCredentialV2() *RequestCredentialV2
 	// CredentialNames is a slice which contains credential names provided by the user through the Continue function.
 	CredentialNames() []string
 	// StateName provides the state name
