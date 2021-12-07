@@ -1048,55 +1048,8 @@ func TestStoreQueryWithSortingAndInitialPageOptions(t *testing.T, provider spi.P
 // TestStoreBatch tests common Store Batch functionality.
 func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // Test file
 	t.Run("Success: put three new values", func(t *testing.T) {
-		storeName := randomStoreName()
-
-		store, err := provider.OpenStore(storeName)
-		require.NoError(t, err)
-		require.NotNil(t, store)
-
-		defer func() {
-			require.NoError(t, store.Close())
-		}()
-
-		err = provider.SetStoreConfig(storeName,
-			spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3"}})
-		require.NoError(t, err)
-
-		key1TagsToStore := []spi.Tag{{Name: "tagName1"}}
-		key2TagsToStore := []spi.Tag{{Name: "tagName2"}}
-		key3TagsToStore := []spi.Tag{{Name: "tagName3"}}
-
-		operations := []spi.Operation{
-			{Key: "key1", Value: []byte("value1"), Tags: key1TagsToStore},
-			{Key: "key2", Value: []byte(`{"field":"value"}`), Tags: key2TagsToStore},
-			{Key: "key3", Value: []byte(`"value3"`), Tags: key3TagsToStore},
-		}
-
-		err = store.Batch(operations)
-		require.NoError(t, err)
-
-		// Check and make sure all values and tags were stored
-
-		value, err := store.Get("key1")
-		require.NoError(t, err)
-		require.Equal(t, "value1", string(value))
-		retrievedTags, err := store.GetTags("key1")
-		require.True(t, equalTags(key1TagsToStore, retrievedTags), "Got unexpected tags")
-		require.NoError(t, err)
-
-		value, err = store.Get("key2")
-		require.NoError(t, err)
-		require.Equal(t, `{"field":"value"}`, string(value))
-		retrievedTags, err = store.GetTags("key2")
-		require.True(t, equalTags(key2TagsToStore, retrievedTags), "Got unexpected tags")
-		require.NoError(t, err)
-
-		value, err = store.Get("key3")
-		require.NoError(t, err)
-		require.Equal(t, `"value3"`, string(value))
-		retrievedTags, err = store.GetTags("key3")
-		require.True(t, equalTags(key3TagsToStore, retrievedTags), "Got unexpected tags")
-		require.NoError(t, err)
+		doBatchTestPutThreeValues(t, provider, false)
+		doBatchTestPutThreeValues(t, provider, true)
 	})
 	t.Run("Success: update three different previously-stored values", func(t *testing.T) {
 		storeName := randomStoreName()
@@ -1218,59 +1171,8 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		require.Nil(t, tags)
 	})
 	t.Run("Success: put one value, update one value, delete one value", func(t *testing.T) {
-		storeName := randomStoreName()
-
-		store, err := provider.OpenStore(storeName)
-		require.NoError(t, err)
-		require.NotNil(t, store)
-
-		defer func() {
-			require.NoError(t, store.Close())
-		}()
-
-		err = provider.SetStoreConfig(storeName,
-			spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3"}})
-		require.NoError(t, err)
-
-		err = store.Put("key1", []byte("value1"), []spi.Tag{{Name: "tagName1", Value: "tagValue1"}}...)
-		require.NoError(t, err)
-
-		err = store.Put("key2", []byte("value2"), []spi.Tag{{Name: "tagName2", Value: "tagValue2"}}...)
-		require.NoError(t, err)
-
-		key3TagsToStore := []spi.Tag{{Name: "tagName3", Value: "tagValue3"}}
-
-		key1UpdatedTagsToStore := []spi.Tag{{Name: "tagName1"}}
-
-		operations := []spi.Operation{
-			{Key: "key3", Value: []byte("value3"), Tags: key3TagsToStore},            // Put
-			{Key: "key1", Value: []byte("value1_new"), Tags: key1UpdatedTagsToStore}, // Update
-			{Key: "key2", Value: nil, Tags: nil},                                     // Delete
-		}
-
-		err = store.Batch(operations)
-		require.NoError(t, err)
-
-		value, err := store.Get("key3")
-		require.NoError(t, err)
-		require.Equal(t, "value3", string(value))
-		retrievedTags, err := store.GetTags("key3")
-		require.True(t, equalTags(key3TagsToStore, retrievedTags), "Got unexpected tags")
-		require.NoError(t, err)
-
-		value, err = store.Get("key1")
-		require.NoError(t, err)
-		require.Equal(t, "value1_new", string(value))
-		retrievedTags, err = store.GetTags("key1")
-		require.True(t, equalTags(key1UpdatedTagsToStore, retrievedTags), "Got unexpected tags")
-		require.NoError(t, err)
-
-		value, err = store.Get("key2")
-		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
-		require.Nil(t, value)
-		retrievedTags, err = store.GetTags("key2")
-		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
-		require.Nil(t, retrievedTags)
+		doBatchTestPutOneUpdateOneDeleteOne(t, provider, false)
+		doBatchTestPutOneUpdateOneDeleteOne(t, provider, false)
 	})
 	t.Run("Success: delete three values, only two of which were previously-stored", func(t *testing.T) {
 		storeName := randomStoreName()
@@ -3712,6 +3614,124 @@ func doStoreQueryWithSortingAndInitialPageOptionsTests(t *testing.T, // nolint: 
 			})
 		})
 	})
+}
+
+func doBatchTestPutThreeValues(t *testing.T, provider spi.Provider, useNewKeyOptimization bool) {
+	storeName := randomStoreName()
+
+	store, err := provider.OpenStore(storeName)
+	require.NoError(t, err)
+	require.NotNil(t, store)
+
+	defer func() {
+		require.NoError(t, store.Close())
+	}()
+
+	err = provider.SetStoreConfig(storeName,
+		spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3"}})
+	require.NoError(t, err)
+
+	key1TagsToStore := []spi.Tag{{Name: "tagName1"}}
+	key2TagsToStore := []spi.Tag{{Name: "tagName2"}}
+	key3TagsToStore := []spi.Tag{{Name: "tagName3"}}
+
+	putOptions := &spi.PutOptions{IsNewKey: useNewKeyOptimization}
+
+	operations := []spi.Operation{
+		{Key: "key1", Value: []byte("value1"), Tags: key1TagsToStore, PutOptions: putOptions},
+		{Key: "key2", Value: []byte(`{"field":"value"}`), Tags: key2TagsToStore, PutOptions: putOptions},
+		{Key: "key3", Value: []byte(`"value3"`), Tags: key3TagsToStore, PutOptions: putOptions},
+	}
+
+	err = store.Batch(operations)
+	require.NoError(t, err)
+
+	// Check and make sure all values and tags were stored
+
+	value, err := store.Get("key1")
+	require.NoError(t, err)
+	require.Equal(t, "value1", string(value))
+
+	retrievedTags, err := store.GetTags("key1")
+	require.True(t, equalTags(key1TagsToStore, retrievedTags), "Got unexpected tags")
+	require.NoError(t, err)
+
+	value, err = store.Get("key2")
+	require.NoError(t, err)
+	require.Equal(t, `{"field":"value"}`, string(value))
+
+	retrievedTags, err = store.GetTags("key2")
+	require.True(t, equalTags(key2TagsToStore, retrievedTags), "Got unexpected tags")
+	require.NoError(t, err)
+
+	value, err = store.Get("key3")
+	require.NoError(t, err)
+	require.Equal(t, `"value3"`, string(value))
+
+	retrievedTags, err = store.GetTags("key3")
+	require.True(t, equalTags(key3TagsToStore, retrievedTags), "Got unexpected tags")
+	require.NoError(t, err)
+}
+
+func doBatchTestPutOneUpdateOneDeleteOne(t *testing.T, provider spi.Provider, useNewKeyOptimization bool) {
+	storeName := randomStoreName()
+
+	store, err := provider.OpenStore(storeName)
+	require.NoError(t, err)
+	require.NotNil(t, store)
+
+	defer func() {
+		require.NoError(t, store.Close())
+	}()
+
+	err = provider.SetStoreConfig(storeName,
+		spi.StoreConfiguration{TagNames: []string{"tagName1", "tagName2", "tagName3"}})
+	require.NoError(t, err)
+
+	err = store.Put("key1", []byte("value1"), []spi.Tag{{Name: "tagName1", Value: "tagValue1"}}...)
+	require.NoError(t, err)
+
+	err = store.Put("key2", []byte("value2"), []spi.Tag{{Name: "tagName2", Value: "tagValue2"}}...)
+	require.NoError(t, err)
+
+	key3TagsToStore := []spi.Tag{{Name: "tagName3", Value: "tagValue3"}}
+
+	key1UpdatedTagsToStore := []spi.Tag{{Name: "tagName1"}}
+
+	putOptions := &spi.PutOptions{IsNewKey: useNewKeyOptimization}
+
+	operations := []spi.Operation{
+		{Key: "key3", Value: []byte("value3"), Tags: key3TagsToStore, PutOptions: putOptions}, // Put
+		{Key: "key1", Value: []byte("value1_new"), Tags: key1UpdatedTagsToStore},              // Update
+		{Key: "key2", Value: nil, Tags: nil},                                                  // Delete
+	}
+
+	err = store.Batch(operations)
+	require.NoError(t, err)
+
+	value, err := store.Get("key3")
+	require.NoError(t, err)
+	require.Equal(t, "value3", string(value))
+
+	retrievedTags, err := store.GetTags("key3")
+	require.True(t, equalTags(key3TagsToStore, retrievedTags), "Got unexpected tags")
+	require.NoError(t, err)
+
+	value, err = store.Get("key1")
+	require.NoError(t, err)
+	require.Equal(t, "value1_new", string(value))
+
+	retrievedTags, err = store.GetTags("key1")
+	require.True(t, equalTags(key1UpdatedTagsToStore, retrievedTags), "Got unexpected tags")
+	require.NoError(t, err)
+
+	value, err = store.Get("key2")
+	require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
+	require.Nil(t, value)
+
+	retrievedTags, err = store.GetTags("key2")
+	require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
+	require.Nil(t, retrievedTags)
 }
 
 func determineWhetherToCheckIteratorTotalItemCounts(options testOptions, storeConfigWasSet bool) bool {

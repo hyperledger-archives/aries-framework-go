@@ -17,7 +17,6 @@ import (
 
 	"github.com/gorilla/mux"
 
-	client "github.com/hyperledger/aries-framework-go/pkg/client/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
@@ -53,7 +52,7 @@ type Operation struct {
 }
 
 // New returns new present proof rest client protocol instance.
-func New(ctx client.Provider, notifier command.Notifier) (*Operation, error) {
+func New(ctx presentproof.Provider, notifier command.Notifier) (*Operation, error) {
 	cmd, err := presentproof.New(ctx, notifier)
 	if err != nil {
 		return nil, fmt.Errorf("present proof command : %w", err)
@@ -123,7 +122,7 @@ func (c *Operation) SendRequestPresentation(rw http.ResponseWriter, req *http.Re
 //    default: genericError
 //        200: presentProofSendRequestPresentationResponse
 func (c *Operation) SendRequestPresentationV3(rw http.ResponseWriter, req *http.Request) {
-	rest.Execute(c.command.SendRequestPresentationV3, rw, req.Body)
+	rest.Execute(c.command.SendRequestPresentation, rw, req.Body)
 }
 
 // SendProposePresentation swagger:route POST /presentproof/send-propose-presentation present-proof presentProofSendProposePresentation
@@ -145,7 +144,7 @@ func (c *Operation) SendProposePresentation(rw http.ResponseWriter, req *http.Re
 //    default: genericError
 //        200: presentProofSendProposePresentationResponse
 func (c *Operation) SendProposePresentationV3(rw http.ResponseWriter, req *http.Request) {
-	rest.Execute(c.command.SendProposePresentationV3, rw, req.Body)
+	rest.Execute(c.command.SendProposePresentation, rw, req.Body)
 }
 
 // AcceptProblemReport swagger:route POST /presentproof/{piid}/accept-problem-report present-proof presentProofAcceptProblemReport
@@ -183,7 +182,7 @@ func (c *Operation) AcceptRequestPresentation(rw http.ResponseWriter, req *http.
 //        200: presentProofAcceptRequestPresentationResponse
 func (c *Operation) AcceptRequestPresentationV3(rw http.ResponseWriter, req *http.Request) {
 	if ok, r := toCommandRequest(rw, req, true); ok {
-		rest.Execute(c.command.AcceptRequestPresentationV3, rw, r)
+		rest.Execute(c.command.AcceptRequestPresentation, rw, r)
 	}
 }
 
@@ -209,7 +208,7 @@ func (c *Operation) AcceptProposePresentation(rw http.ResponseWriter, req *http.
 //        200: presentProofAcceptProposePresentationResponse
 func (c *Operation) AcceptProposePresentationV3(rw http.ResponseWriter, req *http.Request) {
 	if ok, r := toCommandRequest(rw, req, true); ok {
-		rest.Execute(c.command.AcceptProposePresentationV3, rw, r)
+		rest.Execute(c.command.AcceptProposePresentation, rw, r)
 	}
 }
 
@@ -248,7 +247,7 @@ func (c *Operation) NegotiateRequestPresentation(rw http.ResponseWriter, req *ht
 //        200: presentProofNegotiateRequestPresentationResponse
 func (c *Operation) NegotiateRequestPresentationV3(rw http.ResponseWriter, req *http.Request) {
 	if ok, r := toCommandRequest(rw, req, true); ok {
-		rest.Execute(c.command.NegotiateRequestPresentationV3, rw, r)
+		rest.Execute(c.command.NegotiateRequestPresentation, rw, r)
 	}
 }
 

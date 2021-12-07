@@ -23,11 +23,12 @@ require (
 	github.com/hyperledger/aries-framework-go v0.1.7-0.20210603210127-e57b8c94e3cf
 	github.com/hyperledger/aries-framework-go/component/storage/leveldb v0.0.0-20210820175050-dcc7a225178d
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210820175050-dcc7a225178d
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210902194940-97c6f2cded6c
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20211203210130-e927c9ed581a
 	github.com/moby/sys/mount v0.2.0 // indirect
 	github.com/moby/term v0.0.0-20201110203204-bea5bbe245bf // indirect
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/piprate/json-gold v0.4.1-0.20210813112359-33b90c4ca86c
+	github.com/teserakt-io/golang-ed25519 v0.0.0-20210104091850-3888c087a4c8
 	github.com/trustbloc/sidetree-core-go v0.6.0
 	go.opencensus.io v0.22.5 // indirect
 	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a // indirect

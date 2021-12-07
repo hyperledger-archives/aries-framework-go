@@ -696,6 +696,8 @@ func (s *Service) CreateConnection(record *connection.Record, theirDID *did.Doc)
 		return fmt.Errorf("failed to save myDID to the did.ConnectionStore: %w", err)
 	}
 
+	record.DIDCommVersion = service.V1
+
 	return s.connectionRecorder.SaveConnectionRecord(record)
 }
 
@@ -740,11 +742,12 @@ func (s *Service) oobInvitationMsgRecord(msg service.DIDCommMsg) (*connection.Re
 		ParentThreadID:    oobInvitation.ThreadID,
 		State:             stateNameNull,
 		InvitationID:      oobInvitation.ID,
-		ServiceEndPoint:   svc.ServiceEndpoint,
-		RecipientKeys:     svc.RecipientKeys,
+		ServiceEndPoint:   svc.ServiceEndpoint, // TODO: service endpoint should be 'theirs' not 'mine'.
+		RecipientKeys:     svc.RecipientKeys,   // TODO: recipient keys should be 'theirs' not 'mine'.
 		TheirLabel:        oobInvitation.TheirLabel,
 		Namespace:         findNamespace(msg.Type()),
 		MediaTypeProfiles: svc.Accept,
+		DIDCommVersion:    service.V1,
 	}
 
 	publicDID, ok := oobInvitation.Target.(string)
@@ -788,6 +791,7 @@ func (s *Service) invitationMsgRecord(msg service.DIDCommMsg) (*connection.Recor
 		RecipientKeys:   []string{recKey},
 		TheirLabel:      invitation.Label,
 		Namespace:       findNamespace(msg.Type()),
+		DIDCommVersion:  service.V1,
 	}
 
 	if err := s.connectionRecorder.SaveConnectionRecord(connRecord); err != nil {
@@ -843,12 +847,13 @@ func (s *Service) requestMsgRecord(msg service.DIDCommMsg) (*connection.Record, 
 	}
 
 	connRecord := &connection.Record{
-		TheirLabel:   request.Label,
-		ConnectionID: generateRandomID(),
-		ThreadID:     request.ID,
-		State:        stateNameNull,
-		InvitationID: invitationID,
-		Namespace:    theirNSPrefix,
+		TheirLabel:     request.Label,
+		ConnectionID:   generateRandomID(),
+		ThreadID:       request.ID,
+		State:          stateNameNull,
+		InvitationID:   invitationID,
+		Namespace:      theirNSPrefix,
+		DIDCommVersion: service.V1,
 	}
 
 	connRecord.TheirDID = request.DID

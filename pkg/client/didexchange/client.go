@@ -40,6 +40,7 @@ var ErrConnectionNotFound = errors.New("connection not found")
 type options struct {
 	routerConnections  []string
 	routerConnectionID string
+	keyType            kms.KeyType
 }
 
 func applyOptions(args ...Opt) *options {
@@ -74,6 +75,14 @@ func WithRouterConnections(conns ...string) Opt {
 				opts.routerConnections = append(opts.routerConnections, conn)
 			}
 		}
+	}
+}
+
+// WithKeyType sets the key type to use in the didexchange invitation. DIDcomm v1 requires ED25519 key type, while
+// DIDComm V2 requires either NISTP(256/384/521)ECDHKW key type or X25519ECDHKW key type.
+func WithKeyType(keyType kms.KeyType) InvOpt {
+	return func(opts *options) {
+		opts.keyType = keyType
 	}
 }
 
@@ -190,11 +199,15 @@ func (c *Client) CreateInvitation(label string, args ...InvOpt) (*Invitation, er
 
 	keyType := c.keyType
 
-	for _, mediaType := range c.mediaTypeProfiles {
-		if mediaType == transport.MediaTypeDIDCommV2Profile || mediaType == transport.MediaTypeAIP2RFC0587Profile {
-			keyType = c.keyAgreementType
+	if opts.keyType != "" {
+		keyType = opts.keyType
+	} else {
+		for _, mediaType := range c.mediaTypeProfiles {
+			if mediaType == transport.MediaTypeDIDCommV2Profile || mediaType == transport.MediaTypeAIP2RFC0587Profile {
+				keyType = c.keyAgreementType
 
-			break
+				break
+			}
 		}
 	}
 

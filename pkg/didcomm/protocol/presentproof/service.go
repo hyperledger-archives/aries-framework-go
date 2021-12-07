@@ -16,6 +16,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
@@ -59,6 +60,13 @@ const (
 	transitionalPayloadKey = "transitionalPayload_%s"
 )
 
+type version string
+
+const (
+	version2 = version("present-proof V2")
+	version3 = version("present-proof V3")
+)
+
 // nolint:gochecknoglobals
 var (
 	logger         = log.New("aries-framework/presentproof/service")
@@ -74,10 +82,11 @@ type customError struct{ error }
 // transitionalPayload keeps payload needed for Continue function to proceed with the action.
 type transitionalPayload struct {
 	Action
-	StateName   string
-	AckRequired bool
-	Direction   messageDirection
-	Properties  map[string]interface{}
+	StateName       string
+	AckRequired     bool
+	Direction       messageDirection
+	ProtocolVersion version
+	Properties      map[string]interface{}
 }
 
 type messageDirection string
@@ -94,9 +103,9 @@ type metaData struct {
 	presentationNames     []string
 	properties            map[string]interface{}
 	msgClone              service.DIDCommMsg
-	presentation          *Presentation
-	proposePresentation   *ProposePresentation
-	request               *RequestPresentation
+	presentation          *PresentationV2
+	proposePresentation   *ProposePresentationV2
+	request               *RequestPresentationV2
 	presentationV3        *PresentationV3
 	proposePresentationV3 *ProposePresentationV3
 	requestV3             *RequestPresentationV3
@@ -112,7 +121,7 @@ func (md *metaData) Message() service.DIDCommMsg {
 	return md.msgClone
 }
 
-func (md *metaData) Presentation() *Presentation {
+func (md *metaData) Presentation() *PresentationV2 {
 	return md.presentation
 }
 
@@ -120,7 +129,7 @@ func (md *metaData) PresentationV3() *PresentationV3 {
 	return md.presentationV3
 }
 
-func (md *metaData) ProposePresentation() *ProposePresentation {
+func (md *metaData) ProposePresentation() *ProposePresentationV2 {
 	return md.proposePresentation
 }
 
@@ -128,7 +137,7 @@ func (md *metaData) ProposePresentationV3() *ProposePresentationV3 {
 	return md.proposePresentationV3
 }
 
-func (md *metaData) RequestPresentation() *RequestPresentation {
+func (md *metaData) RequestPresentation() *RequestPresentationV2 {
 	return md.request
 }
 
@@ -165,18 +174,29 @@ type Action struct {
 type Opt func(md *metaData)
 
 // WithPresentation allows providing Presentation message
-// USAGE: This message can be provided after receiving a Invitation message.
-func WithPresentation(msg *Presentation) Opt {
+// USAGE: This message can be provided after receiving an Invitation message.
+func WithPresentation(pp *PresentationParams) Opt {
 	return func(md *metaData) {
-		md.presentation = msg
-	}
-}
-
-// WithPresentationV3 allows providing PresentationV3 message
-// USAGE: This message can be provided after receiving a Invitation message.
-func WithPresentationV3(msg *PresentationV3) Opt {
-	return func(md *metaData) {
-		md.presentationV3 = msg
+		switch md.ProtocolVersion {
+		default:
+			fallthrough
+		case version2:
+			md.presentation = &PresentationV2{
+				Type:                PresentationMsgTypeV2,
+				Comment:             pp.Comment,
+				Formats:             pp.Formats,
+				PresentationsAttach: decorator.GenericAttachmentsToV1(pp.Attachments),
+			}
+		case version3:
+			md.presentationV3 = &PresentationV3{
+				Type: PresentationMsgTypeV3,
+				Body: PresentationV3Body{
+					GoalCode: pp.GoalCode,
+					Comment:  pp.Comment,
+				},
+				Attachments: decorator.GenericAttachmentsToV2(pp.Attachments),
+			}
+		}
 	}
 }
 
@@ -198,34 +218,60 @@ func WithMultiOptions(opts ...Opt) Opt {
 }
 
 // WithProposePresentation allows providing ProposePresentation message
-// USAGE: This message can be provided after receiving a Invitation message.
-func WithProposePresentation(msg *ProposePresentation) Opt {
+// USAGE: This message can be provided after receiving an Invitation message.
+func WithProposePresentation(pp *ProposePresentationParams) Opt {
 	return func(md *metaData) {
-		md.proposePresentation = msg
-	}
-}
-
-// WithProposePresentationV3 allows providing ProposePresentationV3 message
-// USAGE: This message can be provided after receiving a Invitation message.
-func WithProposePresentationV3(msg *ProposePresentationV3) Opt {
-	return func(md *metaData) {
-		md.proposePresentationV3 = msg
+		switch md.ProtocolVersion {
+		default:
+			fallthrough
+		case version2:
+			md.proposePresentation = &ProposePresentationV2{
+				Type:            ProposePresentationMsgTypeV2,
+				Comment:         pp.Comment,
+				Formats:         pp.Formats,
+				ProposalsAttach: decorator.GenericAttachmentsToV1(pp.Attachments),
+			}
+		case version3:
+			md.proposePresentationV3 = &ProposePresentationV3{
+				Type: ProposePresentationMsgTypeV3,
+				Body: ProposePresentationV3Body{
+					GoalCode: pp.GoalCode,
+					Comment:  pp.Comment,
+				},
+				Attachments: decorator.GenericAttachmentsToV2(pp.Attachments),
+			}
+		}
 	}
 }
 
 // WithRequestPresentation allows providing RequestPresentation message
 // USAGE: This message can be provided after receiving a propose message.
-func WithRequestPresentation(msg *RequestPresentation) Opt {
+func WithRequestPresentation(msg *RequestPresentationParams) Opt {
 	return func(md *metaData) {
-		md.request = msg
-	}
-}
-
-// WithRequestPresentationV3 allows providing RequestPresentation message
-// USAGE: This message can be provided after receiving a propose message.
-func WithRequestPresentationV3(msg *RequestPresentationV3) Opt {
-	return func(md *metaData) {
-		md.requestV3 = msg
+		switch md.ProtocolVersion {
+		default:
+			fallthrough
+		case version2:
+			md.request = &RequestPresentationV2{
+				ID:                         uuid.New().String(),
+				Type:                       RequestPresentationMsgTypeV2,
+				Comment:                    msg.Comment,
+				WillConfirm:                msg.WillConfirm,
+				Formats:                    msg.Formats,
+				RequestPresentationsAttach: decorator.GenericAttachmentsToV1(msg.Attachments),
+			}
+		case version3:
+			md.requestV3 = &RequestPresentationV3{
+				ID:   uuid.New().String(),
+				Type: RequestPresentationMsgTypeV3,
+				Body: RequestPresentationV3Body{
+					GoalCode:    msg.GoalCode,
+					Comment:     msg.Comment,
+					WillConfirm: msg.WillConfirm,
+				},
+				Attachments: decorator.GenericAttachmentsToV2(msg.Attachments),
+			}
+		}
 	}
 }
 
@@ -337,9 +383,9 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, ctx service.DIDCommConte
 		return "", errors.New("no clients are registered to handle the message")
 	}
 
-	md, err := s.doHandle(msgMap, inboundMessage)
+	md, err := s.buildMetaData(msgMap, inboundMessage)
 	if err != nil {
-		return "", fmt.Errorf("doHandle: %w", err)
+		return "", fmt.Errorf("buildMetaData: %w", err)
 	}
 
 	md.MyDID = ctx.MyDID()
@@ -371,9 +417,9 @@ func (s *Service) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string)
 
 	msgMap := msg.Clone()
 
-	md, err := s.doHandle(msgMap, outboundMessage)
+	md, err := s.buildMetaData(msgMap, outboundMessage)
 	if err != nil {
-		return "", fmt.Errorf("doHandle: %w", err)
+		return "", fmt.Errorf("buildMetaData: %w", err)
 	}
 
 	md.MyDID = myDID
@@ -388,19 +434,32 @@ func (s *Service) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string)
 	return thid, s.handle(md)
 }
 
-func (s *Service) getCurrentInternalDataAndPIID(msg service.DIDCommMsg) (string, *internalData, error) {
+func (s *Service) getCurrentInternalDataAndPIID(msg service.DIDCommMsgMap) (string, *internalData, error) {
+	var protocolVersion version
+
+	isV2, err := service.IsDIDCommV2(&msg)
+	if err != nil {
+		return "", nil, fmt.Errorf("checking message version: %w", err)
+	}
+
+	if isV2 {
+		protocolVersion = version3
+	} else {
+		protocolVersion = version2
+	}
+
 	piID, err := getPIID(msg)
 	if errors.Is(err, service.ErrThreadIDNotFound) {
 		msg.SetID(uuid.New().String(), service.WithVersion(getDIDVersion(getVersion(msg.Type()))))
 
-		return msg.ID(), &internalData{StateName: stateNameStart}, nil
+		return msg.ID(), &internalData{StateName: stateNameStart, ProtocolVersion: protocolVersion}, nil
 	}
 
 	if err != nil {
 		return "", nil, fmt.Errorf("piID: %w", err)
 	}
 
-	data, err := s.currentInternalData(piID)
+	data, err := s.currentInternalData(piID, protocolVersion)
 	if err != nil {
 		return "", nil, fmt.Errorf("current internal data: %w", err)
 	}
@@ -408,7 +467,7 @@ func (s *Service) getCurrentInternalDataAndPIID(msg service.DIDCommMsg) (string,
 	return piID, data, nil
 }
 
-func (s *Service) doHandle(msg service.DIDCommMsgMap, direction messageDirection) (*metaData, error) {
+func (s *Service) buildMetaData(msg service.DIDCommMsgMap, direction messageDirection) (*metaData, error) {
 	piID, data, err := s.getCurrentInternalDataAndPIID(msg)
 	if err != nil {
 		return nil, fmt.Errorf("current internal data and PIID: %w", err)
@@ -433,8 +492,9 @@ func (s *Service) doHandle(msg service.DIDCommMsgMap, direction messageDirection
 				Msg:  msg,
 				PIID: piID,
 			},
-			Direction:  direction,
-			Properties: next.Properties(),
+			Direction:       direction,
+			ProtocolVersion: data.ProtocolVersion,
+			Properties:      next.Properties(),
 		},
 		properties: next.Properties(),
 		state:      next,
@@ -484,7 +544,12 @@ func (s *Service) handle(md *metaData) error {
 		}
 
 		// WARN: md.ackRequired is being modified by requestSent state
-		data := &internalData{StateName: current.Name(), AckRequired: md.AckRequired}
+		data := &internalData{
+			StateName:       current.Name(),
+			AckRequired:     md.AckRequired,
+			ProtocolVersion: md.ProtocolVersion,
+		}
+
 		if err := s.saveInternalData(md.PIID, data); err != nil {
 			return fmt.Errorf("failed to persist state %s: %w", current.Name(), err)
 		}
@@ -508,8 +573,9 @@ func getPIID(msg service.DIDCommMsg) (string, error) {
 }
 
 type internalData struct {
-	AckRequired bool
-	StateName   string
+	AckRequired     bool
+	StateName       string
+	ProtocolVersion version
 }
 
 func (s *Service) saveInternalData(piID string, data *internalData) error {
@@ -521,10 +587,10 @@ func (s *Service) saveInternalData(piID string, data *internalData) error {
 	return s.store.Put(internalDataKey+piID, src)
 }
 
-func (s *Service) currentInternalData(piID string) (*internalData, error) {
+func (s *Service) currentInternalData(piID string, protocolVersion version) (*internalData, error) {
 	src, err := s.store.Get(internalDataKey + piID)
 	if errors.Is(err, storage.ErrDataNotFound) {
-		return &internalData{StateName: stateNameStart}, nil
+		return &internalData{StateName: stateNameStart, ProtocolVersion: protocolVersion}, nil
 	}
 
 	if err != nil {

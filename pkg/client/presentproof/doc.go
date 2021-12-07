@@ -31,16 +31,16 @@ SPDX-License-Identifier: Apache-2.0
 //
 //        if event.Message.Type() == presentproof.ProposePresentationMsgType {
 //          // If Verifier is willing to accept the proposal.
-//          client.AcceptProposePresentation(piid, &RequestPresentation{})
+//          client.AcceptProposePresentationV2(piid, &RequestPresentationV2{})
 //          // If Verifier is not willing to accept the proposal.
 //          client.DeclineProposePresentation(piid, reason)
 //        }
 //
 //        if event.Message.Type() == presentproof.RequestPresentationMsgType {
 //          // If Prover is willing to accept a request.
-//          client.AcceptRequestPresentation(piid, &Presentation{})
+//          client.AcceptRequestPresentationV2(piid, &PresentationV2{})
 //          // If Prover wants to counter a request they received with a proposal.
-//          client.NegotiateRequestPresentation(piid, &ProposePresentation{})
+//          client.NegotiateRequestPresentationV2(piid, &ProposePresentationV2{})
 //          // If Prover is not willing to accept a request.
 //          client.DeclineRequestPresentation(piid, reason)
 //        }
@@ -63,8 +63,8 @@ SPDX-License-Identifier: Apache-2.0
 // How to initiate the protocol?
 // The protocol can be initiated by the Verifier or by the Prover.
 // Prover initiates the protocol.
-//  client.SendProposePresentation(&ProposePresentation{}, myDID, theirDID)
+//  client.SendProposePresentationV2(&ProposePresentationV2{}, myDID, theirDID)
 // Verifier initiates the protocol.
-//  client.SendRequestPresentation(&RequestPresentation{}, myDID, theirDID)
+//  client.SendRequestPresentationV2(&RequestPresentationV2{}, myDID, theirDID)
 //
 package presentproof

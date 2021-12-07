@@ -15,6 +15,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/didrotate"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher/inbound"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher/outbound"
@@ -50,6 +51,7 @@ type Aries struct {
 	protocolStateStoreProvider storage.Provider
 	protocolSvcCreators        []api.ProtocolSvcCreator
 	services                   []dispatcher.ProtocolService
+	servicesMsgTypeTargets     []dispatcher.MessageTypeTarget
 	msgSvcProvider             api.MessageServiceProvider
 	outboundDispatcher         dispatcher.Outbound
 	messenger                  service.MessengerHandler
@@ -79,6 +81,7 @@ type Aries struct {
 	keyAgreementType           kms.KeyType
 	mediaTypeProfiles          []string
 	inboundEnvelopeHandler     inbound.MessageHandler
+	didRotator                 didrotate.DIDRotator
 }
 
 // Option configures the framework.
@@ -130,6 +133,11 @@ func initializeServices(frameworkOpts *Aries) (*Aries, error) {
 
 	// create packers and packager (must be done after KMS and connection store)
 	if err := createPackersAndPackager(frameworkOpts); err != nil {
+		return nil, err
+	}
+
+	// Create DID rotator
+	if err := createDIDRotator(frameworkOpts); err != nil {
 		return nil, err
 	}
 
@@ -354,6 +362,14 @@ func WithMediaTypeProfiles(mediaTypeProfiles []string) Option {
 	}
 }
 
+// WithServiceMsgTypeTargets injects service msg type to target mappings in the context.
+func WithServiceMsgTypeTargets(msgTypeTargets ...dispatcher.MessageTypeTarget) Option {
+	return func(opts *Aries) error {
+		opts.servicesMsgTypeTargets = msgTypeTargets
+		return nil
+	}
+}
+
 // Context provides a handle to the framework context.
 func (a *Aries) Context() (*context.Provider, error) {
 	return context.New(
@@ -382,6 +398,9 @@ func (a *Aries) Context() (*context.Provider, error) {
 		context.WithKeyType(a.keyType),
 		context.WithKeyAgreementType(a.keyAgreementType),
 		context.WithMediaTypeProfiles(a.mediaTypeProfiles),
+		context.WithServiceMsgTypeTargets(a.servicesMsgTypeTargets...),
+		context.WithDIDRotator(&a.didRotator),
+		context.WithInboundEnvelopeHandler(&a.inboundEnvelopeHandler),
 	)
 }
 
@@ -505,6 +524,28 @@ func createMessengerHandler(frameworkOpts *Aries) error {
 	return err
 }
 
+func createDIDRotator(frameworkOpts *Aries) error {
+	ctx, err := context.New(
+		context.WithKMS(frameworkOpts.kms),
+		context.WithCrypto(frameworkOpts.crypto),
+		context.WithVDRegistry(frameworkOpts.vdrRegistry),
+		context.WithStorageProvider(frameworkOpts.storeProvider),
+		context.WithProtocolStateStorageProvider(frameworkOpts.protocolStateStoreProvider),
+	)
+	if err != nil {
+		return fmt.Errorf("context creation failed: %w", err)
+	}
+
+	dr, err := didrotate.New(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to init did rotator: %w", err)
+	}
+
+	frameworkOpts.didRotator = *dr
+
+	return nil
+}
+
 func createOutboundDispatcher(frameworkOpts *Aries) error {
 	ctx, err := context.New(
 		context.WithKMS(frameworkOpts.kms),
@@ -517,6 +558,7 @@ func createOutboundDispatcher(frameworkOpts *Aries) error {
 		context.WithProtocolStateStorageProvider(frameworkOpts.protocolStateStoreProvider),
 		context.WithMediaTypeProfiles(frameworkOpts.mediaTypeProfiles),
 		context.WithKeyAgreementType(frameworkOpts.keyAgreementType),
+		context.WithDIDRotator(&frameworkOpts.didRotator),
 	)
 	if err != nil {
 		return fmt.Errorf("context creation failed: %w", err)
@@ -644,7 +686,7 @@ func startTransports(frameworkOpts *Aries) error {
 	return nil
 }
 
-func loadServices(frameworkOpts *Aries) error {
+func loadServices(frameworkOpts *Aries) error { // nolint:funlen
 	// uninitialized
 	frameworkOpts.inboundEnvelopeHandler = inbound.MessageHandler{}
 
@@ -667,6 +709,8 @@ func loadServices(frameworkOpts *Aries) error {
 		context.WithKeyAgreementType(frameworkOpts.keyAgreementType),
 		context.WithMediaTypeProfiles(frameworkOpts.mediaTypeProfiles),
 		context.WithInboundEnvelopeHandler(&frameworkOpts.inboundEnvelopeHandler),
+		context.WithServiceMsgTypeTargets(frameworkOpts.servicesMsgTypeTargets...),
+		context.WithDIDRotator(&frameworkOpts.didRotator),
 	)
 	if err != nil {
 		return fmt.Errorf("create context failed: %w", err)

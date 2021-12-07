@@ -9,7 +9,6 @@ package webkms
 import (
 	"bytes"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,9 +19,11 @@ import (
 	"time"
 
 	"github.com/bluele/gcache"
+	"github.com/google/tink/go/keyset"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 	webkmsimpl "github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
 	spi "github.com/hyperledger/aries-framework-go/spi/log"
 )
@@ -35,75 +36,101 @@ type HTTPClient interface {
 }
 
 type encryptReq struct {
-	Message        string `json:"message,omitempty"`
-	AdditionalData string `json:"aad,omitempty"`
+	Message        []byte `json:"message"`
+	AssociatedData []byte `json:"associated_data,omitempty"`
 }
 
 type encryptResp struct {
-	CipherText string `json:"cipherText,omitempty"`
-	Nonce      string `json:"nonce,omitempty"`
+	Ciphertext []byte `json:"ciphertext"`
+	Nonce      []byte `json:"nonce"`
 }
 
 type decryptReq struct {
-	CipherText     string `json:"cipherText,omitempty"`
-	AdditionalData string `json:"aad,omitempty"`
-	Nonce          string `json:"nonce,omitempty"`
+	Ciphertext     []byte `json:"ciphertext"`
+	AssociatedData []byte `json:"associated_data,omitempty"`
+	Nonce          []byte `json:"nonce"`
 }
 
 type decryptResp struct {
-	PlainText string `json:"plainText,omitempty"`
+	Plaintext []byte `json:"plaintext"`
 }
 
 type signReq struct {
-	Message string `json:"message,omitempty"`
-}
-
-type signMultiReq struct {
-	Messages []string `json:"messages,omitempty"`
-}
-
-type deriveProofReq struct {
-	Messages        []string `json:"messages,omitempty"`
-	Signature       string   `json:"signature,omitempty"`
-	Nonce           string   `json:"nonce,omitempty"`
-	RevealedIndexes []int    `json:"revealedIndexes,omitempty"`
+	Message []byte `json:"message"`
 }
 
 type signResp struct {
-	Signature string `json:"signature,omitempty"`
+	Signature []byte `json:"signature"`
+}
+
+type signMultiReq struct {
+	Messages [][]byte `json:"messages"`
+}
+
+type deriveProofReq struct {
+	Messages        [][]byte `json:"messages"`
+	Signature       []byte   `json:"signature"`
+	Nonce           []byte   `json:"nonce"`
+	RevealedIndexes []int    `json:"revealed_indexes"`
 }
 
 type deriveProofResp struct {
-	Proof string `json:"proof,omitempty"`
+	Proof []byte `json:"proof"`
 }
 
 type verifyReq struct {
-	Signature string `json:"signature,omitempty"`
-	Message   string `json:"message,omitempty"`
+	Signature []byte `json:"signature"`
+	Message   []byte `json:"message"`
 }
 
 type verifyProofReq struct {
-	Proof    string   `json:"proof,omitempty"`
-	Messages []string `json:"messages,omitempty"`
-	Nonce    string   `json:"nonce,omitempty"`
+	Proof    []byte   `json:"proof"`
+	Messages [][]byte `json:"messages"`
+	Nonce    []byte   `json:"nonce"`
 }
 
 type verifyMultiReq struct {
-	Signature string   `json:"signature,omitempty"`
-	Messages  []string `json:"messages,omitempty"`
+	Signature []byte   `json:"signature"`
+	Messages  [][]byte `json:"messages"`
 }
 
 type computeMACReq struct {
-	Data string `json:"data,omitempty"`
+	Data []byte `json:"data"`
 }
 
 type computeMACResp struct {
-	MAC string `json:"mac,omitempty"`
+	MAC []byte `json:"mac"`
 }
 
 type verifyMACReq struct {
-	MAC  string `json:"mac,omitempty"`
-	Data string `json:"data,omitempty"`
+	MAC  []byte `json:"mac"`
+	Data []byte `json:"data"`
+}
+
+// wrapKeyReq serializable WrapKey request.
+type wrapKeyReq struct {
+	CEK             []byte            `json:"cek"`
+	APU             []byte            `json:"apu"`
+	APV             []byte            `json:"apv"`
+	RecipientPubKey *crypto.PublicKey `json:"recipient_pub_key"`
+	Tag             []byte            `json:"tag,omitempty"`
+}
+
+// wrapKeyResp serializable WrapKey response.
+type wrapKeyResp struct {
+	crypto.RecipientWrappedKey
+}
+
+// unwrapKeyReq serializable UnwrapKey request.
+type unwrapKeyReq struct {
+	WrappedKey   crypto.RecipientWrappedKey `json:"wrapped_key"`
+	SenderPubKey *crypto.PublicKey          `json:"sender_pub_key,omitempty"`
+	Tag          []byte                     `json:"tag,omitempty"`
+}
+
+// unwrapKeyResp serializable UnwrapKey response.
+type unwrapKeyResp struct {
+	Key []byte `json:"key"`
 }
 
 type marshalFunc func(interface{}) ([]byte, error)
@@ -199,8 +226,8 @@ func (r *RemoteCrypto) Encrypt(msg, aad []byte, keyURL interface{}) ([]byte, []b
 	destination := fmt.Sprintf("%s", keyURL) + encryptURI
 
 	eReq := encryptReq{
-		Message:        base64.URLEncoding.EncodeToString(msg),
-		AdditionalData: base64.URLEncoding.EncodeToString(aad),
+		Message:        msg,
+		AssociatedData: aad,
 	}
 
 	httpReqBytes, err := r.marshalFunc(eReq)
@@ -216,6 +243,10 @@ func (r *RemoteCrypto) Encrypt(msg, aad []byte, keyURL interface{}) ([]byte, []b
 	// handle response
 	defer closeResponseBody(resp.Body, logger, "Encrypt")
 
+	if resp.StatusCode != http.StatusOK {
+		return nil, nil, fmt.Errorf("posting Encrypt returned http error: %s", resp.Status)
+	}
+
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, nil, fmt.Errorf("read encryption response for Encrypt failed [%s, %w]", destination, err)
@@ -228,19 +259,9 @@ func (r *RemoteCrypto) Encrypt(msg, aad []byte, keyURL interface{}) ([]byte, []b
 		return nil, nil, fmt.Errorf("unmarshal encryption for Encrypt failed [%s, %w]", destination, err)
 	}
 
-	keyBytes, err := base64.URLEncoding.DecodeString(httpResp.CipherText)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	nonceBytes, err := base64.URLEncoding.DecodeString(httpResp.Nonce)
-	if err != nil {
-		return nil, nil, err
-	}
-
 	logger.Debugf("overall Encrypt duration: %s", time.Since(startEncrypt))
 
-	return keyBytes, nonceBytes, nil
+	return httpResp.Ciphertext, httpResp.Nonce, nil
 }
 
 // Decrypt will remotely decrypt cipher with aad and given nonce using a matching AEAD primitive in a remote key handle
@@ -253,9 +274,9 @@ func (r *RemoteCrypto) Decrypt(cipher, aad, nonce []byte, keyURL interface{}) ([
 	destination := fmt.Sprintf("%s", keyURL) + decryptURI
 
 	dReq := decryptReq{
-		CipherText:     base64.URLEncoding.EncodeToString(cipher),
-		Nonce:          base64.URLEncoding.EncodeToString(nonce),
-		AdditionalData: base64.URLEncoding.EncodeToString(aad),
+		Ciphertext:     cipher,
+		Nonce:          nonce,
+		AssociatedData: aad,
 	}
 
 	httpReqBytes, err := r.marshalFunc(dReq)
@@ -271,6 +292,10 @@ func (r *RemoteCrypto) Decrypt(cipher, aad, nonce []byte, keyURL interface{}) ([
 	// handle response
 	defer closeResponseBody(resp.Body, logger, "Decrypt")
 
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("posting Decrypt returned http error: %s", resp.Status)
+	}
+
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("read decryption response for Decrypt failed [%s, %w]", destination, err)
@@ -283,14 +308,9 @@ func (r *RemoteCrypto) Decrypt(cipher, aad, nonce []byte, keyURL interface{}) ([
 		return nil, fmt.Errorf("unmarshal decryption for Decrypt failed [%s, %w]", destination, err)
 	}
 
-	plaintTextBytes, err := base64.URLEncoding.DecodeString(httpResp.PlainText)
-	if err != nil {
-		return nil, err
-	}
-
 	logger.Debugf("overall Decrypt duration: %s", time.Since(startDecrypt))
 
-	return plaintTextBytes, nil
+	return httpResp.Plaintext, nil
 }
 
 // Sign will remotely sign msg using a matching signature primitive in remote kh key handle at keyURL of a private key.
@@ -302,7 +322,7 @@ func (r *RemoteCrypto) Sign(msg []byte, keyURL interface{}) ([]byte, error) {
 	destination := fmt.Sprintf("%s", keyURL) + signURI
 
 	sReq := signReq{
-		Message: base64.URLEncoding.EncodeToString(msg),
+		Message: msg,
 	}
 
 	httpReqBytes, err := r.marshalFunc(sReq)
@@ -318,6 +338,10 @@ func (r *RemoteCrypto) Sign(msg []byte, keyURL interface{}) ([]byte, error) {
 	// handle response
 	defer closeResponseBody(resp.Body, logger, "Sign")
 
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("posting Sign returned http error: %s", resp.Status)
+	}
+
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("read signature response for Sign failed [%s, %w]", destination, err)
@@ -330,14 +354,9 @@ func (r *RemoteCrypto) Sign(msg []byte, keyURL interface{}) ([]byte, error) {
 		return nil, fmt.Errorf("unmarshal signature for Sign failed [%s, %w]", destination, err)
 	}
 
-	keyBytes, err := base64.URLEncoding.DecodeString(httpResp.Signature)
-	if err != nil {
-		return nil, err
-	}
-
 	logger.Debugf("overall Sign duration: %s", time.Since(startSign))
 
-	return keyBytes, nil
+	return httpResp.Signature, nil
 }
 
 // Verify will remotely verify a signature for the given msg using a matching signature primitive in a remote key
@@ -349,8 +368,8 @@ func (r *RemoteCrypto) Verify(signature, msg []byte, keyURL interface{}) error {
 	destination := fmt.Sprintf("%s", keyURL) + verifyURI
 
 	vReq := verifyReq{
-		Message:   base64.URLEncoding.EncodeToString(msg),
-		Signature: base64.URLEncoding.EncodeToString(signature),
+		Message:   msg,
+		Signature: signature,
 	}
 
 	httpReqBytes, err := r.marshalFunc(vReq)
@@ -377,7 +396,7 @@ func (r *RemoteCrypto) Verify(signature, msg []byte, keyURL interface{}) error {
 
 // ComputeMAC remotely computes message authentication code (MAC) for code data with key at keyURL.
 // using a matching MAC primitive in kh key handle.
-func (r *RemoteCrypto) ComputeMAC(data []byte, keyURL interface{}) ([]byte, error) { //nolint: gocyclo
+func (r *RemoteCrypto) ComputeMAC(data []byte, keyURL interface{}) ([]byte, error) { // nolint:gocyclo
 	keyHash := string(sha256.New().Sum([]byte(fmt.Sprintf("%s_%s", keyURL, data))))
 
 	if r.opts.ComputeMACCache != nil {
@@ -395,7 +414,7 @@ func (r *RemoteCrypto) ComputeMAC(data []byte, keyURL interface{}) ([]byte, erro
 	destination := fmt.Sprintf("%s", keyURL) + computeMACURI
 
 	mReq := computeMACReq{
-		Data: base64.URLEncoding.EncodeToString(data),
+		Data: data,
 	}
 
 	httpReqBytes, err := r.marshalFunc(mReq)
@@ -411,6 +430,10 @@ func (r *RemoteCrypto) ComputeMAC(data []byte, keyURL interface{}) ([]byte, erro
 	// handle response
 	defer closeResponseBody(resp.Body, logger, "ComputeMAC")
 
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("posting ComputeMAC request returned http error: %s", resp.Status)
+	}
+
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("read response for ComputeMAC failed [%s, %w]", destination, err)
@@ -423,20 +446,15 @@ func (r *RemoteCrypto) ComputeMAC(data []byte, keyURL interface{}) ([]byte, erro
 		return nil, fmt.Errorf("unmarshal ComputeMAC response failed [%s, %w]", destination, err)
 	}
 
-	macBytes, err := base64.URLEncoding.DecodeString(httpResp.MAC)
-	if err != nil {
-		return nil, err
-	}
-
 	if r.opts.ComputeMACCache != nil {
-		if err := r.opts.ComputeMACCache.Set(keyHash, macBytes); err != nil {
+		if err := r.opts.ComputeMACCache.Set(keyHash, httpResp.MAC); err != nil {
 			return nil, fmt.Errorf("failed to store in cache: %w", err)
 		}
 	}
 
 	logger.Debugf("overall ComputeMAC duration: %s", time.Since(startComputeMAC))
 
-	return macBytes, nil
+	return httpResp.MAC, nil
 }
 
 // VerifyMAC remotely determines if mac is a correct authentication code (MAC) for data using a key at KeyURL
@@ -446,8 +464,8 @@ func (r *RemoteCrypto) VerifyMAC(mac, data []byte, keyURL interface{}) error {
 	destination := fmt.Sprintf("%s", keyURL) + verifyMACURI
 
 	vReq := verifyMACReq{
-		MAC:  base64.URLEncoding.EncodeToString(mac),
-		Data: base64.URLEncoding.EncodeToString(data),
+		MAC:  mac,
+		Data: data,
 	}
 
 	httpReqBytes, err := r.marshalFunc(vReq)
@@ -490,25 +508,26 @@ func (r *RemoteCrypto) WrapKey(cek, apu, apv []byte, recPubKey *crypto.PublicKey
 	}
 
 	senderURL := pOpts.SenderKey()
-	recipientPubKey := pubKeyToSerializableReq(recPubKey)
 	wReq := &wrapKeyReq{
-		CEK:       base64.URLEncoding.EncodeToString(cek),
-		APU:       base64.URLEncoding.EncodeToString(apu),
-		APV:       base64.URLEncoding.EncodeToString(apv),
-		RecPubKey: recipientPubKey,
+		CEK:             cek,
+		APU:             apu,
+		APV:             apv,
+		RecipientPubKey: recPubKey,
 	}
 
-	senderURLStr := fmt.Sprintf("%s", senderURL)
+	if senderURL != nil {
+		senderURLStr, ok := senderURL.(string)
 
-	var nilVal interface{}
+		if !ok {
+			return nil, fmt.Errorf("wrapKey invalid senderKey type, should be string with key URL")
+		}
 
-	// if senderURL is set, extract keyID and add it to the request (for ECDH-1PU wrapping)
-	if senderURLStr != "" && senderURLStr != fmt.Sprintf("%s", nilVal) {
-		senderKID := senderURLStr[strings.LastIndex(senderURLStr, keysURI)+len(keysURI):]
-		// TODO key server must store the sender public key in the recipient's keystore (or by means of a
-		//  third party store). Need to confirm what needs to be done to make Authcrypt key wrapping work on the
-		//  key server side.
-		wReq.SenderKID = senderKID
+		// if senderURL is set, extract keyID and add it to the request url (for ECDH-1PU wrapping)
+		if senderURLStr != "" {
+			parts := strings.Split(senderURLStr, "/")
+			senderKID := parts[len(parts)-1]
+			destination = r.keystoreURL + keysURI + "/" + senderKID + wrapURI
+		}
 	}
 
 	httpReqBytes, err := r.marshalFunc(wReq)
@@ -523,6 +542,10 @@ func (r *RemoteCrypto) WrapKey(cek, apu, apv []byte, recPubKey *crypto.PublicKey
 
 	// handle response
 	defer closeResponseBody(resp.Body, logger, "WrapKey")
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("posting WrapKey returned http error: %s", resp.Status)
+	}
 
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -544,12 +567,7 @@ func (r *RemoteCrypto) buildWrappedKeyResponse(respBody []byte, dest string) (*c
 		return nil, fmt.Errorf("unmarshal wrapKeyResp for WrapKey failed [%s, %w]", dest, err)
 	}
 
-	wrappedKey, err := serializableToWrappedKey(&httpResp.WrappedKey)
-	if err != nil {
-		return nil, fmt.Errorf("convert http request of wrapKeyResp for WrapKey failed [%s, %w]", dest, err)
-	}
-
-	return wrappedKey, nil
+	return &httpResp.RecipientWrappedKey, nil
 }
 
 // UnwrapKey remotely unwraps a key in recWK using recipient private key found at keyURL.
@@ -570,20 +588,17 @@ func (r *RemoteCrypto) UnwrapKey(recWK *crypto.RecipientWrappedKey, keyURL inter
 		opt(pOpts)
 	}
 
-	senderURL := pOpts.SenderKey()
-	httpWK := wrappedKeyToSerializableReq(recWK)
 	uReq := unwrapKeyReq{
-		WrappedKey: httpWK,
+		WrappedKey: *recWK,
 	}
 
-	senderURLStr := fmt.Sprintf("%s", senderURL)
+	if pOpts.SenderKey() != nil {
+		sk, err := ksToCryptoPublicKey(pOpts.SenderKey())
+		if err != nil {
+			return nil, err
+		}
 
-	var nilVal interface{}
-
-	// is senderURL is set, extract keyID and add it to the request (for ECDH-1PU unwrapping)
-	if senderURLStr != "" && senderURLStr != fmt.Sprintf("%s", nilVal) {
-		senderKID := senderURLStr[strings.LastIndex(senderURLStr, keysURI)+len(keysURI):]
-		uReq.SenderKID = base64.URLEncoding.EncodeToString([]byte(senderKID))
+		uReq.SenderPubKey = sk
 	}
 
 	httpReqBytes, err := r.marshalFunc(uReq)
@@ -599,6 +614,10 @@ func (r *RemoteCrypto) UnwrapKey(recWK *crypto.RecipientWrappedKey, keyURL inter
 	// handle response
 	defer closeResponseBody(resp.Body, logger, "UnwrapKey")
 
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("posting UnwrapKey returned http error: %s", resp.Status)
+	}
+
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("read unwrapped key response for UnwrapKey failed [%s, %w]", destination, err)
@@ -611,11 +630,25 @@ func (r *RemoteCrypto) UnwrapKey(recWK *crypto.RecipientWrappedKey, keyURL inter
 		return nil, fmt.Errorf("unmarshal unwrapKeyResp for UnwrapKey failed [%s, %w]", destination, err)
 	}
 
-	keyBytes, err := base64.URLEncoding.DecodeString(httpResp.Key)
-
 	logger.Debugf("overall UnwrapKey duration: %s", time.Since(startUnwrapKey))
 
-	return keyBytes, err
+	return httpResp.Key, err
+}
+
+func ksToCryptoPublicKey(ks interface{}) (*crypto.PublicKey, error) {
+	switch kst := ks.(type) {
+	case *keyset.Handle:
+		sPubKey, err := keyio.ExtractPrimaryPublicKey(kst)
+		if err != nil {
+			return nil, fmt.Errorf("ksToCryptoPublicKey: failed to extract public key from keyset handle: %w", err)
+		}
+
+		return sPubKey, nil
+	case *crypto.PublicKey:
+		return kst, nil
+	default:
+		return nil, fmt.Errorf("ksToCryptoPublicKey: unsupported keyset type %+v", kst)
+	}
 }
 
 // SignMulti will create a BBS+ signature of messages using the signer's private key handle found at signerKeyURL.
@@ -626,13 +659,8 @@ func (r *RemoteCrypto) SignMulti(messages [][]byte, signerKeyURL interface{}) ([
 	startSign := time.Now()
 	destination := fmt.Sprintf("%s", signerKeyURL) + signMultiURI
 
-	var encMessages []string
-	for _, msg := range messages {
-		encMessages = append(encMessages, base64.URLEncoding.EncodeToString(msg))
-	}
-
 	sReq := signMultiReq{
-		Messages: encMessages,
+		Messages: messages,
 	}
 
 	httpReqBytes, err := r.marshalFunc(sReq)
@@ -648,6 +676,10 @@ func (r *RemoteCrypto) SignMulti(messages [][]byte, signerKeyURL interface{}) ([
 	// handle response
 	defer closeResponseBody(resp.Body, logger, "BBS+ Sign")
 
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("posting BBS+ sign returned http error: %s", resp.Status)
+	}
+
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("read signature response for BBS+ Sign failed [%s, %w]", destination, err)
@@ -660,14 +692,9 @@ func (r *RemoteCrypto) SignMulti(messages [][]byte, signerKeyURL interface{}) ([
 		return nil, fmt.Errorf("unmarshal signature for BBS+ Sign failed [%s, %w]", destination, err)
 	}
 
-	keyBytes, err := base64.URLEncoding.DecodeString(httpResp.Signature)
-	if err != nil {
-		return nil, err
-	}
-
 	logger.Debugf("overall BBS+ Sign duration: %s", time.Since(startSign))
 
-	return keyBytes, nil
+	return httpResp.Signature, nil
 }
 
 // VerifyMulti will BBS+ verify a signature of messages against the signer's public key handle found at signerKeyURL.
@@ -677,14 +704,9 @@ func (r *RemoteCrypto) VerifyMulti(messages [][]byte, signature []byte, signerKe
 	startVerify := time.Now()
 	destination := fmt.Sprintf("%s", signerKeyURL) + verifyMultiURI
 
-	var encMessages []string
-	for _, msg := range messages {
-		encMessages = append(encMessages, base64.URLEncoding.EncodeToString(msg))
-	}
-
 	vReq := verifyMultiReq{
-		Messages:  encMessages,
-		Signature: base64.URLEncoding.EncodeToString(signature),
+		Messages:  messages,
+		Signature: signature,
 	}
 
 	httpReqBytes, err := r.marshalFunc(vReq)
@@ -717,15 +739,10 @@ func (r *RemoteCrypto) VerifyProof(revealedMessages [][]byte, proof, nonce []byt
 	startVerifyProof := time.Now()
 	destination := fmt.Sprintf("%s", signerKeyURL) + verifyProofURI
 
-	var encMessages []string
-	for _, msg := range revealedMessages {
-		encMessages = append(encMessages, base64.URLEncoding.EncodeToString(msg))
-	}
-
 	vReq := verifyProofReq{
-		Messages: encMessages,
-		Proof:    base64.URLEncoding.EncodeToString(proof),
-		Nonce:    base64.URLEncoding.EncodeToString(nonce),
+		Messages: revealedMessages,
+		Proof:    proof,
+		Nonce:    nonce,
 	}
 
 	httpReqBytes, err := r.marshalFunc(vReq)
@@ -760,15 +777,10 @@ func (r *RemoteCrypto) DeriveProof(messages [][]byte, bbsSignature, nonce []byte
 	startDeriveProof := time.Now()
 	destination := fmt.Sprintf("%s", signerKeyURL) + deriveProofURI
 
-	var encMessages []string
-	for _, msg := range messages {
-		encMessages = append(encMessages, base64.URLEncoding.EncodeToString(msg))
-	}
-
 	sReq := deriveProofReq{
-		Messages:        encMessages,
-		Signature:       base64.URLEncoding.EncodeToString(bbsSignature),
-		Nonce:           base64.URLEncoding.EncodeToString(nonce),
+		Messages:        messages,
+		Signature:       bbsSignature,
+		Nonce:           nonce,
 		RevealedIndexes: revealedIndexes,
 	}
 
@@ -785,6 +797,10 @@ func (r *RemoteCrypto) DeriveProof(messages [][]byte, bbsSignature, nonce []byte
 	// handle response
 	defer closeResponseBody(resp.Body, logger, "BBS+ Derive Proof")
 
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("posting BBS+ Derive proof returned http error: %s", resp.Status)
+	}
+
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("read signature response for BBS+ Derive proof failed [%s, %w]", destination, err)
@@ -797,14 +813,9 @@ func (r *RemoteCrypto) DeriveProof(messages [][]byte, bbsSignature, nonce []byte
 		return nil, fmt.Errorf("unmarshal request for BBS+ Derive proof failed [%s, %w]", destination, err)
 	}
 
-	keyBytes, err := base64.URLEncoding.DecodeString(httpResp.Proof)
-	if err != nil {
-		return nil, err
-	}
-
 	logger.Debugf("overall BBS+ Derive proof duration: %s", time.Since(startDeriveProof))
 
-	return keyBytes, nil
+	return httpResp.Proof, nil
 }
 
 // closeResponseBody closes the response body.

@@ -45,6 +45,7 @@ echo ""
 echo "----> stopping fixtures"
 echo ""
 cd $ROOT/test/aries-js-worker/fixtures
+docker-compose logs > docker-compose.log
 docker-compose stop
 cd $ROOT
 exit $code

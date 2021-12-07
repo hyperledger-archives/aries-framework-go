@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/didrotate"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -226,6 +227,60 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 		}
 
 		require.NoError(t, o.SendToDID("data", "", ""))
+	})
+
+	t.Run("success with did rotation check", func(t *testing.T) {
+		o, err := NewOutbound(&mockProvider{
+			packagerValue: &mockpackager.Packager{PackValue: createPackedMsgForForward(t)},
+			vdr: &mockvdr.MockVDRegistry{
+				ResolveValue: mockDoc,
+			},
+			outboundTransportsValue: []transport.OutboundTransport{
+				&mockdidcomm.MockOutboundTransport{AcceptValue: true},
+			},
+			storageProvider:      mockstore.NewMockStoreProvider(),
+			protoStorageProvider: mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:    []string{transport.MediaTypeDIDCommV2Profile},
+			didRotator:           didrotate.DIDRotator{},
+		})
+		require.NoError(t, err)
+
+		o.connections = &mockConnectionLookup{
+			getConnectionByDIDsVal: "mock1",
+			getConnectionRecordVal: &connection.Record{},
+		}
+
+		require.NoError(t, o.SendToDID(service.DIDCommMsgMap{
+			"id":   "123",
+			"type": "abc",
+		}, "", ""))
+	})
+
+	t.Run("did rotation err", func(t *testing.T) {
+		o, err := NewOutbound(&mockProvider{
+			packagerValue: &mockpackager.Packager{PackValue: createPackedMsgForForward(t)},
+			vdr: &mockvdr.MockVDRegistry{
+				ResolveValue: mockDoc,
+			},
+			outboundTransportsValue: []transport.OutboundTransport{
+				&mockdidcomm.MockOutboundTransport{AcceptValue: true},
+			},
+			storageProvider:      mockstore.NewMockStoreProvider(),
+			protoStorageProvider: mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:    []string{transport.MediaTypeDIDCommV2Profile},
+			didRotator:           didrotate.DIDRotator{},
+		})
+		require.NoError(t, err)
+
+		o.connections = &mockConnectionLookup{
+			getConnectionByDIDsVal: "mock1",
+			getConnectionRecordVal: &connection.Record{},
+		}
+
+		// did rotation err is logged, not returned
+		require.NoError(t, o.SendToDID(&service.DIDCommMsgMap{
+			"invalid": "message",
+		}, "", ""))
 	})
 
 	t.Run("resolve err", func(t *testing.T) {
@@ -608,6 +663,7 @@ type mockProvider struct {
 	protoStorageProvider    storage.Provider
 	mediaTypeProfiles       []string
 	keyAgreementType        kms.KeyType
+	didRotator              didrotate.DIDRotator
 }
 
 func (p *mockProvider) Packager() transport.Packager {
@@ -648,6 +704,10 @@ func (p *mockProvider) MediaTypeProfiles() []string {
 
 func (p *mockProvider) KeyAgreementType() kms.KeyType {
 	return p.keyAgreementType
+}
+
+func (p *mockProvider) DIDRotator() *didrotate.DIDRotator {
+	return &p.didRotator
 }
 
 // mockOutboundTransport mock outbound transport.

@@ -43,7 +43,9 @@ type presentProofSendRequestPresentationRequest struct { // nolint: unused,deadc
 		TheirDID string `json:"their_did"`
 		// RequestPresentation describes values that need to be revealed and predicates that need to be fulfilled.
 		// required: true
-		RequestPresentation struct{ *protocol.RequestPresentation } `json:"request_presentation"`
+		RequestPresentation struct {
+			*protocol.RequestPresentationV2
+		} `json:"request_presentation"`
 	}
 }
 
@@ -98,7 +100,9 @@ type presentProofSendProposePresentationRequest struct { // nolint: unused,deadc
 		TheirDID string `json:"their_did"`
 		// ProposePresentation is a message sent by the Prover to the verifier to initiate a proof presentation process.
 		// required: true
-		ProposePresentation struct{ *protocol.ProposePresentation } `json:"propose_presentation"`
+		ProposePresentation struct {
+			*protocol.ProposePresentationV2
+		} `json:"propose_presentation"`
 	}
 }
 
@@ -154,7 +158,7 @@ type presentProofAcceptRequestPresentationRequest struct { // nolint: unused,dea
 		// Presentation is a message that contains signed presentations.
 		//
 		// required: true
-		Presentation struct{ *protocol.Presentation } `json:"presentation"`
+		Presentation struct{ *protocol.PresentationV2 } `json:"presentation"`
 	}
 }
 
@@ -206,7 +210,9 @@ type presentProofAcceptProposePresentationRequest struct { // nolint: unused,dea
 		// RequestPresentation describes values that need to be revealed and predicates that need to be fulfilled.
 		//
 		// required: true
-		RequestPresentation struct{ *protocol.RequestPresentation } `json:"request_presentation"`
+		RequestPresentation struct {
+			*protocol.RequestPresentationV2
+		} `json:"request_presentation"`
 	}
 }
 
@@ -290,7 +296,9 @@ type presentProofNegotiateRequestPresentationRequest struct { // nolint: unused,
 		// propose using a different presentation format.
 		//
 		// required: true
-		ProposePresentation struct{ *protocol.ProposePresentation } `json:"propose_presentation"`
+		ProposePresentation struct {
+			*protocol.ProposePresentationV2
+		} `json:"propose_presentation"`
 	}
 }
 

@@ -9,7 +9,6 @@ package webkms
 import (
 	"crypto/ed25519"
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -166,10 +165,7 @@ func processPOSTSealOpenRequest(w http.ResponseWriter, r *http.Request, recipien
 				destination, err)
 		}
 
-		cipherText, err := base64.URLEncoding.DecodeString(httpReq.CipherText)
-		if err != nil {
-			return fmt.Errorf("failed to base64 URL decode ciphertext: %w", err)
-		}
+		cipherText := httpReq.Ciphertext
 
 		var (
 			epk  [cryptoutil.Curve25519KeySize]byte
@@ -195,7 +191,7 @@ func processPOSTSealOpenRequest(w http.ResponseWriter, r *http.Request, recipien
 		}
 
 		resp := &sealOpenResp{
-			PlainText: base64.URLEncoding.EncodeToString(out),
+			Plaintext: out,
 		}
 
 		mResp, err := json.Marshal(resp)
@@ -314,7 +310,7 @@ func TestEasyAndEasyOpen(t *testing.T) {
 	})
 }
 
-// nolint:gocyclo,gocognit // test code
+// nolint:gocyclo // test code
 func processPOSTEasyOpenRequest(w http.ResponseWriter, r *http.Request, recPrivKey, sPrivKey ed25519.PrivateKey) error {
 	if valid := validateHTTPMethod(w, r); !valid {
 		return errors.New("http method invalid")
@@ -342,20 +338,9 @@ func processPOSTEasyOpenRequest(w http.ResponseWriter, r *http.Request, recPrivK
 			return fmt.Errorf("unmarshal EasyOpen failed [%s, %w]", destination, err)
 		}
 
-		payload, err := base64.URLEncoding.DecodeString(httpReq.Payload)
-		if err != nil {
-			return fmt.Errorf("failed to base64 URL decode ciphertext: %w", err)
-		}
-
-		nonceReq, err := base64.URLEncoding.DecodeString(httpReq.Nonce)
-		if err != nil {
-			return fmt.Errorf("failed to base64 URL decode ciphertext: %w", err)
-		}
-
-		recEncPub, err := base64.URLEncoding.DecodeString(httpReq.TheirPub)
-		if err != nil {
-			return fmt.Errorf("failed to base64 URL decode ciphertext: %w", err)
-		}
+		payload := httpReq.Payload
+		nonceReq := httpReq.Nonce
+		recEncPub := httpReq.TheirPub
 
 		var (
 			recPubBytes [cryptoutil.Curve25519KeySize]byte
@@ -376,7 +361,7 @@ func processPOSTEasyOpenRequest(w http.ResponseWriter, r *http.Request, recPrivK
 		out := box.Seal(nil, payload, &nonceBytes, &recPubBytes, &priv)
 
 		resp := &easyResp{
-			CipherText: base64.URLEncoding.EncodeToString(out),
+			Ciphertext: out,
 		}
 
 		mResp, err := json.Marshal(resp)
@@ -415,20 +400,9 @@ func processPOSTEasyOpenRequest(w http.ResponseWriter, r *http.Request, recPrivK
 				destination, err)
 		}
 
-		cipherText, err := base64.URLEncoding.DecodeString(httpReq.CipherText)
-		if err != nil {
-			return fmt.Errorf("failed to base64 URL decode ciphertext: %w", err)
-		}
-
-		senderPubKey, err := base64.URLEncoding.DecodeString(httpReq.TheirPub)
-		if err != nil {
-			return fmt.Errorf("failed to base64 URL decode ciphertext: %w", err)
-		}
-
-		nonceReq, err := base64.URLEncoding.DecodeString(httpReq.Nonce)
-		if err != nil {
-			return fmt.Errorf("failed to base64 URL decode ciphertext: %w", err)
-		}
+		cipherText := httpReq.Ciphertext
+		senderPubKey := httpReq.TheirPub
+		nonceReq := httpReq.Nonce
 
 		var (
 			senderPubKeyBytes [cryptoutil.Curve25519KeySize]byte
@@ -447,7 +421,7 @@ func processPOSTEasyOpenRequest(w http.ResponseWriter, r *http.Request, recPrivK
 		}
 
 		resp := &easyOpenResp{
-			PlainText: base64.URLEncoding.EncodeToString(out),
+			Plaintext: out,
 		}
 
 		mResp, err := json.Marshal(resp)

@@ -16,6 +16,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/didrotate"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher/inbound"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
@@ -24,6 +25,7 @@ import (
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	"github.com/hyperledger/aries-framework-go/pkg/store/did"
 	"github.com/hyperledger/aries-framework-go/pkg/store/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
@@ -66,6 +68,8 @@ type Provider struct {
 	getDIDsMaxRetries          uint64
 	getDIDsBackOffDuration     time.Duration
 	inboundEnvelopeHandler     InboundEnvelopeHandler
+	didRotator                 *didrotate.DIDRotator
+	connectionRecorder         *connection.Recorder
 }
 
 // InboundEnvelopeHandler handles inbound envelopes, processing then dispatching to a protocol service based on the
@@ -73,6 +77,8 @@ type Provider struct {
 type InboundEnvelopeHandler interface {
 	// HandleInboundEnvelope handles an inbound envelope.
 	HandleInboundEnvelope(envelope *transport.Envelope) error
+	// HandlerFunc provides the transport.InboundMessageHandler of the given InboundEnvelopeHandler.
+	HandlerFunc() transport.InboundMessageHandler
 }
 
 type inboundHandler struct {
@@ -103,7 +109,21 @@ func New(opts ...ProviderOption) (*Provider, error) {
 		}
 	}
 
+	if ctxProvider.storeProvider != nil && ctxProvider.protocolStateStoreProvider != nil {
+		recorder, err := connection.NewRecorder(&ctxProvider)
+		if err != nil {
+			return nil, fmt.Errorf("initialize context connection recorder: %w", err)
+		}
+
+		ctxProvider.connectionRecorder = recorder
+	}
+
 	return &ctxProvider, nil
+}
+
+// ConnectionLookup returns a connection.Lookup initialized on this context's stores.
+func (p *Provider) ConnectionLookup() *connection.Lookup {
+	return p.connectionRecorder.Lookup
 }
 
 // OutboundDispatcher returns an outbound dispatcher.
@@ -204,7 +224,12 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 		p.inboundEnvelopeHandler = inbound.NewInboundMessageHandler(p)
 	}
 
-	return p.inboundEnvelopeHandler.HandleInboundEnvelope
+	return p.inboundEnvelopeHandler.HandlerFunc()
+}
+
+// DIDRotator returns the didcomm/v2 connection DID rotation service.
+func (p *Provider) DIDRotator() *didrotate.DIDRotator {
+	return p.didRotator
 }
 
 // InboundDIDCommMessageHandler provides a supplier of inbound handlers with all loaded protocol services.
@@ -320,6 +345,14 @@ func WithGetDIDsMaxRetries(retries uint64) ProviderOption {
 func WithGetDIDsBackOffDuration(duration time.Duration) ProviderOption {
 	return func(opts *Provider) error {
 		opts.getDIDsBackOffDuration = duration
+		return nil
+	}
+}
+
+// WithDIDRotator injects a DID rotator into the context.
+func WithDIDRotator(didRotator *didrotate.DIDRotator) ProviderOption {
+	return func(opts *Provider) error {
+		opts.didRotator = didRotator
 		return nil
 	}
 }

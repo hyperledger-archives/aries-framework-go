@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	// Router is a router that sends an out-of-band invitation to the edge agent.
+	// Router is a router that sends an out-of-band/2.0 invitation to the edge agent.
 	Router = "Router"
 	// Bob is an edge agent.
 	Bob = "Bob"
@@ -84,7 +84,7 @@ func ExampleClient_AcceptInvitation() { //nolint:gocyclo,gocognit
 	}
 
 	// router creates outofband request and embeds the route-request message in it
-	inv, err := router.CreateInvitation(
+	inv := router.CreateInvitation(
 		WithLabel(Router),
 		WithAttachments(&decorator.AttachmentV2{
 			ID: uuid.New().String(),
@@ -93,19 +93,16 @@ func ExampleClient_AcceptInvitation() { //nolint:gocyclo,gocognit
 			},
 		}),
 	)
-	if err != nil {
-		panic(err)
-	}
 
-	fmt.Printf("%s creates an out-of-band invitation message\n", Router)
+	fmt.Printf("%s creates an out-of-band/2.0 invitation message\n", Router)
 
 	// the edge agent accepts the outofband invitation
-	err = bob.AcceptInvitation(inv, &EventOptions{Label: Bob})
+	_, err = bob.AcceptInvitation(inv)
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Printf("%s accepts the out-of-band invitation received via an out of band channel\n", Bob)
+	fmt.Printf("%s accepts the out-of-band/2.0 invitation received via an out of band channel and got new connID\n", Bob)
 
 	done := make(chan struct{}) // ends this example
 
@@ -167,8 +164,8 @@ func ExampleClient_AcceptInvitation() { //nolint:gocyclo,gocognit
 		Bob, Router, config.Endpoint(), config.Keys())
 
 	// Output:
-	// Router creates an out-of-band invitation message
-	// Bob accepts the out-of-band invitation received via an out of band channel
+	// Router creates an out-of-band/2.0 invitation message
+	// Bob accepts the out-of-band/2.0 invitation received via an out of band channel and got new connID
 	// Router received https://didcomm.org/didexchange/1.0/request from Bob
 	// Router received https://didcomm.org/coordinatemediation/1.0/mediate-request from Bob
 	// Bob has registered a route on Router with routerEndpoint http://routers-r-us.com and routingKeys [key-1 key-2]
@@ -182,7 +179,7 @@ func getContext(agent string) *mockprovider.Provider {
 		ServiceMap: map[string]interface{}{
 			oobv2.Name: &stubOOBService{
 				Event: nil,
-				acceptInvFunc: func(i *oobv2.Invitation, options oobv2.Options) error {
+				acceptInvFunc: func(i *oobv2.Invitation) error {
 					agentActions[i.Label] <- service.DIDCommAction{
 						ProtocolName: didsvc.DIDExchange,
 						Message: service.NewDIDCommMsgMap(&didsvc.Request{

@@ -1165,19 +1165,29 @@ func TestService_HandleInboundV3(t *testing.T) {
 
 	const errMsg = "error"
 
-	store := storageMocks.NewMockStore(ctrl)
+	initMocks := func(controller *gomock.Controller) (
+		store *storageMocks.MockStore,
+		messenger *serviceMocks.MockMessenger,
+		provider *issuecredentialMocks.MockProvider,
+	) {
+		store = storageMocks.NewMockStore(controller)
 
-	storeProvider := storageMocks.NewMockProvider(ctrl)
-	storeProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil).AnyTimes()
-	storeProvider.EXPECT().SetStoreConfig(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+		storeProvider := storageMocks.NewMockProvider(controller)
+		storeProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil).AnyTimes()
+		storeProvider.EXPECT().SetStoreConfig(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
-	messenger := serviceMocks.NewMockMessenger(ctrl)
+		messenger = serviceMocks.NewMockMessenger(controller)
 
-	provider := issuecredentialMocks.NewMockProvider(ctrl)
-	provider.EXPECT().Messenger().Return(messenger).AnyTimes()
-	provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
+		provider = issuecredentialMocks.NewMockProvider(controller)
+		provider.EXPECT().Messenger().Return(messenger).AnyTimes()
+		provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
+
+		return store, messenger, provider
+	}
 
 	t.Run("DB error (saveTransitionalPayload)", func(t *testing.T) {
+		store, _, provider := initMocks(ctrl)
+
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
 		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New(errMsg))
 
@@ -1195,6 +1205,8 @@ func TestService_HandleInboundV3(t *testing.T) {
 	})
 
 	t.Run("Receive Propose Credential Stop", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
 		done := make(chan struct{})
 
 		messenger.EXPECT().
@@ -1255,6 +1267,8 @@ func TestService_HandleInboundV3(t *testing.T) {
 	})
 
 	t.Run("Receive Propose Credential Continue", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
 		done := make(chan struct{})
 
 		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
@@ -1311,6 +1325,8 @@ func TestService_HandleInboundV3(t *testing.T) {
 	})
 
 	t.Run("Receive Propose Credential Continue (async)", func(t *testing.T) {
+		_, messenger, _ := initMocks(ctrl)
+
 		done := make(chan struct{})
 
 		newProvider := issuecredentialMocks.NewMockProvider(ctrl)
@@ -1360,6 +1376,8 @@ func TestService_HandleInboundV3(t *testing.T) {
 	})
 
 	t.Run("Receive Propose Credential Stop (async)", func(t *testing.T) {
+		_, messenger, _ := initMocks(ctrl)
+
 		done := make(chan struct{})
 
 		newProvider := issuecredentialMocks.NewMockProvider(ctrl)
@@ -1411,6 +1429,8 @@ func TestService_HandleInboundV3(t *testing.T) {
 	})
 
 	t.Run("Receive Offer Credential Stop", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
 		done := make(chan struct{})
 
 		messenger.EXPECT().
@@ -1469,6 +1489,8 @@ func TestService_HandleInboundV3(t *testing.T) {
 	})
 
 	t.Run("Receive Offer Credential Continue with Proposal", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
 		done := make(chan struct{})
 
 		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
@@ -1525,6 +1547,8 @@ func TestService_HandleInboundV3(t *testing.T) {
 	})
 
 	t.Run("Receive Offer Credential Continue with Invitation", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
 		done := make(chan struct{})
 
 		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
@@ -1581,6 +1605,8 @@ func TestService_HandleInboundV3(t *testing.T) {
 	})
 
 	t.Run("Receive Offer Credential", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
 		done := make(chan struct{})
 		attachment := []decorator.AttachmentV2{{ID: "ID1"}, {ID: "ID2"}}
 
@@ -1640,6 +1666,8 @@ func TestService_HandleInboundV3(t *testing.T) {
 	})
 
 	t.Run("Receive Invitation Credential Stop", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
 		done := make(chan struct{})
 
 		messenger.EXPECT().
@@ -1698,6 +1726,8 @@ func TestService_HandleInboundV3(t *testing.T) {
 	})
 
 	t.Run("Receive Invitation Credential Continue", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
 		done := make(chan struct{})
 
 		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
@@ -1754,6 +1784,8 @@ func TestService_HandleInboundV3(t *testing.T) {
 	})
 
 	t.Run("Receive Problem Report (continue)", func(t *testing.T) {
+		store, _, provider := initMocks(ctrl)
+
 		done := make(chan struct{})
 
 		store.EXPECT().Get(gomock.Any()).Return([]byte("request-sent"), nil)
@@ -1801,6 +1833,8 @@ func TestService_HandleInboundV3(t *testing.T) {
 	})
 
 	t.Run("Receive Problem Report (stop)", func(t *testing.T) {
+		store, _, provider := initMocks(ctrl)
+
 		done := make(chan struct{})
 
 		store.EXPECT().Get(gomock.Any()).Return([]byte("request-sent"), nil)
@@ -1848,6 +1882,8 @@ func TestService_HandleInboundV3(t *testing.T) {
 	})
 
 	t.Run("Receive Issue Credential Continue", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
 		done := make(chan struct{})
 
 		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
@@ -1929,6 +1965,8 @@ func TestService_HandleInboundV3(t *testing.T) {
 	})
 
 	t.Run("Receive Issue Credential Stop", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
 		done := make(chan struct{})
 
 		messenger.EXPECT().ReplyToNested(gomock.Any(), gomock.Any()).
@@ -1986,6 +2024,8 @@ func TestService_HandleInboundV3(t *testing.T) {
 	})
 
 	t.Run("Receive Ack message", func(t *testing.T) {
+		store, _, provider := initMocks(ctrl)
+
 		done := make(chan struct{})
 
 		store.EXPECT().Get(gomock.Any()).Return([]byte("credential-issued"), nil)
@@ -2020,6 +2060,9 @@ func TestService_HandleInboundV3(t *testing.T) {
 	})
 
 	t.Run("Invalid state transition", func(t *testing.T) {
+		store, _, provider := initMocks(ctrl)
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
+
 		svc, err := New(provider)
 		require.NoError(t, err)
 
@@ -2042,19 +2085,29 @@ func TestService_HandleOutbound(t *testing.T) {
 
 	const errMsg = "error"
 
-	store := storageMocks.NewMockStore(ctrl)
+	initMocks := func(controller *gomock.Controller) (
+		store *storageMocks.MockStore,
+		messenger *serviceMocks.MockMessenger,
+		provider *issuecredentialMocks.MockProvider,
+	) {
+		store = storageMocks.NewMockStore(controller)
 
-	storeProvider := storageMocks.NewMockProvider(ctrl)
-	storeProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil).AnyTimes()
-	storeProvider.EXPECT().SetStoreConfig(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+		storeProvider := storageMocks.NewMockProvider(controller)
+		storeProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil).AnyTimes()
+		storeProvider.EXPECT().SetStoreConfig(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
-	messenger := serviceMocks.NewMockMessenger(ctrl)
+		messenger = serviceMocks.NewMockMessenger(controller)
 
-	provider := issuecredentialMocks.NewMockProvider(ctrl)
-	provider.EXPECT().Messenger().Return(messenger).AnyTimes()
-	provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
+		provider = issuecredentialMocks.NewMockProvider(controller)
+		provider.EXPECT().Messenger().Return(messenger).AnyTimes()
+		provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
+
+		return store, messenger, provider
+	}
 
 	t.Run("DB error", func(t *testing.T) {
+		store, _, provider := initMocks(ctrl)
+
 		store.EXPECT().Get(gomock.Any()).Return(nil, errors.New(errMsg))
 
 		svc, err := New(provider)
@@ -2069,6 +2122,10 @@ func TestService_HandleOutbound(t *testing.T) {
 	})
 
 	t.Run("Unrecognized msgType", func(t *testing.T) {
+		store, _, provider := initMocks(ctrl)
+
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound).AnyTimes()
+
 		svc, err := New(provider)
 		require.NoError(t, err)
 
@@ -2080,8 +2137,11 @@ func TestService_HandleOutbound(t *testing.T) {
 	})
 
 	t.Run("Send Propose Credential", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
 		done := make(chan struct{})
 
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "proposal-sent", string(name))
 
@@ -2103,8 +2163,8 @@ func TestService_HandleOutbound(t *testing.T) {
 			})
 
 		piid, err := svc.HandleOutbound(msg, Alice, Bob)
-		require.NotEmpty(t, piid)
 		require.NoError(t, err)
+		require.NotEmpty(t, piid)
 
 		select {
 		case <-done:
@@ -2115,6 +2175,9 @@ func TestService_HandleOutbound(t *testing.T) {
 	})
 
 	t.Run("Send Propose Credential with error", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound).AnyTimes()
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
 
 		svc, err := New(provider)
@@ -2132,8 +2195,11 @@ func TestService_HandleOutbound(t *testing.T) {
 	})
 
 	t.Run("Send Offer Credential", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
 		done := make(chan struct{})
 
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound).AnyTimes()
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "offer-sent", string(name))
 
@@ -2167,6 +2233,9 @@ func TestService_HandleOutbound(t *testing.T) {
 	})
 
 	t.Run("Send Offer with error", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound).AnyTimes()
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
 
 		svc, err := New(provider)
@@ -2184,8 +2253,11 @@ func TestService_HandleOutbound(t *testing.T) {
 	})
 
 	t.Run("Send Invitation Credential", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
 		done := make(chan struct{})
 
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound).AnyTimes()
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "request-sent", string(name))
 
@@ -2219,6 +2291,9 @@ func TestService_HandleOutbound(t *testing.T) {
 	})
 
 	t.Run("Send Invitation with error", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound).AnyTimes()
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
 
 		svc, err := New(provider)
@@ -2242,19 +2317,30 @@ func TestService_HandleOutboundV3(t *testing.T) {
 
 	const errMsg = "error"
 
-	store := storageMocks.NewMockStore(ctrl)
+	initMocks := func(controller *gomock.Controller) (
+		store *storageMocks.MockStore,
+		messenger *serviceMocks.MockMessenger,
+		provider *issuecredentialMocks.MockProvider,
+	) {
+		store = storageMocks.NewMockStore(controller)
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound).AnyTimes()
 
-	storeProvider := storageMocks.NewMockProvider(ctrl)
-	storeProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil).AnyTimes()
-	storeProvider.EXPECT().SetStoreConfig(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+		storeProvider := storageMocks.NewMockProvider(controller)
+		storeProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil).AnyTimes()
+		storeProvider.EXPECT().SetStoreConfig(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
-	messenger := serviceMocks.NewMockMessenger(ctrl)
+		messenger = serviceMocks.NewMockMessenger(controller)
 
-	provider := issuecredentialMocks.NewMockProvider(ctrl)
-	provider.EXPECT().Messenger().Return(messenger).AnyTimes()
-	provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
+		provider = issuecredentialMocks.NewMockProvider(controller)
+		provider.EXPECT().Messenger().Return(messenger).AnyTimes()
+		provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
+
+		return store, messenger, provider
+	}
 
 	t.Run("Send Propose Credential", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
 		done := make(chan struct{})
 
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
@@ -2290,6 +2376,8 @@ func TestService_HandleOutboundV3(t *testing.T) {
 	})
 
 	t.Run("Send Propose Credential with error", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
 
 		svc, err := New(provider)
@@ -2307,6 +2395,8 @@ func TestService_HandleOutboundV3(t *testing.T) {
 	})
 
 	t.Run("Send Offer Credential", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
 		done := make(chan struct{})
 
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
@@ -2342,6 +2432,8 @@ func TestService_HandleOutboundV3(t *testing.T) {
 	})
 
 	t.Run("Send Offer with error", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
 
 		svc, err := New(provider)
@@ -2359,6 +2451,8 @@ func TestService_HandleOutboundV3(t *testing.T) {
 	})
 
 	t.Run("Send Invitation Credential", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
 		done := make(chan struct{})
 
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
@@ -2394,6 +2488,8 @@ func TestService_HandleOutboundV3(t *testing.T) {
 	})
 
 	t.Run("Send Invitation with error", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
 
 		svc, err := New(provider)
@@ -2461,7 +2557,7 @@ func TestService_ActionContinue(t *testing.T) {
 		svc, err := New(provider)
 		require.NoError(t, err)
 
-		err = svc.ActionContinue("piID", nil)
+		err = svc.ActionContinue("piID")
 		require.Contains(t, fmt.Sprintf("%v", err), "delete transitional payload: "+errMsg)
 	})
 }

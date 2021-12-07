@@ -30,6 +30,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/outofband"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command/outofbandv2"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/vcwallet"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/vdr"
@@ -317,6 +318,16 @@ func (a *Aries) GetOutOfBandController() (api.OutOfBandController, error) {
 	}
 
 	return &OutOfBand{handlers: handlers}, nil
+}
+
+// GetOutOfBandV2Controller returns a OutOfBandV2 instance.
+func (a *Aries) GetOutOfBandV2Controller() (api.OutOfBandV2Controller, error) {
+	handlers, ok := a.handlers[outofbandv2.CommandName]
+	if !ok {
+		return nil, fmt.Errorf("no handlers found for controller [%s]", outofbandv2.CommandName)
+	}
+
+	return &OutOfBandV2{handlers: handlers}, nil
 }
 
 // GetKMSController returns a KMS instance.

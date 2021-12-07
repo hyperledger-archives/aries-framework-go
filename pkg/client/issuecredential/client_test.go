@@ -329,7 +329,7 @@ func TestClient_AcceptOffer(t *testing.T) {
 	client, err := New(provider)
 	require.NoError(t, err)
 
-	require.NoError(t, client.AcceptOffer("PIID"))
+	require.NoError(t, client.AcceptOffer("PIID", &RequestCredential{}))
 }
 
 func TestClient_DeclineOffer(t *testing.T) {
@@ -451,13 +451,15 @@ func TestClient_AcceptCredential(t *testing.T) {
 	provider := mocks.NewMockProvider(ctrl)
 
 	svc := mocks.NewMockProtocolService(ctrl)
-	svc.EXPECT().ActionContinue("PIID", gomock.Any()).Return(nil)
+	svc.EXPECT().ActionContinue("PIID1", gomock.Any()).Return(nil)
+	svc.EXPECT().ActionContinue("PIID2", gomock.Any()).Return(nil)
 
 	provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
 	client, err := New(provider)
 	require.NoError(t, err)
 
-	require.NoError(t, client.AcceptCredential("PIID"))
+	require.NoError(t, client.AcceptCredential("PIID1"))
+	require.NoError(t, client.AcceptCredential("PIID2", AcceptByFriendlyNames("test"), AcceptBySkippingStorage()))
 }
 
 func TestClient_DeclineCredential(t *testing.T) {

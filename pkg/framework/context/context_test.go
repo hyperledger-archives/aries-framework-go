@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/didrotate"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher/inbound"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
@@ -57,6 +58,14 @@ func TestNewProvider(t *testing.T) {
 		prov, err := New(WithOutboundDispatcher(&mockdispatcher.MockOutbound{}))
 		require.NoError(t, err)
 		require.NoError(t, prov.OutboundDispatcher().Send(nil, "", nil))
+	})
+
+	t.Run("test new with stores", func(t *testing.T) {
+		store := mockstorage.NewMockStoreProvider()
+
+		prov, err := New(WithStorageProvider(store), WithProtocolStateStorageProvider(store))
+		require.NoError(t, err)
+		require.NotNil(t, prov.ConnectionLookup())
 	})
 
 	t.Run("test error return from options", func(t *testing.T) {
@@ -698,6 +707,13 @@ func TestNewProvider(t *testing.T) {
 		prov, err := New(WithCrypto(mCrypto))
 		require.NoError(t, err)
 		require.Equal(t, mCrypto, prov.Crypto())
+	})
+
+	t.Run("test new with did rotator service", func(t *testing.T) {
+		didRotator := &didrotate.DIDRotator{}
+		prov, err := New(WithDIDRotator(didRotator))
+		require.NoError(t, err)
+		require.Equal(t, didRotator, prov.DIDRotator())
 	})
 
 	t.Run("test new with secret lock service", func(t *testing.T) {

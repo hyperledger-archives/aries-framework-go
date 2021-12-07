@@ -604,7 +604,7 @@ func (c *Command) AcceptOffer(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
-	if err := c.client.AcceptOffer(args.PIID); err != nil {
+	if err := c.client.AcceptOffer(args.PIID, &issuecredential.RequestCredential{}); err != nil {
 		logutil.LogError(logger, CommandName, AcceptOffer, err.Error())
 		return command.NewExecuteError(AcceptOfferErrorCode, err)
 	}
@@ -770,7 +770,7 @@ func (c *Command) AcceptCredential(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
-	if err := c.client.AcceptCredential(args.PIID, args.Names...); err != nil {
+	if err := c.client.AcceptCredential(args.PIID, issuecredential.AcceptByFriendlyNames(args.Names...)); err != nil {
 		logutil.LogError(logger, CommandName, AcceptCredential, err.Error())
 		return command.NewExecuteError(AcceptCredentialErrorCode, err)
 	}

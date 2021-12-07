@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -26,15 +27,29 @@ import (
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 )
 
-// Ensure Client can emit events.
-var _ service.Event = (*Client)(nil)
-
 func TestNew(t *testing.T) {
 	t.Run("returns client", func(t *testing.T) {
 		c, err := New(withTestProvider())
 		require.NoError(t, err)
 		require.NotNil(t, c)
-		require.NotNil(t, c.Event)
+	})
+
+	t.Run("client creation fails with empty service map", func(t *testing.T) {
+		badProvider := withTestProvider()
+		badProvider.ServiceMap = map[string]interface{}{}
+
+		c, err := New(badProvider)
+		require.EqualError(t, err, "failed to cast service out-of-band/2.0 as a dependency")
+		require.Empty(t, c)
+	})
+
+	t.Run("client creation fails with service call returning error", func(t *testing.T) {
+		badProvider := withTestProvider()
+		badProvider.ServiceErr = fmt.Errorf("service error")
+
+		c, err := New(badProvider)
+		require.EqualError(t, err, "failed to look up service out-of-band/2.0 : service error")
+		require.Empty(t, c)
 	})
 }
 
@@ -42,23 +57,20 @@ func TestCreateInvitation(t *testing.T) {
 	t.Run("sets an id", func(t *testing.T) {
 		c, err := New(withTestProvider())
 		require.NoError(t, err)
-		inv, err := c.CreateInvitation()
-		require.NoError(t, err)
+		inv := c.CreateInvitation()
 		require.NotEmpty(t, inv.ID)
 	})
 	t.Run("sets correct type", func(t *testing.T) {
 		c, err := New(withTestProvider())
 		require.NoError(t, err)
-		inv, err := c.CreateInvitation()
-		require.NoError(t, err)
+		inv := c.CreateInvitation()
 		require.Equal(t, "https://didcomm.org/out-of-band/2.0/invitation", inv.Type)
 	})
 	t.Run("WithLabel", func(t *testing.T) {
 		c, err := New(withTestProvider())
 		require.NoError(t, err)
 		expected := uuid.New().String()
-		inv, err := c.CreateInvitation(WithLabel(expected))
-		require.NoError(t, err)
+		inv := c.CreateInvitation(WithLabel(expected))
 		require.Equal(t, expected, inv.Label)
 	})
 	t.Run("WithGoal", func(t *testing.T) {
@@ -66,8 +78,7 @@ func TestCreateInvitation(t *testing.T) {
 		require.NoError(t, err)
 		expectedGoal := uuid.New().String()
 		expectedGoalCode := uuid.New().String()
-		inv, err := c.CreateInvitation(WithGoal(expectedGoal, expectedGoalCode))
-		require.NoError(t, err)
+		inv := c.CreateInvitation(WithGoal(expectedGoal, expectedGoalCode))
 		require.Equal(t, expectedGoal, inv.Body.Goal)
 		require.Equal(t, expectedGoalCode, inv.Body.GoalCode)
 	})
@@ -75,16 +86,14 @@ func TestCreateInvitation(t *testing.T) {
 		c, err := New(withTestProvider())
 		require.NoError(t, err)
 		expected := dummyAttachment(t)
-		inv, err := c.CreateInvitation(WithAttachments(expected))
-		require.NoError(t, err)
+		inv := c.CreateInvitation(WithAttachments(expected))
 		require.Contains(t, inv.Requests, expected)
 	})
 	t.Run("WithAttachments", func(t *testing.T) {
 		c, err := New(withTestProvider())
 		require.NoError(t, err)
 		expected := dummyAttachment(t)
-		inv, err := c.CreateInvitation(WithAttachments(expected))
-		require.NoError(t, err)
+		inv := c.CreateInvitation(WithAttachments(expected))
 		require.Contains(t, inv.Requests, expected)
 	})
 }
@@ -94,30 +103,33 @@ func TestAcceptInvitation(t *testing.T) {
 		provider := withTestProvider()
 		provider.ServiceMap = map[string]interface{}{
 			oobv2.Name: &stubOOBService{
-				acceptInvFunc: func(*oobv2.Invitation, oobv2.Options) error {
+				acceptInvFunc: func(*oobv2.Invitation) error {
 					return nil
 				},
+				connID: "123",
 			},
 		}
 		c, err := New(provider)
 		require.NoError(t, err)
-		err = c.AcceptInvitation(&oobv2.Invitation{}, nil)
+		connID, err := c.AcceptInvitation(&oobv2.Invitation{})
 		require.NoError(t, err)
+		require.NotEmpty(t, connID)
 	})
 	t.Run("wraps error from outofband service", func(t *testing.T) {
 		expected := errors.New("test")
 		provider := withTestProvider()
 		provider.ServiceMap = map[string]interface{}{
 			oobv2.Name: &stubOOBService{
-				acceptInvFunc: func(*oobv2.Invitation, oobv2.Options) error {
+				acceptInvFunc: func(*oobv2.Invitation) error {
 					return expected
 				},
 			},
 		}
 		c, err := New(provider)
 		require.NoError(t, err)
-		err = c.AcceptInvitation(&oobv2.Invitation{}, nil)
+		connID, err := c.AcceptInvitation(&oobv2.Invitation{})
 		require.Error(t, err)
+		require.Empty(t, connID)
 	})
 }
 
@@ -174,13 +186,14 @@ func withTestProvider() *mockprovider.Provider {
 
 type stubOOBService struct {
 	service.Event
-	acceptInvFunc func(*oobv2.Invitation, oobv2.Options) error
+	acceptInvFunc func(*oobv2.Invitation) error
+	connID        string
 }
 
-func (s *stubOOBService) AcceptInvitation(i *oobv2.Invitation, o oobv2.Options) error {
+func (s *stubOOBService) AcceptInvitation(i *oobv2.Invitation) (string, error) {
 	if s.acceptInvFunc != nil {
-		return s.acceptInvFunc(i, o)
+		return s.connID, s.acceptInvFunc(i)
 	}
 
-	return nil
+	return "", nil
 }

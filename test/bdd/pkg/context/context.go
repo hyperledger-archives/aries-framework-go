@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/client/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
+	"github.com/hyperledger/aries-framework-go/pkg/client/outofbandv2"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/msghandler"
@@ -31,6 +32,7 @@ var logger = log.New("aries-framework/tests/context")
 // BDDContext is a global context shared between different test suites in bddtests.
 type BDDContext struct {
 	OutOfBandClients   map[string]*outofband.Client
+	OutOfBandV2Clients map[string]*outofbandv2.Client
 	DIDExchangeClients map[string]*didexchange.Client
 	RouteClients       map[string]*mediator.Client
 	RouteCallbacks     map[string]chan interface{}
@@ -44,6 +46,7 @@ type BDDContext struct {
 	MessageRegistrar   map[string]*msghandler.Registrar
 	Messengers         map[string]service.Messenger
 	Args               map[string]string
+	ConnectionIDs      map[string]map[string]string
 	controllerURLs     map[string]string
 	webhookURLs        map[string]string
 	webSocketConns     map[string]*websocket.Conn
@@ -55,6 +58,7 @@ type BDDContext struct {
 func NewBDDContext() *BDDContext {
 	return &BDDContext{
 		OutOfBandClients:   make(map[string]*outofband.Client),
+		OutOfBandV2Clients: make(map[string]*outofbandv2.Client),
 		DIDExchangeClients: make(map[string]*didexchange.Client),
 		RouteClients:       make(map[string]*mediator.Client),
 		RouteCallbacks:     make(map[string]chan interface{}),
@@ -67,6 +71,7 @@ func NewBDDContext() *BDDContext {
 		MessageRegistrar:   make(map[string]*msghandler.Registrar),
 		Messengers:         make(map[string]service.Messenger),
 		Args:               make(map[string]string),
+		ConnectionIDs:      make(map[string]map[string]string),
 		controllerURLs:     make(map[string]string),
 		webhookURLs:        make(map[string]string),
 		webSocketConns:     make(map[string]*websocket.Conn),

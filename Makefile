@@ -191,10 +191,12 @@ depend:
 .PHONY: mocks
 mocks: depend clean-mocks
 	$(call create_mock,pkg/framework/aries/api/vdr,Registry)
+	$(call create_mock,pkg/kms,Provider;KeyManager)
 	$(call create_mock,pkg/didcomm/protocol/issuecredential,Provider)
 	$(call create_mock,pkg/didcomm/protocol/middleware/issuecredential,Provider;Metadata)
 	$(call create_mock,pkg/didcomm/protocol/middleware/presentproof,Provider;Metadata)
 	$(call create_mock,pkg/client/outofband,Provider;OobService)
+	$(call create_mock,pkg/client/outofbandv2,Provider;OobService)
 	$(call create_mock,pkg/didcomm/protocol/presentproof,Provider)
 	$(call create_mock,pkg/client/introduce,Provider;ProtocolService)
 	$(call create_mock,pkg/client/issuecredential,Provider;ProtocolService)
@@ -205,6 +207,7 @@ mocks: depend clean-mocks
 	$(call create_mock,pkg/didcomm/messenger,Provider)
 	$(call create_mock,pkg/store/verifiable,Store)
 	$(call create_mock,pkg/store/did,ConnectionStore)
+	$(call create_mock,pkg/controller/command/presentproof,Provider)
 	$(call create_mock,pkg/controller/webnotifier,Notifier)
 	$(call create_spi_provider_mocks,spi/storage,Provider;Store)
 

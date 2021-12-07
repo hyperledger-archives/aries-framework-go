@@ -65,6 +65,9 @@ const (
 	// Outofband error group for outofband command errors.
 	Outofband = 11000
 
+	// OutofbandV2 error group for outofband command errors.
+	OutofbandV2 = 11100
+
 	// VCWallet error group for verifiable Credential wallet command errors.
 	VCWallet = 12000
 
@@ -73,6 +76,9 @@ const (
 
 	// LD error group for JSON-LD command errors.
 	LD = 14000
+
+	// Connection error group for connection management errors.
+	Connection = 15000
 )
 
 // Error is the  interface for representing an command error condition, with the nil value representing no error.

@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/test/bdd/agent"
 	"github.com/hyperledger/aries-framework-go/test/bdd/dockerutil"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/connection"
 	bddctx "github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/didresolver"
@@ -33,6 +34,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/rfc0593"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/verifiable"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/webkms"
 )
 
 const (
@@ -55,7 +57,7 @@ type feature interface {
 
 func TestMain(m *testing.M) {
 	// default is to run all tests with tag @all
-	tags := "all"
+	tags := "outofbandv2_controller"
 
 	flag.Parse()
 
@@ -207,5 +209,8 @@ func features() []feature {
 		rfc0593.NewRestSDKSteps(),
 		ld.NewLDControllerSteps(),
 		ld.NewSDKSteps(),
+		connection.NewSDKSteps(),
+		connection.NewControllerSteps(),
+		webkms.NewCryptoSDKSteps(),
 	}
 }

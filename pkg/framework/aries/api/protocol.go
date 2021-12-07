@@ -49,6 +49,7 @@ type Provider interface {
 	KeyAgreementType() kms.KeyType
 	MediaTypeProfiles() []string
 	AriesFrameworkID() string
+	ServiceMsgTypeTargets() []dispatcher.MessageTypeTarget
 }
 
 // ProtocolSvcCreator struct sets initialization functions for a protocol service.

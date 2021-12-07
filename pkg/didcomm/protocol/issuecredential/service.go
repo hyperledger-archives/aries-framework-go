@@ -248,6 +248,21 @@ func WithFriendlyNames(names ...string) Opt {
 	}
 }
 
+// WithProperties allows providing custom properties.
+func WithProperties(props map[string]interface{}) Opt {
+	return func(md *MetaData) {
+		if len(md.properties) == 0 {
+			md.properties = props
+
+			return
+		}
+
+		for k, v := range props {
+			md.properties[k] = v
+		}
+	}
+}
+
 // Provider contains dependencies for the protocol and is typically created by using aries.Context().
 type Provider interface {
 	Messenger() service.Messenger
@@ -629,7 +644,7 @@ func (s *Service) deleteTransitionalPayload(id string) error {
 }
 
 // ActionContinue allows proceeding with the action by the piID.
-func (s *Service) ActionContinue(piID string, opt Opt) error {
+func (s *Service) ActionContinue(piID string, opts ...Opt) error {
 	tPayload, err := s.getTransitionalPayload(piID)
 	if err != nil {
 		return fmt.Errorf("get transitional payload: %w", err)
@@ -643,7 +658,7 @@ func (s *Service) ActionContinue(piID string, opt Opt) error {
 		properties:          map[string]interface{}{},
 	}
 
-	if opt != nil {
+	for _, opt := range opts {
 		opt(md)
 	}
 
