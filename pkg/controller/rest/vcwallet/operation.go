@@ -30,7 +30,7 @@ const (
 	// command Paths.
 	CreateProfilePath       = OperationID + "/create-profile"
 	UpdateProfilePath       = OperationID + "/update-profile"
-	ProfileExistsPath       = OperationID + "profile/{id}"
+	ProfileExistsPath       = OperationID + "/profile/{id}"
 	OpenPath                = OperationID + "/open"
 	ClosePath               = OperationID + "/close"
 	AddPath                 = OperationID + "/add"
@@ -46,6 +46,8 @@ const (
 	ConnectPath             = OperationID + "/connect"
 	ProposePresentationPath = OperationID + "/propose-presentation"
 	PresentProofPath        = OperationID + "/present-proof"
+	ProposeCredentialPath   = OperationID + "/propose-credential"
+	RequestCredentialPath   = OperationID + "/request-credential"
 )
 
 // provider contains dependencies for the verifiable credential wallet command controller
@@ -114,6 +116,8 @@ func (o *Operation) registerHandler() {
 		cmdutil.NewHTTPHandler(ConnectPath, http.MethodPost, o.Connect),
 		cmdutil.NewHTTPHandler(ProposePresentationPath, http.MethodPost, o.ProposePresentation),
 		cmdutil.NewHTTPHandler(PresentProofPath, http.MethodPost, o.PresentProof),
+		cmdutil.NewHTTPHandler(ProposeCredentialPath, http.MethodPost, o.ProposeCredential),
+		cmdutil.NewHTTPHandler(RequestCredentialPath, http.MethodPost, o.RequestCredential),
 	}
 }
 
@@ -382,6 +386,36 @@ func (o *Operation) ProposePresentation(rw http.ResponseWriter, req *http.Reques
 //        200: presentProofRes
 func (o *Operation) PresentProof(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(o.command.PresentProof, rw, req.Body)
+}
+
+// ProposeCredential swagger:route POST /vcwallet/propose-credential vcwallet proposeCredReq
+//
+// Sends propose credential message from wallet to issuer and optionally waits for offer credential response.
+// https://w3c-ccg.github.io/universal-wallet-interop-spec/#requestcredential
+//
+// Currently Supporting : 0453-issueCredentialV2
+// https://github.com/hyperledger/aries-rfcs/blob/main/features/0453-issue-credential-v2/README.md
+//
+// Responses:
+//    default: genericError
+//        200: proposeCredRes
+func (o *Operation) ProposeCredential(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(o.command.ProposeCredential, rw, req.Body)
+}
+
+// RequestCredential swagger:route POST /vcwallet/request-credential vcwallet requestCredReq
+//
+// Sends request credential message from wallet to issuer and optionally waits for credential fulfillment.
+// https://w3c-ccg.github.io/universal-wallet-interop-spec/#proposecredential
+//
+// Currently Supporting : 0453-issueCredentialV2
+// https://github.com/hyperledger/aries-rfcs/blob/main/features/0453-issue-credential-v2/README.md
+//
+// Responses:
+//    default: genericError
+//        200: requestCredRes
+func (o *Operation) RequestCredential(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(o.command.RequestCredential, rw, req.Body)
 }
 
 // getIDFromRequest returns ID from request.

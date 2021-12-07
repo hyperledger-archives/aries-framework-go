@@ -69,6 +69,21 @@ func TestNewCompositeAlgSignatureVerifier(t *testing.T) {
 	require.EqualError(t, err, "no verifier found for RS256 algorithm")
 }
 
+func TestDefaultSigningInputVerifier_Verify(t *testing.T) {
+	verifier := DefaultSigningInputVerifier(func(joseHeaders Headers, payload, signingInput, signature []byte) error {
+		return errors.New("signature is invalid")
+	})
+
+	err := verifier.Verify(Headers{"alg": "EdDSA"}, nil, nil, nil)
+	require.Error(t, err)
+	require.EqualError(t, err, "signature is invalid")
+
+	// fail in signingInput()
+	err = verifier.Verify(Headers{HeaderB64Payload: "invalid value"}, nil, nil, nil)
+	require.Error(t, err)
+	require.EqualError(t, err, "invalid b64 header")
+}
+
 func TestJSONWebSignature_SerializeCompact(t *testing.T) {
 	headers := Headers{"alg": "EdSDA", "typ": "JWT"}
 	payload := []byte("payload")

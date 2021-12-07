@@ -11,7 +11,6 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -85,8 +84,8 @@ func TestEncryptDecrypt(t *testing.T) {
 		tmpCrypto := New(defaultKeystoreURL, blankClient)
 
 		_, _, err = tmpCrypto.Encrypt(plaintext, aad, defaultKeyURL)
-		require.EqualError(t, err, fmt.Errorf("posting Encrypt plaintext failed [%s, Post \"%s\": x509: "+
-			"certificate signed by unknown authority]", defaultKeyURL+encryptURI, defaultKeyURL+encryptURI).Error())
+		require.Contains(t, err.Error(), fmt.Sprintf("posting Encrypt plaintext failed [%s, Post \"%s\": x509: "+
+			"certificate signed by unknown authority", defaultKeyURL+encryptURI, defaultKeyURL+encryptURI))
 
 		badURL := "``#$%"
 		_, _, err = tmpCrypto.Encrypt(plaintext, aad, badURL)
@@ -100,8 +99,8 @@ func TestEncryptDecrypt(t *testing.T) {
 		tmpCrypto := New(defaultKeystoreURL, blankClient)
 
 		_, err = tmpCrypto.Decrypt(nil, aad, nil, defaultKeyURL)
-		require.EqualError(t, err, fmt.Errorf("posting Decrypt ciphertext failed [%s, Post \"%s\": x509: "+
-			"certificate signed by unknown authority]", defaultKeyURL+decryptURI, defaultKeyURL+decryptURI).Error())
+		require.Contains(t, err.Error(), fmt.Sprintf("posting Decrypt ciphertext failed [%s, Post \"%s\": x509: "+
+			"certificate signed by unknown authority", defaultKeyURL+decryptURI, defaultKeyURL+decryptURI))
 	})
 
 	t.Run("Encrypt json marshal failure", func(t *testing.T) {
@@ -190,17 +189,7 @@ func encryptPOSTHandle(w http.ResponseWriter, reqBody []byte, encKH *keyset.Hand
 		return err
 	}
 
-	msg, err := base64.URLEncoding.DecodeString(encReq.Message)
-	if err != nil {
-		return err
-	}
-
-	aad, err := base64.URLEncoding.DecodeString(encReq.AdditionalData)
-	if err != nil {
-		return err
-	}
-
-	ct, err := a.Encrypt(msg, aad)
+	ct, err := a.Encrypt(encReq.Message, encReq.AssociatedData)
 	if err != nil {
 		return fmt.Errorf("encrypt msg: %w", err)
 	}
@@ -211,8 +200,8 @@ func encryptPOSTHandle(w http.ResponseWriter, reqBody []byte, encKH *keyset.Hand
 	nonce := ct[prefixLength : prefixLength+ivSize]
 
 	resp := &encryptResp{
-		CipherText: base64.URLEncoding.EncodeToString(cipherText),
-		Nonce:      base64.URLEncoding.EncodeToString(nonce),
+		Ciphertext: cipherText,
+		Nonce:      nonce,
 	}
 
 	mResp, err := json.Marshal(resp)
@@ -246,33 +235,21 @@ func decryptPOSTHandle(w http.ResponseWriter, reqBody []byte, encKH *keyset.Hand
 		return err
 	}
 
-	cipher, err := base64.URLEncoding.DecodeString(decReq.CipherText)
-	if err != nil {
-		return err
-	}
-
-	aad, err := base64.URLEncoding.DecodeString(decReq.AdditionalData)
-	if err != nil {
-		return err
-	}
-
-	nonce, err := base64.URLEncoding.DecodeString(decReq.Nonce)
-	if err != nil {
-		return err
-	}
+	cipher := decReq.Ciphertext
+	nonce := decReq.Nonce
 
 	ct := make([]byte, 0, len(ps.Primary.Prefix)+len(nonce)+len(cipher))
 	ct = append(ct, ps.Primary.Prefix...)
 	ct = append(ct, nonce...)
 	ct = append(ct, cipher...)
 
-	plaintext, err := a.Decrypt(ct, aad)
+	plaintext, err := a.Decrypt(ct, decReq.AssociatedData)
 	if err != nil {
 		return fmt.Errorf("decrypt cipher: %w", err)
 	}
 
 	resp := &decryptResp{
-		PlainText: base64.URLEncoding.EncodeToString(plaintext),
+		Plaintext: plaintext,
 	}
 
 	mResp, err := json.Marshal(resp)
@@ -322,8 +299,8 @@ func TestSignVerify(t *testing.T) {
 		tmpCrypto := New(defaultKeystoreURL, blankClient)
 
 		_, err = tmpCrypto.Sign(nil, defaultKeyURL)
-		require.EqualError(t, err, fmt.Errorf("posting Sign message failed [%s, Post \"%s\": x509: "+
-			"certificate signed by unknown authority]", defaultKeyURL+signURI, defaultKeyURL+signURI).Error())
+		require.Contains(t, err.Error(), fmt.Sprintf("posting Sign message failed [%s, Post \"%s\": x509: "+
+			"certificate signed by unknown authority", defaultKeyURL+signURI, defaultKeyURL+signURI))
 	})
 
 	t.Run("Verify Post request failure", func(t *testing.T) {
@@ -331,8 +308,8 @@ func TestSignVerify(t *testing.T) {
 		tmpCrypto := New(defaultKeystoreURL, blankClient)
 
 		err = tmpCrypto.Verify(nil, nil, defaultKeyURL)
-		require.EqualError(t, err, fmt.Errorf("posting Verify signature failed [%s, Post \"%s\": x509: "+
-			"certificate signed by unknown authority]", defaultKeyURL+verifyURI, defaultKeyURL+verifyURI).Error())
+		require.Contains(t, err.Error(), fmt.Sprintf("posting Verify signature failed [%s, Post \"%s\": x509: "+
+			"certificate signed by unknown authority", defaultKeyURL+verifyURI, defaultKeyURL+verifyURI))
 	})
 
 	t.Run("Sign json marshal failure", func(t *testing.T) {
@@ -402,23 +379,18 @@ func signPOSTHandle(w http.ResponseWriter, reqBody []byte, sigKH *keyset.Handle)
 		return err
 	}
 
-	msg, err := base64.URLEncoding.DecodeString(sigReq.Message)
-	if err != nil {
-		return err
-	}
-
 	signer, err := signature.NewSigner(sigKH)
 	if err != nil {
 		return fmt.Errorf("create new signer: %w", err)
 	}
 
-	s, err := signer.Sign(msg)
+	s, err := signer.Sign(sigReq.Message)
 	if err != nil {
 		return fmt.Errorf("sign msg: %w", err)
 	}
 
 	resp := &signResp{
-		Signature: base64.URLEncoding.EncodeToString(s),
+		Signature: s,
 	}
 
 	mResp, err := json.Marshal(resp)
@@ -442,16 +414,6 @@ func verifyPOSTHandle(reqBody []byte, sigKH *keyset.Handle) error {
 		return err
 	}
 
-	sig, err := base64.URLEncoding.DecodeString(verReq.Signature)
-	if err != nil {
-		return err
-	}
-
-	msg, err := base64.URLEncoding.DecodeString(verReq.Message)
-	if err != nil {
-		return err
-	}
-
 	pubKH, err := sigKH.Public()
 	if err != nil {
 		return err
@@ -462,7 +424,7 @@ func verifyPOSTHandle(reqBody []byte, sigKH *keyset.Handle) error {
 		return fmt.Errorf("create new verifier: %w", err)
 	}
 
-	err = verifier.Verify(sig, msg)
+	err = verifier.Verify(verReq.Signature, verReq.Message)
 	if err != nil {
 		return fmt.Errorf("verify msg: %w", err)
 	}
@@ -510,8 +472,8 @@ func TestComputeVerifyMAC(t *testing.T) {
 		tmpCrypto := New(defaultKeystoreURL, blankClient)
 
 		_, err = tmpCrypto.ComputeMAC(nil, defaultKeyURL)
-		require.EqualError(t, err, fmt.Errorf("posting ComputeMAC request failed [%s, Post \"%s\": x509: certificate"+
-			" signed by unknown authority]", defaultKeyURL+computeMACURI, defaultKeyURL+computeMACURI).Error())
+		require.Contains(t, err.Error(), fmt.Sprintf("posting ComputeMAC request failed [%s, Post \"%s\": x509: certificate"+
+			" signed by unknown authority", defaultKeyURL+computeMACURI, defaultKeyURL+computeMACURI))
 	})
 
 	t.Run("VerifyMAC Post request failure", func(t *testing.T) {
@@ -519,8 +481,8 @@ func TestComputeVerifyMAC(t *testing.T) {
 		tmpCrypto := New(defaultKeystoreURL, blankClient)
 
 		err = tmpCrypto.VerifyMAC(nil, nil, defaultKeyURL)
-		require.EqualError(t, err, fmt.Errorf("posting VerifyMAC request failed [%s, Post \"%s\": x509: "+
-			"certificate signed by unknown authority]", defaultKeyURL+verifyMACURI, defaultKeyURL+verifyMACURI).Error())
+		require.Contains(t, err.Error(), fmt.Sprintf("posting VerifyMAC request failed [%s, Post \"%s\": x509: "+
+			"certificate signed by unknown authority", defaultKeyURL+verifyMACURI, defaultKeyURL+verifyMACURI))
 	})
 
 	t.Run("ComputeMAC json marshal failure", func(t *testing.T) {
@@ -590,23 +552,18 @@ func computeMACPOSTHandle(w http.ResponseWriter, reqBody []byte, macKH *keyset.H
 		return err
 	}
 
-	data, err := base64.URLEncoding.DecodeString(macReq.Data)
-	if err != nil {
-		return err
-	}
-
 	macPrimitive, err := mac.New(macKH)
 	if err != nil {
 		return err
 	}
 
-	dataMAC, err := macPrimitive.ComputeMAC(data)
+	dataMAC, err := macPrimitive.ComputeMAC(macReq.Data)
 	if err != nil {
 		return err
 	}
 
 	resp := &computeMACResp{
-		MAC: base64.URLEncoding.EncodeToString(dataMAC),
+		MAC: dataMAC,
 	}
 
 	mResp, err := json.Marshal(resp)
@@ -630,22 +587,12 @@ func verifyMACPOSTHandle(reqBody []byte, macKH *keyset.Handle) error {
 		return err
 	}
 
-	dataMAC, err := base64.URLEncoding.DecodeString(verReq.MAC)
-	if err != nil {
-		return err
-	}
-
-	data, err := base64.URLEncoding.DecodeString(verReq.Data)
-	if err != nil {
-		return err
-	}
-
 	macPrimitive, err := mac.New(macKH)
 	if err != nil {
 		return err
 	}
 
-	err = macPrimitive.VerifyMAC(dataMAC, data)
+	err = macPrimitive.VerifyMAC(verReq.MAC, verReq.Data)
 	if err != nil {
 		return fmt.Errorf("verify mac: %w", err)
 	}
@@ -698,8 +645,8 @@ func TestWrapUnWrapKey(t *testing.T) {
 		tmpCrypto := New(defaultKeystoreURL, blankClient)
 
 		_, err = tmpCrypto.WrapKey(cek, apu, apv, recipentPubKey)
-		require.EqualError(t, err, fmt.Errorf("posting WrapKey failed [%s, Post \"%s\": x509: certificate"+
-			" signed by unknown authority]", defaultKeystoreURL+wrapURI, defaultKeystoreURL+wrapURI).Error())
+		require.Contains(t, err.Error(), fmt.Sprintf("posting WrapKey failed [%s, Post \"%s\": x509: certificate"+
+			" signed by unknown authority", defaultKeystoreURL+wrapURI, defaultKeystoreURL+wrapURI))
 	})
 
 	t.Run("UnwrapKey Post request failure", func(t *testing.T) {
@@ -707,8 +654,8 @@ func TestWrapUnWrapKey(t *testing.T) {
 		tmpCrypto := New(defaultKeystoreURL, blankClient)
 
 		_, err = tmpCrypto.UnwrapKey(wKey, defaultKeyURL)
-		require.EqualError(t, err, fmt.Errorf("posting UnwrapKey failed [%s, Post \"%s\": x509: "+
-			"certificate signed by unknown authority]", defaultKeyURL+unwrapURI, defaultKeyURL+unwrapURI).Error())
+		require.Contains(t, err.Error(), fmt.Sprintf("posting UnwrapKey failed [%s, Post \"%s\": x509: "+
+			"certificate signed by unknown authority", defaultKeyURL+unwrapURI, defaultKeyURL+unwrapURI))
 	})
 
 	t.Run("WrapKey json marshal failure", func(t *testing.T) {
@@ -751,7 +698,7 @@ func TestWrapUnWrapKey(t *testing.T) {
 		wrappedKey, err := rCrypto.WrapKey(cek, apu, apv, recipentPubKey, crypto.WithSender(senderKID))
 		require.NoError(t, err)
 
-		dCEK, err := rCrypto.UnwrapKey(wrappedKey, defaultKeyURL, crypto.WithSender(senderKID))
+		dCEK, err := rCrypto.UnwrapKey(wrappedKey, defaultKeyURL, crypto.WithSender(&crypto.PublicKey{}))
 		require.NoError(t, err)
 		require.EqualValues(t, cek, dCEK)
 	})
@@ -760,7 +707,7 @@ func TestWrapUnWrapKey(t *testing.T) {
 		wrappedKey, err := rCrypto.WrapKey(cek, apu, apv, recipentPubKey, crypto.WithSender(""))
 		require.NoError(t, err)
 
-		dCEK, err := rCrypto.UnwrapKey(wrappedKey, defaultKeyURL, crypto.WithSender(""))
+		dCEK, err := rCrypto.UnwrapKey(wrappedKey, defaultKeyURL)
 		require.NoError(t, err)
 		require.EqualValues(t, cek, dCEK)
 	})
@@ -887,7 +834,13 @@ func processPOSTWrapRequest(w http.ResponseWriter, r *http.Request, senderKH, re
 	}
 
 	if strings.LastIndex(r.URL.Path, wrapURI) == len(r.URL.Path)-len(wrapURI) {
-		err = wrapKeyPostHandle(w, reqBody, senderKH, cr)
+		if strings.Contains(r.URL.Path, keysURI+"/") {
+			// URL contains sender key id and has form "keystorepath/keys/{senderKeyId}/wrap"
+			err = wrapKeyPostHandle(w, reqBody, senderKH, cr)
+		} else {
+			err = wrapKeyPostHandle(w, reqBody, nil, cr)
+		}
+
 		if err != nil {
 			return err
 		}
@@ -911,29 +864,13 @@ func wrapKeyPostHandle(w http.ResponseWriter, reqBody []byte, senderKH *keyset.H
 		return err
 	}
 
-	cek, err := base64.URLEncoding.DecodeString(wrapReq.CEK)
+	wk, err := buildRecipientWK(wrapReq.CEK, wrapReq.APU, wrapReq.APV, senderKH, wrapReq, cr)
 	if err != nil {
 		return err
 	}
 
-	apv, err := base64.URLEncoding.DecodeString(wrapReq.APV)
-	if err != nil {
-		return err
-	}
-
-	apu, err := base64.URLEncoding.DecodeString(wrapReq.APU)
-	if err != nil {
-		return err
-	}
-
-	wk, err := buildRecipientWK(cek, apu, apv, senderKH, wrapReq, cr)
-	if err != nil {
-		return err
-	}
-
-	httpWK := wrappedKeyToSerializableReq(wk)
 	resp := &wrapKeyResp{
-		WrappedKey: httpWK,
+		RecipientWrappedKey: *wk,
 	}
 
 	mResp, err := json.Marshal(resp)
@@ -954,22 +891,18 @@ func buildRecipientWK(cek, apu, apv []byte, senderKH *keyset.Handle, wrapReq *wr
 	var (
 		wk  *crypto.RecipientWrappedKey
 		opt crypto.WrapKeyOpts
+		err error
 	)
 
-	recPubKey, err := serializableReqToPubKey(&wrapReq.RecPubKey)
-	if err != nil {
-		return nil, err
-	}
-
-	if wrapReq.SenderKID != "" {
+	if senderKH != nil {
 		opt = crypto.WithSender(senderKH)
 
-		wk, err = cr.WrapKey(cek, apu, apv, recPubKey, opt)
+		wk, err = cr.WrapKey(cek, apu, apv, wrapReq.RecipientPubKey, opt)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		wk, err = cr.WrapKey(cek, apu, apv, recPubKey)
+		wk, err = cr.WrapKey(cek, apu, apv, wrapReq.RecipientPubKey)
 		if err != nil {
 			return nil, err
 		}
@@ -989,29 +922,24 @@ func unwrapKeyPostHandle(w http.ResponseWriter, reqBody []byte, senderKH, recKH 
 
 	var opt crypto.WrapKeyOpts
 
-	wk, err := serializableToWrappedKey(&unwrapReq.WrappedKey)
-	if err != nil {
-		return err
-	}
-
 	var cek []byte
 
-	if unwrapReq.SenderKID != "" {
+	if unwrapReq.SenderPubKey != nil {
 		opt = crypto.WithSender(senderKH)
 
-		cek, err = cr.UnwrapKey(wk, recKH, opt)
+		cek, err = cr.UnwrapKey(&unwrapReq.WrappedKey, recKH, opt)
 		if err != nil {
 			return err
 		}
 	} else {
-		cek, err = cr.UnwrapKey(wk, recKH)
+		cek, err = cr.UnwrapKey(&unwrapReq.WrappedKey, recKH)
 		if err != nil {
 			return err
 		}
 	}
 
 	resp := &unwrapKeyResp{
-		Key: base64.URLEncoding.EncodeToString(cek),
+		Key: cek,
 	}
 
 	mResp, err := json.Marshal(resp)
@@ -1072,8 +1000,8 @@ func TestBBSSignVerify_DeriveProofVerifyProof(t *testing.T) {
 		tmpCrypto := New(defaultKeystoreURL, blankClient)
 
 		_, err = tmpCrypto.SignMulti(nil, defaultKeyURL)
-		require.EqualError(t, err, fmt.Errorf("posting BBS+ Sign message failed [%s, Post \"%s\": x509: "+
-			"certificate signed by unknown authority]", defaultKeyURL+signMultiURI, defaultKeyURL+signMultiURI).Error())
+		require.Contains(t, err.Error(), fmt.Sprintf("posting BBS+ Sign message failed [%s, Post \"%s\": x509: "+
+			"certificate signed by unknown authority", defaultKeyURL+signMultiURI, defaultKeyURL+signMultiURI))
 	})
 
 	t.Run("BBS+ Verify Post request failure", func(t *testing.T) {
@@ -1081,8 +1009,8 @@ func TestBBSSignVerify_DeriveProofVerifyProof(t *testing.T) {
 		tmpCrypto := New(defaultKeystoreURL, blankClient)
 
 		err = tmpCrypto.VerifyMulti(nil, nil, defaultKeyURL)
-		require.EqualError(t, err, fmt.Errorf("posting BBS+ Verify signature failed [%s, Post \"%s\": x509: "+
-			"certificate signed by unknown authority]", defaultKeyURL+verifyMultiURI, defaultKeyURL+verifyMultiURI).Error())
+		require.Contains(t, err.Error(), fmt.Sprintf("posting BBS+ Verify signature failed [%s, Post \"%s\": x509: "+
+			"certificate signed by unknown authority", defaultKeyURL+verifyMultiURI, defaultKeyURL+verifyMultiURI))
 	})
 
 	t.Run("BBS+ Derive Proof Post request failure", func(t *testing.T) {
@@ -1090,9 +1018,9 @@ func TestBBSSignVerify_DeriveProofVerifyProof(t *testing.T) {
 		tmpCrypto := New(defaultKeystoreURL, blankClient)
 
 		_, err = tmpCrypto.DeriveProof(nil, nil, nil, nil, defaultKeyURL)
-		require.EqualError(t, err, fmt.Errorf("posting BBS+ Derive proof message failed [%s, Post \"%s\": "+
-			"x509: certificate signed by unknown authority]", defaultKeyURL+deriveProofURI,
-			defaultKeyURL+deriveProofURI).Error())
+		require.Contains(t, err.Error(), fmt.Sprintf("posting BBS+ Derive proof message failed [%s, Post \"%s\": "+
+			"x509: certificate signed by unknown authority", defaultKeyURL+deriveProofURI,
+			defaultKeyURL+deriveProofURI))
 	})
 
 	t.Run("BBS+ Verify Proof Post request failure", func(t *testing.T) {
@@ -1100,9 +1028,9 @@ func TestBBSSignVerify_DeriveProofVerifyProof(t *testing.T) {
 		tmpCrypto := New(defaultKeystoreURL, blankClient)
 
 		err = tmpCrypto.VerifyProof(nil, nil, nil, defaultKeyURL)
-		require.EqualError(t, err, fmt.Errorf("posting BBS+ Verify proof failed [%s, Post \"%s\": "+
-			"x509: certificate signed by unknown authority]", defaultKeyURL+verifyProofURI,
-			defaultKeyURL+verifyProofURI).Error())
+		require.Contains(t, err.Error(), fmt.Sprintf("posting BBS+ Verify proof failed [%s, Post \"%s\": "+
+			"x509: certificate signed by unknown authority", defaultKeyURL+verifyProofURI,
+			defaultKeyURL+verifyProofURI))
 	})
 
 	t.Run("BBS+ Sign json marshal failure", func(t *testing.T) {
@@ -1160,6 +1088,117 @@ func TestBBSSignVerify_DeriveProofVerifyProof(t *testing.T) {
 	})
 }
 
+func TestNonOKStatusCode(t *testing.T) {
+	aad := []byte("dolor sit")
+
+	nonOKServer, nonOkURL, nonOKClient := CreateMockHTTPServerAndClientNotOKStatusCode(t)
+
+	defer func() {
+		e := nonOKServer.Close()
+		require.NoError(t, e)
+	}()
+
+	nonOKDefaultKeystoreURL := fmt.Sprintf("%s/%s", strings.ReplaceAll(webkmsimpl.KeystoreEndpoint,
+		"{serverEndpoint}", nonOkURL), defaultKeyStoreID)
+	nonOKDefaultKeyURL := nonOKDefaultKeystoreURL + "/keys/" + defaultKID
+
+	t.Run("Encrypt Post request failure 501", func(t *testing.T) {
+		tmpCrypto := New(nonOKDefaultKeyURL, nonOKClient)
+
+		_, _, err := tmpCrypto.Encrypt(nil, aad, nonOKDefaultKeyURL)
+		require.Contains(t, err.Error(), "501")
+	})
+
+	t.Run("Decrypt Post request failure 501", func(t *testing.T) {
+		tmpCrypto := New(nonOKDefaultKeyURL, nonOKClient)
+
+		_, err := tmpCrypto.Decrypt(nil, aad, nil, nonOKDefaultKeyURL)
+		require.Contains(t, err.Error(), "501")
+	})
+
+	t.Run("Sign Post request failure 501", func(t *testing.T) {
+		tmpCrypto := New(nonOKDefaultKeyURL, nonOKClient)
+
+		_, err := tmpCrypto.Sign([]byte("Test message"), nonOKDefaultKeyURL)
+		require.Contains(t, err.Error(), "501")
+	})
+
+	t.Run("Verify Post request failure 501", func(t *testing.T) {
+		tmpCrypto := New(nonOKDefaultKeyURL, nonOKClient)
+
+		err := tmpCrypto.Verify([]byte{}, []byte("Test message"), nonOKDefaultKeyURL)
+		require.Contains(t, err.Error(), "501")
+	})
+
+	t.Run("ComputeMAC Post request failure 501", func(t *testing.T) {
+		tmpCrypto := New(nonOKDefaultKeyURL, nonOKClient)
+
+		_, err := tmpCrypto.ComputeMAC([]byte("Test message"), nonOKDefaultKeyURL)
+		require.Contains(t, err.Error(), "501")
+	})
+
+	t.Run("VerifyMAC Post request failure 501", func(t *testing.T) {
+		tmpCrypto := New(nonOKDefaultKeyURL, nonOKClient)
+
+		err := tmpCrypto.VerifyMAC([]byte{}, []byte("Test message"), nonOKDefaultKeyURL)
+		require.Contains(t, err.Error(), "501")
+	})
+
+	t.Run("SignMulti Post request failure 501", func(t *testing.T) {
+		tmpCrypto := New(nonOKDefaultKeyURL, nonOKClient)
+
+		_, err := tmpCrypto.SignMulti([][]byte{
+			[]byte("Test message 1"),
+			[]byte("Test message 2"),
+		}, nonOKDefaultKeyURL)
+		require.Contains(t, err.Error(), "501")
+	})
+
+	t.Run("VerifyMAC Post request failure 501", func(t *testing.T) {
+		tmpCrypto := New(nonOKDefaultKeyURL, nonOKClient)
+
+		err := tmpCrypto.VerifyMulti([][]byte{
+			[]byte("Test message 1"),
+			[]byte("Test message 2"),
+		}, []byte{}, nonOKDefaultKeyURL)
+		require.Contains(t, err.Error(), "501")
+	})
+
+	t.Run("WrapKey Post request failure 501", func(t *testing.T) {
+		tmpCrypto := New(nonOKDefaultKeyURL, nonOKClient)
+
+		_, err := tmpCrypto.WrapKey([]byte{}, []byte{}, []byte{}, nil)
+		require.Contains(t, err.Error(), "501")
+	})
+
+	t.Run("UnwrapKey Post request failure 501", func(t *testing.T) {
+		tmpCrypto := New(nonOKDefaultKeyURL, nonOKClient)
+
+		_, err := tmpCrypto.UnwrapKey(&crypto.RecipientWrappedKey{}, nonOKDefaultKeyURL)
+		require.Contains(t, err.Error(), "501")
+	})
+
+	t.Run("DeriveProof Post request failure 501", func(t *testing.T) {
+		tmpCrypto := New(nonOKDefaultKeyURL, nonOKClient)
+
+		_, err := tmpCrypto.DeriveProof([][]byte{
+			[]byte("Test message 1"),
+			[]byte("Test message 2"),
+		}, []byte{}, []byte{}, []int{}, nonOKDefaultKeyURL)
+		require.Contains(t, err.Error(), "501")
+	})
+
+	t.Run("VerifyProof Post request failure 501", func(t *testing.T) {
+		tmpCrypto := New(nonOKDefaultKeyURL, nonOKClient)
+
+		err := tmpCrypto.VerifyProof([][]byte{
+			[]byte("Test message 1"),
+			[]byte("Test message 2"),
+		}, []byte{}, []byte{}, nonOKDefaultKeyURL)
+		require.Contains(t, err.Error(), "501")
+	})
+}
+
 // nolint:gocyclo
 func processBBSPOSTRequest(w http.ResponseWriter, r *http.Request, sigKH *keyset.Handle) error {
 	if valid := validateHTTPMethod(w, r); !valid {
@@ -1214,31 +1253,18 @@ func bbsSignPOSTHandle(w http.ResponseWriter, reqBody []byte, sigKH *keyset.Hand
 		return err
 	}
 
-	var messages [][]byte
-
-	for _, msg := range sigReq.Messages {
-		var msgRecord []byte
-
-		msgRecord, err = base64.URLEncoding.DecodeString(msg)
-		if err != nil {
-			return err
-		}
-
-		messages = append(messages, msgRecord)
-	}
-
 	signer, err := bbs.NewSigner(sigKH)
 	if err != nil {
 		return fmt.Errorf("create new signer: %w", err)
 	}
 
-	s, err := signer.Sign(messages)
+	s, err := signer.Sign(sigReq.Messages)
 	if err != nil {
 		return fmt.Errorf("sign msg: %w", err)
 	}
 
 	resp := &signResp{
-		Signature: base64.URLEncoding.EncodeToString(s),
+		Signature: s,
 	}
 
 	mResp, err := json.Marshal(resp)
@@ -1262,24 +1288,6 @@ func bbsVerifyPOSTHandle(reqBody []byte, sigKH *keyset.Handle) error {
 		return err
 	}
 
-	sig, err := base64.URLEncoding.DecodeString(verReq.Signature)
-	if err != nil {
-		return err
-	}
-
-	var messages [][]byte
-
-	for _, msg := range verReq.Messages {
-		var msgRecord []byte
-
-		msgRecord, err = base64.URLEncoding.DecodeString(msg)
-		if err != nil {
-			return err
-		}
-
-		messages = append(messages, msgRecord)
-	}
-
 	pubKH, err := sigKH.Public()
 	if err != nil {
 		return err
@@ -1290,7 +1298,7 @@ func bbsVerifyPOSTHandle(reqBody []byte, sigKH *keyset.Handle) error {
 		return fmt.Errorf("create new BBS+ verifier: %w", err)
 	}
 
-	err = verifier.Verify(messages, sig)
+	err = verifier.Verify(verReq.Messages, verReq.Signature)
 	if err != nil {
 		return fmt.Errorf("BBS+ verify msg: %w", err)
 	}
@@ -1298,7 +1306,6 @@ func bbsVerifyPOSTHandle(reqBody []byte, sigKH *keyset.Handle) error {
 	return nil
 }
 
-// nolint:gocyclo
 func bbsDeriveProofPOSTHandle(w http.ResponseWriter, reqBody []byte, sigKH *keyset.Handle) error {
 	deriveProofReq := &deriveProofReq{}
 
@@ -1307,29 +1314,6 @@ func bbsDeriveProofPOSTHandle(w http.ResponseWriter, reqBody []byte, sigKH *keys
 		return err
 	}
 
-	sig, err := base64.URLEncoding.DecodeString(deriveProofReq.Signature)
-	if err != nil {
-		return err
-	}
-
-	var messages [][]byte
-
-	for _, msg := range deriveProofReq.Messages {
-		var msgRecord []byte
-
-		msgRecord, err = base64.URLEncoding.DecodeString(msg)
-		if err != nil {
-			return err
-		}
-
-		messages = append(messages, msgRecord)
-	}
-
-	nonce, err := base64.URLEncoding.DecodeString(deriveProofReq.Nonce)
-	if err != nil {
-		return err
-	}
-
 	pubKH, err := sigKH.Public()
 	if err != nil {
 		return err
@@ -1340,13 +1324,16 @@ func bbsDeriveProofPOSTHandle(w http.ResponseWriter, reqBody []byte, sigKH *keys
 		return fmt.Errorf("create new BBS+ verifier: %w", err)
 	}
 
-	proof, err := verifier.DeriveProof(messages, sig, nonce, deriveProofReq.RevealedIndexes)
+	proof, err := verifier.DeriveProof(deriveProofReq.Messages,
+		deriveProofReq.Signature,
+		deriveProofReq.Nonce,
+		deriveProofReq.RevealedIndexes)
 	if err != nil {
 		return fmt.Errorf("BBS+ derive proof msg: %w", err)
 	}
 
 	resp := &deriveProofResp{
-		Proof: base64.URLEncoding.EncodeToString(proof),
+		Proof: proof,
 	}
 
 	mResp, err := json.Marshal(resp)
@@ -1370,29 +1357,6 @@ func bbsVerifyProofPOSTHandle(reqBody []byte, sigKH *keyset.Handle) error {
 		return err
 	}
 
-	proof, err := base64.URLEncoding.DecodeString(verifyProofReq.Proof)
-	if err != nil {
-		return err
-	}
-
-	nonce, err := base64.URLEncoding.DecodeString(verifyProofReq.Nonce)
-	if err != nil {
-		return err
-	}
-
-	var messages [][]byte
-
-	for _, msg := range verifyProofReq.Messages {
-		var msgRecord []byte
-
-		msgRecord, err = base64.URLEncoding.DecodeString(msg)
-		if err != nil {
-			return err
-		}
-
-		messages = append(messages, msgRecord)
-	}
-
 	pubKH, err := sigKH.Public()
 	if err != nil {
 		return err
@@ -1403,7 +1367,7 @@ func bbsVerifyProofPOSTHandle(reqBody []byte, sigKH *keyset.Handle) error {
 		return fmt.Errorf("create new BBS+ verifier: %w", err)
 	}
 
-	err = verifier.VerifyProof(messages, proof, nonce)
+	err = verifier.VerifyProof(verifyProofReq.Messages, verifyProofReq.Proof, verifyProofReq.Nonce)
 	if err != nil {
 		return fmt.Errorf("BBS+ verify proof msg: %w", err)
 	}
@@ -1484,6 +1448,14 @@ func CreateMockHTTPServerAndClient(t *testing.T, inHandler http.Handler) (net.Li
 	}
 
 	return server, serverURL, client
+}
+
+func CreateMockHTTPServerAndClientNotOKStatusCode(t *testing.T) (net.Listener, string, *http.Client) {
+	hf := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(501)
+	})
+
+	return CreateMockHTTPServerAndClient(t, hf)
 }
 
 func startMockServer(handler http.Handler) net.Listener {

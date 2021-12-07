@@ -32,6 +32,16 @@ const (
 	TransportReturnRouteThread = "thread"
 )
 
+// Version represents DIDComm protocol version.
+type Version string
+
+// DIDComm versions.
+const (
+	DIDCommV1  Version = "v1"
+	DIDCommV2  Version = "v2"
+	AnyVersion Version = "any"
+)
+
 // Thread thread data.
 type Thread struct {
 	ID             string         `json:"thid,omitempty"`
@@ -110,6 +120,145 @@ type AttachmentV2 struct {
 	Data AttachmentData `json:"data,omitempty"`
 	// Format describes the format of the attachment if the media_type is not sufficient.
 	Format string `json:"format,omitempty"`
+}
+
+// GenericAttachment is used to work with DIDComm attachments that can be either DIDComm v1 or DIDComm v2.
+type GenericAttachment struct {
+	// ID is the attachment ID..
+	ID string `json:"id,omitempty"`
+	// Description is an optional human-readable description of the content.
+	Description string `json:"description,omitempty"`
+	// FileName is a hint about the name that might be used if this attachment is persisted as a file.
+	// It is not required, and need not be unique. If this field is present and mime-type is not,
+	// the extension on the filename may be used to infer a MIME type.
+	FileName string `json:"filename,omitempty"`
+	// MediaType describes the MIME type of the attached content in a DIDComm v2 attachment. Optional but recommended.
+	MediaType string `json:"media_type,omitempty"`
+	// LastModTime is a hint about when the content in this attachment was last modified.
+	LastModTime time.Time `json:"lastmod_time,omitempty"`
+	// ByteCount is an optional, and mostly relevant when content is included by reference instead of by value.
+	// Lets the receiver guess how expensive it will be, in time, bandwidth, and storage, to fully fetch the attachment.
+	ByteCount int64 `json:"byte_count,omitempty"`
+	// Data is a JSON object that gives access to the actual content of the attachment.
+	Data AttachmentData `json:"data,omitempty"`
+	// Format describes the format of the attachment if the media_type is not sufficient, in a DIDComm v2 attachment.
+	Format  string `json:"format,omitempty"`
+	version Version
+}
+
+// Version returns the DIDComm version of this attachment.
+func (ga *GenericAttachment) Version() Version {
+	return ga.version
+}
+
+// AsV1 returns the attachment as a DIDComm v1 attachment.
+func (ga *GenericAttachment) AsV1() Attachment {
+	return Attachment{
+		ID:          ga.ID,
+		Description: ga.Description,
+		FileName:    ga.FileName,
+		MimeType:    ga.MediaType,
+		LastModTime: ga.LastModTime,
+		ByteCount:   ga.ByteCount,
+		Data:        ga.Data,
+	}
+}
+
+// AsV2 returns the attachment as a DIDComm v2 attachment.
+func (ga *GenericAttachment) AsV2() AttachmentV2 {
+	return AttachmentV2{
+		ID:          ga.ID,
+		Description: ga.Description,
+		FileName:    ga.FileName,
+		MediaType:   ga.MediaType,
+		LastModTime: ga.LastModTime,
+		ByteCount:   ga.ByteCount,
+		Data:        ga.Data,
+		Format:      ga.Format,
+	}
+}
+
+// GenericAttachmentsToV1 converts a slice of GenericAttachment to a slice of Attachment.
+func GenericAttachmentsToV1(attachments []GenericAttachment) []Attachment {
+	if attachments == nil {
+		return nil
+	}
+
+	out := make([]Attachment, len(attachments))
+
+	for i := 0; i < len(attachments); i++ {
+		out[i] = attachments[i].AsV1()
+	}
+
+	return out
+}
+
+// V1AttachmentsToGeneric converts a slice of Attachment to a slice of GenericAttachment.
+func V1AttachmentsToGeneric(attachments []Attachment) []GenericAttachment {
+	if attachments == nil {
+		return nil
+	}
+
+	out := make([]GenericAttachment, len(attachments))
+
+	for i := 0; i < len(attachments); i++ {
+		att := attachments[i]
+
+		out[i] = GenericAttachment{
+			ID:          att.ID,
+			Description: att.Description,
+			FileName:    att.FileName,
+			MediaType:   att.MimeType,
+			LastModTime: att.LastModTime,
+			ByteCount:   att.ByteCount,
+			Data:        att.Data,
+			version:     DIDCommV1,
+		}
+	}
+
+	return out
+}
+
+// GenericAttachmentsToV2 converts a slice of GenericAttachment to a slice of AttachmentV2.
+func GenericAttachmentsToV2(attachments []GenericAttachment) []AttachmentV2 {
+	if attachments == nil {
+		return nil
+	}
+
+	out := make([]AttachmentV2, len(attachments))
+
+	for i := 0; i < len(attachments); i++ {
+		out[i] = attachments[i].AsV2()
+	}
+
+	return out
+}
+
+// V2AttachmentsToGeneric converts a slice of AttachmentV2 to a slice of GenericAttachment.
+func V2AttachmentsToGeneric(attachments []AttachmentV2) []GenericAttachment {
+	if attachments == nil {
+		return nil
+	}
+
+	out := make([]GenericAttachment, len(attachments))
+
+	for i := 0; i < len(attachments); i++ {
+		att := attachments[i]
+
+		out[i] = GenericAttachment{
+			ID:          att.ID,
+			Description: att.Description,
+			FileName:    att.FileName,
+			MediaType:   att.MediaType,
+			LastModTime: att.LastModTime,
+			ByteCount:   att.ByteCount,
+			Data:        att.Data,
+			Format:      att.Format,
+			version:     DIDCommV2,
+		}
+	}
+
+	return out
 }
 
 // AttachmentData contains attachment payload.

@@ -8,8 +8,8 @@ package keywrapper
 
 import (
 	"encoding/base64"
-	"fmt"
-	"strings"
+	"errors"
+	"regexp"
 
 	"github.com/google/tink/go/tink"
 
@@ -29,11 +29,10 @@ type LocalAEAD struct {
 
 // New creates a new key wrapper with the given uriPrefix and a local secretLock service.
 func New(secretLock secretlock.Service, keyURI string) (tink.AEAD, error) {
-	if !strings.HasPrefix(strings.ToLower(keyURI), LocalKeyURIPrefix) || len(keyURI) <= len(LocalKeyURIPrefix) {
-		return nil, fmt.Errorf("keyURI must start with %s", LocalKeyURIPrefix)
+	uri, err := trimPrefix(keyURI)
+	if err != nil {
+		return nil, err
 	}
-
-	uri := strings.TrimPrefix(keyURI, LocalKeyURIPrefix)
 
 	return &LocalAEAD{
 		keyURI:     uri,
@@ -79,4 +78,19 @@ func (a *LocalAEAD) Decrypt(ciphertext, additionalData []byte) ([]byte, error) {
 	}
 
 	return pt, nil
+}
+
+func trimPrefix(keyURI string) (string, error) {
+	re1 := regexp.MustCompile(`[a-zA-Z0-9-_]+://`)
+	loc := re1.FindStringIndex(keyURI)
+
+	if len(loc) == 0 || loc[0] > 0 {
+		return "", errors.New("keyURI must have a prefix in form 'prefixname://'")
+	}
+
+	if loc[1] == len(keyURI) {
+		return "", errors.New("keyURI can't consist only from a prefix")
+	}
+
+	return keyURI[loc[1]:], nil
 }

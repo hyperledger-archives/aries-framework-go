@@ -357,76 +357,80 @@ func getOobMessageOptions(opts *connectOpts) []outofband.MessageOption {
 	return append(result, outofband.ReuseConnection(opts.ReuseDID))
 }
 
-// proposePresOpts contains options for proposing presentation from wallet.
-type proposePresOpts struct {
+// initiateInteractionOpts contains options for proposing presentation/credential from wallet by
+// accepting out-of-band invitation from verifier/issuer.
+type initiateInteractionOpts struct {
 	// optional from DID option to customize message sender DID.
 	from string
 	// connect options.
 	connectOpts []ConnectOptions
-	// timeout duration to wait for request presentation response from relying party.
+	// timeout duration to wait for response from invitee.
 	timeout time.Duration
 }
 
-// ProposePresentationOption options for proposing presentation from wallet.
-type ProposePresentationOption func(opts *proposePresOpts)
+// InitiateInteractionOption options for initiating credential interaction by proposing presentation/credential
+// from wallet.
+type InitiateInteractionOption func(opts *initiateInteractionOpts)
 
-// WithFromDID option for providing customized from DID for sending propose presentation message.
-func WithFromDID(from string) ProposePresentationOption {
-	return func(opts *proposePresOpts) {
+// WithFromDID option for providing customized from DID for sending propose message.
+func WithFromDID(from string) InitiateInteractionOption {
+	return func(opts *initiateInteractionOpts) {
 		opts.from = from
 	}
 }
 
 // WithConnectOptions for customizing options for accepting invitation.
-func WithConnectOptions(options ...ConnectOptions) ProposePresentationOption {
-	return func(opts *proposePresOpts) {
+func WithConnectOptions(options ...ConnectOptions) InitiateInteractionOption {
+	return func(opts *initiateInteractionOpts) {
 		opts.connectOpts = options
 	}
 }
 
-// WithPresentProofTimeout to provide timeout duration to wait for request presentation response from relying party.
-func WithPresentProofTimeout(timeout time.Duration) ProposePresentationOption {
-	return func(opts *proposePresOpts) {
+// WithInitiateTimeout to provide timeout duration to wait for response for propose message.
+func WithInitiateTimeout(timeout time.Duration) InitiateInteractionOption {
+	return func(opts *initiateInteractionOpts) {
 		opts.timeout = timeout
 	}
 }
 
-// presentProofOpts contains options to send present proof from wallet.
-type presentProofOpts struct {
-	// presenting proof from raw credential.
+// concludeInteractionOpts contains options to conclude credential interaction by sending
+// present proof or request credential message from wallet.
+type concludeInteractionOpts struct {
+	// presenting proof or requesting credential from raw credential.
 	rawPresentation json.RawMessage
-	// presenting proof verifiable presentation instance.
+	// presenting proof or requesting credential from verifiable presentation instance.
 	// this option takes precedence when provided with other options.
 	presentation *verifiable.Presentation
-	// if provided then wallet will wait till it gets acknowledgement or problem report from verifier.
+	// if provided then wallet will wait till it gets acknowledgement or problem report from other party.
 	waitForDone bool
-	// time duration to wait for present proof done.
+	// time duration to wait for status to be done or abanoned.
 	timeout time.Duration
 }
 
-// PresentProofOptions is option to send present proof from wallet.
-type PresentProofOptions func(opts *presentProofOpts)
+// ConcludeInteractionOptions is option to conclude credential interaction between wallet and verifier/issuer by sending
+// present proof or request credential message.
+type ConcludeInteractionOptions func(opts *concludeInteractionOpts)
 
-// FromPresentation for sending aries verifiable presentation.
-func FromPresentation(presentation *verifiable.Presentation) PresentProofOptions {
-	return func(opts *presentProofOpts) {
+// FromPresentation for sending aries verifiable presentation as message attachment.
+func FromPresentation(presentation *verifiable.Presentation) ConcludeInteractionOptions {
+	return func(opts *concludeInteractionOpts) {
 		opts.presentation = presentation
 	}
 }
 
-// FromRawPresentation for sending raw JSON as presentation.
-func FromRawPresentation(raw json.RawMessage) PresentProofOptions {
-	return func(opts *presentProofOpts) {
+// FromRawPresentation for sending raw JSON as presentation as message attachment.
+func FromRawPresentation(raw json.RawMessage) ConcludeInteractionOptions {
+	return func(opts *concludeInteractionOpts) {
 		opts.rawPresentation = raw
 	}
 }
 
-// WaitForDone if provided then wallet will wait for present proof protocol status to be
+// WaitForDone if provided then wallet will wait for credential interaction protocol status to be
 // done or abandoned till given timeout. If used then wallet will wait for acknowledgement or problem report
-// from verifier and also will return web redirect info if found in incoming message.
+// from other party and also will return web redirect info if found in incoming message.
 // If timeout is zero then wallet will use its default timeout.
-func WaitForDone(timeout time.Duration) PresentProofOptions {
-	return func(opts *presentProofOpts) {
+func WaitForDone(timeout time.Duration) ConcludeInteractionOptions {
+	return func(opts *concludeInteractionOpts) {
 		opts.waitForDone = true
 
 		if timeout <= 0 {

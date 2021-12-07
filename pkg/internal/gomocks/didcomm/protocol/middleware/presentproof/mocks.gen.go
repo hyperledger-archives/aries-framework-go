@@ -163,10 +163,10 @@ func (mr *MockMetadataMockRecorder) Message() *gomock.Call {
 }
 
 // Presentation mocks base method.
-func (m *MockMetadata) Presentation() *presentproof.Presentation {
+func (m *MockMetadata) Presentation() *presentproof.PresentationV2 {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Presentation")
-	ret0, _ := ret[0].(*presentproof.Presentation)
+	ret0, _ := ret[0].(*presentproof.PresentationV2)
 	return ret0
 }
 
@@ -219,10 +219,10 @@ func (mr *MockMetadataMockRecorder) Properties() *gomock.Call {
 }
 
 // ProposePresentation mocks base method.
-func (m *MockMetadata) ProposePresentation() *presentproof.ProposePresentation {
+func (m *MockMetadata) ProposePresentation() *presentproof.ProposePresentationV2 {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ProposePresentation")
-	ret0, _ := ret[0].(*presentproof.ProposePresentation)
+	ret0, _ := ret[0].(*presentproof.ProposePresentationV2)
 	return ret0
 }
 
@@ -247,10 +247,10 @@ func (mr *MockMetadataMockRecorder) ProposePresentationV3() *gomock.Call {
 }
 
 // RequestPresentation mocks base method.
-func (m *MockMetadata) RequestPresentation() *presentproof.RequestPresentation {
+func (m *MockMetadata) RequestPresentation() *presentproof.RequestPresentationV2 {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RequestPresentation")
-	ret0, _ := ret[0].(*presentproof.RequestPresentation)
+	ret0, _ := ret[0].(*presentproof.RequestPresentationV2)
 	return ret0
 }
 

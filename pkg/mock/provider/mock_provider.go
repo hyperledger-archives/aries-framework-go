@@ -12,6 +12,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/didrotate"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
@@ -50,6 +51,13 @@ type Provider struct {
 	InboundMessengerValue             service.InboundMessenger
 	GetDIDsBackoffDurationValue       time.Duration
 	GetDIDsMaxRetriesValue            uint64
+	DIDRotatorValue                   didrotate.DIDRotator
+	MessengerValue                    service.Messenger
+}
+
+// Messenger return messenger.
+func (p *Provider) Messenger() service.Messenger {
+	return p.MessengerValue
 }
 
 // MessageServiceProvider return message service provider.
@@ -193,4 +201,9 @@ func (p *Provider) KeyType() kms.KeyType {
 // KeyAgreementType returns a mocked keyType value for KeyAgreement.
 func (p *Provider) KeyAgreementType() kms.KeyType {
 	return p.KeyAgreementTypeValue
+}
+
+// DIDRotator returns the did rotator.
+func (p *Provider) DIDRotator() *didrotate.DIDRotator {
+	return &p.DIDRotatorValue
 }

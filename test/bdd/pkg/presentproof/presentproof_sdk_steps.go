@@ -228,7 +228,9 @@ func (a *SDKSteps) sendProposePresentation(prover, verifier string) error {
 		return err
 	}
 
-	_, err = a.clients[prover].SendProposePresentation(&presentproof.ProposePresentation{}, conn.MyDID, conn.TheirDID)
+	conn.DIDCommVersion = service.V1
+
+	_, err = a.clients[prover].SendProposePresentation(&presentproof.ProposePresentation{}, conn.Record)
 
 	return err
 }
@@ -239,7 +241,9 @@ func (a *SDKSteps) sendProposePresentationV3(prover, verifier string) error {
 		return err
 	}
 
-	_, err = a.clients[prover].SendProposePresentationV3(&presentproof.ProposePresentationV3{}, conn.MyDID, conn.TheirDID)
+	conn.DIDCommVersion = service.V2
+
+	_, err = a.clients[prover].SendProposePresentation(&presentproof.ProposePresentation{}, conn.Record)
 
 	return err
 }
@@ -250,22 +254,26 @@ func (a *SDKSteps) sendRequestPresentation(agent1, agent2 string) error {
 		return err
 	}
 
+	conn.DIDCommVersion = service.V1
+
 	_, err = a.clients[agent1].SendRequestPresentation(&presentproof.RequestPresentation{
 		WillConfirm: true,
-	}, conn.MyDID, conn.TheirDID)
+	}, conn.Record)
 
 	return err
 }
 
 func (a *SDKSteps) sendRequestPresentationV3(agent1, agent2 string) error {
-	did1, did2, err := a.getDIDs(agent1, agent2)
+	conn, err := a.getConnection(agent1, agent2)
 	if err != nil {
 		return err
 	}
 
-	_, err = a.clients[agent1].SendRequestPresentationV3(&presentproof.RequestPresentationV3{
-		Body: protocol.RequestPresentationV3Body{WillConfirm: true},
-	}, did1, did2)
+	conn.DIDCommVersion = service.V2
+
+	_, err = a.clients[agent1].SendRequestPresentation(&presentproof.RequestPresentation{
+		WillConfirm: true,
+	}, conn.Record)
 
 	return err
 }
@@ -278,6 +286,8 @@ func (a *SDKSteps) sendRequestPresentationDefinition(agent1, agent2 string) erro
 		return err
 	}
 
+	conn.DIDCommVersion = service.V1
+
 	ID := uuid.New().String()
 
 	_, err = a.clients[agent1].SendRequestPresentation(&presentproof.RequestPresentation{
@@ -287,7 +297,7 @@ func (a *SDKSteps) sendRequestPresentationDefinition(agent1, agent2 string) erro
 				AttachID: ID,
 			},
 		},
-		RequestPresentationsAttach: []decorator.Attachment{{
+		Attachments: []decorator.GenericAttachment{{
 			ID: ID,
 			Data: decorator.AttachmentData{
 				JSON: map[string]interface{}{
@@ -311,7 +321,7 @@ func (a *SDKSteps) sendRequestPresentationDefinition(agent1, agent2 string) erro
 			},
 		}},
 		WillConfirm: true,
-	}, conn.MyDID, conn.TheirDID)
+	}, conn.Record)
 
 	return err
 }
@@ -324,10 +334,12 @@ func (a *SDKSteps) sendRequestPresentationDefinitionV3(agent1, agent2 string) er
 		return err
 	}
 
+	conn.DIDCommVersion = service.V2
+
 	ID := uuid.New().String()
 
-	_, err = a.clients[agent1].SendRequestPresentationV3(&presentproof.RequestPresentationV3{
-		Attachments: []decorator.AttachmentV2{{
+	_, err = a.clients[agent1].SendRequestPresentation(&presentproof.RequestPresentation{
+		Attachments: []decorator.GenericAttachment{{
 			ID:     ID,
 			Format: "dif/presentation-exchange/definitions@v1.0",
 			Data: decorator.AttachmentData{
@@ -351,8 +363,8 @@ func (a *SDKSteps) sendRequestPresentationDefinitionV3(agent1, agent2 string) er
 				},
 			},
 		}},
-		Body: protocol.RequestPresentationV3Body{WillConfirm: true},
-	}, conn.MyDID, conn.TheirDID)
+		WillConfirm: true,
+	}, conn.Record)
 
 	return err
 }
@@ -420,7 +432,7 @@ func (a *SDKSteps) acceptRequestPresentation(prover, verifier string) error {
 	}
 
 	return a.clients[prover].AcceptRequestPresentation(PIID, &presentproof.Presentation{
-		PresentationsAttach: []decorator.Attachment{{
+		Attachments: []decorator.GenericAttachment{{
 			Data: decorator.AttachmentData{
 				Base64: base64.StdEncoding.EncodeToString([]byte(vpJWS)),
 			},
@@ -476,8 +488,8 @@ func (a *SDKSteps) acceptRequestPresentationV3(prover, verifier string) error {
 		return fmt.Errorf("failed to sign VP inside JWT: %w", err)
 	}
 
-	return a.clients[prover].AcceptRequestPresentationV3(PIID, &presentproof.PresentationV3{
-		Attachments: []decorator.AttachmentV2{{
+	return a.clients[prover].AcceptRequestPresentation(PIID, &presentproof.Presentation{
+		Attachments: []decorator.GenericAttachment{{
 			Data: decorator.AttachmentData{
 				Base64: base64.StdEncoding.EncodeToString([]byte(vpJWS)),
 			},
@@ -576,8 +588,8 @@ func (a *SDKSteps) acceptRequestPresentationBBS(prover, _, proof string) error {
 	}
 
 	return a.clients[prover].AcceptRequestPresentation(PIID, &presentproof.Presentation{
-		PresentationsAttach: []decorator.Attachment{{
-			MimeType: "application/ld+json",
+		Attachments: []decorator.GenericAttachment{{
+			MediaType: "application/ld+json",
 			Data: decorator.AttachmentData{
 				JSON: vc,
 			},
@@ -675,8 +687,8 @@ func (a *SDKSteps) acceptRequestPresentationBBSV3(prover, _, proof string) error
 		}
 	}
 
-	return a.clients[prover].AcceptRequestPresentationV3(PIID, &presentproof.PresentationV3{
-		Attachments: []decorator.AttachmentV2{{
+	return a.clients[prover].AcceptRequestPresentation(PIID, &presentproof.Presentation{
+		Attachments: []decorator.GenericAttachment{{
 			MediaType: "application/ld+json",
 			Data: decorator.AttachmentData{
 				JSON: vc,
@@ -787,7 +799,7 @@ func (a *SDKSteps) negotiateRequestPresentationV3(agent string) error {
 		return err
 	}
 
-	return a.clients[agent].NegotiateRequestPresentationV3(PIID, &presentproof.ProposePresentationV3{})
+	return a.clients[agent].NegotiateRequestPresentation(PIID, &presentproof.ProposePresentation{})
 }
 
 func (a *SDKSteps) acceptProposePresentation(verifier string) error {
@@ -807,8 +819,8 @@ func (a *SDKSteps) acceptProposePresentationV3(verifier string) error {
 		return err
 	}
 
-	return a.clients[verifier].AcceptProposePresentationV3(PIID, &presentproof.RequestPresentationV3{
-		Body: protocol.RequestPresentationV3Body{WillConfirm: true},
+	return a.clients[verifier].AcceptProposePresentation(PIID, &presentproof.RequestPresentation{
+		WillConfirm: true,
 	})
 }
 
@@ -836,23 +848,15 @@ func (a *SDKSteps) createClient(agentID string) error {
 }
 
 func (a *SDKSteps) getDIDs(agent1, agent2 string) (string, string, error) {
-	if err := a.createClient(agent1); err != nil {
-		return "", "", err
-	}
-
-	if err := a.createClient(agent2); err != nil {
-		return "", "", err
-	}
-
-	doc1, ok1 := a.bddContext.PublicDIDDocs[agent1]
-	doc2, ok2 := a.bddContext.PublicDIDDocs[agent2]
-
-	if ok1 && ok2 {
-		return doc1.ID, doc2.ID, nil
-	}
-
 	conn, err := a.getConnection(agent1, agent2)
 	if err != nil {
+		doc1, ok1 := a.bddContext.PublicDIDDocs[agent1]
+		doc2, ok2 := a.bddContext.PublicDIDDocs[agent2]
+
+		if ok1 && ok2 {
+			return doc1.ID, doc2.ID, nil
+		}
+
 		return "", "", err
 	}
 
@@ -868,7 +872,19 @@ func (a *SDKSteps) getConnection(agent1, agent2 string) (*didexchange.Connection
 		return nil, err
 	}
 
-	connections, err := a.bddContext.DIDExchangeClients[agent1].QueryConnections(&didexchange.QueryConnectionsParams{})
+	didexClient, ok := a.bddContext.DIDExchangeClients[agent1]
+	if !ok {
+		var err error
+
+		didexClient, err = didexchange.New(a.bddContext.AgentCtx[agent1])
+		if err != nil {
+			return nil, err
+		}
+
+		a.bddContext.DIDExchangeClients[agent1] = didexClient
+	}
+
+	connections, err := didexClient.QueryConnections(&didexchange.QueryConnectionsParams{})
 	if err != nil {
 		return nil, err
 	}

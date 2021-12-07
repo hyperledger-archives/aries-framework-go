@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
@@ -21,6 +22,7 @@ import (
 	dispatchermocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/dispatcher"
 	messengermocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/messenger"
 	protocolmocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/presentproof"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
 // payload represents a transport message structure.
@@ -155,12 +157,18 @@ func ExampleClient_SendRequestPresentation() {
 		}
 	}()
 
+	conn := connection.Record{
+		ConnectionID: uuid.New().String(),
+		MyDID:        Alice,
+		TheirDID:     Bob,
+	}
+
 	// Alice
 	waitForAlice := waitForFn(clientAlice)
 	// Bob
 	waitForBob := waitForFn(clientBob)
 
-	_, err = clientAlice.SendRequestPresentation(&RequestPresentation{}, Alice, Bob)
+	_, err = clientAlice.SendRequestPresentation(&RequestPresentation{}, &conn)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -173,76 +181,7 @@ func ExampleClient_SendRequestPresentation() {
 	// Alice received https://didcomm.org/present-proof/2.0/presentation from Bob
 }
 
-func ExampleClient_SendRequestPresentationV3() {
-	transport := map[string]chan payload{
-		Alice: make(chan payload),
-		Bob:   make(chan payload),
-	}
-
-	// Alice creates client
-	clientAlice, err := New(mockContext(Alice, transport))
-	if err != nil {
-		panic(err)
-	}
-
-	// Alice registers channel for actions
-	actionsAlice := make(chan service.DIDCommAction)
-
-	err = clientAlice.RegisterActionEvent(actionsAlice)
-	if err != nil {
-		panic(err)
-	}
-
-	// Bob creates client
-	clientBob, err := New(mockContext(Bob, transport))
-	if err != nil {
-		panic(err)
-	}
-
-	// Bob registers channel for actions
-	actionsBob := make(chan service.DIDCommAction)
-
-	err = clientBob.RegisterActionEvent(actionsBob)
-	if err != nil {
-		panic(err)
-	}
-
-	go func() {
-		for {
-			var acceptErr error
-
-			select {
-			case e := <-actionsAlice:
-				acceptErr = clientAlice.AcceptPresentation(e.Properties.All()["piid"].(string))
-			case e := <-actionsBob:
-				acceptErr = clientBob.AcceptRequestPresentationV3(e.Properties.All()["piid"].(string), &PresentationV3{}, nil)
-			}
-
-			if acceptErr != nil {
-				fmt.Println(acceptErr)
-			}
-		}
-	}()
-
-	// Alice
-	waitForAlice := waitForFn(clientAlice)
-	// Bob
-	waitForBob := waitForFn(clientBob)
-
-	_, err = clientAlice.SendRequestPresentationV3(&RequestPresentationV3{}, Alice, Bob)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	waitForAlice()
-	waitForBob()
-
-	// Output:
-	// Bob received https://didcomm.org/present-proof/3.0/request-presentation from Alice
-	// Alice received https://didcomm.org/present-proof/3.0/presentation from Bob
-}
-
-func ExampleClient_SendRequestPresentation_second() {
+func ExampleClient_SendRequestPresentation_using_v3() {
 	transport := map[string]chan payload{
 		Alice: make(chan payload),
 		Bob:   make(chan payload),
@@ -293,12 +232,19 @@ func ExampleClient_SendRequestPresentation_second() {
 		}
 	}()
 
+	conn := connection.Record{
+		ConnectionID:   uuid.New().String(),
+		MyDID:          Alice,
+		TheirDID:       Bob,
+		DIDCommVersion: service.V2,
+	}
+
 	// Alice
 	waitForAlice := waitForFn(clientAlice)
 	// Bob
 	waitForBob := waitForFn(clientBob)
 
-	_, err = clientAlice.SendRequestPresentation(&RequestPresentation{WillConfirm: true}, Alice, Bob)
+	_, err = clientAlice.SendRequestPresentation(&RequestPresentation{}, &conn)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -307,12 +253,11 @@ func ExampleClient_SendRequestPresentation_second() {
 	waitForBob()
 
 	// Output:
-	// Bob received https://didcomm.org/present-proof/2.0/request-presentation from Alice
-	// Alice received https://didcomm.org/present-proof/2.0/presentation from Bob
-	// Bob received https://didcomm.org/present-proof/2.0/ack from Alice
+	// Bob received https://didcomm.org/present-proof/3.0/request-presentation from Alice
+	// Alice received https://didcomm.org/present-proof/3.0/presentation from Bob
 }
 
-func ExampleClient_SendRequestPresentationV3_second() {
+func ExampleClient_SendRequestPresentation_third() {
 	transport := map[string]chan payload{
 		Alice: make(chan payload),
 		Bob:   make(chan payload),
@@ -354,7 +299,7 @@ func ExampleClient_SendRequestPresentationV3_second() {
 			case e := <-actionsAlice:
 				acceptErr = clientAlice.AcceptPresentation(e.Properties.All()["piid"].(string))
 			case e := <-actionsBob:
-				acceptErr = clientBob.AcceptRequestPresentationV3(e.Properties.All()["piid"].(string), &PresentationV3{}, nil)
+				acceptErr = clientBob.AcceptRequestPresentation(e.Properties.All()["piid"].(string), &Presentation{}, nil)
 			}
 
 			if acceptErr != nil {
@@ -363,14 +308,95 @@ func ExampleClient_SendRequestPresentationV3_second() {
 		}
 	}()
 
+	conn := connection.Record{
+		ConnectionID: uuid.New().String(),
+		MyDID:        Alice,
+		TheirDID:     Bob,
+	}
+
 	// Alice
 	waitForAlice := waitForFn(clientAlice)
 	// Bob
 	waitForBob := waitForFn(clientBob)
 
-	_, err = clientAlice.SendRequestPresentationV3(&RequestPresentationV3{
-		Body: presentproof.RequestPresentationV3Body{WillConfirm: true},
-	}, Alice, Bob)
+	_, err = clientAlice.SendRequestPresentation(&RequestPresentation{WillConfirm: true}, &conn)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	waitForAlice()
+	waitForBob()
+
+	// Output:
+	// Bob received https://didcomm.org/present-proof/2.0/request-presentation from Alice
+	// Alice received https://didcomm.org/present-proof/2.0/presentation from Bob
+	// Bob received https://didcomm.org/present-proof/2.0/ack from Alice
+}
+
+func ExampleClient_SendRequestPresentation_using_v3_second() {
+	transport := map[string]chan payload{
+		Alice: make(chan payload),
+		Bob:   make(chan payload),
+	}
+
+	// Alice creates client
+	clientAlice, err := New(mockContext(Alice, transport))
+	if err != nil {
+		panic(err)
+	}
+
+	// Alice registers channel for actions
+	actionsAlice := make(chan service.DIDCommAction)
+
+	err = clientAlice.RegisterActionEvent(actionsAlice)
+	if err != nil {
+		panic(err)
+	}
+
+	// Bob creates client
+	clientBob, err := New(mockContext(Bob, transport))
+	if err != nil {
+		panic(err)
+	}
+
+	// Bob registers channel for actions
+	actionsBob := make(chan service.DIDCommAction)
+
+	err = clientBob.RegisterActionEvent(actionsBob)
+	if err != nil {
+		panic(err)
+	}
+
+	go func() {
+		for {
+			var acceptErr error
+
+			select {
+			case e := <-actionsAlice:
+				acceptErr = clientAlice.AcceptPresentation(e.Properties.All()["piid"].(string))
+			case e := <-actionsBob:
+				acceptErr = clientBob.AcceptRequestPresentation(e.Properties.All()["piid"].(string), &Presentation{}, nil)
+			}
+
+			if acceptErr != nil {
+				fmt.Println(acceptErr)
+			}
+		}
+	}()
+
+	conn := connection.Record{
+		ConnectionID:   uuid.New().String(),
+		MyDID:          Alice,
+		TheirDID:       Bob,
+		DIDCommVersion: service.V2,
+	}
+
+	// Alice
+	waitForAlice := waitForFn(clientAlice)
+	// Bob
+	waitForBob := waitForFn(clientBob)
+
+	_, err = clientAlice.SendRequestPresentation(&RequestPresentation{WillConfirm: true}, &conn)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -453,12 +479,18 @@ func ExampleClient_SendProposePresentation() {
 		}
 	}()
 
+	conn := connection.Record{
+		ConnectionID: uuid.New().String(),
+		MyDID:        Alice,
+		TheirDID:     Bob,
+	}
+
 	// Alice
 	waitForAlice := waitForFn(clientAlice)
 	// Bob
 	waitForBob := waitForFn(clientBob)
 
-	_, err = clientAlice.SendProposePresentation(&ProposePresentation{}, Alice, Bob)
+	_, err = clientAlice.SendProposePresentation(&ProposePresentation{}, &conn)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -474,7 +506,7 @@ func ExampleClient_SendProposePresentation() {
 }
 
 // nolint: gocyclo
-func ExampleClient_SendProposePresentationV3() {
+func ExampleClient_SendProposePresentation_using_v3() {
 	transport := map[string]chan payload{
 		Alice: make(chan payload),
 		Bob:   make(chan payload),
@@ -529,14 +561,14 @@ func ExampleClient_SendProposePresentationV3() {
 			}
 
 			if e.Message.Type() == presentproof.ProposePresentationMsgTypeV3 {
-				rp3 := &RequestPresentationV3{}
-				rp3.Body.WillConfirm = true
+				rp3 := &RequestPresentation{}
+				rp3.WillConfirm = true
 
-				acceptErr = clientBob.AcceptProposePresentationV3(piid, rp3)
+				acceptErr = clientBob.AcceptProposePresentation(piid, rp3)
 			}
 
 			if e.Message.Type() == presentproof.RequestPresentationMsgTypeV3 {
-				acceptErr = clientAlice.AcceptRequestPresentationV3(piid, &PresentationV3{}, nil)
+				acceptErr = clientAlice.AcceptRequestPresentation(piid, &Presentation{}, nil)
 			}
 
 			if acceptErr != nil {
@@ -545,12 +577,19 @@ func ExampleClient_SendProposePresentationV3() {
 		}
 	}()
 
+	conn := connection.Record{
+		ConnectionID:   uuid.New().String(),
+		MyDID:          Alice,
+		TheirDID:       Bob,
+		DIDCommVersion: service.V2,
+	}
+
 	// Alice
 	waitForAlice := waitForFn(clientAlice)
 	// Bob
 	waitForBob := waitForFn(clientBob)
 
-	_, err = clientAlice.SendProposePresentationV3(&ProposePresentationV3{}, Alice, Bob)
+	_, err = clientAlice.SendProposePresentation(&ProposePresentation{}, &conn)
 	if err != nil {
 		fmt.Println(err)
 	}

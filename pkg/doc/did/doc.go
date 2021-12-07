@@ -120,6 +120,30 @@ type MethodMetadata struct {
 	Published bool `json:"published,omitempty"`
 	// AnchorOrigin is anchor origin.
 	AnchorOrigin string `json:"anchorOrigin,omitempty"`
+	// UnpublishedOperations unpublished operations
+	UnpublishedOperations []*Operations `json:"unpublishedOperations,omitempty"`
+	// PublishedOperations published operations
+	PublishedOperations []*Operations `json:"publishedOperations,omitempty"`
+}
+
+// Operations info.
+type Operations struct {
+	// OperationRequest is operation request.
+	OperationRequest string `json:"operationRequest,omitempty"`
+	// ProtocolVersion is protocol version.
+	ProtocolVersion int `json:"protocolVersion,omitempty"`
+	// TransactionNumber is transaction number.
+	TransactionNumber int `json:"transactionNumber,omitempty"`
+	// TransactionTime is transaction time.
+	TransactionTime int64 `json:"transactionTime,omitempty"`
+	// Type is type of operation.
+	Type string `json:"type,omitempty"`
+	// AnchorOrigin is anchor origin.
+	AnchorOrigin string `json:"anchorOrigin,omitempty"`
+	// CanonicalReference is canonical reference
+	CanonicalReference string `json:"canonicalReference,omitempty"`
+	// EquivalentReferences is equivalent references
+	EquivalentReferences []string `json:"equivalentReferences,omitempty"`
 }
 
 // DocumentMetadata document metadata.
@@ -1175,9 +1199,15 @@ func populateRawServices(services []Service, didID, baseURI string) []map[string
 
 		rawService[jsonldType] = services[i].Type
 		rawService[jsonldServicePoint] = services[i].ServiceEndpoint
-		rawService[jsonldRecipientKeys] = recipientKeys
-		rawService[jsonldRoutingKeys] = routingKeys
 		rawService[jsonldPriority] = services[i].Priority
+
+		if len(recipientKeys) > 0 {
+			rawService[jsonldRecipientKeys] = recipientKeys
+		}
+
+		if len(routingKeys) > 0 {
+			rawService[jsonldRoutingKeys] = routingKeys
+		}
 
 		rawServices = append(rawServices, rawService)
 	}

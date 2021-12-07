@@ -27,8 +27,11 @@ import (
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	remotecrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/msghandler"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/ws"
@@ -85,12 +88,12 @@ func (a *SDKSteps) useMediaTypeProfiles(mediaTypeProfiles string) error {
 
 // CreateAgent with the given parameters.
 func (a *SDKSteps) CreateAgent(agentID, inboundHost, inboundPort, scheme string) error {
-	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme)
+	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, false)
 }
 
 // createAgentByDIDCommV2 with the given parameters.
 func (a *SDKSteps) createAgentByDIDCommV2(agentID, inboundHost, inboundPort, scheme string) error {
-	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, withDIDCommV2())
+	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, false, withDIDCommV2())
 }
 
 func (a *SDKSteps) createConnectionV2(agent1, agent2 string) error {
@@ -114,7 +117,7 @@ func (a *SDKSteps) createConnectionV2(agent1, agent2 string) error {
 		return fmt.Errorf("failed to register agents for didexchange post msg events : %w", err)
 	}
 
-	err = a.didExchangeSDKS.CreateInvitation(agent1, "")
+	err = a.didExchangeSDKS.CreateInvitation(agent1, "", "")
 	if err != nil {
 		return fmt.Errorf("create invitation: %w", err)
 	}
@@ -137,7 +140,8 @@ func (a *SDKSteps) createConnectionV2(agent1, agent2 string) error {
 // CreateAgentWithRemoteKMS with the given parameters with a remote kms.
 func (a *SDKSteps) CreateAgentWithRemoteKMS(agentID, inboundHost, inboundPort, scheme,
 	kmsURL, controller string) error {
-	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, withRemoteKMSCrypto(kmsURL, controller))
+	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, false,
+		withRemoteKMSCrypto(kmsURL, controller))
 }
 
 func loadCertPool() (*x509.CertPool, error) {
@@ -160,22 +164,37 @@ func loadCertPool() (*x509.CertPool, error) {
 }
 
 func (a *SDKSteps) createAgentWithRegistrar(agentID, inboundHost, inboundPort, scheme string) error {
-	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, withRegistrar())
+	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, false, withRegistrar())
 }
 
 func (a *SDKSteps) createAgentWithRegistrarAndHTTPDIDResolver(agentID, inboundHost, inboundPort,
 	scheme, endpointURL, acceptDidMethod string) error {
-	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme,
+	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, false,
 		withRegistrar(), withHTTPResolver(endpointURL, acceptDidMethod))
 }
 
 // CreateAgentWithHTTPDIDResolver creates one or more agents with HTTP DID resolver.
 func (a *SDKSteps) CreateAgentWithHTTPDIDResolver(
 	agents, inboundHost, inboundPort, endpointURL, acceptDidMethod string) error {
+	return a.createAgentWithHTTPDIDResolverAndServiceTriggering(agents, inboundHost, inboundPort, endpointURL,
+		acceptDidMethod, false)
+}
+
+// CreateAgentWithHTTPDIDResolverAndOOBv2 creates one or more agents with HTTP DID resolver and services with auto event
+// registration.
+func (a *SDKSteps) CreateAgentWithHTTPDIDResolverAndOOBv2(
+	agents, inboundHost, inboundPort, endpointURL, acceptDidMethod string) error {
+	return a.createAgentWithHTTPDIDResolverAndServiceTriggering(agents, inboundHost, inboundPort, endpointURL,
+		acceptDidMethod, true)
+}
+
+func (a *SDKSteps) createAgentWithHTTPDIDResolverAndServiceTriggering(
+	agents, inboundHost, inboundPort, endpointURL, acceptDidMethod string, autoTrigger bool) error {
 	for _, agentID := range strings.Split(agents, ",") {
-		err := a.createAgentWithOptions(agentID, inboundHost, inboundPort, "http",
+		err := a.createAgentWithOptions(agentID, inboundHost, inboundPort, "http", autoTrigger,
 			withHTTPResolver(endpointURL, acceptDidMethod),
 			withDynamicEnvelopeParams(),
+			withServiceMsgTypeTargets(),
 		)
 		if err != nil {
 			return err
@@ -221,13 +240,13 @@ func (a *SDKSteps) CreateAgentWithFlags(agentID, inboundHost, inboundPort, schem
 		opts = append(opts, withDIDCommV2())
 	}
 
-	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, opts...)
+	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, false, opts...)
 }
 
 type createAgentOption func(steps *SDKSteps, agentID string) ([]aries.Option, error)
 
 func (a *SDKSteps) createAgentWithOptions(agentID, inboundHost, inboundPort,
-	scheme string, opts ...createAgentOption) error {
+	scheme string, autoTrigger bool, opts ...createAgentOption) error {
 	storeProv := a.getStoreProvider(agentID)
 
 	loader, err := createJSONLDDocumentLoader(storeProv)
@@ -246,7 +265,7 @@ func (a *SDKSteps) createAgentWithOptions(agentID, inboundHost, inboundPort,
 		ariesOpts = append(ariesOpts, newOpts...)
 	}
 
-	return a.create(agentID, inboundHost, inboundPort, scheme, ariesOpts...)
+	return a.create(agentID, inboundHost, inboundPort, scheme, autoTrigger, ariesOpts...)
 }
 
 func withHTTPResolver(endpointURL, acceptDidMethod string) createAgentOption {
@@ -280,7 +299,7 @@ func withRemoteKMSCrypto(kmsURL, controller string) createAgentOption {
 			},
 		}
 
-		keyStoreURL, _, err := webkms.CreateKeyStore(httpClient, kmsURL, controller, "")
+		keyStoreURL, _, err := webkms.CreateKeyStore(httpClient, kmsURL, controller, "", nil)
 		if err != nil {
 			return nil, fmt.Errorf("error calling CreateKeystore: %w", err)
 		}
@@ -305,6 +324,23 @@ func withRegistrar() createAgentOption {
 		steps.bddContext.MessageRegistrar[agentID] = msgRegistrar
 
 		return []aries.Option{aries.WithMessageServiceProvider(msgRegistrar)}, nil
+	}
+}
+
+func withServiceMsgTypeTargets() createAgentOption {
+	msgTypeTargets := []dispatcher.MessageTypeTarget{
+		{
+			MsgType: "present-proof/3.0/propose-presentation",
+			Target:  "https://didcomm.org/present-proof/3.0/propose-presentation",
+		},
+		{
+			MsgType: "present-proof/3.0/request-presentation",
+			Target:  "https://didcomm.org/present-proof/3.0/request-presentation",
+		},
+	}
+
+	return func(steps *SDKSteps, agentID string) ([]aries.Option, error) {
+		return []aries.Option{aries.WithServiceMsgTypeTargets(msgTypeTargets...)}, nil
 	}
 }
 
@@ -400,11 +436,12 @@ func (a *SDKSteps) createEdgeAgentByDIDCommVer(agentID, scheme, routeOpt string,
 		}
 	}
 
-	return a.createFramework(agentID, opts...)
+	return a.createFramework(agentID, false, opts...)
 }
 
 //nolint: gocyclo
-func (a *SDKSteps) create(agentID, inboundHosts, inboundPorts, schemes string, opts ...aries.Option) error {
+func (a *SDKSteps) create(agentID, inboundHosts, inboundPorts, schemes string, autoTrigger bool,
+	opts ...aries.Option) error {
 	const (
 		portAttempts  = 5
 		listenTimeout = 2 * time.Second
@@ -449,7 +486,7 @@ func (a *SDKSteps) create(agentID, inboundHosts, inboundPorts, schemes string, o
 		}
 	}
 
-	err := a.createFramework(agentID, opts...)
+	err := a.createFramework(agentID, autoTrigger, opts...)
 	if err != nil {
 		return fmt.Errorf("failed to create new agent: %w", err)
 	}
@@ -465,7 +502,7 @@ func (a *SDKSteps) create(agentID, inboundHosts, inboundPorts, schemes string, o
 	return nil
 }
 
-func (a *SDKSteps) createFramework(agentID string, opts ...aries.Option) error {
+func (a *SDKSteps) createFramework(agentID string, autoTrigger bool, opts ...aries.Option) error {
 	agent, err := aries.New(opts...)
 	if err != nil {
 		return fmt.Errorf("failed to create new agent: %w", err)
@@ -479,6 +516,40 @@ func (a *SDKSteps) createFramework(agentID string, opts ...aries.Option) error {
 	a.bddContext.Agents[agentID] = agent
 	a.bddContext.AgentCtx[agentID] = ctx
 	a.bddContext.Messengers[agentID] = agent.Messenger()
+
+	if autoTrigger {
+		err = autoServiceTriggering(ctx.AllServices())
+		if err != nil {
+			return fmt.Errorf("failed to auto trigger services: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func autoServiceTriggering(services []dispatcher.ProtocolService) error {
+	// auto service for OOBV2 target services
+	for _, srvc := range services {
+		// for now, only PresentProof service is a possible OOBv2 target service, add other services as needed.
+		if srvc.Name() != presentproof.Name {
+			continue
+		}
+
+		ppSvc, ok := srvc.(*presentproof.Service)
+		if !ok {
+			return fmt.Errorf("present proof service is not of type %T", &presentproof.Service{})
+		}
+
+		// auto service for presentproof
+		events := make(chan service.DIDCommAction)
+
+		err := ppSvc.RegisterActionEvent(events)
+		if err != nil {
+			return err
+		}
+
+		go service.AutoExecuteActionEvent(events)
+	}
 
 	return nil
 }
@@ -544,6 +615,9 @@ func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 		`and "([^"]*)" using DIDCommV2 as the transport return route option`, a.createEdgeAgentByDIDCommV2)
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" `+
 		`with http-binding did resolver url "([^"]*)" which accepts did method "([^"]*)"$`, a.CreateAgentWithHTTPDIDResolver)
+	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" `+
+		`with http-binding did resolver url "([^"]*)" which accepts did method "([^"]*)" and auto triggered services$`,
+		a.CreateAgentWithHTTPDIDResolverAndOOBv2)
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with "([^"]*)" as the transport provider `+
 		`and "([^"]*)" flags$`, a.CreateAgentWithFlags)
 	s.Step(`^"([^"]*)" agent with message registrar is running on "([^"]*)" port "([^"]*)" `+

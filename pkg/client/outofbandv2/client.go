@@ -11,7 +11,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	oobv2 "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofbandv2"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
@@ -22,24 +21,6 @@ const (
 	// InvitationMsgType is the 'type' for the invitation message.
 	InvitationMsgType = oobv2.InvitationMsgType
 )
-
-// EventOptions are is a container of options that you can pass to an event's
-// Continue function to customize the reaction to incoming out-of-band messages.
-type EventOptions struct {
-	// Label will be shared with the other agent during the subsequent did-exchange.
-	Label string
-}
-
-// MyLabel will be shared with the other agent during the subsequent did-exchange.
-func (e *EventOptions) MyLabel() string {
-	return e.Label
-}
-
-// Event is a container of out-of-band protocol-specific properties for DIDCommActions and StateMsgs.
-type Event interface {
-	// Error is non-nil if an error is encountered.
-	Error() error
-}
 
 // MessageOption allow you to customize the way out-of-band messages are built.
 type MessageOption func(*message)
@@ -57,8 +38,7 @@ type message struct {
 
 // OobService defines the outofband service.
 type OobService interface {
-	service.Event
-	AcceptInvitation(*oobv2.Invitation, oobv2.Options) error
+	AcceptInvitation(*oobv2.Invitation) (string, error)
 }
 
 // Provider provides the dependencies for the client.
@@ -74,7 +54,6 @@ type Provider interface {
 // Client for the Out-Of-Band protocol:
 // https://github.com/hyperledger/aries-rfcs/blob/master/features/0434-outofband/README.md
 type Client struct {
-	service.Event
 	oobService        OobService
 	mediaTypeProfiles []string
 }
@@ -98,7 +77,6 @@ func New(p Provider) (*Client, error) {
 	}
 
 	client := &Client{
-		Event:             oobSvc,
 		oobService:        oobSvc,
 		mediaTypeProfiles: mtp,
 	}
@@ -107,7 +85,7 @@ func New(p Provider) (*Client, error) {
 }
 
 // CreateInvitation creates and saves an out-of-band/v2 invitation.
-func (c *Client) CreateInvitation(opts ...MessageOption) (*oobv2.Invitation, error) {
+func (c *Client) CreateInvitation(opts ...MessageOption) *oobv2.Invitation {
 	msg := &message{}
 
 	for _, opt := range opts {
@@ -130,17 +108,17 @@ func (c *Client) CreateInvitation(opts ...MessageOption) (*oobv2.Invitation, err
 		inv.Body.Accept = c.mediaTypeProfiles
 	}
 
-	return inv, nil
+	return inv
 }
 
 // AcceptInvitation from another agent and return the ID of the new connection records.
-func (c *Client) AcceptInvitation(i *oobv2.Invitation, opts oobv2.Options) error {
-	err := c.oobService.AcceptInvitation(i, opts)
+func (c *Client) AcceptInvitation(i *oobv2.Invitation) (string, error) {
+	connID, err := c.oobService.AcceptInvitation(i)
 	if err != nil {
-		return fmt.Errorf("out-of-band/2.0 service failed to accept invitation : %w", err)
+		return "", fmt.Errorf("out-of-band/2.0 service failed to accept invitation : %w", err)
 	}
 
-	return err
+	return connID, nil
 }
 
 // WithLabel allows you to specify the label on the message.

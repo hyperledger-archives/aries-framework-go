@@ -139,8 +139,14 @@ async function presentProofBBS(mode, ver) {
 
         assert.isNotNull(didClient);
 
-        connections = await didClient.performDIDExchangeE2E();
-        assert.isNotEmpty(connections);
+        if (ver === v3) {
+            connections = await didClient.createDIDCommV2Connection();
+            assert.isNotEmpty(connections);
+
+        } else {
+            connections = await didClient.performDIDExchangeE2E();
+            assert.isNotEmpty(connections);
+        }
 
         verifier = didClient.agent1;
         prover = didClient.agent2;
@@ -298,8 +304,14 @@ async function presentProof(mode, ver) {
 
         assert.isNotNull(didClient);
 
-        connections = await didClient.performDIDExchangeE2E();
-        assert.isNotEmpty(connections);
+        if (ver === v3) {
+            connections = await didClient.createDIDCommV2Connection();
+            assert.isNotEmpty(connections);
+
+        } else {
+            connections = await didClient.performDIDExchangeE2E();
+            assert.isNotEmpty(connections);
+        }
 
         verifier = didClient.agent1;
         prover = didClient.agent2;

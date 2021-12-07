@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/didrotate"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
@@ -37,6 +38,7 @@ const (
 // message type.
 type MessageHandler struct {
 	didConnectionStore     did.ConnectionStore
+	didRotator             *didrotate.DIDRotator
 	msgSvcProvider         api.MessageServiceProvider
 	services               []dispatcher.ProtocolService
 	getDIDsBackOffDuration time.Duration
@@ -52,6 +54,7 @@ type provider interface {
 	GetDIDsBackOffDuration() time.Duration
 	GetDIDsMaxRetries() uint64
 	InboundMessenger() service.InboundMessenger
+	DIDRotator() *didrotate.DIDRotator
 }
 
 // NewInboundMessageHandler creates an inbound message handler, that processes inbound message Envelopes,
@@ -75,8 +78,47 @@ func (handler *MessageHandler) Initialize(p provider) {
 	handler.getDIDsBackOffDuration = p.GetDIDsBackOffDuration()
 	handler.getDIDsMaxRetries = p.GetDIDsMaxRetries()
 	handler.messenger = p.InboundMessenger()
+	handler.didRotator = p.DIDRotator()
 
 	handler.initialized = true
+}
+
+type getDIDsResult struct {
+	myDID    string
+	theirDID string
+	err      error
+}
+
+// didGetter wraps MessageHandler.getDIDs and caches the result.
+type didGetter struct {
+	result   *getDIDsResult
+	handler  *MessageHandler
+	envelope *transport.Envelope
+}
+
+func newDIDGetter(envelope *transport.Envelope, handler *MessageHandler) *didGetter {
+	return &didGetter{
+		handler:  handler,
+		envelope: envelope,
+	}
+}
+
+// get returns the return values of MessageHandler.getDIDs.
+func (dg *didGetter) get() (string, string, error) {
+	if dg.result == nil {
+		var res getDIDsResult
+		res.myDID, res.theirDID, res.err = dg.handler.getDIDs(dg.envelope)
+		dg.result = &res
+	}
+
+	return dg.result.myDID, dg.result.theirDID, dg.result.err
+}
+
+// HandlerFunc returns the MessageHandler's transport.InboundMessageHandler function.
+func (handler *MessageHandler) HandlerFunc() transport.InboundMessageHandler {
+	return func(envelope *transport.Envelope) error {
+		return handler.HandleInboundEnvelope(envelope)
+	}
 }
 
 // HandleInboundEnvelope handles an inbound envelope, dispatching it to the appropriate ProtocolService.
@@ -85,6 +127,8 @@ func (handler *MessageHandler) HandleInboundEnvelope(envelope *transport.Envelop
 		msg service.DIDCommMsgMap
 		err error
 	)
+
+	dg := newDIDGetter(envelope, handler)
 
 	msg, err = service.ParseDIDCommMsgMap(envelope.Message)
 	if err != nil {
@@ -96,46 +140,60 @@ func (handler *MessageHandler) HandleInboundEnvelope(envelope *transport.Envelop
 		return err
 	}
 
+	var myDID, theirDID string
+
 	// if msg is a didcomm v2 message, do additional handling
 	if isV2 {
-		// TODO: handle DID rotation and other didcomm/v2 protocol-agnostic message handling here
-		logger.Debugf("didcomm v2 message handling before service...")
+		myDID, theirDID, err = dg.get()
+		if err != nil {
+			return fmt.Errorf("get DIDs for didcomm/v2 message: %w", err)
+		}
+
+		err = handler.didRotator.HandleInboundMessage(msg, theirDID, myDID)
+		if err != nil {
+			return fmt.Errorf("handle rotation: %w", err)
+		}
 	}
+
+	var foundService dispatcher.ProtocolService
 
 	// find the service which accepts the message type
 	for _, svc := range handler.services {
 		if svc.Accept(msg.Type()) {
-			var myDID, theirDID string
-
-			switch svc.Name() {
-			// perf: DID exchange doesn't require myDID and theirDID
-			case didexchange.DIDExchange:
-			default:
-				myDID, theirDID, err = handler.getDIDs(envelope)
-				if err != nil {
-					return fmt.Errorf("inbound message handler: %w", err)
-				}
-			}
-
-			_, err = svc.HandleInbound(msg, service.NewDIDCommContext(myDID, theirDID, nil))
-
-			return err
+			foundService = svc
+			break
 		}
 	}
 
+	if foundService != nil {
+		switch foundService.Name() {
+		// perf: DID exchange doesn't require myDID and theirDID
+		case didexchange.DIDExchange:
+		default:
+			myDID, theirDID, err = dg.get()
+			if err != nil {
+				return fmt.Errorf("inbound message handler: %w", err)
+			}
+		}
+
+		_, err = foundService.HandleInbound(msg, service.NewDIDCommContext(myDID, theirDID, nil))
+
+		return err
+	}
+
 	if !isV2 {
+		h := struct {
+			Purpose []string `json:"~purpose"`
+		}{}
+		err = msg.Decode(&h)
+
+		if err != nil {
+			return err
+		}
+
 		// in case of no services are registered for given message type, and message is didcomm v1,
 		// find generic inbound services registered for given message header
 		for _, svc := range handler.msgSvcProvider.Services() {
-			h := struct {
-				Purpose []string `json:"~purpose"`
-			}{}
-			err = msg.Decode(&h)
-
-			if err != nil {
-				return err
-			}
-
 			if svc.Accept(msg.Type(), h.Purpose) {
 				myDID, theirDID, err := handler.getDIDs(envelope)
 				if err != nil {

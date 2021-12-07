@@ -147,6 +147,7 @@ func createDIDDocument(ctx *bddctx.BDDContext, agents, keyType string) error {
 		}
 
 		ctx.PublicDIDDocs[agentID] = doc
+		ctx.PublicDIDs[agentID] = doc.ID
 	}
 
 	return nil

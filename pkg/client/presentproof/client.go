@@ -13,25 +13,34 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
 type (
-	// RequestPresentation describes values that need to be revealed and predicates that need to be fulfilled.
-	RequestPresentation presentproof.RequestPresentation
-	// Presentation is a response to a RequestPresentation message and contains signed presentations.
-	Presentation presentproof.Presentation
 	// ProposePresentation is an optional message sent by the Prover to the verifier to initiate a proof
 	// presentation process, or in response to a request-presentation message when the Prover wants to
 	// propose using a different presentation format.
-	ProposePresentation presentproof.ProposePresentation
-	// RequestPresentationV3 describes values that need to be revealed and predicates that need to be fulfilled.
-	RequestPresentationV3 presentproof.RequestPresentationV3
-	// PresentationV3 is a response to a RequestPresentationV3 message and contains signed presentations.
-	PresentationV3 presentproof.PresentationV3
+	ProposePresentation = presentproof.ProposePresentationParams
+	// RequestPresentation describes values that need to be revealed and predicates that need to be fulfilled.
+	RequestPresentation = presentproof.RequestPresentationParams
+	// Presentation is a response to a RequestPresentation message and contains signed presentations.
+	Presentation = presentproof.PresentationParams
+	// ProposePresentationV2 is an optional message sent by the Prover to the verifier to initiate a proof
+	// presentation process, or in response to a request-presentation message when the Prover wants to
+	// propose using a different presentation format.
+	ProposePresentationV2 presentproof.ProposePresentationV2
+	// RequestPresentationV2 describes values that need to be revealed and predicates that need to be fulfilled.
+	RequestPresentationV2 presentproof.RequestPresentationV2
+	// PresentationV2 is a response to a RequestPresentationV2 message and contains signed presentations.
+	PresentationV2 presentproof.PresentationV2
 	// ProposePresentationV3 is an optional message sent by the Prover to the verifier to initiate a proof
 	// presentation process, or in response to a request-presentation message when the Prover wants to
 	// propose using a different presentation format.
 	ProposePresentationV3 presentproof.ProposePresentationV3
+	// RequestPresentationV3 describes values that need to be revealed and predicates that need to be fulfilled.
+	RequestPresentationV3 presentproof.RequestPresentationV3
+	// PresentationV3 is a response to a RequestPresentationV3 message and contains signed presentations.
+	PresentationV3 presentproof.PresentationV3
 	// Action contains helpful information about action.
 	Action presentproof.Action
 )
@@ -103,26 +112,34 @@ func (c *Client) Actions() ([]Action, error) {
 
 // SendRequestPresentation is used by the Verifier to send a request presentation.
 // It returns the threadID of the new instance of the protocol.
-func (c *Client) SendRequestPresentation(msg *RequestPresentation, myDID, theirDID string) (string, error) {
-	if msg == nil {
+func (c *Client) SendRequestPresentation(
+	params *RequestPresentation, connRec *connection.Record) (string, error) {
+	if params == nil {
 		return "", errEmptyRequestPresentation
 	}
 
-	msg.Type = presentproof.RequestPresentationMsgTypeV2
-
-	return c.service.HandleOutbound(service.NewDIDCommMsgMap(msg), myDID, theirDID)
-}
-
-// SendRequestPresentationV3 is used by the Verifier to send a request presentation.
-// It returns the threadID of the new instance of the protocol.
-func (c *Client) SendRequestPresentationV3(msg *RequestPresentationV3, myDID, theirDID string) (string, error) {
-	if msg == nil {
-		return "", errEmptyRequestPresentation
+	switch connRec.DIDCommVersion {
+	default:
+		fallthrough // use didcomm v1 + present-proof v2 by default, if the connection record doesn't indicate version.
+	case service.V1:
+		return c.service.HandleOutbound(service.NewDIDCommMsgMap(&RequestPresentationV2{
+			Type:                       presentproof.RequestPresentationMsgTypeV2,
+			Comment:                    params.Comment,
+			WillConfirm:                params.WillConfirm,
+			Formats:                    params.Formats,
+			RequestPresentationsAttach: decorator.GenericAttachmentsToV1(params.Attachments),
+		}), connRec.MyDID, connRec.TheirDID)
+	case service.V2:
+		return c.service.HandleOutbound(service.NewDIDCommMsgMap(&RequestPresentationV3{
+			Type: presentproof.RequestPresentationMsgTypeV3,
+			Body: presentproof.RequestPresentationV3Body{
+				GoalCode:    params.GoalCode,
+				Comment:     params.Comment,
+				WillConfirm: params.WillConfirm,
+			},
+			Attachments: decorator.GenericAttachmentsToV2(params.Attachments),
+		}), connRec.MyDID, connRec.TheirDID)
 	}
-
-	msg.Type = presentproof.RequestPresentationMsgTypeV3
-
-	return c.service.HandleOutbound(service.NewDIDCommMsgMap(msg), myDID, theirDID)
 }
 
 type addProof func(presentation *verifiable.Presentation) error
@@ -132,19 +149,9 @@ func (c *Client) AcceptRequestPresentation(piID string, msg *Presentation, sign 
 	return c.service.ActionContinue(piID, WithMultiOptions(WithPresentation(msg), WithAddProofFn(sign)))
 }
 
-// AcceptRequestPresentationV3 is used by the Prover is to accept a presentation request.
-func (c *Client) AcceptRequestPresentationV3(piID string, msg *PresentationV3, sign addProof) error {
-	return c.service.ActionContinue(piID, WithMultiOptions(WithPresentationV3(msg), WithAddProofFn(sign)))
-}
-
 // NegotiateRequestPresentation is used by the Prover to counter a presentation request they received with a proposal.
 func (c *Client) NegotiateRequestPresentation(piID string, msg *ProposePresentation) error {
 	return c.service.ActionContinue(piID, WithProposePresentation(msg))
-}
-
-// NegotiateRequestPresentationV3 is used by the Prover to counter a presentation request they received with a proposal.
-func (c *Client) NegotiateRequestPresentationV3(piID string, msg *ProposePresentationV3) error {
-	return c.service.ActionContinue(piID, WithProposePresentationV3(msg))
 }
 
 // DeclineRequestPresentation is used when the Prover does not want to accept the request presentation.
@@ -154,36 +161,37 @@ func (c *Client) DeclineRequestPresentation(piID, reason string) error {
 
 // SendProposePresentation is used by the Prover to send a propose presentation.
 // It returns the threadID of the new instance of the protocol.
-func (c *Client) SendProposePresentation(msg *ProposePresentation, myDID, theirDID string) (string, error) {
-	if msg == nil {
+func (c *Client) SendProposePresentation(
+	params *ProposePresentation, connRec *connection.Record) (string, error) {
+	if params == nil {
 		return "", errEmptyProposePresentation
 	}
 
-	msg.Type = presentproof.ProposePresentationMsgTypeV2
-
-	return c.service.HandleOutbound(service.NewDIDCommMsgMap(msg), myDID, theirDID)
-}
-
-// SendProposePresentationV3 is used by the Prover to send a propose presentation.
-// It returns the threadID of the new instance of the protocol.
-func (c *Client) SendProposePresentationV3(msg *ProposePresentationV3, myDID, theirDID string) (string, error) {
-	if msg == nil {
-		return "", errEmptyProposePresentation
+	switch connRec.DIDCommVersion {
+	default:
+		fallthrough // use didcomm v1 + present-proof v2 by default, if the connection record doesn't indicate version.
+	case service.V1:
+		return c.service.HandleOutbound(service.NewDIDCommMsgMap(&ProposePresentationV2{
+			Type:            presentproof.ProposePresentationMsgTypeV2,
+			Comment:         params.Comment,
+			Formats:         params.Formats,
+			ProposalsAttach: decorator.GenericAttachmentsToV1(params.Attachments),
+		}), connRec.MyDID, connRec.TheirDID)
+	case service.V2:
+		return c.service.HandleOutbound(service.NewDIDCommMsgMap(&ProposePresentationV3{
+			Type: presentproof.ProposePresentationMsgTypeV3,
+			Body: presentproof.ProposePresentationV3Body{
+				GoalCode: params.GoalCode,
+				Comment:  params.Comment,
+			},
+			Attachments: decorator.GenericAttachmentsToV2(params.Attachments),
+		}), connRec.MyDID, connRec.TheirDID)
 	}
-
-	msg.Type = presentproof.ProposePresentationMsgTypeV3
-
-	return c.service.HandleOutbound(service.NewDIDCommMsgMap(msg), myDID, theirDID)
 }
 
 // AcceptProposePresentation is used when the Verifier is willing to accept the propose presentation.
 func (c *Client) AcceptProposePresentation(piID string, msg *RequestPresentation) error {
 	return c.service.ActionContinue(piID, WithRequestPresentation(msg))
-}
-
-// AcceptProposePresentationV3 is used when the Verifier is willing to accept the propose presentation.
-func (c *Client) AcceptProposePresentationV3(piID string, msg *RequestPresentationV3) error {
-	return c.service.ActionContinue(piID, WithRequestPresentationV3(msg))
 }
 
 // DeclineProposePresentation is used when the Verifier does not want to accept the propose presentation.
@@ -225,20 +233,10 @@ func (c *Client) AcceptProblemReport(piID string) error {
 	return c.service.ActionContinue(piID)
 }
 
-// WithPresentation allows providing Presentation message
+// WithPresentation allows providing Presentation message.
 // Use this option to respond to RequestPresentation.
 func WithPresentation(msg *Presentation) presentproof.Opt {
-	origin := presentproof.Presentation(*msg)
-
-	return presentproof.WithPresentation(&origin)
-}
-
-// WithPresentationV3 allows providing PresentationV3 message
-// Use this option to respond to RequestPresentationV3.
-func WithPresentationV3(msg *PresentationV3) presentproof.Opt {
-	origin := presentproof.PresentationV3(*msg)
-
-	return presentproof.WithPresentationV3(&origin)
+	return presentproof.WithPresentation(msg)
 }
 
 // WithMultiOptions allows combining several options into one.
@@ -252,36 +250,16 @@ func WithAddProofFn(sign addProof) presentproof.Opt {
 	return presentproof.WithAddProofFn(sign)
 }
 
-// WithProposePresentation allows providing ProposePresentation message
+// WithProposePresentation allows providing ProposePresentation message.
 // Use this option to respond to RequestPresentation.
 func WithProposePresentation(msg *ProposePresentation) presentproof.Opt {
-	origin := presentproof.ProposePresentation(*msg)
-
-	return presentproof.WithProposePresentation(&origin)
+	return presentproof.WithProposePresentation(msg)
 }
 
-// WithProposePresentationV3 allows providing ProposePresentationV3 message
-// Use this option to respond to RequestPresentation.
-func WithProposePresentationV3(msg *ProposePresentationV3) presentproof.Opt {
-	origin := presentproof.ProposePresentationV3(*msg)
-
-	return presentproof.WithProposePresentationV3(&origin)
-}
-
-// WithRequestPresentation allows providing RequestPresentation message
+// WithRequestPresentation allows providing RequestPresentation message.
 // Use this option to respond to ProposePresentation.
 func WithRequestPresentation(msg *RequestPresentation) presentproof.Opt {
-	origin := presentproof.RequestPresentation(*msg)
-
-	return presentproof.WithRequestPresentation(&origin)
-}
-
-// WithRequestPresentationV3 allows providing RequestPresentation message
-// Use this option to respond to ProposePresentation.
-func WithRequestPresentationV3(msg *RequestPresentationV3) presentproof.Opt {
-	origin := presentproof.RequestPresentationV3(*msg)
-
-	return presentproof.WithRequestPresentationV3(&origin)
+	return presentproof.WithRequestPresentation(msg)
 }
 
 // create web redirect properties to add ~web-redirect decorator.

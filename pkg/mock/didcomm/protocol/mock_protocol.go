@@ -33,6 +33,7 @@ type MockProvider struct {
 	CustomVDR                    vdrapi.Registry
 	CustomOutbound               *mockdispatcher.MockOutbound
 	CustomMessenger              *mockservice.MockMessenger
+	CustomPackager               transport.Packager
 	CustomKMS                    kms.KeyManager
 	CustomLock                   secretlock.Service
 	CustomCrypto                 *mockcrypto.Crypto
@@ -44,6 +45,7 @@ type MockProvider struct {
 	KeyAgreementTypeValue        kms.KeyType
 	mediaTypeProfilesValue       []string
 	MsgTypeServicesTargets       []dispatcher.MessageTypeTarget
+	AllProtocolServices          []dispatcher.ProtocolService
 }
 
 // OutboundDispatcher is mock outbound dispatcher for DID exchange service.
@@ -71,6 +73,11 @@ func (p *MockProvider) ProtocolStateStorageProvider() storage.Provider {
 	}
 
 	return mockstore.NewMockStoreProvider()
+}
+
+// Packager is a mock framework Packager service.
+func (p *MockProvider) Packager() transport.Packager {
+	return p.CustomPackager
 }
 
 // Crypto is mock crypto (including Signer) for DID exchange service.
@@ -156,6 +163,11 @@ func (p *MockProvider) MediaTypeProfiles() []string {
 // ServiceMsgTypeTargets are the target service types used by OOB/v2 for subsequent event triggering.
 func (p *MockProvider) ServiceMsgTypeTargets() []dispatcher.MessageTypeTarget {
 	return p.MsgTypeServicesTargets
+}
+
+// AllServices returns a mocked list of Protocol services.
+func (p *MockProvider) AllServices() []dispatcher.ProtocolService {
+	return p.AllProtocolServices
 }
 
 type mockConnectionStore struct{}

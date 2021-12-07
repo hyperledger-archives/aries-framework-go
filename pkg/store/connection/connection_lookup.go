@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	didcomm "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
@@ -43,6 +44,13 @@ type provider interface {
 	StorageProvider() storage.Provider
 }
 
+// DIDRotationRecord holds information about a DID Rotation.
+type DIDRotationRecord struct {
+	OldDID    string `json:"oldDID,omitempty"`
+	NewDID    string `json:"newDID,omitempty"`
+	FromPrior string `json:"fromPrior,omitempty"`
+}
+
 // Record contain info about did exchange connection.
 type Record struct {
 	ConnectionID      string
@@ -52,14 +60,16 @@ type Record struct {
 	TheirLabel        string
 	TheirDID          string
 	MyDID             string
-	ServiceEndPoint   string
-	RecipientKeys     []string
-	RoutingKeys       []string
+	ServiceEndPoint   string   // ServiceEndPoint is 'their' DIDComm service endpoint.
+	RecipientKeys     []string // RecipientKeys holds 'their' DIDComm recipient keys.
+	RoutingKeys       []string // RoutingKeys holds 'their' DIDComm routing keys.
 	InvitationID      string
 	InvitationDID     string
 	Implicit          bool
 	Namespace         string
 	MediaTypeProfiles []string
+	DIDCommVersion    didcomm.Version
+	MyDIDRotation     *DIDRotationRecord `json:"myDIDRotation,omitempty"`
 }
 
 // NewLookup returns new connection lookup instance.

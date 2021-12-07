@@ -30,6 +30,97 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 )
 
+type attachedData struct {
+	Name string
+}
+
+func TestGenericAttachment(t *testing.T) {
+	t.Run("convert nil slices of attachments", func(t *testing.T) {
+		require.Nil(t, V1AttachmentsToGeneric(nil))
+		require.Nil(t, V2AttachmentsToGeneric(nil))
+		require.Nil(t, GenericAttachmentsToV1(nil))
+		require.Nil(t, GenericAttachmentsToV2(nil))
+	})
+
+	t.Run("v1 attachments to/from generic", func(t *testing.T) {
+		srcAttachments := []Attachment{
+			{
+				ID: "att-1",
+				Data: AttachmentData{
+					JSON: attachedData{
+						Name: "foo",
+					},
+				},
+			},
+			{
+				ID: "att-2",
+				Data: AttachmentData{
+					JSON: attachedData{
+						Name: "bar",
+					},
+				},
+			},
+			{
+				ID: "att-3",
+				Data: AttachmentData{
+					JSON: attachedData{
+						Name: "baz",
+					},
+				},
+			},
+		}
+
+		genericAttachments := V1AttachmentsToGeneric(srcAttachments)
+
+		for _, ga := range genericAttachments {
+			require.Equal(t, DIDCommV1, ga.Version())
+		}
+
+		result := GenericAttachmentsToV1(genericAttachments)
+
+		require.Equal(t, srcAttachments, result)
+	})
+
+	t.Run("v2 attachments to/from generic", func(t *testing.T) {
+		srcAttachments := []AttachmentV2{
+			{
+				ID: "att-1",
+				Data: AttachmentData{
+					JSON: attachedData{
+						Name: "foo",
+					},
+				},
+			},
+			{
+				ID: "att-2",
+				Data: AttachmentData{
+					JSON: attachedData{
+						Name: "bar",
+					},
+				},
+			},
+			{
+				ID: "att-3",
+				Data: AttachmentData{
+					JSON: attachedData{
+						Name: "baz",
+					},
+				},
+			},
+		}
+
+		genericAttachments := V2AttachmentsToGeneric(srcAttachments)
+
+		for _, ga := range genericAttachments {
+			require.Equal(t, DIDCommV2, ga.Version())
+		}
+
+		result := GenericAttachmentsToV2(genericAttachments)
+
+		require.Equal(t, srcAttachments, result)
+	})
+}
+
 func TestAttachmentData_Fetch(t *testing.T) {
 	t.Run("json", func(t *testing.T) {
 		expected := map[string]interface{}{

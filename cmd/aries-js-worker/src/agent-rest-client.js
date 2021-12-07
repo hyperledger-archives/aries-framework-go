@@ -434,6 +434,17 @@ const pkgs = {
             pathParam: "piid"
         },
     },
+    connection: {
+        CreateConnectionV2: {
+            path: "/connections/create-v2",
+            method: "POST"
+        },
+        SetConnectionToDIDCommV2: {
+            path: "/connections/{id}/use-v2",
+            method: "POST",
+            pathParam: "id"
+        }
+    },
     kms: {
         CreateKeySet: {
             path: "/kms/keyset",
@@ -516,6 +527,14 @@ const pkgs = {
         },
         PresentProof: {
             path: "/vcwallet/present-proof",
+            method: "POST",
+        },
+        ProposeCredential: {
+            path: "/vcwallet/propose-credential",
+            method: "POST",
+        },
+        RequestCredential: {
+            path: "/vcwallet/request-credential",
             method: "POST",
         },
     },

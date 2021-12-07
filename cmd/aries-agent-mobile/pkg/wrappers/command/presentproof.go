@@ -31,7 +31,7 @@ func (p *PresentProof) Actions(request *models.RequestEnvelope) *models.Response
 
 // SendRequestPresentation is used by the Verifier to send a request presentation.
 func (p *PresentProof) SendRequestPresentation(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	args := cmdpresproof.SendRequestPresentationArgs{}
+	args := cmdpresproof.SendRequestPresentationV2Args{}
 
 	if err := json.Unmarshal(request.Payload, &args); err != nil {
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
@@ -47,7 +47,7 @@ func (p *PresentProof) SendRequestPresentation(request *models.RequestEnvelope) 
 
 // SendProposePresentation is used by the Prover to send a propose presentation.
 func (p *PresentProof) SendProposePresentation(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	args := cmdpresproof.SendProposePresentationArgs{}
+	args := cmdpresproof.SendProposePresentationV2Args{}
 
 	if err := json.Unmarshal(request.Payload, &args); err != nil {
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
@@ -63,7 +63,7 @@ func (p *PresentProof) SendProposePresentation(request *models.RequestEnvelope) 
 
 // AcceptRequestPresentation is used by the Prover is to accept a presentation request.
 func (p *PresentProof) AcceptRequestPresentation(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	args := cmdpresproof.AcceptRequestPresentationArgs{}
+	args := cmdpresproof.AcceptRequestPresentationV2Args{}
 
 	if err := json.Unmarshal(request.Payload, &args); err != nil {
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
@@ -79,7 +79,7 @@ func (p *PresentProof) AcceptRequestPresentation(request *models.RequestEnvelope
 
 // NegotiateRequestPresentation is used by the Prover to counter a presentation request they received with a proposal.
 func (p *PresentProof) NegotiateRequestPresentation(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	args := cmdpresproof.NegotiateRequestPresentationArgs{}
+	args := cmdpresproof.NegotiateRequestPresentationV2Args{}
 
 	if err := json.Unmarshal(request.Payload, &args); err != nil {
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
@@ -111,7 +111,7 @@ func (p *PresentProof) DeclineRequestPresentation(request *models.RequestEnvelop
 
 // AcceptProposePresentation is used when the Verifier is willing to accept the propose presentation.
 func (p *PresentProof) AcceptProposePresentation(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	args := cmdpresproof.AcceptProposePresentationArgs{}
+	args := cmdpresproof.AcceptProposePresentationV2Args{}
 
 	if err := json.Unmarshal(request.Payload, &args); err != nil {
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}

@@ -4,7 +4,8 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-// Package credentialmanifest implements https://identity.foundation/credential-manifest/#credential-manifest-2.
+// Package credentialmanifest contains methods that are useful for parsing and validating the objects defined in
+// https://identity.foundation/credential-manifest.
 package credentialmanifest
 
 import (
@@ -16,17 +17,18 @@ import (
 	"github.com/PaesslerAG/jsonpath"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
 
 // CredentialManifest represents a Credential Manifest object as defined in
 // https://identity.foundation/credential-manifest/#credential-manifest-2.
 type CredentialManifest struct {
-	ID                     string                          `json:"id,omitempty"`
-	Version                string                          `json:"version,omitempty"`
-	Issuer                 Issuer                          `json:"issuer,omitempty"`
-	OutputDescriptors      []OutputDescriptor              `json:"output_descriptors,omitempty"`
-	Format                 presexch.Format                 `json:"format,omitempty"`
-	PresentationDefinition presexch.PresentationDefinition `json:"presentation_definition,omitempty"`
+	ID                     string                           `json:"id,omitempty"`
+	Version                string                           `json:"version,omitempty"`
+	Issuer                 Issuer                           `json:"issuer,omitempty"`
+	OutputDescriptors      []OutputDescriptor               `json:"output_descriptors,omitempty"`
+	Format                 presexch.Format                  `json:"format,omitempty"`
+	PresentationDefinition *presexch.PresentationDefinition `json:"presentation_definition,omitempty"`
 }
 
 // Issuer represents the issuer object defined in https://identity.foundation/credential-manifest/#general-composition.
@@ -123,6 +125,7 @@ type staticDisplayMappingObjects struct {
 }
 
 // UnmarshalJSON is the custom unmarshal function gets called automatically when the standard json.Unmarshal is called.
+// It also ensures that the given data is a valid CredentialManifest object per the specification.
 func (cm *CredentialManifest) UnmarshalJSON(data []byte) error {
 	err := cm.standardUnmarshal(data)
 	if err != nil {
@@ -146,11 +149,17 @@ func (cm *CredentialManifest) UnmarshalJSON(data []byte) error {
 // return the first one that resolves successfully. If none of the paths are resolvable, then we return the fallback.
 // If no fallback is specified, then a blank string is returned. This isn't considered an error.
 // If the text field is used instead of paths, then that will simply be returned without needing to look at vc.
-func (cm *CredentialManifest) ResolveOutputDescriptors(vc []byte) ([]ResolvedDataDisplayDescriptor, error) {
+func (cm *CredentialManifest) ResolveOutputDescriptors(vc *verifiable.Credential) ([]ResolvedDataDisplayDescriptor,
+	error) {
+	vcBytes, err := json.Marshal(vc)
+	if err != nil {
+		return nil, err
+	}
+
 	// The jsonpath library needs the JSON unmarshalled into a map[string]interface{}.
 	vcUnmarshalledIntoMap := map[string]interface{}{}
 
-	err := json.Unmarshal(vc, &vcUnmarshalledIntoMap)
+	err = json.Unmarshal(vcBytes, &vcUnmarshalledIntoMap)
 	if err != nil {
 		return nil, err
 	}
@@ -168,6 +177,10 @@ func (cm *CredentialManifest) ResolveOutputDescriptors(vc []byte) ([]ResolvedDat
 	}
 
 	return resolvedDataDisplayDescriptors, nil
+}
+
+func (cm *CredentialManifest) hasFormat() bool {
+	return hasAnyAlgorithmsOrProofTypes(cm.Format)
 }
 
 func resolveOutputDescriptor(outputDescriptor *OutputDescriptor,

@@ -11,6 +11,7 @@ import (
 	"net/http"
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command/connection"
 	didexchangecmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	introducecmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
 	issuecredentialcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
@@ -19,11 +20,13 @@ import (
 	routercmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/mediator"
 	messagingcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
 	outofbandcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/outofband"
+	outofbandv2cmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/outofbandv2"
 	presentproofcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/presentproof"
 	vcwalletcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/vcwallet"
 	vdrcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
+	connectionrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/connection"
 	didexchangerest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/didexchange"
 	introducerest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/introduce"
 	issuecredentialrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/issuecredential"
@@ -32,6 +35,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/mediator"
 	messagingrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/messaging"
 	outofbandrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/outofband"
+	outofbandv2rest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/outofbandv2"
 	presentproofrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/rfc0593"
 	vcwalletrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/vcwallet"
@@ -207,6 +211,12 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 		return nil, fmt.Errorf("create outofband rest command : %w", err)
 	}
 
+	// outofband REST operation
+	outofbandV2Op, err := outofbandv2rest.New(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("create outofband/2.0 rest command : %w", err)
+	}
+
 	// kms command operation
 	kmscmd := kmsrest.New(ctx)
 
@@ -215,6 +225,11 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 
 	// JSON-LD REST operation
 	ldOp := ldrest.New(restAPIOpts.ldService, ldrest.WithHTTPClient(restAPIOpts.httpClient))
+
+	connOp, err := connectionrest.New(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("create connection rest command : %w", err)
+	}
 
 	// creat handlers from all operations
 	var allHandlers []rest.Handler
@@ -228,9 +243,11 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 	allHandlers = append(allHandlers, presentproofOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, introduceOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, outofbandOp.GetRESTHandlers()...)
+	allHandlers = append(allHandlers, outofbandV2Op.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, kmscmd.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, wallet.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, ldOp.GetRESTHandlers()...)
+	allHandlers = append(allHandlers, connOp.GetRESTHandlers()...)
 
 	nhp, ok := notifier.(handlerProvider)
 	if ok {
@@ -316,8 +333,20 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 		return nil, fmt.Errorf("create outofband command : %w", err)
 	}
 
+	// outofbandv2 command operation
+	outofbandv2, err := outofbandv2cmd.New(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("create outofbandv2 command : %w", err)
+	}
+
 	// kms command operation
 	kmscmd := kms.New(ctx)
+
+	// connection command operation
+	conncmd, err := connection.New(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("create connection command : %w", err)
+	}
 
 	// vc wallet command controller
 	wallet := vcwalletcmd.New(ctx, cmdOpts.walletConf)
@@ -336,6 +365,8 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 	allHandlers = append(allHandlers, presentproof.GetHandlers()...)
 	allHandlers = append(allHandlers, introduce.GetHandlers()...)
 	allHandlers = append(allHandlers, outofband.GetHandlers()...)
+	allHandlers = append(allHandlers, outofbandv2.GetHandlers()...)
+	allHandlers = append(allHandlers, conncmd.GetHandlers()...)
 	allHandlers = append(allHandlers, wallet.GetHandlers()...)
 	allHandlers = append(allHandlers, ldCmd.GetHandlers()...)
 

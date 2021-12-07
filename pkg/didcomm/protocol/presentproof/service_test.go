@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package presentproof
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -122,11 +123,11 @@ func TestService_Use(t *testing.T) {
 			}{
 				Type: PresentationMsgTypeV2,
 			}),
-			presentation:          &Presentation{Type: PresentationMsgTypeV2},
+			presentation:          &PresentationV2{Type: PresentationMsgTypeV2},
 			presentationV3:        &PresentationV3{Type: PresentationMsgTypeV3},
-			proposePresentation:   &ProposePresentation{Type: ProposePresentationMsgTypeV2},
+			proposePresentation:   &ProposePresentationV2{Type: ProposePresentationMsgTypeV2},
 			proposePresentationV3: &ProposePresentationV3{Type: ProposePresentationMsgTypeV3},
-			request:               &RequestPresentation{Type: RequestPresentationMsgTypeV2},
+			request:               &RequestPresentationV2{Type: RequestPresentationMsgTypeV2},
 			requestV3:             &RequestPresentationV3{Type: RequestPresentationMsgTypeV3},
 			presentationNames:     []string{"name"},
 		}
@@ -305,19 +306,29 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 
 	const errMsg = "error"
 
-	store := storageMocks.NewMockStore(ctrl)
+	initMocks := func(controller *gomock.Controller) (
+		store *storageMocks.MockStore,
+		messenger *serviceMocks.MockMessenger,
+		provider *presentproofMocks.MockProvider,
+	) {
+		store = storageMocks.NewMockStore(controller)
 
-	storeProvider := storageMocks.NewMockProvider(ctrl)
-	storeProvider.EXPECT().OpenStore(Name).Return(store, nil).AnyTimes()
-	storeProvider.EXPECT().SetStoreConfig(Name, gomock.Any()).Return(nil).AnyTimes()
+		storeProvider := storageMocks.NewMockProvider(controller)
+		storeProvider.EXPECT().OpenStore(Name).Return(store, nil).AnyTimes()
+		storeProvider.EXPECT().SetStoreConfig(Name, gomock.Any()).Return(nil).AnyTimes()
 
-	messenger := serviceMocks.NewMockMessenger(ctrl)
+		messenger = serviceMocks.NewMockMessenger(controller)
 
-	provider := presentproofMocks.NewMockProvider(ctrl)
-	provider.EXPECT().Messenger().Return(messenger).AnyTimes()
-	provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
+		provider = presentproofMocks.NewMockProvider(controller)
+		provider.EXPECT().Messenger().Return(messenger).AnyTimes()
+		provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
+
+		return store, messenger, provider
+	}
 
 	t.Run("No clients", func(t *testing.T) {
+		_, _, provider := initMocks(ctrl)
+
 		svc, err := New(provider)
 		require.NoError(t, err)
 
@@ -326,7 +337,9 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 	})
 
 	t.Run("DB error", func(t *testing.T) {
-		store.EXPECT().Get(gomock.Any()).Return(nil, errors.New(errMsg))
+		store, _, provider := initMocks(ctrl)
+
+		store.EXPECT().Get(gomock.Any()).Return(nil, errors.New(errMsg)).AnyTimes()
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -335,17 +348,20 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 
 		msg := service.NewDIDCommMsgMap(struct {
 			ID     string           `json:"@id"`
+			Type   string           `json:"@type"`
 			Thread decorator.Thread `json:"~thread"`
-		}{ID: "ID", Thread: decorator.Thread{PID: "PID"}})
+		}{ID: "ID", Type: "type", Thread: decorator.Thread{PID: "PID"}})
 		msg.SetID(uuid.New().String())
 
 		_, err = svc.HandleInbound(msg, service.EmptyDIDCommContext())
 		require.Contains(t, fmt.Sprintf("%v", err),
-			"doHandle: current internal data and PIID: current internal data: "+errMsg)
+			"buildMetaData: current internal data and PIID: current internal data: "+errMsg)
 	})
 
 	t.Run("DB error (saveTransitionalPayload)", func(t *testing.T) {
-		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
+		store, _, provider := initMocks(ctrl)
+
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound).AnyTimes()
 		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New(errMsg))
 
 		svc, err := New(provider)
@@ -358,7 +374,9 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 	})
 
 	t.Run("Unrecognized msgType", func(t *testing.T) {
-		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
+		store, _, provider := initMocks(ctrl)
+
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound).AnyTimes()
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -367,12 +385,15 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 
 		msg := service.NewDIDCommMsgMap(struct{}{})
 		msg.SetID(uuid.New().String())
+		msg["@type"] = "type"
 
 		_, err = svc.HandleInbound(msg, service.EmptyDIDCommContext())
-		require.Contains(t, fmt.Sprintf("%v", err), "doHandle: nextState: unrecognized msgType: ")
+		require.Contains(t, fmt.Sprintf("%v", err), "buildMetaData: nextState: unrecognized msgType: ")
 	})
 
 	t.Run("Invalid state transition", func(t *testing.T) {
+		_, _, provider := initMocks(ctrl)
+
 		svc, err := New(provider)
 		require.NoError(t, err)
 
@@ -385,11 +406,14 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 		_, err = svc.HandleInbound(service.NewDIDCommMsgMap(model.ProblemReport{
 			Type: ProblemReportMsgTypeV2,
 		}), service.EmptyDIDCommContext())
-		require.Contains(t, fmt.Sprintf("%v", err), "doHandle: invalid state transition")
+		require.Contains(t, fmt.Sprintf("%v", err), "buildMetaData: invalid state transition")
 	})
 
 	t.Run("Receive Invitation Presentation (Stop)", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
 		done := make(chan struct{})
+		errChan := make(chan error)
 
 		messenger.EXPECT().
 			ReplyToNested(gomock.Any(), gomock.Any()).
@@ -404,13 +428,16 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 				return nil
 			})
 
-		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound).AnyTimes()
 		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
-			src, err := json.Marshal(&internalData{StateName: "abandoned"})
+			src, err := json.Marshal(&internalData{StateName: "abandoned", ProtocolVersion: version2})
 			require.NoError(t, err)
-			require.Equal(t, src, data)
+			require.True(t, bytes.Equal(src, data))
 
+			if !bytes.Equal(src, data) {
+				errChan <- fmt.Errorf("data: %s\nsrc: %s", string(data), string(src))
+			}
 			return nil
 		})
 		store.EXPECT().Delete(gomock.Any()).Return(errors.New(errMsg))
@@ -438,6 +465,8 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 		action.Stop(nil)
 
 		select {
+		case e := <-errChan:
+			t.Error(e)
 		case <-done:
 			return
 		case <-time.After(time.Second):
@@ -446,33 +475,35 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 	})
 
 	t.Run("Receive Invitation Presentation (continue with presentation)", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
 		done := make(chan struct{})
 
 		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Do(func(_, msg service.DIDCommMsgMap, _, _ string, opts ...service.Opt) error {
 				defer close(done)
 
-				r := &Presentation{}
+				r := &PresentationV2{}
 				require.NoError(t, msg.Decode(r))
 				require.Equal(t, PresentationMsgTypeV2, r.Type)
 
 				return nil
 			})
 
-		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound).AnyTimes()
 		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
-			src, err := json.Marshal(&internalData{StateName: "request-received"})
+			src, err := json.Marshal(&internalData{StateName: "request-received", ProtocolVersion: version2})
 			require.NoError(t, err)
-			require.Equal(t, src, data)
+			require.Equal(t, string(src), string(data))
 
 			return nil
 		})
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
-			src, err := json.Marshal(&internalData{StateName: "presentation-sent"})
+			src, err := json.Marshal(&internalData{StateName: "presentation-sent", ProtocolVersion: version2})
 			require.NoError(t, err)
-			require.Equal(t, src, data)
+			require.Equal(t, string(src), string(data))
 
 			return nil
 		})
@@ -497,7 +528,7 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 		require.Equal(t, properties.MyDID(), Alice)
 		require.Equal(t, properties.TheirDID(), Bob)
 
-		action.Continue(WithMultiOptions(WithPresentation(&Presentation{}), WithAddProofFn(nil)))
+		action.Continue(WithMultiOptions(WithPresentation(&PresentationParams{}), WithAddProofFn(nil)))
 
 		select {
 		case <-done:
@@ -508,6 +539,8 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 	})
 
 	t.Run("Receive Invitation Presentation (continue with presentation) async", func(t *testing.T) {
+		_, messenger, _ := initMocks(ctrl)
+
 		done := make(chan struct{})
 
 		memProvider := mem.NewProvider()
@@ -520,7 +553,7 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 			Do(func(_, msg service.DIDCommMsgMap, _, _ string, opts ...service.Opt) error {
 				defer close(done)
 
-				r := &Presentation{}
+				r := &PresentationV2{}
 				require.NoError(t, msg.Decode(r))
 				require.Equal(t, PresentationMsgTypeV2, r.Type)
 
@@ -544,7 +577,60 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 		for _, action := range actions {
 			require.Equal(t, action.MyDID, Alice)
 			require.Equal(t, action.TheirDID, Bob)
-			require.NoError(t, svc.ActionContinue(action.PIID, WithPresentation(&Presentation{})))
+			require.NoError(t, svc.ActionContinue(action.PIID, WithPresentation(&PresentationParams{})))
+		}
+
+		select {
+		case <-done:
+			return
+		case <-time.After(time.Second):
+			t.Error("timeout")
+		}
+	})
+
+	t.Run("Receive Invitation Presentation (continue with presentation) async v3", func(t *testing.T) {
+		_, messenger, _ := initMocks(ctrl)
+
+		done := make(chan struct{})
+
+		memProvider := mem.NewProvider()
+
+		newProvider := presentproofMocks.NewMockProvider(ctrl)
+		newProvider.EXPECT().Messenger().Return(messenger)
+		newProvider.EXPECT().StorageProvider().Return(memProvider).Times(2)
+
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_, msg service.DIDCommMsgMap, _, _ string, opts ...service.Opt) error {
+				defer close(done)
+
+				r := &PresentationV3{}
+				require.NoError(t, msg.Decode(r))
+				require.Equal(t, PresentationMsgTypeV3, r.Type)
+
+				return nil
+			})
+
+		svc, err := New(newProvider)
+		require.NoError(t, err)
+
+		ch := make(chan service.DIDCommAction, 1)
+		require.NoError(t, svc.RegisterActionEvent(ch))
+
+		msg := randomInboundMessageV3(RequestPresentationMsgTypeV3)
+
+		msg["data"] = map[string]interface{}{
+			"will_confirm": true,
+		}
+
+		_, err = svc.HandleInbound(msg, service.NewDIDCommContext(Alice, Bob, nil))
+		require.NoError(t, err)
+
+		actions, err := svc.Actions()
+		require.NoError(t, err)
+		for _, action := range actions {
+			require.Equal(t, action.MyDID, Alice)
+			require.Equal(t, action.TheirDID, Bob)
+			require.NoError(t, svc.ActionContinue(action.PIID, WithPresentation(&PresentationParams{})))
 		}
 
 		select {
@@ -556,6 +642,8 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 	})
 
 	t.Run("Receive Invitation Presentation (Stop) async", func(t *testing.T) {
+		_, messenger, _ := initMocks(ctrl)
+
 		done := make(chan struct{})
 
 		memProvider := mem.NewProvider()
@@ -604,33 +692,35 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 	})
 
 	t.Run("Receive Invitation Presentation (continue with proposal)", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
 		done := make(chan struct{})
 
 		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Do(func(_, msg service.DIDCommMsgMap, _, _ string, opts ...service.Opt) error {
 				defer close(done)
 
-				r := &ProposePresentation{}
+				r := &ProposePresentationV2{}
 				require.NoError(t, msg.Decode(r))
 				require.Equal(t, ProposePresentationMsgTypeV2, r.Type)
 
 				return nil
 			})
 
-		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound).AnyTimes()
 		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
-			src, err := json.Marshal(&internalData{StateName: "request-received"})
+			src, err := json.Marshal(&internalData{StateName: "request-received", ProtocolVersion: version2})
 			require.NoError(t, err)
-			require.Equal(t, src, data)
+			require.Equal(t, string(src), string(data))
 
 			return nil
 		})
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
-			src, err := json.Marshal(&internalData{StateName: "proposal-sent"})
+			src, err := json.Marshal(&internalData{StateName: "proposal-sent", ProtocolVersion: version2})
 			require.NoError(t, err)
-			require.Equal(t, src, data)
+			require.Equal(t, string(src), string(data))
 
 			return nil
 		})
@@ -653,7 +743,69 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 		require.Equal(t, properties.MyDID(), Alice)
 		require.Equal(t, properties.TheirDID(), Bob)
 
-		action.Continue(WithProposePresentation(&ProposePresentation{}))
+		action.Continue(WithProposePresentation(&ProposePresentationParams{}))
+
+		select {
+		case <-done:
+			return
+		case <-time.After(time.Second):
+			t.Error("timeout")
+		}
+	})
+
+	t.Run("Receive Invitation Presentation (continue with proposal) v3", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
+		done := make(chan struct{})
+
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_, msg service.DIDCommMsgMap, _, _ string, opts ...service.Opt) error {
+				defer close(done)
+
+				r := &ProposePresentationV3{}
+				require.NoError(t, msg.Decode(r))
+				require.Equal(t, ProposePresentationMsgTypeV3, r.Type)
+
+				return nil
+			})
+
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound).AnyTimes()
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
+			src, err := json.Marshal(&internalData{StateName: "request-received", ProtocolVersion: version3})
+			require.NoError(t, err)
+			require.Equal(t, string(src), string(data))
+
+			return nil
+		})
+		store.EXPECT().Delete(gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
+			src, err := json.Marshal(&internalData{StateName: "proposal-sent", ProtocolVersion: version3})
+			require.NoError(t, err)
+			require.Equal(t, string(src), string(data))
+
+			return nil
+		})
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		ch := make(chan service.DIDCommAction, 1)
+		require.NoError(t, svc.RegisterActionEvent(ch))
+
+		_, err = svc.HandleInbound(
+			randomInboundMessageV3(RequestPresentationMsgTypeV3), service.NewDIDCommContext(Alice, Bob, nil))
+		require.NoError(t, err)
+
+		action := <-ch
+
+		properties, ok := action.Properties.(*eventProps)
+		require.True(t, ok)
+		require.NotEmpty(t, properties.PIID())
+		require.Equal(t, properties.MyDID(), Alice)
+		require.Equal(t, properties.TheirDID(), Bob)
+
+		action.Continue(WithProposePresentation(&ProposePresentationParams{}))
 
 		select {
 		case <-done:
@@ -664,34 +816,36 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 	})
 
 	t.Run("Receive Propose Presentation (continue)", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
 		done := make(chan struct{})
 
 		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Do(func(_, msg service.DIDCommMsgMap, _, _ string, opts ...service.Opt) error {
 				defer close(done)
 
-				r := &RequestPresentation{}
+				r := &RequestPresentationV2{}
 				require.NoError(t, msg.Decode(r))
 				require.Equal(t, RequestPresentationMsgTypeV2, r.Type)
 
 				return nil
 			})
 
-		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound).AnyTimes()
 		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
-			src, err := json.Marshal(&internalData{StateName: "proposal-received"})
+			src, err := json.Marshal(&internalData{StateName: "proposal-received", ProtocolVersion: version2})
 			require.NoError(t, err)
-			require.Equal(t, src, data)
+			require.Equal(t, string(src), string(data))
 
 			return nil
 		})
 
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
-			src, err := json.Marshal(&internalData{StateName: "request-sent"})
+			src, err := json.Marshal(&internalData{StateName: "request-sent", ProtocolVersion: version2})
 			require.NoError(t, err)
-			require.Equal(t, src, data)
+			require.Equal(t, string(src), string(data))
 
 			return nil
 		})
@@ -715,7 +869,71 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 		require.Equal(t, properties.MyDID(), Alice)
 		require.Equal(t, properties.TheirDID(), Bob)
 
-		action.Continue(WithRequestPresentation(&RequestPresentation{}))
+		action.Continue(WithRequestPresentation(&RequestPresentationParams{}))
+
+		select {
+		case <-done:
+			return
+		case <-time.After(time.Second):
+			t.Error("timeout")
+		}
+	})
+
+	t.Run("Receive Propose Presentation (continue) v3", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
+		done := make(chan struct{})
+
+		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_, msg service.DIDCommMsgMap, _, _ string, opts ...service.Opt) error {
+				defer close(done)
+
+				r := &RequestPresentationV3{}
+				require.NoError(t, msg.Decode(r))
+				require.Equal(t, RequestPresentationMsgTypeV3, r.Type)
+
+				return nil
+			})
+
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound).AnyTimes()
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Delete(gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
+			src, err := json.Marshal(&internalData{StateName: "proposal-received", ProtocolVersion: version3})
+			require.NoError(t, err)
+			require.Equal(t, string(src), string(data))
+
+			return nil
+		})
+
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
+			src, err := json.Marshal(&internalData{StateName: "request-sent", ProtocolVersion: version3})
+			require.NoError(t, err)
+			require.Equal(t, string(src), string(data))
+
+			return nil
+		})
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		ch := make(chan service.DIDCommAction, 1)
+		require.NoError(t, svc.RegisterActionEvent(ch))
+
+		_, err = svc.HandleInbound(
+			randomInboundMessageV3(ProposePresentationMsgTypeV3),
+			service.NewDIDCommContext(Alice, Bob, nil))
+		require.NoError(t, err)
+
+		action := <-ch
+
+		properties, ok := action.Properties.(*eventProps)
+		require.True(t, ok)
+		require.NotEmpty(t, properties.PIID())
+		require.Equal(t, properties.MyDID(), Alice)
+		require.Equal(t, properties.TheirDID(), Bob)
+
+		action.Continue(WithRequestPresentation(&RequestPresentationParams{}))
 
 		select {
 		case <-done:
@@ -726,20 +944,22 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 	})
 
 	t.Run("Receive Problem Report (continue)", func(t *testing.T) {
+		store, _, provider := initMocks(ctrl)
+
 		done := make(chan struct{})
 
-		src, err := json.Marshal(&internalData{StateName: "request-sent"})
+		src, err := json.Marshal(&internalData{StateName: "request-sent", ProtocolVersion: version2})
 		require.NoError(t, err)
 
-		store.EXPECT().Get(gomock.Any()).Return(src, nil)
+		store.EXPECT().Get(gomock.Any()).Return(src, nil).AnyTimes()
 		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
 			defer close(done)
 
-			src, err = json.Marshal(&internalData{StateName: "abandoned"})
+			src, err = json.Marshal(&internalData{StateName: "abandoned", ProtocolVersion: version2})
 			require.NoError(t, err)
-			require.Equal(t, src, data)
+			require.Equal(t, string(src), string(data))
 
 			return nil
 		})
@@ -761,7 +981,7 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 		require.Equal(t, properties.MyDID(), Alice)
 		require.Equal(t, properties.TheirDID(), Bob)
 
-		action.Continue(WithRequestPresentation(&RequestPresentation{}))
+		action.Continue(WithRequestPresentation(&RequestPresentationParams{}))
 
 		select {
 		case <-done:
@@ -772,12 +992,14 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 	})
 
 	t.Run("Receive Problem Report (stop)", func(t *testing.T) {
+		store, _, provider := initMocks(ctrl)
+
 		done := make(chan struct{})
 
 		src, err := json.Marshal(&internalData{StateName: "request-sent"})
 		require.NoError(t, err)
 
-		store.EXPECT().Get(gomock.Any()).Return(src, nil)
+		store.EXPECT().Get(gomock.Any()).Return(src, nil).AnyTimes()
 		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
@@ -818,6 +1040,8 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 	})
 
 	t.Run("Receive Propose Presentation (continue without request)", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
 		done := make(chan struct{})
 
 		messenger.EXPECT().
@@ -833,21 +1057,21 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 				return nil
 			})
 
-		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound).AnyTimes()
 		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
-			src, err := json.Marshal(&internalData{StateName: "proposal-received"})
+			src, err := json.Marshal(&internalData{StateName: "proposal-received", ProtocolVersion: version2})
 			require.NoError(t, err)
-			require.Equal(t, src, data)
+			require.Equal(t, string(src), string(data))
 
 			return nil
 		})
 
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
-			src, err := json.Marshal(&internalData{StateName: "abandoned"})
+			src, err := json.Marshal(&internalData{StateName: "abandoned", ProtocolVersion: version2})
 			require.NoError(t, err)
-			require.Equal(t, src, data)
+			require.Equal(t, string(src), string(data))
 
 			return nil
 		})
@@ -882,6 +1106,8 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 	})
 
 	t.Run("Receive Presentation (continue)", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
 		done := make(chan struct{})
 
 		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
@@ -896,7 +1122,7 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 		src, err := json.Marshal(&internalData{AckRequired: true, StateName: "request-sent"})
 		require.NoError(t, err)
 
-		store.EXPECT().Get(gomock.Any()).Return(src, nil)
+		store.EXPECT().Get(gomock.Any()).Return(src, nil).AnyTimes()
 		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
@@ -923,7 +1149,7 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 		ch := make(chan service.DIDCommAction, 1)
 		require.NoError(t, svc.RegisterActionEvent(ch))
 
-		msg := service.NewDIDCommMsgMap(Presentation{
+		msg := service.NewDIDCommMsgMap(PresentationV2{
 			Type: PresentationMsgTypeV2,
 			PresentationsAttach: []decorator.Attachment{{
 				Data: decorator.AttachmentData{
@@ -957,6 +1183,8 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 	})
 
 	t.Run("Receive Presentation (continue) v3", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
 		done := make(chan struct{})
 
 		messenger.EXPECT().ReplyToMsg(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
@@ -971,7 +1199,7 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 		src, err := json.Marshal(&internalData{AckRequired: true, StateName: "request-sent"})
 		require.NoError(t, err)
 
-		store.EXPECT().Get(gomock.Any()).Return(src, nil)
+		store.EXPECT().Get(gomock.Any()).Return(src, nil).AnyTimes()
 		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
@@ -1031,12 +1259,14 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 	})
 
 	t.Run("Receive Ack", func(t *testing.T) {
+		store, _, provider := initMocks(ctrl)
+
 		done := make(chan struct{})
 
 		src, err := json.Marshal(&internalData{StateName: "presentation-sent"})
 		require.NoError(t, err)
 
-		store.EXPECT().Get(gomock.Any()).Return(src, nil)
+		store.EXPECT().Get(gomock.Any()).Return(src, nil).AnyTimes()
 		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
 			defer close(done)
 
@@ -1065,11 +1295,17 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 	})
 
 	t.Run("Send Invitation Presentation", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
 		done := make(chan struct{})
 
+		src, err := json.Marshal(&internalData{StateName: "proposal-received"})
+		require.NoError(t, err)
+		store.EXPECT().Get(gomock.Any()).Return(src, nil).AnyTimes()
+
 		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
-			src, err := json.Marshal(&internalData{StateName: "request-sent"})
-			require.NoError(t, err)
+			src, e := json.Marshal(&internalData{StateName: "request-sent"})
+			require.NoError(t, e)
 			require.Equal(t, src, data)
 
 			return nil
@@ -1078,7 +1314,7 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 		svc, err := New(provider)
 		require.NoError(t, err)
 
-		msg := service.NewDIDCommMsgMap(RequestPresentation{
+		msg := service.NewDIDCommMsgMap(RequestPresentationV2{
 			Type: RequestPresentationMsgTypeV2,
 		})
 
@@ -1104,12 +1340,17 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 	})
 
 	t.Run("Send Invitation Presentation with error", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
+		src, err := json.Marshal(&internalData{StateName: "proposal-received"})
+		require.NoError(t, err)
+		store.EXPECT().Get(gomock.Any()).Return(src, nil).AnyTimes()
 		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 		svc, err := New(provider)
 		require.NoError(t, err)
 
-		msg := service.NewDIDCommMsgMap(RequestPresentation{
+		msg := service.NewDIDCommMsgMap(RequestPresentationV2{
 			Type: RequestPresentationMsgTypeV2,
 		})
 
@@ -1120,12 +1361,17 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 	})
 
 	t.Run("Send Proposal", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
 		done := make(chan struct{})
 
+		src, err := json.Marshal(&internalData{StateName: "request-received"})
+		require.NoError(t, err)
+		store.EXPECT().Get(gomock.Any()).Return(src, nil).AnyTimes()
 		store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ string, data []byte) error {
-			src, err := json.Marshal(&internalData{StateName: "proposal-sent"})
-			require.NoError(t, err)
-			require.Equal(t, src, data)
+			s, e := json.Marshal(&internalData{StateName: "proposal-sent"})
+			require.NoError(t, e)
+			require.Equal(t, s, data)
 
 			return nil
 		})
@@ -1133,7 +1379,7 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 		svc, err := New(provider)
 		require.NoError(t, err)
 
-		msg := service.NewDIDCommMsgMap(ProposePresentation{
+		msg := service.NewDIDCommMsgMap(ProposePresentationV2{
 			Type: ProposePresentationMsgTypeV2,
 		})
 
@@ -1159,12 +1405,17 @@ func TestService_HandleInboundOutbound(t *testing.T) {
 	})
 
 	t.Run("Send Proposal with error", func(t *testing.T) {
+		store, messenger, provider := initMocks(ctrl)
+
+		src, err := json.Marshal(&internalData{StateName: "request-received"})
+		require.NoError(t, err)
+		store.EXPECT().Get(gomock.Any()).Return(src, nil).AnyTimes()
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
 
 		svc, err := New(provider)
 		require.NoError(t, err)
 
-		msg := service.NewDIDCommMsgMap(ProposePresentation{
+		msg := service.NewDIDCommMsgMap(ProposePresentationV2{
 			Type: ProposePresentationMsgTypeV2,
 		})
 
@@ -1202,15 +1453,15 @@ func TestService_Accept(t *testing.T) {
 }
 
 func TestService_canTriggerActionEvents(t *testing.T) {
-	require.True(t, canTriggerActionEvents(service.NewDIDCommMsgMap(ProposePresentation{
+	require.True(t, canTriggerActionEvents(service.NewDIDCommMsgMap(ProposePresentationV2{
 		Type: ProposePresentationMsgTypeV2,
 	})))
 
-	require.True(t, canTriggerActionEvents(service.NewDIDCommMsgMap(RequestPresentation{
+	require.True(t, canTriggerActionEvents(service.NewDIDCommMsgMap(RequestPresentationV2{
 		Type: RequestPresentationMsgTypeV2,
 	})))
 
-	require.True(t, canTriggerActionEvents(service.NewDIDCommMsgMap(Presentation{
+	require.True(t, canTriggerActionEvents(service.NewDIDCommMsgMap(PresentationV2{
 		Type: PresentationMsgTypeV2,
 	})))
 
@@ -1242,7 +1493,7 @@ func Test_getTransitionalPayload(t *testing.T) {
 }
 
 func Test_nextState(t *testing.T) {
-	next, err := nextState(service.NewDIDCommMsgMap(RequestPresentation{
+	next, err := nextState(service.NewDIDCommMsgMap(RequestPresentationV2{
 		Type: RequestPresentationMsgTypeV2,
 	}), outboundMessage)
 	require.NoError(t, err)
@@ -1252,7 +1503,7 @@ func Test_nextState(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, next, &requestReceived{V: SpecV2})
 
-	next, err = nextState(service.NewDIDCommMsgMap(ProposePresentation{
+	next, err = nextState(service.NewDIDCommMsgMap(ProposePresentationV2{
 		Type: ProposePresentationMsgTypeV2,
 	}), outboundMessage)
 	require.NoError(t, err)

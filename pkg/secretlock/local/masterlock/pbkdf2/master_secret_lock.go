@@ -31,9 +31,8 @@ type masterLockPBKDF2 struct {
 	aead cipher.AEAD
 }
 
-// NewMasterLock is responsible for encrypting/decrypting a master key expanded from a passphrase using PBKDF2
+// NewMasterLock is responsible for encrypting/decrypting with a master key expanded from a passphrase using PBKDF2
 // using `passphrase`, hash function `h`, `salt`.
-// The size of a master key passed to Encrypt() must match `h()`.Size() since the key will be used for AEAD operations.
 // The salt is optional and can be set to nil.
 // This implementation must not be used directly in Aries framework. It should be passed in
 // as the second argument to local secret lock service constructor:
@@ -69,10 +68,6 @@ func NewMasterLock(passphrase string, h func() hash.Hash, iterations int, salt [
 // Encrypt a master key in req
 //  (keyURI is used for remote locks, it is ignored by this implementation)
 func (m *masterLockPBKDF2) Encrypt(keyURI string, req *secretlock.EncryptRequest) (*secretlock.EncryptResponse, error) {
-	if len(req.Plaintext) != m.h().Size() {
-		return nil, fmt.Errorf("invalid key size")
-	}
-
 	nonce := random.GetRandomBytes(uint32(m.aead.NonceSize()))
 	ct := m.aead.Seal(nil, nonce, []byte(req.Plaintext), []byte(req.AdditionalAuthenticatedData))
 	ct = append(nonce, ct...)
