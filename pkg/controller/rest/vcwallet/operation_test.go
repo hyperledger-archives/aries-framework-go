@@ -27,7 +27,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	issuecredentialsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
@@ -1836,7 +1835,6 @@ func TestOperation_ProposeCredential(t *testing.T) {
 func TestOperation_RequestCredential(t *testing.T) {
 	const (
 		sampleDIDCommUser = "sample-didcomm-user03"
-		piidKey           = "piid"
 	)
 
 	mockctx := newMockProvider(t)
@@ -1855,30 +1853,19 @@ func TestOperation_RequestCredential(t *testing.T) {
 
 	t.Run("wallet request credential success - wait for done", func(t *testing.T) {
 		thID := uuid.New().String()
-		loader, err := ldtestutil.DocumentLoader()
-		require.NoError(t, err)
-
-		vc, err := verifiable.ParseCredential([]byte(sampleUDCVC), verifiable.WithJSONLDDocumentLoader(loader))
-		require.NoError(t, err)
-		require.NotEmpty(t, vc)
 
 		icSvc := &mockissuecredential.MockIssueCredentialSvc{
-			RegisterActionEventHandle: func(ch chan<- service.DIDCommAction) error {
-				ch <- service.DIDCommAction{
-					Message: service.NewDIDCommMsgMap(&issuecredentialsvc.IssueCredential{
-						Type: issuecredentialsvc.IssueCredentialMsgTypeV2,
-						CredentialsAttach: []decorator.Attachment{
-							{Data: decorator.AttachmentData{JSON: vc}},
-						},
-					}),
+			RegisterMsgEventHandle: func(ch chan<- service.StateMsg) error {
+				ch <- service.StateMsg{
+					Type:    service.PostState,
+					StateID: "done",
 					Properties: &mockdidexchange.MockEventProperties{
 						Properties: map[string]interface{}{
-							piidKey:           thID,
-							webRedirectURLKey: exampleWebRedirect,
+							webRedirectStatusKey: model.AckStatusOK,
+							webRedirectURLKey:    exampleWebRedirect,
 						},
 					},
-					Continue: func(interface{}) {},
-					Stop:     func(error) {},
+					Msg: &mockMsg{thID: thID},
 				}
 
 				return nil
@@ -1907,12 +1894,6 @@ func TestOperation_RequestCredential(t *testing.T) {
 		require.NotEmpty(t, r.Response)
 		require.Equal(t, model.AckStatusOK, r.Response.Status)
 		require.NotEmpty(t, exampleWebRedirect, r.Response.RedirectURL)
-		require.Len(t, r.Response.Credentials, 1)
-
-		vcFulfilled, err := verifiable.ParseCredential(r.Response.Credentials[0], verifiable.WithJSONLDDocumentLoader(loader))
-		require.NoError(t, err)
-		require.NotEmpty(t, vcFulfilled)
-		require.Equal(t, vc.ID, vcFulfilled.ID)
 	})
 
 	t.Run("wallet request credential success", func(t *testing.T) {

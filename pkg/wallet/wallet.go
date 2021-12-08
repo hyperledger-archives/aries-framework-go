@@ -29,8 +29,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	didexchangeSvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	issuecredentialsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
-	issuecredentialMiddleWare "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/middleware/issuecredential"
-	presentproofSvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
@@ -57,12 +55,14 @@ const (
 
 // miscellaneous constants.
 const (
-	bbsContext            = "https://w3id.org/security/bbs/v1"
-	emptyRawLength        = 4
-	msgEventBufferSize    = 10
-	actionEventBufferSize = 10
-	ldJSONMimeType        = "application/ld+json"
-	piidKey               = "piid"
+	bbsContext         = "https://w3id.org/security/bbs/v1"
+	emptyRawLength     = 4
+	msgEventBufferSize = 10
+	ldJSONMimeType     = "application/ld+json"
+
+	// protocol states.
+	stateNameAbandoned = "abandoned"
+	stateNameDone      = "done"
 
 	// web redirect constants.
 	webRedirectStatusKey = "status"
@@ -763,9 +763,10 @@ func (c *Wallet) ProposePresentation(authToken string, invitation *GenericInvita
 // 		- presentProofFrom: presentation to be sent.
 //
 // Returns:
+// 		- Credential interaction status containing status, redirectURL.
 // 		- error if operation fails.
 //
-func (c *Wallet) PresentProof(authToken, thID string, options ...ConcludeInteractionOptions) (*PresentProofStatus, error) { //nolint: lll
+func (c *Wallet) PresentProof(authToken, thID string, options ...ConcludeInteractionOptions) (*CredentialInteractionStatus, error) { //nolint: lll
 	opts := &concludeInteractionOpts{}
 
 	for _, option := range options {
@@ -810,14 +811,14 @@ func (c *Wallet) PresentProof(authToken, thID string, options ...ConcludeInterac
 		ctx, cancel := context.WithTimeout(context.Background(), opts.timeout)
 		defer cancel()
 
-		return waitForPresentProof(ctx, statusCh, thID)
+		return waitCredInteractionCompletion(ctx, statusCh, thID)
 	}
 
-	return &PresentProofStatus{Status: model.AckStatusPENDING}, nil
+	return &CredentialInteractionStatus{Status: model.AckStatusPENDING}, nil
 }
 
 // ProposeCredential sends propose credential message from wallet to issuer.
-// https://w3c-ccg.github.io/universal-wallet-interop-spec/#requestcredential
+// https://w3c-ccg.github.io/universal-wallet-interop-spec/#proposecredential
 //
 // Currently Supporting : 0453-issueCredentialV2
 // https://github.com/hyperledger/aries-rfcs/blob/main/features/0453-issue-credential-v2/README.md
@@ -863,7 +864,7 @@ func (c *Wallet) ProposeCredential(authToken string, invitation *outofband.Invit
 
 // RequestCredential sends request credential message from wallet to issuer and
 // optionally waits for credential fulfillment.
-// https://w3c-ccg.github.io/universal-wallet-interop-spec/#proposecredential
+// https://w3c-ccg.github.io/universal-wallet-interop-spec/#requestcredential
 //
 // Currently Supporting : 0453-issueCredentialV2
 // https://github.com/hyperledger/aries-rfcs/blob/main/features/0453-issue-credential-v2/README.md
@@ -874,10 +875,10 @@ func (c *Wallet) ProposeCredential(authToken string, invitation *outofband.Invit
 // 		- concludeInteractionOptions: options to conclude interaction like presentation to be shared etc.
 //
 // Returns:
-// 		- RequestCredentialStatus containing status, redirectURL, credential fullfillment attachments.
+// 		- Credential interaction status containing status, redirectURL.
 // 		- error if operation fails.
 //
-func (c *Wallet) RequestCredential(authToken, thID string, options ...ConcludeInteractionOptions) (*RequestCredentialStatus, error) { //nolint: lll
+func (c *Wallet) RequestCredential(authToken, thID string, options ...ConcludeInteractionOptions) (*CredentialInteractionStatus, error) { //nolint: lll
 	opts := &concludeInteractionOpts{}
 
 	for _, option := range options {
@@ -912,15 +913,15 @@ func (c *Wallet) RequestCredential(authToken, thID string, options ...ConcludeIn
 
 	// wait for credential fulfillment.
 	if opts.waitForDone {
-		actionCh := make(chan service.DIDCommAction, actionEventBufferSize)
+		statusCh := make(chan service.StateMsg, msgEventBufferSize)
 
-		err = c.issueCredentialClient.RegisterActionEvent(actionCh)
+		err = c.issueCredentialClient.RegisterMsgEvent(statusCh)
 		if err != nil {
 			return nil, fmt.Errorf("failed to register issue credential action event : %w", err)
 		}
 
 		defer func() {
-			e := c.issueCredentialClient.UnregisterActionEvent(actionCh)
+			e := c.issueCredentialClient.UnregisterMsgEvent(statusCh)
 			if e != nil {
 				logger.Warnf("Failed to unregister action event for issue credential: %w", e)
 			}
@@ -929,10 +930,10 @@ func (c *Wallet) RequestCredential(authToken, thID string, options ...ConcludeIn
 		ctx, cancel := context.WithTimeout(context.Background(), opts.timeout)
 		defer cancel()
 
-		return waitForCredentialFulfillment(ctx, actionCh, thID)
+		return waitCredInteractionCompletion(ctx, statusCh, thID)
 	}
 
-	return &RequestCredentialStatus{Status: model.AckStatusPENDING}, nil
+	return &CredentialInteractionStatus{Status: model.AckStatusPENDING}, nil
 }
 
 //nolint: funlen,gocyclo
@@ -1230,73 +1231,6 @@ func (c *Wallet) waitForOfferCredential(ctx context.Context, record *connection.
 	}
 }
 
-// wait for issue credential status to be completed (done or abandoned).
-func waitForCredentialFulfillment(ctx context.Context, actionMsgs chan service.DIDCommAction, thID string) (*RequestCredentialStatus, error) { // nolint:gocyclo,lll,funlen
-	done := make(chan *RequestCredentialStatus)
-	errCh := make(chan error)
-
-	go func() {
-		for action := range actionMsgs {
-			properties := action.Properties.All()
-
-			if piidVal, found := properties[piidKey]; found {
-				if piid, ok := piidVal.(string); ok && piid == thID {
-					switch action.Message.Type() {
-					case issuecredentialsvc.IssueCredentialMsgTypeV2:
-						credentials, err := getCredentialsData(action.Message)
-						if err != nil {
-							logger.Errorf("failed to read credentials in wallet: %s", err)
-							action.Stop(fmt.Errorf("failed to read credentials in wallet: %w", err))
-							errCh <- err
-
-							return
-						}
-
-						response := &RequestCredentialStatus{
-							Credentials: credentials,
-							Status:      model.AckStatusOK,
-						}
-
-						response.RedirectURL, _ = getWebRedirectInfo(properties)
-
-						action.Continue(issuecredentialsvc.WithProperties(map[string]interface{}{
-							issuecredentialMiddleWare.SkipCredentialSaveKey: true, // skip saving credential in middleware
-						}))
-						done <- response
-
-						return
-					case issuecredentialsvc.ProblemReportMsgTypeV2:
-						// TODO get more info from problem-report and put it in response for clients.
-						response := &RequestCredentialStatus{
-							Status: model.AckStatusFAIL,
-						}
-
-						response.RedirectURL, _ = getWebRedirectInfo(properties)
-
-						action.Stop(errors.New("protocol stopped by wallet"))
-						done <- response
-
-						return
-					default:
-						continue
-					}
-				}
-			}
-
-			return
-		}
-	}()
-
-	select {
-	case status := <-done:
-		return status, nil
-	case err := <-errCh:
-		return nil, err
-	case <-ctx.Done():
-		return nil, fmt.Errorf("time out waiting for present proof protocol to get completed")
-	}
-}
-
 func waitForConnect(ctx context.Context, didStateMsgs chan service.StateMsg, connID string) error {
 	done := make(chan struct{})
 
@@ -1337,9 +1271,9 @@ func waitForConnect(ctx context.Context, didStateMsgs chan service.StateMsg, con
 	}
 }
 
-// wait for present proof status to be completed (done or abandoned) from prover side.
-func waitForPresentProof(ctx context.Context, didStateMsgs chan service.StateMsg, thID string) (*PresentProofStatus, error) { // nolint:gocognit,gocyclo,lll
-	done := make(chan *PresentProofStatus)
+// wait for credential interaction to be completed (done or abandoned protocol state).
+func waitCredInteractionCompletion(ctx context.Context, didStateMsgs chan service.StateMsg, thID string) (*CredentialInteractionStatus, error) { // nolint:gocognit,gocyclo,lll
+	done := make(chan *CredentialInteractionStatus)
 
 	go func() {
 		for msg := range didStateMsgs {
@@ -1364,18 +1298,18 @@ func waitForPresentProof(ctx context.Context, didStateMsgs chan service.StateMsg
 			}
 
 			// match protocol state.
-			if msg.StateID != presentproofSvc.StateNameDone && msg.StateID != presentproofSvc.StateNameAbandoned {
+			if msg.StateID != stateNameDone && msg.StateID != stateNameAbandoned {
 				continue
 			}
 
 			properties := msg.Properties.All()
 
-			response := &PresentProofStatus{}
+			response := &CredentialInteractionStatus{}
 			response.RedirectURL, response.Status = getWebRedirectInfo(properties)
 
 			// if redirect status missing, then use protocol state, done -> OK, abandoned -> FAIL.
 			if response.Status == "" {
-				if msg.StateID == presentproofSvc.StateNameAbandoned {
+				if msg.StateID == stateNameAbandoned {
 					response.Status = model.AckStatusFAIL
 				} else {
 					response.Status = model.AckStatusOK
@@ -1392,29 +1326,8 @@ func waitForPresentProof(ctx context.Context, didStateMsgs chan service.StateMsg
 	case status := <-done:
 		return status, nil
 	case <-ctx.Done():
-		return nil, fmt.Errorf("time out waiting for present proof protocol to get completed")
+		return nil, fmt.Errorf("time out waiting for credential interaction to get completed")
 	}
-}
-
-// getCredentialsData reads all raw attachment data from DIDComm msg.
-func getCredentialsData(msg service.DIDCommMsg) ([]json.RawMessage, error) {
-	cred := issuecredential.IssueCredential{}
-	if err := msg.Decode(&cred); err != nil {
-		return nil, fmt.Errorf("decode incoming attachment: %w", err)
-	}
-
-	var credentials []json.RawMessage
-
-	for i := range cred.CredentialsAttach {
-		rawVC, err := cred.CredentialsAttach[i].Data.Fetch()
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch attachment content: %w", err)
-		}
-
-		credentials = append(credentials, rawVC)
-	}
-
-	return credentials, nil
 }
 
 // addContext adds context if not found in given data model.
