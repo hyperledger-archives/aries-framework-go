@@ -390,7 +390,7 @@ type PresentProofRequest struct {
 
 // PresentProofResponse is response model from wallet present proof operation.
 type PresentProofResponse struct {
-	wallet.PresentProofStatus
+	wallet.CredentialInteractionStatus
 }
 
 // ProposeCredentialRequest is request model for performing propose credential operation from wallet.
@@ -439,5 +439,5 @@ type RequestCredentialRequest struct {
 
 // RequestCredentialResponse is response model from wallet request credential operation.
 type RequestCredentialResponse struct {
-	wallet.RequestCredentialStatus
+	wallet.CredentialInteractionStatus
 }

@@ -86,10 +86,13 @@ type AcceptRequestResponse struct{}
 // This is used for accepting a credential.
 //
 type AcceptCredentialArgs struct {
-	// PIID Protocol instance ID
+	// PIID Protocol instance ID.
 	PIID string `json:"piid"`
-	// Names represent the names of how credentials will be stored
+	// Names represent the names of how credentials will be stored.
 	Names []string `json:"names"`
+	// SkipStore if true then credential will not be saved in agent's verifiable store,
+	// but protocol state will be updated.
+	SkipStore bool `json:"skipStore"`
 }
 
 // AcceptCredentialResponse model
