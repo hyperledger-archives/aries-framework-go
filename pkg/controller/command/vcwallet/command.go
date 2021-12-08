@@ -235,8 +235,8 @@ func (o *Command) GetHandlers() []command.Handler {
 		cmdutil.NewCommandHandler(CommandName, ConnectMethod, o.Connect),
 		cmdutil.NewCommandHandler(CommandName, ProposePresentationMethod, o.ProposePresentation),
 		cmdutil.NewCommandHandler(CommandName, PresentProofMethod, o.PresentProof),
-		cmdutil.NewCommandHandler(CommandName, ProposeCredentialMethod, o.PresentProof),
-		cmdutil.NewCommandHandler(CommandName, RequestCredentialMethod, o.PresentProof),
+		cmdutil.NewCommandHandler(CommandName, ProposeCredentialMethod, o.ProposeCredential),
+		cmdutil.NewCommandHandler(CommandName, RequestCredentialMethod, o.RequestCredential),
 	}
 }
 
@@ -851,7 +851,7 @@ func (o *Command) PresentProof(rw io.Writer, req io.Reader) command.Error {
 }
 
 // ProposeCredential sends propose credential message from wallet to issuer.
-// https://w3c-ccg.github.io/universal-wallet-interop-spec/#requestcredential
+// https://w3c-ccg.github.io/universal-wallet-interop-spec/#proposecredential
 //
 // Currently Supporting : 0453-issueCredentialV2
 // https://github.com/hyperledger/aries-rfcs/blob/main/features/0453-issue-credential-v2/README.md
@@ -896,7 +896,7 @@ func (o *Command) ProposeCredential(rw io.Writer, req io.Reader) command.Error {
 
 // RequestCredential sends request credential message from wallet to issuer and
 // optionally waits for credential fulfillment.
-// https://w3c-ccg.github.io/universal-wallet-interop-spec/#proposecredential
+// https://w3c-ccg.github.io/universal-wallet-interop-spec/#requestcredential
 //
 // Currently Supporting : 0453-issueCredentialV2
 // https://github.com/hyperledger/aries-rfcs/blob/main/features/0453-issue-credential-v2/README.md

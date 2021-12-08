@@ -320,7 +320,7 @@ type presentProofResponse struct {
 	// response containing status of present proof operation.
 	//
 	// in: body
-	Response *wallet.PresentProofStatus `json:"response"`
+	Response *wallet.CredentialInteractionStatus `json:"response"`
 }
 
 // proposeCredentialRequest is request model for performing propose credential operation from wallet to initiate
@@ -363,7 +363,7 @@ type requestCredentialResponse struct {
 	// response containing status of request credential operation.
 	//
 	// in: body
-	Response *wallet.RequestCredentialStatus `json:"response"`
+	Response *wallet.CredentialInteractionStatus `json:"response"`
 }
 
 // emptyRes model

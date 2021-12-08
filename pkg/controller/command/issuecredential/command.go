@@ -770,7 +770,15 @@ func (c *Command) AcceptCredential(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
-	if err := c.client.AcceptCredential(args.PIID, issuecredential.AcceptByFriendlyNames(args.Names...)); err != nil {
+	opts := []issuecredential.AcceptCredentialOptions{
+		issuecredential.AcceptByFriendlyNames(args.Names...),
+	}
+
+	if args.SkipStore {
+		opts = append(opts, issuecredential.AcceptBySkippingStorage())
+	}
+
+	if err := c.client.AcceptCredential(args.PIID, opts...); err != nil {
 		logutil.LogError(logger, CommandName, AcceptCredential, err.Error())
 		return command.NewExecuteError(AcceptCredentialErrorCode, err)
 	}

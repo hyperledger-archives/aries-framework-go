@@ -142,7 +142,11 @@ type issueCredentialAcceptCredentialRequest struct { // nolint: unused,deadcode
 	// in: body
 	Body struct {
 		// required: true
+		// Names represent the names of how credentials will be stored.
 		Names []string `json:"names"`
+
+		// SkipStore if true then credential will not be saved agent store, but protocol state will be updated.
+		SkipStore bool `json:"skipStore"`
 	}
 }
 
