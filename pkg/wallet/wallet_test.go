@@ -963,10 +963,15 @@ func TestWallet_GetAll(t *testing.T) {
 
 	const count = 5
 
+	var taggedKeys, untaggedKeys [count]string
+
 	// save test data without collection
 	for i := 0; i < count; i++ {
-		require.NoError(t, walletInstance.Add(tkn,
-			Credential, []byte(fmt.Sprintf(vcContent, uuid.New().String()))))
+		k := uuid.New().String()
+
+		require.NoError(t, walletInstance.Add(tkn, Credential, []byte(fmt.Sprintf(vcContent, k))))
+
+		untaggedKeys[i] = k
 	}
 
 	// save a collection
@@ -974,8 +979,12 @@ func TestWallet_GetAll(t *testing.T) {
 
 	// save contents by collection
 	for i := 0; i < count; i++ {
-		require.NoError(t, walletInstance.Add(tkn,
-			Credential, []byte(fmt.Sprintf(vcContent, uuid.New().String())), AddByCollection(collectionID)))
+		k := uuid.New().String()
+
+		require.NoError(t, walletInstance.Add(tkn, Credential, []byte(fmt.Sprintf(vcContent, k)),
+			AddByCollection(collectionID)))
+
+		taggedKeys[i] = k
 	}
 
 	// get all by content
@@ -987,6 +996,20 @@ func TestWallet_GetAll(t *testing.T) {
 	vcs, err = walletInstance.GetAll(tkn, Credential, FilterByCollection(collectionID))
 	require.NoError(t, err)
 	require.Len(t, vcs, count)
+
+	// delete one item under collection
+	require.NoError(t, walletInstance.Remove(tkn, Credential, taggedKeys[0]))
+	// get all by content & collection
+	vcs, err = walletInstance.GetAll(tkn, Credential, FilterByCollection(collectionID))
+	require.NoError(t, err)
+	require.Len(t, vcs, count-1)
+
+	// delete one item which is not under collection
+	require.NoError(t, walletInstance.Remove(tkn, Credential, untaggedKeys[0]))
+	// get all by content
+	vcs, err = walletInstance.GetAll(tkn, Credential)
+	require.NoError(t, err)
+	require.Len(t, vcs, count*2-2)
 }
 
 func TestWallet_Remove(t *testing.T) {
