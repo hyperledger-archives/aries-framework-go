@@ -30,7 +30,7 @@ type IssueCredentialArgs struct {
 
 // IssueCredentialResponse model.
 type IssueCredentialResponse struct {
-	IssueCredential *issuecredential.IssueCredential `json:"issue_credential"`
+	IssueCredential *issuecredential.IssueCredentialV2 `json:"issue_credential"`
 }
 
 // VerifyCredentialArgs model.

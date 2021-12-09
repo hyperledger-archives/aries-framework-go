@@ -434,7 +434,7 @@ func (c *Client) PresentProof(thID string, presentProofFrom ...wallet.ConcludeIn
 // 		- DIDCommMsgMap containing offer credential message if operation is successful.
 // 		- error if operation fails.
 //
-func (c *Client) ProposeCredential(invitation *outofband.Invitation, options ...wallet.InitiateInteractionOption) (*service.DIDCommMsgMap, error) { // nolint: lll
+func (c *Client) ProposeCredential(invitation *wallet.GenericInvitation, options ...wallet.InitiateInteractionOption) (*service.DIDCommMsgMap, error) { // nolint: lll
 	auth, err := c.auth()
 	if err != nil {
 		return nil, err

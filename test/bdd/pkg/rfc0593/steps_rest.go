@@ -92,7 +92,7 @@ func (s *RestSDKSteps) scenario(proofPurpose, created, domain, challenge, proofT
 func (s *RestSDKSteps) sendProposal(holder, issuer string) error {
 	attachID := uuid.New().String()
 
-	proposal := &issuecredential.ProposeCredential{
+	proposal := &issuecredential.ProposeCredentialV2{
 		Formats: []protocol.Format{{
 			AttachID: attachID,
 			Format:   rfc0593.ProofVCDetailFormat,
@@ -116,7 +116,7 @@ func (s *RestSDKSteps) sendProposal(holder, issuer string) error {
 func (s *RestSDKSteps) sendOffer(issuer, holder string) error {
 	attachID := uuid.New().String()
 
-	offer := &issuecredential.OfferCredential{
+	offer := &issuecredential.OfferCredentialV2{
 		Formats: []protocol.Format{{
 			AttachID: attachID,
 			Format:   rfc0593.ProofVCDetailFormat,
@@ -140,7 +140,7 @@ func (s *RestSDKSteps) sendOffer(issuer, holder string) error {
 func (s *RestSDKSteps) sendRequest(holder, issuer string) error {
 	attachID := uuid.New().String()
 
-	request := &issuecredential.RequestCredential{
+	request := &issuecredential.RequestCredentialV2{
 		Formats: []protocol.Format{{
 			AttachID: attachID,
 			Format:   rfc0593.ProofVCDetailFormat,
@@ -209,7 +209,7 @@ func (s *RestSDKSteps) verifyCredential(holder string) error {
 		return fmt.Errorf("'%s' failed to pull messages from websocket: %w", holder, err)
 	}
 
-	issueCredential := &issuecredential.IssueCredential{}
+	issueCredential := &issuecredential.IssueCredentialV2{}
 
 	err = msg.Message.Message.Decode(issueCredential)
 	if err != nil {

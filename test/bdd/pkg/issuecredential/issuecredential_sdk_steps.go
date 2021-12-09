@@ -144,7 +144,7 @@ func (a *SDKSteps) SendsOffer(agent1, agent2 string) error {
 		return err
 	}
 
-	piid, err := a.clients[agent1].SendOffer(&issuecredential.OfferCredential{}, conn.MyDID, conn.TheirDID)
+	piid, err := a.clients[agent1].SendOffer(&issuecredential.OfferCredential{}, conn.Record)
 	if err != nil {
 		return fmt.Errorf("send offer: %w", err)
 	}
@@ -158,12 +158,14 @@ func (a *SDKSteps) SendsOffer(agent1, agent2 string) error {
 
 // SendsOfferV3 sends an offer from agent1 to agent2.
 func (a *SDKSteps) SendsOfferV3(agent1, agent2 string) error {
-	did1, did2, err := a.getDIDs(agent1, agent2)
+	conn, err := a.getConnection(agent1, agent2)
 	if err != nil {
 		return err
 	}
 
-	piid, err := a.clients[agent1].SendOfferV3(&issuecredential.OfferCredentialV3{}, did1, did2)
+	conn.DIDCommVersion = service.V2
+
+	piid, err := a.clients[agent1].SendOffer(&issuecredential.OfferCredential{}, conn.Record)
 	if err != nil {
 		return fmt.Errorf("send offer: %w", err)
 	}
@@ -181,7 +183,7 @@ func (a *SDKSteps) sendsProposal(agent1, agent2 string) error {
 		return err
 	}
 
-	piid, err := a.clients[agent1].SendProposal(&issuecredential.ProposeCredential{}, conn.MyDID, conn.TheirDID)
+	piid, err := a.clients[agent1].SendProposal(&issuecredential.ProposeCredential{}, conn.Record)
 	if err != nil {
 		return fmt.Errorf("send proposal: %w", err)
 	}
@@ -194,12 +196,14 @@ func (a *SDKSteps) sendsProposal(agent1, agent2 string) error {
 }
 
 func (a *SDKSteps) sendsProposalV3(agent1, agent2 string) error {
-	did1, did2, err := a.getDIDs(agent1, agent2)
+	conn, err := a.getConnection(agent1, agent2)
 	if err != nil {
 		return err
 	}
 
-	piid, err := a.clients[agent1].SendProposalV3(&issuecredential.ProposeCredentialV3{}, did1, did2)
+	conn.DIDCommVersion = service.V2
+
+	piid, err := a.clients[agent1].SendProposal(&issuecredential.ProposeCredential{}, conn.Record)
 	if err != nil {
 		return fmt.Errorf("send proposal: %w", err)
 	}
@@ -217,9 +221,9 @@ func (a *SDKSteps) sendsRequest(agent1, agent2 string) error {
 		return err
 	}
 
-	piid, err := a.clients[agent1].SendRequest(&issuecredential.RequestCredential{}, conn.MyDID, conn.TheirDID)
+	piid, err := a.clients[agent1].SendRequest(&issuecredential.RequestCredential{}, conn.Record)
 	if err != nil {
-		return fmt.Errorf("send proposal: %w", err)
+		return fmt.Errorf("send request: %w", err)
 	}
 
 	if piid == "" {
@@ -230,14 +234,16 @@ func (a *SDKSteps) sendsRequest(agent1, agent2 string) error {
 }
 
 func (a *SDKSteps) sendsRequestV3(agent1, agent2 string) error {
-	did1, did2, err := a.getDIDs(agent1, agent2)
+	conn, err := a.getConnection(agent1, agent2)
 	if err != nil {
 		return err
 	}
 
-	piid, err := a.clients[agent1].SendRequestV3(&issuecredential.RequestCredentialV3{}, did1, did2)
+	conn.DIDCommVersion = service.V2
+
+	piid, err := a.clients[agent1].SendRequest(&issuecredential.RequestCredential{}, conn.Record)
 	if err != nil {
-		return fmt.Errorf("send proposal: %w", err)
+		return fmt.Errorf("send request: %w", err)
 	}
 
 	if piid == "" {
@@ -245,53 +251,6 @@ func (a *SDKSteps) sendsRequestV3(agent1, agent2 string) error {
 	}
 
 	return nil
-}
-
-func (a *SDKSteps) createClient(agentID string) error {
-	if a.clients[agentID] != nil {
-		return nil
-	}
-
-	const stateMsgChanSize = 12
-
-	client, err := issuecredential.New(a.bddContext.AgentCtx[agentID])
-	if err != nil {
-		return err
-	}
-
-	a.clients[agentID] = client
-	a.actions[agentID] = make(chan service.DIDCommAction, 1)
-	a.events[agentID] = make(chan service.StateMsg, stateMsgChanSize)
-
-	if err := client.RegisterMsgEvent(a.events[agentID]); err != nil {
-		return err
-	}
-
-	return client.RegisterActionEvent(a.actions[agentID])
-}
-
-func (a *SDKSteps) getDIDs(agent1, agent2 string) (string, string, error) {
-	if err := a.createClient(agent1); err != nil {
-		return "", "", err
-	}
-
-	if err := a.createClient(agent2); err != nil {
-		return "", "", err
-	}
-
-	doc1, ok1 := a.bddContext.PublicDIDDocs[agent1]
-	doc2, ok2 := a.bddContext.PublicDIDDocs[agent2]
-
-	if ok1 && ok2 {
-		return doc1.ID, doc2.ID, nil
-	}
-
-	conn, err := a.getConnection(agent1, agent2)
-	if err != nil {
-		return "", "", err
-	}
-
-	return conn.MyDID, conn.TheirDID, nil
 }
 
 func (a *SDKSteps) acceptProposal(agent string) error {
@@ -309,7 +268,7 @@ func (a *SDKSteps) acceptProposalV3(agent string) error {
 		return err
 	}
 
-	return a.clients[agent].AcceptProposalV3(PIID, &issuecredential.OfferCredentialV3{})
+	return a.clients[agent].AcceptProposal(PIID, &issuecredential.OfferCredential{})
 }
 
 func (a *SDKSteps) declineCredential(agent string) error {
@@ -356,7 +315,7 @@ func (a *SDKSteps) AcceptRequest(agent string) error {
 	}
 
 	return a.clients[agent].AcceptRequest(PIID, &issuecredential.IssueCredential{
-		CredentialsAttach: []decorator.Attachment{
+		Attachments: []decorator.GenericAttachment{
 			{Data: decorator.AttachmentData{JSON: getVCredential()}},
 		},
 	})
@@ -369,8 +328,8 @@ func (a *SDKSteps) AcceptRequestV3(agent string) error {
 		return err
 	}
 
-	return a.clients[agent].AcceptRequestV3(PIID, &issuecredential.IssueCredentialV3{
-		Attachments: []decorator.AttachmentV2{
+	return a.clients[agent].AcceptRequest(PIID, &issuecredential.IssueCredential{
+		Attachments: []decorator.GenericAttachment{
 			{Data: decorator.AttachmentData{JSON: getVCredential()}},
 		},
 	})
@@ -427,7 +386,7 @@ func (a *SDKSteps) negotiateProposalV3(agent string) error {
 		return err
 	}
 
-	return a.clients[agent].NegotiateProposalV3(PIID, &issuecredential.ProposeCredentialV3{})
+	return a.clients[agent].NegotiateProposal(PIID, &issuecredential.ProposeCredential{})
 }
 
 func (a *SDKSteps) receiveProblemReport(agent string) error {

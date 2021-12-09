@@ -3519,7 +3519,7 @@ func TestWallet_ProposeCredential(t *testing.T) {
 				return []issuecredentialsvc.Action{
 					{
 						PIID: thID,
-						Msg: service.NewDIDCommMsgMap(&issuecredentialsvc.OfferCredential{
+						Msg: service.NewDIDCommMsgMap(&issuecredentialsvc.OfferCredentialV2{
 							Comment: sampleMsgComment,
 						}),
 						MyDID:    myDID,
@@ -3557,12 +3557,12 @@ func TestWallet_ProposeCredential(t *testing.T) {
 
 		defer wallet.Close()
 
-		msg, err := wallet.ProposeCredential(token, &outofband.Invitation{},
+		msg, err := wallet.ProposeCredential(token, &GenericInvitation{},
 			WithConnectOptions(WithConnectTimeout(1*time.Millisecond)))
 		require.NoError(t, err)
 		require.NotEmpty(t, msg)
 
-		offer := &issuecredentialsvc.OfferCredential{}
+		offer := &issuecredentialsvc.OfferCredentialV2{}
 
 		err = msg.Decode(offer)
 		require.NoError(t, err)
@@ -3588,7 +3588,7 @@ func TestWallet_ProposeCredential(t *testing.T) {
 
 		defer wallet.Close()
 
-		msg, err := wallet.ProposeCredential(token, &outofband.Invitation{})
+		msg, err := wallet.ProposeCredential(token, &GenericInvitation{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), sampleWalletErr)
 		require.Contains(t, err.Error(), "failed to perform did connection")
@@ -3628,7 +3628,7 @@ func TestWallet_ProposeCredential(t *testing.T) {
 
 		defer wallet.Close()
 
-		msg, err := wallet.ProposeCredential(token, &outofband.Invitation{})
+		msg, err := wallet.ProposeCredential(token, &GenericInvitation{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to lookup connection")
 		require.Empty(t, msg)
@@ -3689,7 +3689,7 @@ func TestWallet_ProposeCredential(t *testing.T) {
 
 		defer wallet.Close()
 
-		msg, err := wallet.ProposeCredential(token, &outofband.Invitation{})
+		msg, err := wallet.ProposeCredential(token, &GenericInvitation{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), sampleWalletErr)
 		require.Contains(t, err.Error(), "failed to propose credential from wallet")
@@ -3748,7 +3748,7 @@ func TestWallet_ProposeCredential(t *testing.T) {
 
 		defer wallet.Close()
 
-		msg, err := wallet.ProposeCredential(token, &outofband.Invitation{}, WithInitiateTimeout(600*time.Millisecond))
+		msg, err := wallet.ProposeCredential(token, &GenericInvitation{}, WithInitiateTimeout(600*time.Millisecond))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "timeout waiting for offer credential message")
 		require.Empty(t, msg)
@@ -3808,7 +3808,7 @@ func TestWallet_ProposeCredential(t *testing.T) {
 
 		defer wallet.Close()
 
-		msg, err := wallet.ProposeCredential(token, &outofband.Invitation{}, WithInitiateTimeout(1*time.Millisecond),
+		msg, err := wallet.ProposeCredential(token, &GenericInvitation{}, WithInitiateTimeout(1*time.Millisecond),
 			WithFromDID("did:sample:from"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "timeout waiting for offer credential message")

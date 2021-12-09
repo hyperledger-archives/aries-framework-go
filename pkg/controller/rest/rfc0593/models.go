@@ -49,7 +49,7 @@ type issueCredentialRequest struct { // nolint:deadcode,unused
 type issueCredentialResponse struct { // nolint:deadcode,unused
 	// in: body
 	Body struct {
-		IssueCredential *issuecredential.IssueCredential `json:"issue_credential"`
+		IssueCredential *issuecredential.IssueCredentialV2 `json:"issue_credential"`
 	}
 }
 

@@ -2283,7 +2283,7 @@ func TestCommand_ProposeCredential(t *testing.T) {
 				return []issuecredentialsvc.Action{
 					{
 						PIID: thID,
-						Msg: service.NewDIDCommMsgMap(&issuecredentialsvc.OfferCredential{
+						Msg: service.NewDIDCommMsgMap(&issuecredentialsvc.OfferCredentialV2{
 							Comment: sampleMsgComment,
 						}),
 						MyDID:    myDID,
@@ -2313,7 +2313,7 @@ func TestCommand_ProposeCredential(t *testing.T) {
 
 		request := &ProposeCredentialRequest{
 			WalletAuth: WalletAuth{UserID: sampleDIDCommUser, Auth: token},
-			Invitation: &outofbandClient.Invitation{},
+			Invitation: &wallet.GenericInvitation{},
 		}
 
 		var b bytes.Buffer
@@ -2325,7 +2325,7 @@ func TestCommand_ProposeCredential(t *testing.T) {
 		require.NotEmpty(t, response)
 		require.NotEmpty(t, response.OfferCredential)
 
-		offer := &issuecredentialsvc.OfferCredential{}
+		offer := &issuecredentialsvc.OfferCredentialV2{}
 
 		err = response.OfferCredential.Decode(offer)
 		require.NoError(t, err)

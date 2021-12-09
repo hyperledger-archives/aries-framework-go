@@ -18,6 +18,7 @@ import (
 	didexcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	issuecredentialcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/connection"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	didexsteps "github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/util"
@@ -63,6 +64,7 @@ func (s *ControllerSteps) SetContext(ctx *context.BDDContext) {
 // nolint:lll
 func (s *ControllerSteps) RegisterSteps(gs *godog.Suite) {
 	gs.Step(`^"([^"]*)" has established connection with "([^"]*)" through IssueCredential controller$`, s.EstablishConnection)
+	gs.Step(`^"([^"]*)" has established DIDComm V2 connection with "([^"]*)" through IssueCredential controller$`, s.EstablishDIDCommV2Connection)
 	gs.Step(`^"([^"]*)" requests credential from "([^"]*)" through IssueCredential controller$`, s.requestCredential)
 	gs.Step(`^"([^"]*)" requests credential V3 from "([^"]*)" through IssueCredential controller$`, s.requestCredentialV3)
 	gs.Step(`^"([^"]*)" sends an offer to the "([^"]*)" through IssueCredential controller$`, s.sendOffer)
@@ -82,11 +84,11 @@ func (s *ControllerSteps) RegisterSteps(gs *godog.Suite) {
 
 // Options for sending and accepting messages.
 type Options struct {
-	Proposal   *client.ProposeCredential
+	Proposal   *client.ProposeCredentialV2
 	ProposalV3 *client.ProposeCredentialV3
-	Request    *client.RequestCredential
+	Request    *client.RequestCredentialV2
 	RequestV3  *client.RequestCredentialV3
-	Offer      *client.OfferCredential
+	Offer      *client.OfferCredentialV2
 	OfferV3    *client.OfferCredentialV3
 }
 
@@ -94,21 +96,21 @@ type Options struct {
 type Option func(*Options)
 
 // WithProposal sets the proposal to send.
-func WithProposal(p *client.ProposeCredential) Option {
+func WithProposal(p *client.ProposeCredentialV2) Option {
 	return func(o *Options) {
 		o.Proposal = p
 	}
 }
 
 // WithRequest sets the request to send or reply with.
-func WithRequest(r *client.RequestCredential) Option {
+func WithRequest(r *client.RequestCredentialV2) Option {
 	return func(o *Options) {
 		o.Request = r
 	}
 }
 
 // WithOffer sets the offer to send or reply with.
-func WithOffer(of *client.OfferCredential) Option {
+func WithOffer(of *client.OfferCredentialV2) Option {
 	return func(o *Options) {
 		o.Offer = of
 	}
@@ -150,6 +152,50 @@ func (s *ControllerSteps) EstablishConnection(holder, issuer string) error {
 	return nil
 }
 
+// EstablishDIDCommV2Connection will connect the two agents together with a DIDComm V2 connection.
+func (s *ControllerSteps) EstablishDIDCommV2Connection(holder, issuer string) error {
+	ds := didexsteps.NewDIDExchangeControllerSteps()
+	ds.SetContext(s.bddContext)
+
+	err := ds.EstablishConnection(holder, issuer)
+	if err != nil {
+		return fmt.Errorf("unable to establish connection between [%s] and [%s]: %w", holder, issuer, err)
+	}
+
+	connID, ok := ds.ConnectionIDs()[holder]
+	if !ok {
+		return fmt.Errorf("unable to find connection for agent [%s]", holder)
+	}
+
+	controllerURL, ok := s.bddContext.GetControllerURL(holder)
+	if !ok {
+		return fmt.Errorf("unable to find controller URL registered for agent [%s]", holder)
+	}
+
+	cs := connection.NewControllerSteps()
+	cs.SetContext(s.bddContext)
+
+	err = cs.SetConnectionToDIDCommV2(holder, connID)
+	if err != nil {
+		return fmt.Errorf("unable to set connection to DIDComm V2: %w", err)
+	}
+
+	var response didexcmd.QueryConnectionResponse
+
+	connectionsURL := fmt.Sprintf("%s/connections/%s", controllerURL, connID)
+
+	err = util.SendHTTP(http.MethodGet, connectionsURL, nil, &response)
+	if err != nil {
+		return fmt.Errorf("failed to query connections: %w", err)
+	}
+
+	s.did = make(map[string]string)
+	s.did[holder] = response.Result.MyDID
+	s.did[issuer] = response.Result.TheirDID
+
+	return nil
+}
+
 func (s *ControllerSteps) requestCredential(holder, issuer string) error {
 	return s.RequestCredentialWithOpts(holder, issuer)
 }
@@ -161,7 +207,7 @@ func (s *ControllerSteps) requestCredentialV3(holder, issuer string) error {
 // RequestCredentialWithOpts will send a default (empty) request unless one is provided using WithRequest.
 func (s *ControllerSteps) RequestCredentialWithOpts(holder, issuer string, options ...Option) error {
 	opts := &Options{
-		Request: &client.RequestCredential{},
+		Request: &client.RequestCredentialV2{},
 	}
 
 	for i := range options {
@@ -173,7 +219,7 @@ func (s *ControllerSteps) RequestCredentialWithOpts(holder, issuer string, optio
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", holder)
 	}
 
-	return postToURL(url+sendRequest, issuecredentialcmd.SendRequestArgs{
+	return postToURL(url+sendRequest, issuecredentialcmd.SendRequestArgsV2{
 		MyDID:             s.did[holder],
 		TheirDID:          s.did[issuer],
 		RequestCredential: opts.Request,
@@ -213,7 +259,7 @@ func (s *ControllerSteps) sendOfferV3(issuer, holder string) error {
 // SendOfferWithOpts will send a default (empty) offer unless one is provided using WithOffer.
 func (s *ControllerSteps) SendOfferWithOpts(issuer, holder string, options ...Option) error {
 	opts := &Options{
-		Offer: &client.OfferCredential{},
+		Offer: &client.OfferCredentialV2{},
 	}
 
 	for i := range options {
@@ -225,7 +271,7 @@ func (s *ControllerSteps) SendOfferWithOpts(issuer, holder string, options ...Op
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", issuer)
 	}
 
-	return postToURL(url+sendOffer, issuecredentialcmd.SendOfferArgs{
+	return postToURL(url+sendOffer, issuecredentialcmd.SendOfferArgsV2{
 		MyDID:           s.did[issuer],
 		TheirDID:        s.did[holder],
 		OfferCredential: opts.Offer,
@@ -265,7 +311,7 @@ func (s *ControllerSteps) sendProposalV3(holder, issuer string) error {
 // SendProposalWithOpts sends a default (empty) proposal unless one is provided using WithProposal.
 func (s *ControllerSteps) SendProposalWithOpts(holder, issuer string, options ...Option) error {
 	opts := &Options{
-		Proposal: &client.ProposeCredential{},
+		Proposal: &client.ProposeCredentialV2{},
 	}
 
 	for i := range options {
@@ -277,7 +323,7 @@ func (s *ControllerSteps) SendProposalWithOpts(holder, issuer string, options ..
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", holder)
 	}
 
-	return postToURL(url+sendProposal, issuecredentialcmd.SendProposalArgs{
+	return postToURL(url+sendProposal, issuecredentialcmd.SendProposalArgsV2{
 		MyDID:             s.did[holder],
 		TheirDID:          s.did[issuer],
 		ProposeCredential: opts.Proposal,
@@ -317,8 +363,8 @@ func (s *ControllerSteps) acceptProposal(issuer string) error {
 		return err
 	}
 
-	return postToURL(url+fmt.Sprintf(acceptProposal, piid), issuecredentialcmd.AcceptProposalArgs{
-		OfferCredential: &client.OfferCredential{},
+	return postToURL(url+fmt.Sprintf(acceptProposal, piid), issuecredentialcmd.AcceptProposalArgsV2{
+		OfferCredential: &client.OfferCredentialV2{},
 	})
 }
 
@@ -349,8 +395,8 @@ func (s *ControllerSteps) negotiateProposal(holder string) error {
 		return err
 	}
 
-	return postToURL(url+fmt.Sprintf(negotiateProposal, piid), issuecredentialcmd.NegotiateProposalArgs{
-		ProposeCredential: &client.ProposeCredential{},
+	return postToURL(url+fmt.Sprintf(negotiateProposal, piid), issuecredentialcmd.NegotiateProposalArgsV2{
+		ProposeCredential: &client.ProposeCredentialV2{},
 	})
 }
 
@@ -400,8 +446,8 @@ func (s *ControllerSteps) acceptRequest(issuer string) error {
 		return err
 	}
 
-	return postToURL(url+fmt.Sprintf(acceptRequest, piid), issuecredentialcmd.AcceptRequestArgs{
-		IssueCredential: &client.IssueCredential{
+	return postToURL(url+fmt.Sprintf(acceptRequest, piid), issuecredentialcmd.AcceptRequestArgsV2{
+		IssueCredential: &client.IssueCredentialV2{
 			CredentialsAttach: []decorator.Attachment{
 				{Data: decorator.AttachmentData{JSON: getVCredential()}},
 			},
