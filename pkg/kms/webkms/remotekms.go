@@ -54,7 +54,7 @@ type edvOptions struct {
 
 type createKeyStoreResp struct {
 	KeyStoreURL string `json:"key_store_url"`
-	Capability  string `json:"capability"`
+	Capability  []byte `json:"capability"`
 }
 
 type createKeyReq struct {
@@ -117,7 +117,7 @@ func checkError(resp *http.Response) error {
 //  - keystore URL (if successful)
 //  - error (if error encountered)
 func CreateKeyStore(httpClient HTTPClient, keyserverURL, controller, vaultURL string, // nolint: funlen
-	capability []byte, opts ...Opt) (string, string, error) {
+	capability []byte, opts ...Opt) (string, []byte, error) {
 	createKeyStoreStart := time.Now()
 	kmsOpts := NewOpt()
 
@@ -139,12 +139,12 @@ func CreateKeyStore(httpClient HTTPClient, keyserverURL, controller, vaultURL st
 
 	mReq, err := kmsOpts.marshal(httpReqJSON)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to marshal Create keystore request [%s, %w]", destination, err)
+		return "", nil, fmt.Errorf("failed to marshal Create keystore request [%s, %w]", destination, err)
 	}
 
 	httpReq, err := http.NewRequest(http.MethodPost, destination, bytes.NewBuffer(mReq))
 	if err != nil {
-		return "", "", fmt.Errorf("build request for Create keystore error: %w", err)
+		return "", nil, fmt.Errorf("build request for Create keystore error: %w", err)
 	}
 
 	httpReq.Header.Set("Content-Type", ContentType)
@@ -152,7 +152,7 @@ func CreateKeyStore(httpClient HTTPClient, keyserverURL, controller, vaultURL st
 	if kmsOpts.HeadersFunc != nil {
 		httpHeaders, e := kmsOpts.HeadersFunc(httpReq)
 		if e != nil {
-			return "", "", fmt.Errorf("add optional request headers error: %w", e)
+			return "", nil, fmt.Errorf("add optional request headers error: %w", e)
 		}
 
 		if httpHeaders != nil {
@@ -164,7 +164,7 @@ func CreateKeyStore(httpClient HTTPClient, keyserverURL, controller, vaultURL st
 
 	resp, err := httpClient.Do(httpReq)
 	if err != nil {
-		return "", "", fmt.Errorf("posting Create keystore failed [%s, %w]", destination, err)
+		return "", nil, fmt.Errorf("posting Create keystore failed [%s, %w]", destination, err)
 	}
 
 	// handle response
@@ -174,7 +174,7 @@ func CreateKeyStore(httpClient HTTPClient, keyserverURL, controller, vaultURL st
 	err = readResponse(resp, &httpResp, json.Unmarshal)
 
 	if err != nil {
-		return "", "", fmt.Errorf("create keystore failed [%s, %w]", destination, err)
+		return "", nil, fmt.Errorf("create keystore failed [%s, %w]", destination, err)
 	}
 
 	logger.Debugf("call of CreateStore http request duration: %s", time.Since(start))
