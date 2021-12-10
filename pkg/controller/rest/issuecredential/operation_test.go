@@ -648,7 +648,7 @@ func (m *mockService) ActionContinue(string, ...issuecredential.Opt) error {
 	return nil
 }
 
-func (m *mockService) ActionStop(string, error) error {
+func (m *mockService) ActionStop(string, error, ...issuecredential.Opt) error {
 	return nil
 }
 

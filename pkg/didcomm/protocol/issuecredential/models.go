@@ -149,6 +149,8 @@ type IssueCredentialV2 struct { //nolint: golint
 	Formats []Format `json:"formats,omitempty"`
 	// CredentialsAttach is a slice of attachments containing the issued credentials.
 	CredentialsAttach []decorator.Attachment `json:"credentials~attach,omitempty"`
+	// WebRedirect contains optional web redirect info to be sent to holder for redirect.
+	WebRedirect *decorator.WebRedirect `json:"~web-redirect,omitempty"`
 }
 
 // IssueCredentialV3 contains as attached payload the credentials being issued and is
@@ -157,6 +159,8 @@ type IssueCredentialV3 struct { //nolint: golint
 	Type string                `json:"type,omitempty"`
 	ID   string                `json:"id,omitempty"`
 	Body IssueCredentialV3Body `json:"body,omitempty"`
+	// WebRedirect contains optional web redirect info to be sent to holder for redirect.
+	WebRedirect *decorator.WebRedirect `json:"web-redirect,omitempty"`
 	// Attachments is an array of attachments containing the presentation in the requested format(s).
 	// Accepted values for the format attribute of each attachment are provided in the per format Attachment
 	// registry immediately below.

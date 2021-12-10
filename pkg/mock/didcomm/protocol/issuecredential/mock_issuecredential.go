@@ -93,7 +93,7 @@ func (m *MockIssueCredentialSvc) ActionContinue(piID string, opt ...issuecredent
 }
 
 // ActionStop mock implementation of issue credential service action stop interface.
-func (m *MockIssueCredentialSvc) ActionStop(piID string, err error) error {
+func (m *MockIssueCredentialSvc) ActionStop(piID string, err error, opt ...issuecredential.Opt) error {
 	return nil
 }
 

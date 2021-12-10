@@ -139,3 +139,26 @@ Feature: Issue credential protocol
     And "TomV3" declines the credential
     Then "eSchoolV3" receives problem report message (Issue Credential)
     Then "eSchoolV3" waits for state "abandoning"
+  @begin_with_proposal_ok_webredirect_flow @issue_credential_redirect
+  Scenario: The Holder begins with a proposal and receives offer credential message with redirect info
+    Given "StudentR" exchange DIDs with "UniversityR"
+    Then "StudentR" sends proposal credential to the "UniversityR"
+    And "UniversityR" accepts a proposal and sends an offer to the Holder
+    And "StudentR" accepts an offer and sends a request to the Issuer
+    And "UniversityR" accepts request and sends credential to the Holder and requests redirect to "http://example.com/success"
+    And "StudentR" accepts credential but skips agent storage
+    Then "StudentR" receives issue credential event "done" with status "OK" and redirect "http://example.com/success"
+  @decline_proposal_fail_webredirect_flow @issue_credential_redirect
+  Scenario: The Holder begins with a proposal and the Issuer declines it with redirect info
+    Given "BobR" exchange DIDs with "AuthorityR"
+    Then "BobR" sends proposal credential to the "AuthorityR"
+    And "AuthorityR" declines a proposal and requests redirect to "http://example.com/error1"
+    Then "BobR" receives problem report message (Issue Credential)
+    And "BobR" receives issue credential event "abandoning" with status "FAIL" and redirect "http://example.com/error1"
+  @decline_request_fail_webredirect_flow @issue_credential_redirect
+  Scenario: The Holder begins with a request and the Issuer declines it with redirect info
+    Given "AliceR" exchange DIDs with "BankR"
+    Then "AliceR" requests credential from "BankR"
+    And "BankR" declines a request and requests redirect to "http://example.com/error2"
+    Then "AliceR" receives problem report message (Issue Credential)
+    And "AliceR" receives issue credential event "abandoning" with status "FAIL" and redirect "http://example.com/error2"

@@ -209,7 +209,7 @@ func (sdk *SDKSteps) acceptCredentialOffer(holder, issuer string) error {
 
 	sdk.credName = uuid.New().String()
 
-	err = sdk.bddIssueCredSDK.AcceptCredential(holder, sdk.credName)
+	err = sdk.bddIssueCredSDK.AcceptCredential(holder, sdk.credName, false)
 	if err != nil {
 		return fmt.Errorf("'%s' failed to accept the credential: %w", holder, err)
 	}

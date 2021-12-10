@@ -77,8 +77,9 @@ type customError struct{ error }
 // transitionalPayload keeps payload needed for Continue function to proceed with the action.
 type transitionalPayload struct {
 	Action
-	StateName string
-	IsV3      bool
+	StateName  string
+	IsV3       bool
+	Properties map[string]interface{}
 }
 
 // MetaData type to store data for internal usage.
@@ -415,7 +416,7 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, ctx service.DIDCommConte
 
 	// trigger action event based on message type for inbound messages
 	if canTriggerActionEvents(msg) {
-		err = s.saveTransitionalPayload(md.PIID, md.transitionalPayload)
+		err = s.saveTransitionalPayload(md.PIID, &md.transitionalPayload)
 		if err != nil {
 			return "", fmt.Errorf("save transitional payload: %w", err)
 		}
@@ -497,9 +498,10 @@ func (s *Service) doHandle(msg service.DIDCommMsg, outbound bool) (*MetaData, er
 				Msg:  msg.Clone(),
 				PIID: piID,
 			},
-			IsV3: protocolVersion == SpecV3,
+			IsV3:       protocolVersion == SpecV3,
+			Properties: next.Properties(),
 		},
-		properties: map[string]interface{}{},
+		properties: next.Properties(),
 		state:      next,
 		msgClone:   msg.Clone(),
 	}, nil
@@ -642,9 +644,9 @@ func nextState(msg service.DIDCommMsg, outbound bool) (state, error) {
 
 		return &requestReceived{V: getVersion(msg.Type())}, nil
 	case IssueCredentialMsgTypeV2, IssueCredentialMsgTypeV3:
-		return &credentialReceived{V: getVersion(msg.Type())}, nil
+		return &credentialReceived{V: getVersion(msg.Type()), properties: redirectInfo(msg)}, nil
 	case ProblemReportMsgTypeV2, ProblemReportMsgTypeV3:
-		return &abandoning{V: getVersion(msg.Type())}, nil
+		return &abandoning{V: getVersion(msg.Type()), properties: redirectInfo(msg)}, nil
 	case AckMsgTypeV2, AckMsgTypeV3:
 		return &done{V: getVersion(msg.Type())}, nil
 	default:
@@ -652,7 +654,7 @@ func nextState(msg service.DIDCommMsg, outbound bool) (state, error) {
 	}
 }
 
-func (s *Service) saveTransitionalPayload(id string, data transitionalPayload) error {
+func (s *Service) saveTransitionalPayload(id string, data *transitionalPayload) error {
 	src, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("marshal transitional payload: %w", err)
@@ -707,7 +709,7 @@ func (s *Service) ActionContinue(piID string, opts ...Opt) error {
 		state:               stateFromName(tPayload.StateName, getVersion(tPayload.Msg.Type())),
 		msgClone:            tPayload.Msg.Clone(),
 		inbound:             true,
-		properties:          map[string]interface{}{},
+		properties:          tPayload.Properties,
 	}
 
 	for _, opt := range opts {
@@ -724,7 +726,7 @@ func (s *Service) ActionContinue(piID string, opts ...Opt) error {
 }
 
 // ActionStop allows stopping the action by the piID.
-func (s *Service) ActionStop(piID string, cErr error) error {
+func (s *Service) ActionStop(piID string, cErr error, opts ...Opt) error {
 	tPayload, err := s.getTransitionalPayload(piID)
 	if err != nil {
 		return fmt.Errorf("get transitional payload: %w", err)
@@ -736,6 +738,10 @@ func (s *Service) ActionStop(piID string, cErr error) error {
 		msgClone:            tPayload.Msg.Clone(),
 		inbound:             true,
 		properties:          map[string]interface{}{},
+	}
+
+	for _, opt := range opts {
+		opt(md)
 	}
 
 	if err := s.deleteTransitionalPayload(md.PIID); err != nil {
@@ -897,4 +903,24 @@ func (s *Service) Accept(msgType string) bool {
 	}
 
 	return false
+}
+
+// redirectInfo reads web redirect info decorator from given DIDComm Msg.
+func redirectInfo(msg service.DIDCommMsg) map[string]interface{} {
+	var redirectInfo struct {
+		WebRedirectV2 map[string]interface{} `json:"~web-redirect,omitempty"`
+		WebRedirectV3 map[string]interface{} `json:"web-redirect,omitempty"`
+	}
+
+	err := msg.Decode(&redirectInfo)
+	if err != nil {
+		// Don't fail protocol, in case of error while reading webredirect info.
+		logger.Warnf("failed to decode redirect info: %s", err)
+	}
+
+	if msg.Type() == IssueCredentialMsgTypeV3 {
+		return redirectInfo.WebRedirectV3
+	}
+
+	return redirectInfo.WebRedirectV2
 }

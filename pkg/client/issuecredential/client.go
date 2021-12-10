@@ -10,9 +10,16 @@ import (
 	"errors"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
 	issuecredentialmiddleware "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/middleware/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
+)
+
+const (
+	// web redirect decorator.
+	webRedirectDecorator  = "~web-redirect"
+	webRedirectStatusFAIL = "FAIL"
 )
 
 var (
@@ -84,7 +91,7 @@ type ProtocolService interface {
 	service.DIDComm
 	Actions() ([]issuecredential.Action, error)
 	ActionContinue(piID string, opt ...issuecredential.Opt) error
-	ActionStop(piID string, err error) error
+	ActionStop(piID string, err error, opt ...issuecredential.Opt) error
 }
 
 // Client enable access to issuecredential API.
@@ -223,8 +230,8 @@ func (c *Client) AcceptRequest(piID string, msg *IssueCredential) error {
 
 // DeclineProposal is used when the Issuer does not want to accept the proposal.
 // NOTE: For async usage.
-func (c *Client) DeclineProposal(piID, reason string) error {
-	return c.service.ActionStop(piID, errors.New(reason))
+func (c *Client) DeclineProposal(piID, reason string, options ...IssuerDeclineOptions) error {
+	return c.service.ActionStop(piID, errors.New(reason), prepareRedirectProperties(webRedirectStatusFAIL, options...))
 }
 
 // DeclineOffer is used when the Holder does not want to accept the offer.
@@ -235,8 +242,8 @@ func (c *Client) DeclineOffer(piID, reason string) error {
 
 // DeclineRequest is used when the Issuer does not want to accept the request.
 // NOTE: For async usage.
-func (c *Client) DeclineRequest(piID, reason string) error {
-	return c.service.ActionStop(piID, errors.New(reason))
+func (c *Client) DeclineRequest(piID, reason string, options ...IssuerDeclineOptions) error {
+	return c.service.ActionStop(piID, errors.New(reason), prepareRedirectProperties(webRedirectStatusFAIL, options...))
 }
 
 // AcceptCredential is used when the Holder is willing to accept the IssueCredential.
@@ -327,4 +334,40 @@ func AcceptBySkippingStorage() AcceptCredentialOptions {
 	return func(opts *acceptCredentialOpts) {
 		opts.skipStore = true
 	}
+}
+
+// redirectOpts options for web redirect information to holder from issuer.
+type redirectOpts struct {
+	redirect string
+}
+
+// IssuerDeclineOptions is custom option for sending web redirect options to holder.
+// https://github.com/hyperledger/aries-rfcs/tree/main/concepts/0700-oob-through-redirect
+type IssuerDeclineOptions func(opts *redirectOpts)
+
+// RequestRedirect option to provide optional redirect URL requesting holder to redirect.
+func RequestRedirect(url string) IssuerDeclineOptions {
+	return func(opts *redirectOpts) {
+		opts.redirect = url
+	}
+}
+
+// create web redirect properties to add ~web-redirect decorator.
+func prepareRedirectProperties(status string, options ...IssuerDeclineOptions) issuecredential.Opt {
+	properties := map[string]interface{}{}
+
+	opts := &redirectOpts{}
+
+	for _, option := range options {
+		option(opts)
+	}
+
+	if opts.redirect != "" {
+		properties[webRedirectDecorator] = &decorator.WebRedirect{
+			Status: status,
+			URL:    opts.redirect,
+		}
+	}
+
+	return issuecredential.WithProperties(properties)
 }

@@ -438,7 +438,8 @@ func (c *Command) DeclineProposal(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
-	if err := c.client.DeclineProposal(args.PIID, args.Reason); err != nil {
+	if err := c.client.DeclineProposal(args.PIID, args.Reason,
+		issuecredential.RequestRedirect(args.RedirectURL)); err != nil {
 		logutil.LogError(logger, CommandName, DeclineProposal, err.Error())
 		return command.NewExecuteError(DeclineProposalErrorCode, err)
 	}
@@ -573,7 +574,8 @@ func (c *Command) DeclineRequest(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
-	if err := c.client.DeclineRequest(args.PIID, args.Reason); err != nil {
+	if err := c.client.DeclineRequest(args.PIID, args.Reason,
+		issuecredential.RequestRedirect(args.RedirectURL)); err != nil {
 		logutil.LogError(logger, CommandName, DeclineRequest, err.Error())
 		return command.NewExecuteError(DeclineRequestErrorCode, err)
 	}

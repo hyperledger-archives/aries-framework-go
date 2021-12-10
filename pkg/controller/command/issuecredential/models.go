@@ -175,6 +175,9 @@ type DeclineProposalArgs struct {
 	PIID string `json:"piid"`
 	// Reason why proposal is declined
 	Reason string `json:"reason"`
+	// RedirectURL is optional web redirect URL that can be sent to holder.
+	// Useful in cases where issuer would like holder to redirect after its proposal gets declined.
+	RedirectURL string `json:"redirectURL"`
 }
 
 // DeclineProposalResponse model
@@ -209,6 +212,9 @@ type DeclineRequestArgs struct {
 	PIID string `json:"piid"`
 	// Reason why request is declined
 	Reason string `json:"reason"`
+	// RedirectURL is optional web redirect URL that can be sent to holder.
+	// Useful in cases where issuer would like holder to redirect after its credential request gets declined.
+	RedirectURL string `json:"redirectURL"`
 }
 
 // DeclineRequestResponse model
