@@ -144,7 +144,7 @@ func (sdk *SDKSteps) createOOBInvitationWithOfferCredential(agent string) error 
 		return fmt.Errorf("'%s' failed to register oob client: %w", agent, err)
 	}
 
-	inv, err := sdk.newInvitation(agent, &issuecredential.OfferCredential{
+	inv, err := sdk.newInvitation(agent, &issuecredential.OfferCredentialV2{
 		Type:    issuecredential.OfferCredentialMsgTypeV2,
 		Comment: "test",
 	})
@@ -180,7 +180,7 @@ func (sdk *SDKSteps) createOOBInvitationReusePubDIDAndOfferCredential(agent stri
 			ID:       uuid.New().String(),
 			MimeType: "application/json",
 			Data: decorator.AttachmentData{
-				JSON: &issuecredential.OfferCredential{
+				JSON: &issuecredential.OfferCredentialV2{
 					Type:    issuecredential.OfferCredentialMsgTypeV2,
 					Comment: "test",
 				},
@@ -209,7 +209,7 @@ func (sdk *SDKSteps) acceptCredentialOffer(holder, issuer string) error {
 
 	sdk.credName = uuid.New().String()
 
-	err = sdk.bddIssueCredSDK.AcceptCredential(holder, sdk.credName)
+	err = sdk.bddIssueCredSDK.AcceptCredential(holder, sdk.credName, false)
 	if err != nil {
 		return fmt.Errorf("'%s' failed to accept the credential: %w", holder, err)
 	}

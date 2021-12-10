@@ -298,6 +298,13 @@ func (cs *contentStore) Remove(auth, key string, ct ContentType) error {
 		return err
 	}
 
+	// delete mapping
+	err = store.Delete(getCollectionMappingKeyPrefix(key))
+	if err != nil {
+		return err
+	}
+
+	// delete from store
 	return store.Delete(getContentKeyPrefix(ct, key))
 }
 

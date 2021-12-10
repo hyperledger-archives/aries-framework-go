@@ -9,6 +9,7 @@ This repo uses a non-author code review policy, requiring a single approval from
 |------|--------|------|-------|
 | Troy Ronda | [troyronda](https://github.com/troyronda)| troyronda | <troy@troyronda.com> |
 | Firas Qutishat | [fqutishat](https://github.com/fqutishat) | firas.qutishat | <firas.qutishat@securekey.com> |
+| Sudesh Shetty | [sudeshrshetty](https://github.com/sudeshrshetty) | sudeshrshetty | <sudesh.shetty@securekey.com> |
 
 ## Retired Maintainers
 

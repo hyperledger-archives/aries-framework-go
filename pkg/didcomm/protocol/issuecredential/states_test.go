@@ -276,7 +276,7 @@ func TestOfferSent_CanTransitionTo(t *testing.T) {
 
 func TestOfferSent_ExecuteInbound(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		followup, action, err := (&offerSent{}).ExecuteInbound(&MetaData{offerCredential: &OfferCredential{}})
+		followup, action, err := (&offerSent{}).ExecuteInbound(&MetaData{offerCredentialV2: &OfferCredentialV2{}})
 		require.NoError(t, err)
 		require.Equal(t, &noOp{}, followup)
 		require.NotNil(t, action)
@@ -335,7 +335,7 @@ func TestRequestReceived_CanTransitionTo(t *testing.T) {
 
 func TestRequestReceived_ExecuteInbound(t *testing.T) {
 	t.Run("Successes", func(t *testing.T) {
-		followup, action, err := (&requestReceived{}).ExecuteInbound(&MetaData{issueCredential: &IssueCredential{}})
+		followup, action, err := (&requestReceived{}).ExecuteInbound(&MetaData{issueCredentialV2: &IssueCredentialV2{}})
 		require.NoError(t, err)
 		require.Equal(t, &credentialIssued{}, followup)
 		require.NotNil(t, action)
@@ -420,7 +420,7 @@ func TestProposalSent_CanTransitionTo(t *testing.T) {
 
 func TestProposalSent_ExecuteInbound(t *testing.T) {
 	t.Run("Successes", func(t *testing.T) {
-		followup, action, err := (&proposalSent{}).ExecuteInbound(&MetaData{proposeCredential: &ProposeCredential{}})
+		followup, action, err := (&proposalSent{}).ExecuteInbound(&MetaData{proposeCredentialV2: &ProposeCredentialV2{}})
 		require.NoError(t, err)
 		require.Equal(t, &noOp{}, followup)
 		require.NotNil(t, action)
@@ -482,7 +482,7 @@ func TestOfferReceived_ExecuteInbound(t *testing.T) {
 		msg := service.NewDIDCommMsgMap(struct{}{})
 
 		followup, action, err := (&offerReceived{}).ExecuteInbound(&MetaData{
-			proposeCredential: &ProposeCredential{},
+			proposeCredentialV2: &ProposeCredentialV2{},
 			transitionalPayload: transitionalPayload{
 				Action: Action{Msg: msg},
 			},
@@ -591,7 +591,7 @@ func TestCredentialReceived_CanTransitionTo(t *testing.T) {
 
 func TestCredentialReceived_ExecuteInbound(t *testing.T) {
 	t.Run("Successes", func(t *testing.T) {
-		followup, action, err := (&credentialReceived{}).ExecuteInbound(&MetaData{issueCredential: &IssueCredential{}})
+		followup, action, err := (&credentialReceived{}).ExecuteInbound(&MetaData{issueCredentialV2: &IssueCredentialV2{}})
 		require.NoError(t, err)
 		require.Equal(t, &done{}, followup)
 		require.NotNil(t, action)

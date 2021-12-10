@@ -77,7 +77,9 @@ type customError struct{ error }
 // transitionalPayload keeps payload needed for Continue function to proceed with the action.
 type transitionalPayload struct {
 	Action
-	StateName string
+	StateName  string
+	IsV3       bool
+	Properties map[string]interface{}
 }
 
 // MetaData type to store data for internal usage.
@@ -90,10 +92,10 @@ type MetaData struct {
 	credentialNames []string
 	// keeps offer credential payload,
 	// allows filling the message by providing an option function.
-	offerCredential     *OfferCredential
-	proposeCredential   *ProposeCredential
-	requestCredential   *RequestCredential
-	issueCredential     *IssueCredential
+	offerCredentialV2   *OfferCredentialV2
+	proposeCredentialV2 *ProposeCredentialV2
+	requestCredentialV2 *RequestCredentialV2
+	issueCredentialV2   *IssueCredentialV2
 	offerCredentialV3   *OfferCredentialV3
 	proposeCredentialV3 *ProposeCredentialV3
 	requestCredentialV3 *RequestCredentialV3
@@ -109,9 +111,9 @@ func (md *MetaData) Message() service.DIDCommMsg {
 	return md.msgClone
 }
 
-// OfferCredential didcomm message.
-func (md *MetaData) OfferCredential() *OfferCredential {
-	return md.offerCredential
+// OfferCredentialV2 didcomm message.
+func (md *MetaData) OfferCredentialV2() *OfferCredentialV2 {
+	return md.offerCredentialV2
 }
 
 // OfferCredentialV3 didcomm message.
@@ -119,9 +121,9 @@ func (md *MetaData) OfferCredentialV3() *OfferCredentialV3 {
 	return md.offerCredentialV3
 }
 
-// ProposeCredential didcomm message.
-func (md *MetaData) ProposeCredential() *ProposeCredential {
-	return md.proposeCredential
+// ProposeCredentialV2 didcomm message.
+func (md *MetaData) ProposeCredentialV2() *ProposeCredentialV2 {
+	return md.proposeCredentialV2
 }
 
 // ProposeCredentialV3 didcomm message.
@@ -129,9 +131,9 @@ func (md *MetaData) ProposeCredentialV3() *ProposeCredentialV3 {
 	return md.proposeCredentialV3
 }
 
-// RequestCredential didcomm message.
-func (md *MetaData) RequestCredential() *RequestCredential {
-	return md.requestCredential
+// RequestCredentialV2 didcomm message.
+func (md *MetaData) RequestCredentialV2() *RequestCredentialV2 {
+	return md.requestCredentialV2
 }
 
 // RequestCredentialV3 didcomm message.
@@ -139,9 +141,9 @@ func (md *MetaData) RequestCredentialV3() *RequestCredentialV3 {
 	return md.requestCredentialV3
 }
 
-// IssueCredential didcomm message.
-func (md *MetaData) IssueCredential() *IssueCredential {
-	return md.issueCredential
+// IssueCredentialV2 didcomm message.
+func (md *MetaData) IssueCredentialV2() *IssueCredentialV2 {
+	return md.issueCredentialV2
 }
 
 // IssueCredentialV3 didcomm message.
@@ -178,9 +180,21 @@ type Opt func(md *MetaData)
 
 // WithProposeCredential allows providing ProposeCredential message
 // USAGE: This message should be provided after receiving an OfferCredential message.
-func WithProposeCredential(msg *ProposeCredential) Opt {
+func WithProposeCredential(msg *ProposeCredentialParams) Opt {
 	return func(md *MetaData) {
-		md.proposeCredential = msg
+		if md.IsV3 {
+			md.proposeCredentialV3 = msg.AsV3()
+		} else {
+			md.proposeCredentialV2 = msg.AsV2()
+		}
+	}
+}
+
+// WithProposeCredentialV2 allows providing ProposeCredentialV2 message
+// USAGE: This message should be provided after receiving an OfferCredentialV2 message.
+func WithProposeCredentialV2(msg *ProposeCredentialV2) Opt {
+	return func(md *MetaData) {
+		md.proposeCredentialV2 = msg
 	}
 }
 
@@ -194,9 +208,21 @@ func WithProposeCredentialV3(msg *ProposeCredentialV3) Opt {
 
 // WithRequestCredential allows providing RequestCredential message
 // USAGE: This message should be provided after receiving an OfferCredential message.
-func WithRequestCredential(msg *RequestCredential) Opt {
+func WithRequestCredential(msg *RequestCredentialParams) Opt {
 	return func(md *MetaData) {
-		md.requestCredential = msg
+		if md.IsV3 {
+			md.requestCredentialV3 = msg.AsV3()
+		} else {
+			md.requestCredentialV2 = msg.AsV2()
+		}
+	}
+}
+
+// WithRequestCredentialV2 allows providing RequestCredentialV2 message
+// USAGE: This message should be provided after receiving an OfferCredentialV2 message.
+func WithRequestCredentialV2(msg *RequestCredentialV2) Opt {
+	return func(md *MetaData) {
+		md.requestCredentialV2 = msg
 	}
 }
 
@@ -210,9 +236,21 @@ func WithRequestCredentialV3(msg *RequestCredentialV3) Opt {
 
 // WithOfferCredential allows providing OfferCredential message
 // USAGE: This message should be provided after receiving a ProposeCredential message.
-func WithOfferCredential(msg *OfferCredential) Opt {
+func WithOfferCredential(msg *OfferCredentialParams) Opt {
 	return func(md *MetaData) {
-		md.offerCredential = msg
+		if md.IsV3 {
+			md.offerCredentialV3 = msg.AsV3()
+		} else {
+			md.offerCredentialV2 = msg.AsV2()
+		}
+	}
+}
+
+// WithOfferCredentialV2 allows providing OfferCredentialV2 message
+// USAGE: This message should be provided after receiving a ProposeCredentialV2 message.
+func WithOfferCredentialV2(msg *OfferCredentialV2) Opt {
+	return func(md *MetaData) {
+		md.offerCredentialV2 = msg
 	}
 }
 
@@ -226,9 +264,21 @@ func WithOfferCredentialV3(msg *OfferCredentialV3) Opt {
 
 // WithIssueCredential allows providing IssueCredential message
 // USAGE: This message should be provided after receiving a RequestCredential message.
-func WithIssueCredential(msg *IssueCredential) Opt {
+func WithIssueCredential(msg *IssueCredentialParams) Opt {
 	return func(md *MetaData) {
-		md.issueCredential = msg
+		if md.IsV3 {
+			md.issueCredentialV3 = msg.AsV3()
+		} else {
+			md.issueCredentialV2 = msg.AsV2()
+		}
+	}
+}
+
+// WithIssueCredentialV2 allows providing IssueCredentialV2 message
+// USAGE: This message should be provided after receiving a RequestCredentialV2 message.
+func WithIssueCredentialV2(msg *IssueCredentialV2) Opt {
+	return func(md *MetaData) {
+		md.issueCredentialV2 = msg
 	}
 }
 
@@ -241,7 +291,7 @@ func WithIssueCredentialV3(msg *IssueCredentialV3) Opt {
 }
 
 // WithFriendlyNames allows providing names for the credentials.
-// USAGE: This function should be used when the Holder receives IssueCredential message.
+// USAGE: This function should be used when the Holder receives IssueCredentialV2 message.
 func WithFriendlyNames(names ...string) Opt {
 	return func(md *MetaData) {
 		md.credentialNames = names
@@ -366,7 +416,7 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, ctx service.DIDCommConte
 
 	// trigger action event based on message type for inbound messages
 	if canTriggerActionEvents(msg) {
-		err = s.saveTransitionalPayload(md.PIID, md.transitionalPayload)
+		err = s.saveTransitionalPayload(md.PIID, &md.transitionalPayload)
 		if err != nil {
 			return "", fmt.Errorf("save transitional payload: %w", err)
 		}
@@ -428,7 +478,9 @@ func (s *Service) doHandle(msg service.DIDCommMsg, outbound bool) (*MetaData, er
 		return nil, fmt.Errorf("getCurrentStateNameAndPIID: %w", err)
 	}
 
-	current := stateFromName(stateName, getVersion(msg.Type()))
+	protocolVersion := getVersion(msg.Type())
+
+	current := stateFromName(stateName, protocolVersion)
 
 	next, err := nextState(msg, outbound)
 	if err != nil {
@@ -446,8 +498,10 @@ func (s *Service) doHandle(msg service.DIDCommMsg, outbound bool) (*MetaData, er
 				Msg:  msg.Clone(),
 				PIID: piID,
 			},
+			IsV3:       protocolVersion == SpecV3,
+			Properties: next.Properties(),
 		},
-		properties: map[string]interface{}{},
+		properties: next.Properties(),
 		state:      next,
 		msgClone:   msg.Clone(),
 	}, nil
@@ -590,9 +644,9 @@ func nextState(msg service.DIDCommMsg, outbound bool) (state, error) {
 
 		return &requestReceived{V: getVersion(msg.Type())}, nil
 	case IssueCredentialMsgTypeV2, IssueCredentialMsgTypeV3:
-		return &credentialReceived{V: getVersion(msg.Type())}, nil
+		return &credentialReceived{V: getVersion(msg.Type()), properties: redirectInfo(msg)}, nil
 	case ProblemReportMsgTypeV2, ProblemReportMsgTypeV3:
-		return &abandoning{V: getVersion(msg.Type())}, nil
+		return &abandoning{V: getVersion(msg.Type()), properties: redirectInfo(msg)}, nil
 	case AckMsgTypeV2, AckMsgTypeV3:
 		return &done{V: getVersion(msg.Type())}, nil
 	default:
@@ -600,7 +654,7 @@ func nextState(msg service.DIDCommMsg, outbound bool) (state, error) {
 	}
 }
 
-func (s *Service) saveTransitionalPayload(id string, data transitionalPayload) error {
+func (s *Service) saveTransitionalPayload(id string, data *transitionalPayload) error {
 	src, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("marshal transitional payload: %w", err)
@@ -655,7 +709,7 @@ func (s *Service) ActionContinue(piID string, opts ...Opt) error {
 		state:               stateFromName(tPayload.StateName, getVersion(tPayload.Msg.Type())),
 		msgClone:            tPayload.Msg.Clone(),
 		inbound:             true,
-		properties:          map[string]interface{}{},
+		properties:          tPayload.Properties,
 	}
 
 	for _, opt := range opts {
@@ -672,7 +726,7 @@ func (s *Service) ActionContinue(piID string, opts ...Opt) error {
 }
 
 // ActionStop allows stopping the action by the piID.
-func (s *Service) ActionStop(piID string, cErr error) error {
+func (s *Service) ActionStop(piID string, cErr error, opts ...Opt) error {
 	tPayload, err := s.getTransitionalPayload(piID)
 	if err != nil {
 		return fmt.Errorf("get transitional payload: %w", err)
@@ -684,6 +738,10 @@ func (s *Service) ActionStop(piID string, cErr error) error {
 		msgClone:            tPayload.Msg.Clone(),
 		inbound:             true,
 		properties:          map[string]interface{}{},
+	}
+
+	for _, opt := range opts {
+		opt(md)
 	}
 
 	if err := s.deleteTransitionalPayload(md.PIID); err != nil {
@@ -845,4 +903,24 @@ func (s *Service) Accept(msgType string) bool {
 	}
 
 	return false
+}
+
+// redirectInfo reads web redirect info decorator from given DIDComm Msg.
+func redirectInfo(msg service.DIDCommMsg) map[string]interface{} {
+	var redirectInfo struct {
+		WebRedirectV2 map[string]interface{} `json:"~web-redirect,omitempty"`
+		WebRedirectV3 map[string]interface{} `json:"web-redirect,omitempty"`
+	}
+
+	err := msg.Decode(&redirectInfo)
+	if err != nil {
+		// Don't fail protocol, in case of error while reading webredirect info.
+		logger.Warnf("failed to decode redirect info: %s", err)
+	}
+
+	if msg.Type() == IssueCredentialMsgTypeV3 {
+		return redirectInfo.WebRedirectV3
+	}
+
+	return redirectInfo.WebRedirectV2
 }

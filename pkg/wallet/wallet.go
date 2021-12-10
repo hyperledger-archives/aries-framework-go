@@ -61,8 +61,9 @@ const (
 	ldJSONMimeType     = "application/ld+json"
 
 	// protocol states.
-	stateNameAbandoned = "abandoned"
-	stateNameDone      = "done"
+	stateNameAbandoned  = "abandoned"
+	stateNameAbandoning = "abandoning"
+	stateNameDone       = "done"
 
 	// web redirect constants.
 	webRedirectStatusKey = "status"
@@ -832,15 +833,30 @@ func (c *Wallet) PresentProof(authToken, thID string, options ...ConcludeInterac
 // 		- DIDCommMsgMap containing offer credential message if operation is successful.
 // 		- error if operation fails.
 //
-func (c *Wallet) ProposeCredential(authToken string, invitation *outofband.Invitation, options ...InitiateInteractionOption) (*service.DIDCommMsgMap, error) { //nolint: lll
+func (c *Wallet) ProposeCredential(authToken string, invitation *GenericInvitation, options ...InitiateInteractionOption) (*service.DIDCommMsgMap, error) { //nolint: lll
 	opts := &initiateInteractionOpts{}
 	for _, opt := range options {
 		opt(opts)
 	}
 
-	connID, err := c.Connect(authToken, invitation, opts.connectOpts...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to perform did connection : %w", err)
+	var (
+		connID string
+		err    error
+	)
+
+	switch invitation.Version() {
+	default:
+		fallthrough
+	case service.V1:
+		connID, err = c.Connect(authToken, (*outofband.Invitation)(invitation.AsV1()), opts.connectOpts...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to perform did connection : %w", err)
+		}
+	case service.V2:
+		connID, err = c.oobV2Client.AcceptInvitation(invitation.AsV2())
+		if err != nil {
+			return nil, fmt.Errorf("failed to accept OOB v2 invitation : %w", err)
+		}
 	}
 
 	connRecord, err := c.connectionLookup.GetConnectionRecord(connID)
@@ -850,8 +866,7 @@ func (c *Wallet) ProposeCredential(authToken string, invitation *outofband.Invit
 
 	opts = prepareInteractionOpts(connRecord, opts)
 
-	_, err = c.issueCredentialClient.SendProposal(&issuecredential.ProposeCredential{}, connRecord.MyDID,
-		opts.from)
+	_, err = c.issueCredentialClient.SendProposal(&issuecredential.ProposeCredential{}, connRecord)
 	if err != nil {
 		return nil, fmt.Errorf("failed to propose credential from wallet: %w", err)
 	}
@@ -900,7 +915,7 @@ func (c *Wallet) RequestCredential(authToken, thID string, options ...ConcludeIn
 			AttachID: attachmentID,
 			Format:   ldJSONMimeType,
 		}},
-		RequestsAttach: []decorator.Attachment{{
+		Attachments: []decorator.GenericAttachment{{
 			ID: attachmentID,
 			Data: decorator.AttachmentData{
 				JSON: presentation,
@@ -1298,7 +1313,7 @@ func waitCredInteractionCompletion(ctx context.Context, didStateMsgs chan servic
 			}
 
 			// match protocol state.
-			if msg.StateID != stateNameDone && msg.StateID != stateNameAbandoned {
+			if msg.StateID != stateNameDone && msg.StateID != stateNameAbandoned && msg.StateID != stateNameAbandoning {
 				continue
 			}
 
@@ -1309,7 +1324,7 @@ func waitCredInteractionCompletion(ctx context.Context, didStateMsgs chan servic
 
 			// if redirect status missing, then use protocol state, done -> OK, abandoned -> FAIL.
 			if response.Status == "" {
-				if msg.StateID == stateNameAbandoned {
+				if msg.StateID == stateNameAbandoned || msg.StateID == stateNameAbandoning {
 					response.Status = model.AckStatusFAIL
 				} else {
 					response.Status = model.AckStatusOK

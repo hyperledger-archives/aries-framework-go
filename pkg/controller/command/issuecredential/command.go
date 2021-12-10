@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	protocol "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
 var logger = log.New("aries-framework/controller/issuecredential")
@@ -95,6 +96,7 @@ const (
 	errEmptyIssueCredential   = "empty IssueCredential"
 	errEmptyProposeCredential = "empty ProposeCredential"
 	errEmptyRequestCredential = "empty RequestCredential"
+	errMissingConnection      = "no connection for given connection ID"
 	// log constants.
 	successString = "success"
 
@@ -117,13 +119,20 @@ func WithAutoExecuteRFC0593(p rfc0593.Provider) Option {
 	}
 }
 
+// Provider contains dependencies for the issuecredential protocol and is typically created by using aries.Context().
+type Provider interface {
+	Service(id string) (interface{}, error)
+	ConnectionLookup() *connection.Lookup
+}
+
 // Command is controller command for issue credential.
 type Command struct {
 	client *issuecredential.Client
+	lookup *connection.Lookup
 }
 
 // New returns new issue credential controller command instance.
-func New(ctx issuecredential.Provider, notifier command.Notifier, options ...Option) (*Command, error) {
+func New(ctx Provider, notifier command.Notifier, options ...Option) (*Command, error) {
 	opts := &Options{}
 
 	for i := range options {
@@ -172,7 +181,10 @@ func New(ctx issuecredential.Provider, notifier command.Notifier, options ...Opt
 		obs.RegisterAction(protocol.Name+_actions, actions)
 	}
 
-	return &Command{client: client}, nil
+	return &Command{
+		client: client,
+		lookup: ctx.ConnectionLookup(),
+	}, nil
 }
 
 // GetHandlers returns list of all commands supported by this controller command.
@@ -180,21 +192,21 @@ func (c *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
 		cmdutil.NewCommandHandler(CommandName, Actions, c.Actions),
 		cmdutil.NewCommandHandler(CommandName, SendOffer, c.SendOffer),
-		cmdutil.NewCommandHandler(CommandName, SendOfferV3, c.SendOfferV3),
+		cmdutil.NewCommandHandler(CommandName, SendOfferV3, c.SendOffer),
 		cmdutil.NewCommandHandler(CommandName, SendProposal, c.SendProposal),
-		cmdutil.NewCommandHandler(CommandName, SendProposalV3, c.SendProposalV3),
+		cmdutil.NewCommandHandler(CommandName, SendProposalV3, c.SendProposal),
 		cmdutil.NewCommandHandler(CommandName, SendRequest, c.SendRequest),
-		cmdutil.NewCommandHandler(CommandName, SendRequestV3, c.SendRequestV3),
+		cmdutil.NewCommandHandler(CommandName, SendRequestV3, c.SendRequest),
 		cmdutil.NewCommandHandler(CommandName, AcceptProposal, c.AcceptProposal),
-		cmdutil.NewCommandHandler(CommandName, AcceptProposalV3, c.AcceptProposalV3),
+		cmdutil.NewCommandHandler(CommandName, AcceptProposalV3, c.AcceptProposal),
 		cmdutil.NewCommandHandler(CommandName, DeclineProposal, c.DeclineProposal),
 		cmdutil.NewCommandHandler(CommandName, AcceptOffer, c.AcceptOffer),
 		cmdutil.NewCommandHandler(CommandName, AcceptProblemReport, c.AcceptProblemReport),
 		cmdutil.NewCommandHandler(CommandName, DeclineOffer, c.DeclineOffer),
 		cmdutil.NewCommandHandler(CommandName, NegotiateProposal, c.NegotiateProposal),
-		cmdutil.NewCommandHandler(CommandName, NegotiateProposalV3, c.NegotiateProposalV3),
+		cmdutil.NewCommandHandler(CommandName, NegotiateProposalV3, c.NegotiateProposal),
 		cmdutil.NewCommandHandler(CommandName, AcceptRequest, c.AcceptRequest),
-		cmdutil.NewCommandHandler(CommandName, AcceptRequestV3, c.AcceptRequestV3),
+		cmdutil.NewCommandHandler(CommandName, AcceptRequestV3, c.AcceptRequest),
 		cmdutil.NewCommandHandler(CommandName, DeclineRequest, c.DeclineRequest),
 		cmdutil.NewCommandHandler(CommandName, AcceptCredential, c.AcceptCredential),
 		cmdutil.NewCommandHandler(CommandName, DeclineCredential, c.DeclineCredential),
@@ -242,44 +254,14 @@ func (c *Command) SendOffer(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyOfferCredential))
 	}
 
-	piid, err := c.client.SendOffer(args.OfferCredential, args.MyDID, args.TheirDID)
+	conn, err := c.lookup.GetConnectionRecordByDIDs(args.MyDID, args.TheirDID)
 	if err != nil {
-		logutil.LogError(logger, CommandName, SendOffer, err.Error())
-		return command.NewExecuteError(SendOfferErrorCode, err)
+		logutil.LogDebug(logger, CommandName, SendOffer, errMissingConnection)
+
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errMissingConnection))
 	}
 
-	command.WriteNillableResponse(rw, &SendOfferResponse{PIID: piid}, logger)
-
-	logutil.LogDebug(logger, CommandName, SendOffer, successString)
-
-	return nil
-}
-
-// SendOfferV3 is used by the Issuer to send an offer.
-func (c *Command) SendOfferV3(rw io.Writer, req io.Reader) command.Error {
-	var args SendOfferArgsV3
-
-	if err := json.NewDecoder(req).Decode(&args); err != nil {
-		logutil.LogInfo(logger, CommandName, SendOffer, err.Error())
-		return command.NewValidationError(InvalidRequestErrorCode, err)
-	}
-
-	if args.MyDID == "" {
-		logutil.LogDebug(logger, CommandName, SendOffer, errEmptyMyDID)
-		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyMyDID))
-	}
-
-	if args.TheirDID == "" {
-		logutil.LogDebug(logger, CommandName, SendOffer, errEmptyTheirDID)
-		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyTheirDID))
-	}
-
-	if args.OfferCredential == nil {
-		logutil.LogDebug(logger, CommandName, SendOffer, errEmptyOfferCredential)
-		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyOfferCredential))
-	}
-
-	piid, err := c.client.SendOfferV3(args.OfferCredential, args.MyDID, args.TheirDID)
+	piid, err := c.client.SendOffer(args.OfferCredential, conn)
 	if err != nil {
 		logutil.LogError(logger, CommandName, SendOffer, err.Error())
 		return command.NewExecuteError(SendOfferErrorCode, err)
@@ -316,44 +298,14 @@ func (c *Command) SendProposal(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyProposeCredential))
 	}
 
-	piid, err := c.client.SendProposal(args.ProposeCredential, args.MyDID, args.TheirDID)
+	conn, err := c.lookup.GetConnectionRecordByDIDs(args.MyDID, args.TheirDID)
 	if err != nil {
-		logutil.LogError(logger, CommandName, SendProposal, err.Error())
-		return command.NewExecuteError(SendProposalErrorCode, err)
+		logutil.LogDebug(logger, CommandName, SendProposal, errMissingConnection)
+
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errMissingConnection))
 	}
 
-	command.WriteNillableResponse(rw, &SendProposalResponse{PIID: piid}, logger)
-
-	logutil.LogDebug(logger, CommandName, SendProposal, successString)
-
-	return nil
-}
-
-// SendProposalV3 is used by the Holder to send a proposal.
-func (c *Command) SendProposalV3(rw io.Writer, req io.Reader) command.Error {
-	var args SendProposalArgsV3
-
-	if err := json.NewDecoder(req).Decode(&args); err != nil {
-		logutil.LogInfo(logger, CommandName, SendProposal, err.Error())
-		return command.NewValidationError(InvalidRequestErrorCode, err)
-	}
-
-	if args.MyDID == "" {
-		logutil.LogDebug(logger, CommandName, SendProposal, errEmptyMyDID)
-		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyMyDID))
-	}
-
-	if args.TheirDID == "" {
-		logutil.LogDebug(logger, CommandName, SendProposal, errEmptyTheirDID)
-		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyTheirDID))
-	}
-
-	if args.ProposeCredential == nil {
-		logutil.LogDebug(logger, CommandName, SendProposal, errEmptyProposeCredential)
-		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyProposeCredential))
-	}
-
-	piid, err := c.client.SendProposalV3(args.ProposeCredential, args.MyDID, args.TheirDID)
+	piid, err := c.client.SendProposal(args.ProposeCredential, conn)
 	if err != nil {
 		logutil.LogError(logger, CommandName, SendProposal, err.Error())
 		return command.NewExecuteError(SendProposalErrorCode, err)
@@ -390,44 +342,14 @@ func (c *Command) SendRequest(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyRequestCredential))
 	}
 
-	piid, err := c.client.SendRequest(args.RequestCredential, args.MyDID, args.TheirDID)
+	conn, err := c.lookup.GetConnectionRecordByDIDs(args.MyDID, args.TheirDID)
 	if err != nil {
-		logutil.LogError(logger, CommandName, SendRequest, err.Error())
-		return command.NewExecuteError(SendRequestErrorCode, err)
+		logutil.LogDebug(logger, CommandName, SendRequest, errMissingConnection)
+
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errMissingConnection))
 	}
 
-	command.WriteNillableResponse(rw, &SendRequestResponse{PIID: piid}, logger)
-
-	logutil.LogDebug(logger, CommandName, SendRequest, successString)
-
-	return nil
-}
-
-// SendRequestV3 is used by the Holder to send a request.
-func (c *Command) SendRequestV3(rw io.Writer, req io.Reader) command.Error {
-	var args SendRequestArgsV3
-
-	if err := json.NewDecoder(req).Decode(&args); err != nil {
-		logutil.LogInfo(logger, CommandName, SendRequest, err.Error())
-		return command.NewValidationError(InvalidRequestErrorCode, err)
-	}
-
-	if args.MyDID == "" {
-		logutil.LogDebug(logger, CommandName, SendRequest, errEmptyMyDID)
-		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyMyDID))
-	}
-
-	if args.TheirDID == "" {
-		logutil.LogDebug(logger, CommandName, SendRequest, errEmptyTheirDID)
-		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyTheirDID))
-	}
-
-	if args.RequestCredential == nil {
-		logutil.LogDebug(logger, CommandName, SendRequest, errEmptyRequestCredential)
-		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyRequestCredential))
-	}
-
-	piid, err := c.client.SendRequestV3(args.RequestCredential, args.MyDID, args.TheirDID)
+	piid, err := c.client.SendRequest(args.RequestCredential, conn)
 	if err != nil {
 		logutil.LogError(logger, CommandName, SendRequest, err.Error())
 		return command.NewExecuteError(SendRequestErrorCode, err)
@@ -471,37 +393,6 @@ func (c *Command) AcceptProposal(rw io.Writer, req io.Reader) command.Error {
 	return nil
 }
 
-// AcceptProposalV3 is used when the Issuer is willing to accept the proposal.
-func (c *Command) AcceptProposalV3(rw io.Writer, req io.Reader) command.Error {
-	var args AcceptProposalArgsV3
-
-	if err := json.NewDecoder(req).Decode(&args); err != nil {
-		logutil.LogInfo(logger, CommandName, AcceptProposal, err.Error())
-		return command.NewValidationError(InvalidRequestErrorCode, err)
-	}
-
-	if args.PIID == "" {
-		logutil.LogDebug(logger, CommandName, AcceptProposal, errEmptyPIID)
-		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
-	}
-
-	if args.OfferCredential == nil {
-		logutil.LogDebug(logger, CommandName, AcceptProposal, errEmptyOfferCredential)
-		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyOfferCredential))
-	}
-
-	if err := c.client.AcceptProposalV3(args.PIID, args.OfferCredential); err != nil {
-		logutil.LogError(logger, CommandName, AcceptProposal, err.Error())
-		return command.NewExecuteError(AcceptProposalErrorCode, err)
-	}
-
-	command.WriteNillableResponse(rw, &AcceptProposalResponse{}, logger)
-
-	logutil.LogDebug(logger, CommandName, AcceptProposal, successString)
-
-	return nil
-}
-
 // NegotiateProposal is used when the Holder wants to negotiate about an offer he received.
 func (c *Command) NegotiateProposal(rw io.Writer, req io.Reader) command.Error {
 	var args NegotiateProposalArgs
@@ -533,37 +424,6 @@ func (c *Command) NegotiateProposal(rw io.Writer, req io.Reader) command.Error {
 	return nil
 }
 
-// NegotiateProposalV3 is used when the Holder wants to negotiate about an offer he received.
-func (c *Command) NegotiateProposalV3(rw io.Writer, req io.Reader) command.Error {
-	var args NegotiateProposalArgsV3
-
-	if err := json.NewDecoder(req).Decode(&args); err != nil {
-		logutil.LogInfo(logger, CommandName, NegotiateProposal, err.Error())
-		return command.NewValidationError(InvalidRequestErrorCode, err)
-	}
-
-	if args.PIID == "" {
-		logutil.LogDebug(logger, CommandName, NegotiateProposal, errEmptyPIID)
-		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
-	}
-
-	if args.ProposeCredential == nil {
-		logutil.LogDebug(logger, CommandName, NegotiateProposal, errEmptyProposeCredential)
-		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyProposeCredential))
-	}
-
-	if err := c.client.NegotiateProposalV3(args.PIID, args.ProposeCredential); err != nil {
-		logutil.LogError(logger, CommandName, NegotiateProposal, err.Error())
-		return command.NewExecuteError(NegotiateProposalErrorCode, err)
-	}
-
-	command.WriteNillableResponse(rw, &NegotiateProposalResponse{}, logger)
-
-	logutil.LogDebug(logger, CommandName, NegotiateProposal, successString)
-
-	return nil
-}
-
 // DeclineProposal is used when the Issuer does not want to accept the proposal.
 func (c *Command) DeclineProposal(rw io.Writer, req io.Reader) command.Error {
 	var args DeclineProposalArgs
@@ -578,7 +438,8 @@ func (c *Command) DeclineProposal(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
-	if err := c.client.DeclineProposal(args.PIID, args.Reason); err != nil {
+	if err := c.client.DeclineProposal(args.PIID, args.Reason,
+		issuecredential.RequestRedirect(args.RedirectURL)); err != nil {
 		logutil.LogError(logger, CommandName, DeclineProposal, err.Error())
 		return command.NewExecuteError(DeclineProposalErrorCode, err)
 	}
@@ -699,37 +560,6 @@ func (c *Command) AcceptRequest(rw io.Writer, req io.Reader) command.Error {
 	return nil
 }
 
-// AcceptRequestV3 is used when the Issuer is willing to accept the request.
-func (c *Command) AcceptRequestV3(rw io.Writer, req io.Reader) command.Error {
-	var request AcceptRequestArgsV3
-
-	if err := json.NewDecoder(req).Decode(&request); err != nil {
-		logutil.LogInfo(logger, CommandName, AcceptRequest, err.Error())
-		return command.NewValidationError(InvalidRequestErrorCode, err)
-	}
-
-	if request.PIID == "" {
-		logutil.LogDebug(logger, CommandName, AcceptRequest, errEmptyPIID)
-		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
-	}
-
-	if request.IssueCredential == nil {
-		logutil.LogDebug(logger, CommandName, AcceptRequest, errEmptyIssueCredential)
-		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyIssueCredential))
-	}
-
-	if err := c.client.AcceptRequestV3(request.PIID, request.IssueCredential); err != nil {
-		logutil.LogError(logger, CommandName, AcceptRequest, err.Error())
-		return command.NewExecuteError(AcceptRequestErrorCode, err)
-	}
-
-	command.WriteNillableResponse(rw, &AcceptRequestResponse{}, logger)
-
-	logutil.LogDebug(logger, CommandName, AcceptRequest, successString)
-
-	return nil
-}
-
 // DeclineRequest is used when the Issuer does not want to accept the request.
 func (c *Command) DeclineRequest(rw io.Writer, req io.Reader) command.Error {
 	var args DeclineRequestArgs
@@ -744,7 +574,8 @@ func (c *Command) DeclineRequest(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
-	if err := c.client.DeclineRequest(args.PIID, args.Reason); err != nil {
+	if err := c.client.DeclineRequest(args.PIID, args.Reason,
+		issuecredential.RequestRedirect(args.RedirectURL)); err != nil {
 		logutil.LogError(logger, CommandName, DeclineRequest, err.Error())
 		return command.NewExecuteError(DeclineRequestErrorCode, err)
 	}

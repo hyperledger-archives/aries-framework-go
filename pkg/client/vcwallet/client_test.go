@@ -1849,7 +1849,7 @@ func TestClient_ProposeCredential(t *testing.T) {
 				return []issuecredentialsvc.Action{
 					{
 						PIID: thID,
-						Msg: service.NewDIDCommMsgMap(&issuecredentialsvc.OfferCredential{
+						Msg: service.NewDIDCommMsgMap(&issuecredentialsvc.OfferCredentialV2{
 							Comment: sampleMsgComment,
 						}),
 						MyDID:    myDID,
@@ -1883,11 +1883,11 @@ func TestClient_ProposeCredential(t *testing.T) {
 		require.NoError(t, err)
 		defer vcWallet.Close()
 
-		msg, err := vcWallet.ProposeCredential(&outofband.Invitation{})
+		msg, err := vcWallet.ProposeCredential(&wallet.GenericInvitation{})
 		require.NoError(t, err)
 		require.NotEmpty(t, msg)
 
-		offer := &issuecredentialsvc.OfferCredential{}
+		offer := &issuecredentialsvc.OfferCredentialV2{}
 
 		err = msg.Decode(offer)
 		require.NoError(t, err)
@@ -1911,7 +1911,7 @@ func TestClient_ProposeCredential(t *testing.T) {
 		require.NoError(t, err)
 		defer vcWallet.Close()
 
-		msg, err := vcWallet.ProposeCredential(&outofband.Invitation{})
+		msg, err := vcWallet.ProposeCredential(&wallet.GenericInvitation{})
 		require.Error(t, err)
 		require.Empty(t, msg)
 	})
@@ -1921,7 +1921,7 @@ func TestClient_ProposeCredential(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, vcWallet)
 
-		msg, err := vcWallet.ProposeCredential(&outofband.Invitation{})
+		msg, err := vcWallet.ProposeCredential(&wallet.GenericInvitation{})
 		require.True(t, errors.Is(err, ErrWalletLocked))
 		require.Empty(t, msg)
 	})

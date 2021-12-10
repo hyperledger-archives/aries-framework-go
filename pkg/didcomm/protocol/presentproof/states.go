@@ -377,8 +377,9 @@ func (s *presentationReceived) Execute(md *metaData) (state, stateAction, error)
 	action := func(messenger service.Messenger) error {
 		if s.V == SpecV3 {
 			return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(model.AckV2{
-				Type: AckMsgTypeV3,
-				Body: model.AckV2Body{WebRedirect: md.properties[webRedirect]},
+				Type:        AckMsgTypeV3,
+				WebRedirect: md.properties[webRedirect],
+				Body:        model.AckV2Body{},
 			}), md.MyDID, md.TheirDID, service.WithVersion(getDIDVersion(s.V)))
 		}
 

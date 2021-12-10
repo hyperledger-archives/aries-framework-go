@@ -102,8 +102,13 @@ async function issueCredential (mode,ver) {
 
         assert.isNotNull(didexClient)
 
-        connections = await didexClient.performDIDExchangeE2E()
-        assert.isNotEmpty(connections)
+        if (ver === v3) {
+            connections = await didexClient.createDIDCommV2Connection();
+            assert.isNotEmpty(connections);
+        } else {
+            connections = await didexClient.performDIDExchangeE2E()
+            assert.isNotEmpty(connections)
+        }
 
         holder = didexClient.agent1
         issuer = didexClient.agent2

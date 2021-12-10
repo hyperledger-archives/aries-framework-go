@@ -120,7 +120,7 @@ func getAttachments(msg service.DIDCommMsg) ([]decorator.AttachmentData, error) 
 		return filterByMediaType(cred.Attachments, mimeTypeAll), nil
 	}
 
-	cred := issuecredential.IssueCredential{}
+	cred := issuecredential.IssueCredentialV2{}
 	if err := msg.Decode(&cred); err != nil {
 		return nil, fmt.Errorf("decode: %w", err)
 	}

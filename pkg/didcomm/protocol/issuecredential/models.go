@@ -8,10 +8,10 @@ package issuecredential
 
 import "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 
-// ProposeCredential is an optional message sent by the potential Holder to the Issuer
+// ProposeCredentialV2 is an optional message sent by the potential Holder to the Issuer
 // to initiate the protocol or in response to a offer-credential message when the Holder
 // wants some adjustments made to the credential data offered by Issuer.
-type ProposeCredential struct {
+type ProposeCredentialV2 struct {
 	Type string `json:"@type,omitempty"`
 	// Comment is an optional field that provides human readable information about this Credential Offer,
 	// so the offer can be evaluated by human judgment.
@@ -49,16 +49,16 @@ type ProposeCredentialV3Body struct {
 	CredentialPreview interface{} `json:"credential_preview,omitempty"`
 }
 
-// Format contains the the value of the attachment @id and the verifiable credential format of the attachment.
+// Format contains the value of the attachment @id and the verifiable credential format of the attachment.
 type Format struct {
 	AttachID string `json:"attach_id,omitempty"`
 	Format   string `json:"format,omitempty"`
 }
 
-// OfferCredential is a message sent by the Issuer to the potential Holder,
+// OfferCredentialV2 is a message sent by the Issuer to the potential Holder,
 // describing the credential they intend to offer and possibly the price they expect to be paid.
 // TODO: Need to add ~payment_request and ~timing.expires_time decorators [Issue #1297].
-type OfferCredential struct {
+type OfferCredentialV2 struct {
 	Type string `json:"@type,omitempty"`
 	// Comment is an optional field that provides human readable information about this Credential Offer,
 	// so the offer can be evaluated by human judgment.
@@ -95,13 +95,13 @@ type OfferCredentialV3Body struct {
 	CredentialPreview interface{} `json:"credential_preview,omitempty"`
 }
 
-// RequestCredential is a message sent by the potential Holder to the Issuer,
+// RequestCredentialV2 is a message sent by the potential Holder to the Issuer,
 // to request the issuance of a credential. Where circumstances do not require
 // a preceding Offer Credential message (e.g., there is no cost to issuance
 // that the Issuer needs to explain in advance, and there is no need for cryptographic negotiation),
 // this message initiates the protocol.
 // TODO: Need to add ~payment-receipt decorator [Issue #1298].
-type RequestCredential struct {
+type RequestCredentialV2 struct {
 	Type string `json:"@type,omitempty"`
 	// Comment is an optional field that provides human readable information about this Credential Offer,
 	// so the offer can be evaluated by human judgment.
@@ -135,20 +135,22 @@ type RequestCredentialV3Body struct {
 	Comment  string `json:"comment,omitempty"`
 }
 
-// IssueCredential contains as attached payload the credentials being issued and is
+// IssueCredentialV2 contains as attached payload the credentials being issued and is
 // sent in response to a valid Invitation Credential message.
 // TODO: Need to add ~please-ack decorator [Issue #1299].
-type IssueCredential struct {
+type IssueCredentialV2 struct { //nolint: golint
 	Type string `json:"@type,omitempty"`
 	// Comment is an optional field that provides human readable information about this Credential Offer,
 	// so the offer can be evaluated by human judgment.
 	// TODO: Should follow DIDComm conventions for l10n. [Issue #1300].
 	Comment string `json:"comment,omitempty"`
-	// Formats contains an entry for each credentials~attach array entry, providing the the value
+	// Formats contains an entry for each credentials~attach array entry, providing the value
 	// of the attachment @id and the verifiable credential format and version of the attachment.
 	Formats []Format `json:"formats,omitempty"`
 	// CredentialsAttach is a slice of attachments containing the issued credentials.
 	CredentialsAttach []decorator.Attachment `json:"credentials~attach,omitempty"`
+	// WebRedirect contains optional web redirect info to be sent to holder for redirect.
+	WebRedirect *decorator.WebRedirect `json:"~web-redirect,omitempty"`
 }
 
 // IssueCredentialV3 contains as attached payload the credentials being issued and is
@@ -157,6 +159,8 @@ type IssueCredentialV3 struct { //nolint: golint
 	Type string                `json:"type,omitempty"`
 	ID   string                `json:"id,omitempty"`
 	Body IssueCredentialV3Body `json:"body,omitempty"`
+	// WebRedirect contains optional web redirect info to be sent to holder for redirect.
+	WebRedirect *decorator.WebRedirect `json:"web-redirect,omitempty"`
 	// Attachments is an array of attachments containing the presentation in the requested format(s).
 	// Accepted values for the format attribute of each attachment are provided in the per format Attachment
 	// registry immediately below.

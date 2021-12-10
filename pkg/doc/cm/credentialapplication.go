@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package credentialmanifest
+package cm
 
 import (
 	"encoding/json"
@@ -14,17 +14,12 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 )
 
-// CredentialApplication represents a Credential Application object as defined in
+// CredentialApplication represents a credential_application object as defined in
 // https://identity.foundation/credential-manifest/#credential-application.
+// When used in an envelope like a Verifiable Presentation (under a field named "credential_application", that
+// envelope then becomes a Credential Application.
+// This object may also have a sibling presentation_submission object within the envelope.
 type CredentialApplication struct {
-	CredentialApplication CredentialApplicationInfo `json:"credential_application,omitempty"`
-	// MUST be here IF the related Credential Manifest contains a PresentationDefinition.
-	// Its value MUST be a valid Presentation Submission
-	PresentationSubmission *presexch.PresentationSubmission `json:"presentation_submission,omitempty"`
-}
-
-// CredentialApplicationInfo represents the credential_application property contained within a CredentialApplication.
-type CredentialApplicationInfo struct {
 	ID string `json:"id,omitempty"`
 	// The value of this property MUST be the ID of a valid Credential Manifest.
 	ManifestID string `json:"manifest_id,omitempty"`
@@ -72,22 +67,15 @@ func (ca *CredentialApplication) UnmarshalJSON(data []byte) error {
 // ValidateAgainstCredentialManifest verifies that the Credential Application is valid against the given
 // Credential Manifest.
 func (ca *CredentialApplication) ValidateAgainstCredentialManifest(cm *CredentialManifest) error {
-	if ca.CredentialApplication.ManifestID != cm.ID {
+	if ca.ManifestID != cm.ID {
 		return fmt.Errorf("the Manifest ID of the Credential Application (%s) does not match the given "+
-			"Credential Manifest's ID (%s)", ca.CredentialApplication.ManifestID, cm.ID)
+			"Credential Manifest's ID (%s)", ca.ManifestID, cm.ID)
 	}
 
 	if cm.hasFormat() {
 		err := ca.validateFormatAgainstCredManifestFormat(cm.Format)
 		if err != nil {
 			return fmt.Errorf("invalid format for the given Credential Manifest: %w", err)
-		}
-	}
-
-	if cm.PresentationDefinition != nil {
-		if ca.PresentationSubmission == nil {
-			return errors.New("Credential Manifest " + //nolint:stylecheck // This is a proper noun per the spec
-				"has a Presentation Definition, but the Credential Application is missing a Presentation Submission")
 		}
 	}
 
@@ -108,11 +96,11 @@ func (ca *CredentialApplication) standardUnmarshal(data []byte) error {
 }
 
 func (ca *CredentialApplication) validate() error {
-	if ca.CredentialApplication.ID == "" {
+	if ca.ID == "" {
 		return errors.New("missing ID")
 	}
 
-	if ca.CredentialApplication.ManifestID == "" {
+	if ca.ManifestID == "" {
 		return errors.New("missing manifest ID")
 	}
 
@@ -124,7 +112,7 @@ func (ca *CredentialApplication) validateFormatAgainstCredManifestFormat(credMan
 		return errors.New("the Credential Manifest specifies a format but the Credential Application does not")
 	}
 
-	err := ca.CredentialApplication.ensureFormatIsSubsetOfCredManifestFormat(credManifestFormat)
+	err := ca.ensureFormatIsSubsetOfCredManifestFormat(credManifestFormat)
 	if err != nil {
 		return fmt.Errorf("invalid format request: %w", err)
 	}
@@ -133,36 +121,36 @@ func (ca *CredentialApplication) validateFormatAgainstCredManifestFormat(credMan
 }
 
 func (ca *CredentialApplication) hasFormat() bool {
-	return hasAnyAlgorithmsOrProofTypes(ca.CredentialApplication.Format)
+	return hasAnyAlgorithmsOrProofTypes(ca.Format)
 }
 
-func (cai *CredentialApplicationInfo) ensureFormatIsSubsetOfCredManifestFormat(credManiFmt presexch.Format) error {
-	err := ensureCredAppJWTAlgsAreSubsetOfCredManiJWTAlgs("JWT", cai.Format.Jwt, credManiFmt.Jwt)
+func (ca *CredentialApplication) ensureFormatIsSubsetOfCredManifestFormat(credManiFmt presexch.Format) error {
+	err := ensureCredAppJWTAlgsAreSubsetOfCredManiJWTAlgs("JWT", ca.Format.Jwt, credManiFmt.Jwt)
 	if err != nil {
 		return err
 	}
 
-	err = ensureCredAppJWTAlgsAreSubsetOfCredManiJWTAlgs("JWT VC", cai.Format.JwtVC, credManiFmt.JwtVC)
+	err = ensureCredAppJWTAlgsAreSubsetOfCredManiJWTAlgs("JWT VC", ca.Format.JwtVC, credManiFmt.JwtVC)
 	if err != nil {
 		return err
 	}
 
-	err = ensureCredAppJWTAlgsAreSubsetOfCredManiJWTAlgs("JWT VP", cai.Format.JwtVP, credManiFmt.JwtVP)
+	err = ensureCredAppJWTAlgsAreSubsetOfCredManiJWTAlgs("JWT VP", ca.Format.JwtVP, credManiFmt.JwtVP)
 	if err != nil {
 		return err
 	}
 
-	err = ensureCredAppLDPProofTypesAreSubsetOfCredManiProofTypes("LDP", cai.Format.Ldp, credManiFmt.Ldp)
+	err = ensureCredAppLDPProofTypesAreSubsetOfCredManiProofTypes("LDP", ca.Format.Ldp, credManiFmt.Ldp)
 	if err != nil {
 		return err
 	}
 
-	err = ensureCredAppLDPProofTypesAreSubsetOfCredManiProofTypes("LDP VC", cai.Format.LdpVC, credManiFmt.LdpVC)
+	err = ensureCredAppLDPProofTypesAreSubsetOfCredManiProofTypes("LDP VC", ca.Format.LdpVC, credManiFmt.LdpVC)
 	if err != nil {
 		return err
 	}
 
-	err = ensureCredAppLDPProofTypesAreSubsetOfCredManiProofTypes("LDP VP", cai.Format.LdpVP, credManiFmt.LdpVP)
+	err = ensureCredAppLDPProofTypesAreSubsetOfCredManiProofTypes("LDP VP", ca.Format.LdpVP, credManiFmt.LdpVP)
 	if err != nil {
 		return err
 	}

@@ -398,7 +398,7 @@ type ProposeCredentialRequest struct {
 	WalletAuth
 
 	// out-of-band invitation to establish connection and send propose credential message.
-	Invitation *outofband.Invitation `json:"invitation"`
+	Invitation *wallet.GenericInvitation `json:"invitation"`
 
 	// Optional From DID option to customize sender DID.
 	FromDID string `json:"from,omitempty"`

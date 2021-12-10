@@ -1756,7 +1756,7 @@ func TestOperation_ProposeCredential(t *testing.T) {
 				return []issuecredentialsvc.Action{
 					{
 						PIID: thID,
-						Msg: service.NewDIDCommMsgMap(&issuecredentialsvc.OfferCredential{
+						Msg: service.NewDIDCommMsgMap(&issuecredentialsvc.OfferCredentialV2{
 							Comment: sampleMsgComment,
 						}),
 						MyDID:    myDID,
@@ -1784,7 +1784,7 @@ func TestOperation_ProposeCredential(t *testing.T) {
 
 		request := &vcwallet.ProposeCredentialRequest{
 			WalletAuth: vcwallet.WalletAuth{UserID: sampleDIDCommUser, Auth: token},
-			Invitation: &outofbandClient.Invitation{},
+			Invitation: &wallet.GenericInvitation{},
 		}
 
 		rq := httptest.NewRequest(http.MethodPost, ProposeCredentialPath, getReader(t, request))
@@ -1800,7 +1800,7 @@ func TestOperation_ProposeCredential(t *testing.T) {
 		require.NotEmpty(t, r.Response)
 		require.NotEmpty(t, r.Response.OfferCredential)
 
-		offer := &issuecredentialsvc.OfferCredential{}
+		offer := &issuecredentialsvc.OfferCredentialV2{}
 
 		err = r.Response.OfferCredential.Decode(offer)
 		require.NoError(t, err)
@@ -1819,7 +1819,7 @@ func TestOperation_ProposeCredential(t *testing.T) {
 
 		request := &vcwallet.ProposeCredentialRequest{
 			WalletAuth: vcwallet.WalletAuth{UserID: sampleDIDCommUser, Auth: token},
-			Invitation: &outofbandClient.Invitation{},
+			Invitation: &wallet.GenericInvitation{},
 		}
 
 		rq := httptest.NewRequest(http.MethodPost, ProposeCredentialPath, getReader(t, request))
