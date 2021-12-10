@@ -31,7 +31,7 @@ func TestUnmarshalAndValidateAgainstCredentialManifest(t *testing.T) {
 		credentialApplication, err := credentialmanifest.UnmarshalAndValidateAgainstCredentialManifest(
 			validCredentialApplication, &credentialManifest)
 		require.NoError(t, err)
-		require.Equal(t, "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d", credentialApplication.CredentialApplication.ID)
+		require.Equal(t, "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d", credentialApplication.ID)
 	})
 	t.Run("Failure during validation", func(t *testing.T) {
 		credentialManifest := makeCredentialManifestFromBytes(t, validCredentialManifestWithFormat)
@@ -182,17 +182,6 @@ func TestCredentialApplication_ValidateAgainstCredentialManifest(t *testing.T) {
 			require.NoError(t, err)
 		})
 	})
-	t.Run("Credential Manifest has a presentation definition", func(t *testing.T) {
-		t.Run("Credential Application has no Presentation Submission", func(t *testing.T) {
-			credentialApplication := makeCredentialApplicationFromBytes(t, validCredentialApplication)
-
-			credentialManifest := makeCredentialManifestFromBytes(t, validCredentialManifestWithPresentationSubmission)
-
-			err := credentialApplication.ValidateAgainstCredentialManifest(&credentialManifest)
-			require.EqualError(t, err, "Credential Manifest has a Presentation Definition, "+
-				"but the Credential Application is missing a Presentation Submission")
-		})
-	})
 	t.Run("Credential App's manifest ID does not match the given Credential Manifest", func(t *testing.T) {
 		credentialApplication := makeCredentialApplicationWithUnknownManifestID(t)
 
@@ -217,7 +206,7 @@ func makeCredentialApplicationFromBytes(t *testing.T,
 func makeCredentialApplicationWithMissingID(t *testing.T) []byte {
 	credentialApplication := makeCredentialApplicationFromBytes(t, validCredentialApplication)
 
-	credentialApplication.CredentialApplication.ID = ""
+	credentialApplication.ID = ""
 
 	credentialApplicationBytes, err := json.Marshal(credentialApplication)
 	require.NoError(t, err)
@@ -228,7 +217,7 @@ func makeCredentialApplicationWithMissingID(t *testing.T) []byte {
 func makeCredentialApplicationWithMissingManifestID(t *testing.T) []byte {
 	credentialApplication := makeCredentialApplicationFromBytes(t, validCredentialApplication)
 
-	credentialApplication.CredentialApplication.ManifestID = ""
+	credentialApplication.ManifestID = ""
 
 	credentialApplicationBytes, err := json.Marshal(credentialApplication)
 	require.NoError(t, err)
@@ -239,7 +228,7 @@ func makeCredentialApplicationWithMissingManifestID(t *testing.T) []byte {
 func makeCredentialApplicationWithUnknownJWTAlg(t *testing.T) credentialmanifest.CredentialApplication {
 	credentialApplication := makeCredentialApplicationFromBytes(t, validCredentialApplicationWithFormat)
 
-	credentialApplication.CredentialApplication.Format.Jwt.Alg[0] = unknownFormatName
+	credentialApplication.Format.Jwt.Alg[0] = unknownFormatName
 
 	return credentialApplication
 }
@@ -247,7 +236,7 @@ func makeCredentialApplicationWithUnknownJWTAlg(t *testing.T) credentialmanifest
 func makeCredentialApplicationWithUnknownJWTVCAlg(t *testing.T) credentialmanifest.CredentialApplication {
 	credentialApplication := makeCredentialApplicationFromBytes(t, validCredentialApplicationWithFormat)
 
-	credentialApplication.CredentialApplication.Format.JwtVC.Alg[0] = unknownFormatName
+	credentialApplication.Format.JwtVC.Alg[0] = unknownFormatName
 
 	return credentialApplication
 }
@@ -255,7 +244,7 @@ func makeCredentialApplicationWithUnknownJWTVCAlg(t *testing.T) credentialmanife
 func makeCredentialApplicationWithUnknownJWTVPAlg(t *testing.T) credentialmanifest.CredentialApplication {
 	credentialApplication := makeCredentialApplicationFromBytes(t, validCredentialApplicationWithFormat)
 
-	credentialApplication.CredentialApplication.Format.JwtVP.Alg[0] = unknownFormatName
+	credentialApplication.Format.JwtVP.Alg[0] = unknownFormatName
 
 	return credentialApplication
 }
@@ -263,7 +252,7 @@ func makeCredentialApplicationWithUnknownJWTVPAlg(t *testing.T) credentialmanife
 func makeCredentialApplicationWithUnknownLDPProofType(t *testing.T) credentialmanifest.CredentialApplication {
 	credentialApplication := makeCredentialApplicationFromBytes(t, validCredentialApplicationWithFormat)
 
-	credentialApplication.CredentialApplication.Format.Ldp.ProofType[0] = unknownFormatName
+	credentialApplication.Format.Ldp.ProofType[0] = unknownFormatName
 
 	return credentialApplication
 }
@@ -271,7 +260,7 @@ func makeCredentialApplicationWithUnknownLDPProofType(t *testing.T) credentialma
 func makeCredentialApplicationWithUnknownLDPVCProofType(t *testing.T) credentialmanifest.CredentialApplication {
 	credentialApplication := makeCredentialApplicationFromBytes(t, validCredentialApplicationWithFormat)
 
-	credentialApplication.CredentialApplication.Format.LdpVC.ProofType[0] = unknownFormatName
+	credentialApplication.Format.LdpVC.ProofType[0] = unknownFormatName
 
 	return credentialApplication
 }
@@ -279,7 +268,7 @@ func makeCredentialApplicationWithUnknownLDPVCProofType(t *testing.T) credential
 func makeCredentialApplicationWithUnknownLDPVPProofType(t *testing.T) credentialmanifest.CredentialApplication {
 	credentialApplication := makeCredentialApplicationFromBytes(t, validCredentialApplicationWithFormat)
 
-	credentialApplication.CredentialApplication.Format.LdpVP.ProofType[0] = unknownFormatName
+	credentialApplication.Format.LdpVP.ProofType[0] = unknownFormatName
 
 	return credentialApplication
 }
@@ -287,7 +276,7 @@ func makeCredentialApplicationWithUnknownLDPVPProofType(t *testing.T) credential
 func makeCredentialApplicationWithUnknownManifestID(t *testing.T) credentialmanifest.CredentialApplication {
 	credentialApplication := makeCredentialApplicationFromBytes(t, validCredentialApplicationWithFormat)
 
-	credentialApplication.CredentialApplication.ManifestID = "SomeUnknownManifestID"
+	credentialApplication.ManifestID = "SomeUnknownManifestID"
 
 	return credentialApplication
 }
