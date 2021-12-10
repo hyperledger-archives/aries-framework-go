@@ -41,6 +41,9 @@ const (
 	acceptRequest       = operationID + "/%s/accept-request"
 	acceptRequestV3     = operationIDV3 + "/%s/accept-request"
 	acceptCredential    = operationID + "/%s/accept-credential"
+	declineProposal     = operationID + "/%s/decline-proposal"
+	declineRequest      = operationID + "/%s/decline-request"
+	acceptProblemReport = operationID + "/%s/accept-problem-report"
 )
 
 // ControllerSteps is steps for issuecredential with controller.
@@ -73,13 +76,18 @@ func (s *ControllerSteps) RegisterSteps(gs *godog.Suite) {
 	gs.Step(`^"([^"]*)" sends proposal credential V3 to the "([^"]*)" through IssueCredential controller$`, s.sendProposalV3)
 	gs.Step(`^"([^"]*)" accepts a proposal and sends an offer to the Holder through IssueCredential controller$`, s.acceptProposal)
 	gs.Step(`^"([^"]*)" accepts a proposal V3 and sends an offer to the Holder through IssueCredential controller$`, s.acceptProposalV3)
+	gs.Step(`^"([^"]*)" declines the proposal and requests redirect "([^"]*)" through IssueCredential controller$`, s.declineProposalWithRedirect)
 	gs.Step(`^"([^"]*)" does not like the offer and sends a new proposal to the Issuer through IssueCredential controller$`, s.negotiateProposal)
 	gs.Step(`^"([^"]*)" does not like the offer V3 and sends a new proposal to the Issuer through IssueCredential controller$`, s.negotiateProposalV3)
 	gs.Step(`^"([^"]*)" accepts an offer and sends a request to the Issuer through IssueCredential controller$`, s.acceptOffer)
 	gs.Step(`^"([^"]*)" accepts request and sends credential to the Holder through IssueCredential controller$`, s.acceptRequest)
+	gs.Step(`^"([^"]*)" accepts request and sends credential to the Holder with redirect "([^"]*)" through IssueCredential controller$`, s.acceptRequestWithRedirect)
+	gs.Step(`^"([^"]*)" declines the request and requests redirect "([^"]*)" through IssueCredential controller$`, s.declineRequestWithRedirect)
 	gs.Step(`^"([^"]*)" accepts request V3 and sends credential to the Holder through IssueCredential controller$`, s.acceptRequestV3)
 	gs.Step(`^"([^"]*)" accepts credential with name "([^"]*)" through IssueCredential controller$`, s.acceptCredential)
 	gs.Step(`^"([^"]*)" checks that issued credential is being stored under "([^"]*)" name$`, s.validateCredential)
+	gs.Step(`^"([^"]*)" accepts a problem report through IssueCredential controller$`, s.acceptProblemReport)
+	gs.Step(`^"([^"]*)" validates issue credential state "([^"]*)" and redirect "([^"]*)" with status "([^"]*)" through IssueCredential controller$`, s.validateState)
 }
 
 // Options for sending and accepting messages.
@@ -436,6 +444,10 @@ func (s *ControllerSteps) AcceptOfferPIID(url, piid string) error {
 }
 
 func (s *ControllerSteps) acceptRequest(issuer string) error {
+	return s.acceptRequestWithRedirect(issuer, "")
+}
+
+func (s *ControllerSteps) acceptRequestWithRedirect(issuer, redirect string) error {
 	url, ok := s.bddContext.GetControllerURL(issuer)
 	if !ok {
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", issuer)
@@ -451,8 +463,58 @@ func (s *ControllerSteps) acceptRequest(issuer string) error {
 			CredentialsAttach: []decorator.Attachment{
 				{Data: decorator.AttachmentData{JSON: getVCredential()}},
 			},
+			WebRedirect: &decorator.WebRedirect{
+				Status: "OK",
+				URL:    redirect,
+			},
 		},
 	})
+}
+
+func (s *ControllerSteps) declineRequestWithRedirect(issuer, redirect string) error {
+	url, ok := s.bddContext.GetControllerURL(issuer)
+	if !ok {
+		return fmt.Errorf("unable to find controller URL registered for agent [%s]", issuer)
+	}
+
+	piid, err := s.actionPIID(issuer)
+	if err != nil {
+		return err
+	}
+
+	return postToURL(url+fmt.Sprintf(declineRequest, piid), issuecredentialcmd.DeclineRequestArgs{
+		RedirectURL: redirect,
+	})
+}
+
+func (s *ControllerSteps) declineProposalWithRedirect(issuer, redirect string) error {
+	url, ok := s.bddContext.GetControllerURL(issuer)
+	if !ok {
+		return fmt.Errorf("unable to find controller URL registered for agent [%s]", issuer)
+	}
+
+	piid, err := s.actionPIID(issuer)
+	if err != nil {
+		return err
+	}
+
+	return postToURL(url+fmt.Sprintf(declineProposal, piid), issuecredentialcmd.DeclineProposalArgs{
+		RedirectURL: redirect,
+	})
+}
+
+func (s *ControllerSteps) acceptProblemReport(agent string) error {
+	url, ok := s.bddContext.GetControllerURL(agent)
+	if !ok {
+		return fmt.Errorf("unable to find controller URL registered for agent [%s]", agent)
+	}
+
+	piid, err := s.actionPIID(agent)
+	if err != nil {
+		return err
+	}
+
+	return postToURL(url+fmt.Sprintf(acceptProblemReport, piid), issuecredentialcmd.AcceptProblemReportArgs{})
 }
 
 func (s *ControllerSteps) acceptRequestV3(issuer string) error {
@@ -519,6 +581,28 @@ func (s *ControllerSteps) validateCredential(holder, credential string) error {
 	}
 
 	return util.SendHTTP(http.MethodGet, fmt.Sprintf("%s/verifiable/credential/name/%s", url, credential), nil, nil)
+}
+
+func (s *ControllerSteps) validateState(agent, state, redirect, status string) error {
+	msg, err := util.PullEventsFromWebSocket(s.bddContext, agent,
+		util.FilterTopic("issue-credential_states"),
+		util.FilterStateID(state),
+	)
+	if err != nil {
+		return fmt.Errorf("pull events from WebSocket: %w", err)
+	}
+
+	if redirect != msg.Message.Properties["url"] {
+		return fmt.Errorf("failed redirect URL validation, expected[%s]: found[%s]",
+			redirect, msg.Message.Properties["url"])
+	}
+
+	if status != msg.Message.Properties["status"] {
+		return fmt.Errorf("failed status validation, expected[%s]: found[%s]",
+			status, msg.Message.Properties["status"])
+	}
+
+	return nil
 }
 
 func (s *ControllerSteps) actionPIID(agentID string) (string, error) {

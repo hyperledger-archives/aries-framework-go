@@ -61,8 +61,9 @@ const (
 	ldJSONMimeType     = "application/ld+json"
 
 	// protocol states.
-	stateNameAbandoned = "abandoned"
-	stateNameDone      = "done"
+	stateNameAbandoned  = "abandoned"
+	stateNameAbandoning = "abandoning"
+	stateNameDone       = "done"
 
 	// web redirect constants.
 	webRedirectStatusKey = "status"
@@ -1312,7 +1313,7 @@ func waitCredInteractionCompletion(ctx context.Context, didStateMsgs chan servic
 			}
 
 			// match protocol state.
-			if msg.StateID != stateNameDone && msg.StateID != stateNameAbandoned {
+			if msg.StateID != stateNameDone && msg.StateID != stateNameAbandoned && msg.StateID != stateNameAbandoning {
 				continue
 			}
 
@@ -1323,7 +1324,7 @@ func waitCredInteractionCompletion(ctx context.Context, didStateMsgs chan servic
 
 			// if redirect status missing, then use protocol state, done -> OK, abandoned -> FAIL.
 			if response.Status == "" {
-				if msg.StateID == stateNameAbandoned {
+				if msg.StateID == stateNameAbandoned || msg.StateID == stateNameAbandoning {
 					response.Status = model.AckStatusFAIL
 				} else {
 					response.Status = model.AckStatusOK

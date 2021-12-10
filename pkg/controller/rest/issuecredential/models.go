@@ -200,6 +200,10 @@ type issueCredentialDeclineRequestRequest struct { // nolint: unused,deadcode
 
 	// Reason is an explanation of why it was declined
 	Reason string `json:"reason"`
+
+	// RedirectURL is optional web redirect URL that can be sent to holder.
+	// Useful in cases where issuer would like holder to redirect after its credential request gets declined.
+	RedirectURL string `json:"redirectURL"`
 }
 
 // issueCredentialDeclineRequestResponse model
@@ -252,6 +256,10 @@ type issueCredentialDeclineProposalRequest struct { // nolint: unused,deadcode
 
 	// Reason is an explanation of why it was declined
 	Reason string `json:"reason"`
+
+	// RedirectURL is optional web redirect URL that can be sent to holder.
+	// Useful in cases where issuer would like holder to redirect after its credential request gets declined.
+	RedirectURL string `json:"redirectURL"`
 }
 
 // issueCredentialDeclineProposalResponse model

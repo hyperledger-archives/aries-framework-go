@@ -119,3 +119,44 @@ Feature: Issue Credential using controller API
     And "GraduateV3" accepts credential with name "bachelors degreeV3" through IssueCredential controller
 
     Then  "GraduateV3" checks that issued credential is being stored under "bachelors degreeV3" name
+
+  @issue_credential_controller_ok_webredirect_flow @issue_credential_controller_redirect
+  Scenario: The Holder begins with a proposal for redirect flow
+    Given "StudentR1" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
+    And "UniversityR1" agent is running on "localhost" port "11011" with controller "https://localhost:11012"
+    And "StudentR1" has established connection with "UniversityR1" through IssueCredential controller
+
+    When  "StudentR1" sends proposal credential to the "UniversityR1" through IssueCredential controller
+    And "UniversityR1" accepts a proposal and sends an offer to the Holder through IssueCredential controller
+    And "StudentR1" accepts an offer and sends a request to the Issuer through IssueCredential controller
+    And "UniversityR1" accepts request and sends credential to the Holder with redirect "https://example.com/success" through IssueCredential controller
+    And "StudentR1" accepts credential with name "degreeR" through IssueCredential controller
+
+    Then  "StudentR1" checks that issued credential is being stored under "degreeR" name
+    And "StudentR1" validates issue credential state "done" and redirect "https://example.com/success" with status "OK" through IssueCredential controller
+
+  @issue_credential_controller_decline_request_fail_webredirect_flow @issue_credential_controller_redirect
+  Scenario: The Holder begins with a proposal for decline proposal redirect flow
+    Given "StudentR2" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
+    And "UniversityR2" agent is running on "localhost" port "11011" with controller "https://localhost:11012"
+    And "StudentR2" has established connection with "UniversityR2" through IssueCredential controller
+
+    When  "StudentR2" sends proposal credential to the "UniversityR2" through IssueCredential controller
+    And "UniversityR2" accepts a proposal and sends an offer to the Holder through IssueCredential controller
+    And "StudentR2" accepts an offer and sends a request to the Issuer through IssueCredential controller
+    And "UniversityR2" declines the request and requests redirect "https://example.com/error" through IssueCredential controller
+
+    Then  "StudentR2" accepts a problem report through IssueCredential controller
+    And "StudentR2" validates issue credential state "abandoning" and redirect "https://example.com/error" with status "FAIL" through IssueCredential controller
+
+  @issue_credential_controller_decline_proposal_fail_webredirect_flow @issue_credential_controller_redirect
+  Scenario: The Holder begins with a proposal for decline request redirect flow
+    Given "StudentR3" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
+    And "UniversityR3" agent is running on "localhost" port "11011" with controller "https://localhost:11012"
+    And "StudentR3" has established connection with "UniversityR3" through IssueCredential controller
+
+    When  "StudentR3" sends proposal credential to the "UniversityR3" through IssueCredential controller
+    And "UniversityR3" declines the proposal and requests redirect "https://example.com/error" through IssueCredential controller
+
+    Then "StudentR3" accepts a problem report through IssueCredential controller
+    And "StudentR3" validates issue credential state "abandoning" and redirect "https://example.com/error" with status "FAIL" through IssueCredential controller

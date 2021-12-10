@@ -32,6 +32,9 @@ const (
 	stateNameOfferReceived      = "offer-received"
 	stateNameRequestSent        = "request-sent"
 	stateNameCredentialReceived = "credential-received"
+
+	// web redirect decorator V2.
+	webRedirect = "~web-redirect"
 )
 
 const (
@@ -52,6 +55,8 @@ type state interface {
 	// The 'noOp' state should be returned if the state has no followup.
 	ExecuteInbound(msg *MetaData) (state, stateAction, error)
 	ExecuteOutbound(msg *MetaData) (state, stateAction, error)
+	// Message properties required for further steps or next state transition.
+	Properties() map[string]interface{}
 }
 
 // represents zero state's action.
@@ -74,6 +79,10 @@ func (s *noOp) ExecuteInbound(_ *MetaData) (state, stateAction, error) {
 
 func (s *noOp) ExecuteOutbound(_ *MetaData) (state, stateAction, error) {
 	return nil, nil, errors.New("cannot execute no-op")
+}
+
+func (s *noOp) Properties() map[string]interface{} {
+	return map[string]interface{}{}
 }
 
 // start state.
@@ -104,10 +113,15 @@ func (s *start) ExecuteOutbound(_ *MetaData) (state, stateAction, error) {
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
+func (s *start) Properties() map[string]interface{} {
+	return map[string]interface{}{}
+}
+
 // abandoning state.
 type abandoning struct {
-	V    string
-	Code string
+	V          string
+	Code       string
+	properties map[string]interface{}
 }
 
 func (s *abandoning) Name() string {
@@ -141,13 +155,14 @@ func (s *abandoning) ExecuteInbound(md *MetaData) (state, stateAction, error) {
 		if s.V == SpecV3 {
 			return messenger.ReplyToNested(service.NewDIDCommMsgMap(&model.ProblemReportV2{
 				Type: ProblemReportMsgTypeV3,
-				Body: model.ProblemReportV2Body{Code: code.Code},
+				Body: model.ProblemReportV2Body{Code: code.Code, WebRedirect: md.properties[webRedirect]},
 			}), &service.NestedReplyOpts{ThreadID: thID, MyDID: md.MyDID, TheirDID: md.TheirDID, V: getDIDVersion(s.V)})
 		}
 
 		return messenger.ReplyToNested(service.NewDIDCommMsgMap(&model.ProblemReport{
 			Type:        ProblemReportMsgTypeV2,
 			Description: code,
+			WebRedirect: md.properties[webRedirect],
 		}), &service.NestedReplyOpts{ThreadID: thID, MyDID: md.MyDID, TheirDID: md.TheirDID, V: getDIDVersion(s.V)})
 	}, nil
 }
@@ -156,9 +171,14 @@ func (s *abandoning) ExecuteOutbound(_ *MetaData) (state, stateAction, error) {
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
+func (s *abandoning) Properties() map[string]interface{} {
+	return s.properties
+}
+
 // done state.
 type done struct {
-	V string
+	V          string
+	properties map[string]interface{}
 }
 
 func (s *done) Name() string {
@@ -177,9 +197,14 @@ func (s *done) ExecuteOutbound(_ *MetaData) (state, stateAction, error) {
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
+func (s *done) Properties() map[string]interface{} {
+	return s.properties
+}
+
 // proposalReceived the Issuer's state.
 type proposalReceived struct {
-	V string
+	V          string
+	properties map[string]interface{}
 }
 
 func (s *proposalReceived) Name() string {
@@ -198,9 +223,14 @@ func (s *proposalReceived) ExecuteOutbound(_ *MetaData) (state, stateAction, err
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
+func (s *proposalReceived) Properties() map[string]interface{} {
+	return s.properties
+}
+
 // offerSent the Issuer's state.
 type offerSent struct {
-	V string
+	V          string
+	properties map[string]interface{}
 }
 
 func (s *offerSent) Name() string {
@@ -247,9 +277,14 @@ func (s *offerSent) ExecuteOutbound(md *MetaData) (state, stateAction, error) {
 	return &noOp{}, action, nil
 }
 
+func (s *offerSent) Properties() map[string]interface{} {
+	return s.properties
+}
+
 // requestReceived the Issuer's state.
 type requestReceived struct {
-	V string
+	V          string
+	properties map[string]interface{}
 }
 
 func (s *requestReceived) Name() string {
@@ -289,9 +324,14 @@ func (s *requestReceived) ExecuteOutbound(_ *MetaData) (state, stateAction, erro
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
+func (s *requestReceived) Properties() map[string]interface{} {
+	return s.properties
+}
+
 // credentialIssued the Issuer's state.
 type credentialIssued struct {
-	V string
+	V          string
+	properties map[string]interface{}
 }
 
 func (s *credentialIssued) Name() string {
@@ -310,9 +350,14 @@ func (s *credentialIssued) ExecuteOutbound(_ *MetaData) (state, stateAction, err
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
+func (s *credentialIssued) Properties() map[string]interface{} {
+	return s.properties
+}
+
 // proposalSent the Holder's state.
 type proposalSent struct {
-	V string
+	V          string
+	properties map[string]interface{}
 }
 
 func (s *proposalSent) Name() string {
@@ -357,9 +402,14 @@ func (s *proposalSent) ExecuteOutbound(md *MetaData) (state, stateAction, error)
 	return &noOp{}, action, nil
 }
 
+func (s *proposalSent) Properties() map[string]interface{} {
+	return s.properties
+}
+
 // offerReceived the Holder's state.
 type offerReceived struct {
-	V string
+	V          string
+	properties map[string]interface{}
 }
 
 func (s *offerReceived) Name() string {
@@ -437,9 +487,14 @@ func (s *offerReceived) ExecuteOutbound(_ *MetaData) (state, stateAction, error)
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
+func (s *offerReceived) Properties() map[string]interface{} {
+	return s.properties
+}
+
 // requestSent the Holder's state.
 type requestSent struct {
-	V string
+	V          string
+	properties map[string]interface{}
 }
 
 func (s *requestSent) Name() string {
@@ -463,9 +518,14 @@ func (s *requestSent) ExecuteOutbound(md *MetaData) (state, stateAction, error) 
 	return &noOp{}, action, nil
 }
 
+func (s *requestSent) Properties() map[string]interface{} {
+	return s.properties
+}
+
 // credentialReceived state.
 type credentialReceived struct {
-	V string
+	V          string
+	properties map[string]interface{}
 }
 
 func (s *credentialReceived) Name() string {
@@ -492,9 +552,13 @@ func (s *credentialReceived) ExecuteInbound(md *MetaData) (state, stateAction, e
 		}), md.MyDID, md.TheirDID, service.WithVersion(getDIDVersion(s.V)))
 	}
 
-	return &done{}, action, nil
+	return &done{properties: s.properties}, action, nil
 }
 
 func (s *credentialReceived) ExecuteOutbound(_ *MetaData) (state, stateAction, error) {
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
+}
+
+func (s *credentialReceived) Properties() map[string]interface{} {
+	return s.properties
 }

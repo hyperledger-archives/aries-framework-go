@@ -367,6 +367,7 @@ type IssueCredentialParams struct { // nolint: golint
 	Attachments   []decorator.GenericAttachment
 	GoalCode      string
 	ReplacementID string
+	WebRedirect   *decorator.WebRedirect
 }
 
 // AsV2 translates this credential issuance into an issue credential 2.0 issuance message.
@@ -376,6 +377,7 @@ func (p *IssueCredentialParams) AsV2() *IssueCredentialV2 {
 		Comment:           p.Comment,
 		Formats:           p.Formats,
 		CredentialsAttach: decorator.GenericAttachmentsToV1(p.Attachments),
+		WebRedirect:       p.WebRedirect,
 	}
 }
 
@@ -390,6 +392,7 @@ func (p *IssueCredentialParams) AsV3() *IssueCredentialV3 {
 			Comment:       p.Comment,
 		},
 		Attachments: decorator.GenericAttachmentsToV2(p.Attachments),
+		WebRedirect: p.WebRedirect,
 	}
 }
 
@@ -402,6 +405,7 @@ func (p *IssueCredentialParams) FromV2(v2 *IssueCredentialV2) {
 	p.GoalCode = ""
 	p.ReplacementID = ""
 	p.Attachments = decorator.V1AttachmentsToGeneric(v2.CredentialsAttach)
+	p.WebRedirect = v2.WebRedirect
 }
 
 // FromV3 initialized this credential issuance from an issue credential 3.0 issuance message.
@@ -413,6 +417,7 @@ func (p *IssueCredentialParams) FromV3(v3 *IssueCredentialV3) {
 	p.GoalCode = v3.Body.GoalCode
 	p.ReplacementID = v3.Body.ReplacementID
 	p.Attachments = decorator.V2AttachmentsToGeneric(v3.Attachments)
+	p.WebRedirect = v3.WebRedirect
 }
 
 type rawIssuance struct {

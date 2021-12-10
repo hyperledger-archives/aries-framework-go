@@ -957,7 +957,7 @@ func TestCommand_DeclineProposal(t *testing.T) {
 		service := clientmocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
 		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
-		service.EXPECT().ActionStop(gomock.Any(), gomock.Any()).Return(errors.New("some error message"))
+		service.EXPECT().ActionStop(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("some error message"))
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
@@ -980,7 +980,7 @@ func TestCommand_DeclineProposal(t *testing.T) {
 		service := clientmocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
 		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
-		service.EXPECT().ActionStop(gomock.Any(), gomock.Any())
+		service.EXPECT().ActionStop(gomock.Any(), gomock.Any(), gomock.Any())
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
@@ -1348,7 +1348,7 @@ func TestCommand_DeclineRequest(t *testing.T) {
 		service := clientmocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
 		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
-		service.EXPECT().ActionStop(gomock.Any(), gomock.Any()).Return(errors.New("some error message"))
+		service.EXPECT().ActionStop(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("some error message"))
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
@@ -1371,7 +1371,7 @@ func TestCommand_DeclineRequest(t *testing.T) {
 		service := clientmocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
 		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
-		service.EXPECT().ActionStop(gomock.Any(), gomock.Any())
+		service.EXPECT().ActionStop(gomock.Any(), gomock.Any(), gomock.Any())
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
@@ -1601,7 +1601,7 @@ func (m *mockProtocol) ActionContinue(string, ...protocol.Opt) error {
 	panic("implement me")
 }
 
-func (m *mockProtocol) ActionStop(string, error) error {
+func (m *mockProtocol) ActionStop(string, error, ...protocol.Opt) error {
 	panic("implement me")
 }
 
