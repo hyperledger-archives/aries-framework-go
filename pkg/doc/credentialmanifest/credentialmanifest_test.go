@@ -34,7 +34,15 @@ const invalidJSONPath = "%InvalidJSONPath"
 
 func TestCredentialManifest_Unmarshal(t *testing.T) {
 	t.Run("Valid Credential Manifest", func(t *testing.T) {
-		makeCredentialManifestFromBytes(t, validCredentialManifest)
+		t.Run("Without format or Presentation Submission", func(t *testing.T) {
+			makeCredentialManifestFromBytes(t, validCredentialManifest)
+		})
+		t.Run("With format", func(t *testing.T) {
+			makeCredentialManifestFromBytes(t, validCredentialManifestWithFormat)
+		})
+		t.Run("With Presentation Submission", func(t *testing.T) {
+			makeCredentialManifestFromBytes(t, validCredentialManifestWithPresentationSubmission)
+		})
 	})
 	t.Run("Missing issuer ID", func(t *testing.T) {
 		credentialManifest := makeCredentialManifestFromBytes(t, validCredentialManifest)
