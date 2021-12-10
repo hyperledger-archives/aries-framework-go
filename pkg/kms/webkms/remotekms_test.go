@@ -39,9 +39,9 @@ const (
 	defaultKID        = "99999"
 )
 
-const xRootCapabilityHeaderValue = "DUMMY"
-
 func TestRemoteKeyStore(t *testing.T) {
+	xRootCapabilityHeaderValue := []byte("DUMMY")
+
 	secret := make([]byte, 10)
 	_, err := rand.Read(secret)
 	require.NoError(t, err)
@@ -272,6 +272,8 @@ func TestCreateKeyWithLocationInResponseBody(t *testing.T) {
 }
 
 func TestRemoteKeyStoreWithHeadersFunc(t *testing.T) {
+	xRootCapabilityHeaderValue := []byte("DUMMY")
+
 	secret := make([]byte, 10)
 	_, err := rand.Read(secret)
 	require.NoError(t, err)
@@ -400,6 +402,8 @@ func TestCloseResponseBody(t *testing.T) {
 
 func processPOSTRequest(w http.ResponseWriter, r *http.Request, keysetID, kid string,
 	defaultExportPubKey []byte) error {
+	xRootCapabilityHeaderValue := []byte("DUMMY")
+
 	if valid := validateHTTPMethod(w, r); !valid {
 		return errors.New("http method invalid")
 	}

@@ -32,6 +32,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	bddcontext "github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
 
@@ -208,7 +209,7 @@ func (s *GoSDKSteps) sendProposal(holder, issuer string) error {
 				AttachID: attachID,
 				Format:   rfc0593.ProofVCDetailFormat,
 			}},
-			FiltersAttach: []decorator.Attachment{{
+			Attachments: []decorator.GenericAttachment{{
 				ID: attachID,
 				Data: decorator.AttachmentData{
 					JSON: &rfc0593.CredentialSpec{
@@ -218,8 +219,10 @@ func (s *GoSDKSteps) sendProposal(holder, issuer string) error {
 				},
 			}},
 		},
-		s.dids[holder],
-		s.dids[issuer],
+		&connection.Record{
+			MyDID:    s.dids[holder],
+			TheirDID: s.dids[issuer],
+		},
 	)
 	if err != nil {
 		return fmt.Errorf("'%s' failed to send the proposal: %w", holder, err)
@@ -244,7 +247,7 @@ func (s *GoSDKSteps) sendOffer(issuer, holder string) error {
 				AttachID: attachID,
 				Format:   rfc0593.ProofVCDetailFormat,
 			}},
-			OffersAttach: []decorator.Attachment{{
+			Attachments: []decorator.GenericAttachment{{
 				ID: attachID,
 				Data: decorator.AttachmentData{
 					JSON: &rfc0593.CredentialSpec{
@@ -254,8 +257,10 @@ func (s *GoSDKSteps) sendOffer(issuer, holder string) error {
 				},
 			}},
 		},
-		s.dids[issuer],
-		s.dids[holder],
+		&connection.Record{
+			MyDID:    s.dids[issuer],
+			TheirDID: s.dids[holder],
+		},
 	)
 	if err != nil {
 		return fmt.Errorf("'%s' failed to send the offer: %w", issuer, err)
@@ -280,7 +285,7 @@ func (s *GoSDKSteps) sendRequest(holder, issuer string) error {
 				AttachID: attachID,
 				Format:   rfc0593.ProofVCDetailFormat,
 			}},
-			RequestsAttach: []decorator.Attachment{{
+			Attachments: []decorator.GenericAttachment{{
 				ID: attachID,
 				Data: decorator.AttachmentData{
 					JSON: &rfc0593.CredentialSpec{
@@ -290,8 +295,10 @@ func (s *GoSDKSteps) sendRequest(holder, issuer string) error {
 				},
 			}},
 		},
-		s.dids[holder],
-		s.dids[issuer],
+		&connection.Record{
+			MyDID:    s.dids[holder],
+			TheirDID: s.dids[issuer],
+		},
 	)
 	if err != nil {
 		return fmt.Errorf("'%s' failed to send the offer: %w", holder, err)
@@ -389,29 +396,29 @@ func (s *GoSDKSteps) checkConnection(agentA, agentB string, client *didexchange.
 		return fmt.Errorf("'%s' failed to fetch their connection record: %w", agentA, err)
 	}
 
-	var connection *didexchange.Connection
+	var conn *didexchange.Connection
 
 	for i := range connections {
 		if connections[i].TheirLabel == agentB {
-			connection = connections[i]
+			conn = connections[i]
 
 			break
 		}
 	}
 
-	if connection == nil {
+	if conn == nil {
 		return fmt.Errorf("'%s' does not have any connection with '%s'", agentA, agentB)
 	}
 
-	if connection.State != "completed" {
+	if conn.State != "completed" {
 		return fmt.Errorf(
 			"'%s' has connection record in state '%s' but expected 'completed'",
-			agentA, connection.State,
+			agentA, conn.State,
 		)
 	}
 
-	s.dids[agentA] = connection.MyDID
-	s.dids[agentB] = connection.TheirDID
+	s.dids[agentA] = conn.MyDID
+	s.dids[agentB] = conn.TheirDID
 
 	return nil
 }

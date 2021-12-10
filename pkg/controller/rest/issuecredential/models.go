@@ -23,7 +23,7 @@ type issueCredentialAcceptProposalRequest struct { // nolint: unused,deadcode
 	// in: body
 	Body struct {
 		// required: true
-		OfferCredential struct{ *protocol.OfferCredential } `json:"offer_credential"`
+		OfferCredential struct{ *protocol.OfferCredentialV2 } `json:"offer_credential"`
 	}
 }
 
@@ -94,7 +94,7 @@ type issueCredentialAcceptRequestRequest struct { // nolint: unused,deadcode
 	// in: body
 	Body struct {
 		// required: true
-		IssueCredential struct{ *protocol.IssueCredential } `json:"issue_credential"`
+		IssueCredential struct{ *protocol.IssueCredentialV2 } `json:"issue_credential"`
 	}
 }
 
@@ -142,7 +142,11 @@ type issueCredentialAcceptCredentialRequest struct { // nolint: unused,deadcode
 	// in: body
 	Body struct {
 		// required: true
+		// Names represent the names of how credentials will be stored.
 		Names []string `json:"names"`
+
+		// SkipStore if true then credential will not be saved agent store, but protocol state will be updated.
+		SkipStore bool `json:"skipStore"`
 	}
 }
 
@@ -196,6 +200,10 @@ type issueCredentialDeclineRequestRequest struct { // nolint: unused,deadcode
 
 	// Reason is an explanation of why it was declined
 	Reason string `json:"reason"`
+
+	// RedirectURL is optional web redirect URL that can be sent to holder.
+	// Useful in cases where issuer would like holder to redirect after its credential request gets declined.
+	RedirectURL string `json:"redirectURL"`
 }
 
 // issueCredentialDeclineRequestResponse model
@@ -248,6 +256,10 @@ type issueCredentialDeclineProposalRequest struct { // nolint: unused,deadcode
 
 	// Reason is an explanation of why it was declined
 	Reason string `json:"reason"`
+
+	// RedirectURL is optional web redirect URL that can be sent to holder.
+	// Useful in cases where issuer would like holder to redirect after its credential request gets declined.
+	RedirectURL string `json:"redirectURL"`
 }
 
 // issueCredentialDeclineProposalResponse model
@@ -275,7 +287,7 @@ type issueCredentialNegotiateProposalRequest struct { // nolint: unused,deadcode
 	// in: body
 	Body struct {
 		// required: true
-		ProposeCredential struct{ *protocol.ProposeCredential } `json:"propose_credential"`
+		ProposeCredential struct{ *protocol.ProposeCredentialV2 } `json:"propose_credential"`
 	}
 }
 
@@ -344,7 +356,7 @@ type issueCredentialSendOfferRequest struct { // nolint: unused,deadcode
 		// OfferCredential is a message describing the credential intend to offer and
 		// possibly the price they expect to be paid.
 		// required: true
-		OfferCredential struct{ *protocol.OfferCredential } `json:"offer_credential"`
+		OfferCredential struct{ *protocol.OfferCredentialV2 } `json:"offer_credential"`
 	}
 }
 
@@ -398,7 +410,7 @@ type issueCredentialSendProposalRequest struct { // nolint: unused,deadcode
 		TheirDID string `json:"their_did"`
 		// ProposeCredential is a message sent by the potential Holder to the Issuer to initiate the protocol
 		// required: true
-		ProposeCredential struct{ *protocol.ProposeCredential } `json:"propose_credential"`
+		ProposeCredential struct{ *protocol.ProposeCredentialV2 } `json:"propose_credential"`
 	}
 }
 
@@ -452,7 +464,7 @@ type issueCredentialSendRequestRequest struct { // nolint: unused,deadcode
 		// RequestCredential is a message sent by the potential Holder to the Issuer,
 		// to request the issuance of a credential.
 		// required: true
-		RequestCredential struct{ *protocol.RequestCredential } `json:"request_credential"`
+		RequestCredential struct{ *protocol.RequestCredentialV2 } `json:"request_credential"`
 	}
 }
 

@@ -391,7 +391,7 @@ func (o *Operation) PresentProof(rw http.ResponseWriter, req *http.Request) {
 // ProposeCredential swagger:route POST /vcwallet/propose-credential vcwallet proposeCredReq
 //
 // Sends propose credential message from wallet to issuer and optionally waits for offer credential response.
-// https://w3c-ccg.github.io/universal-wallet-interop-spec/#requestcredential
+// https://w3c-ccg.github.io/universal-wallet-interop-spec/#proposecredential
 //
 // Currently Supporting : 0453-issueCredentialV2
 // https://github.com/hyperledger/aries-rfcs/blob/main/features/0453-issue-credential-v2/README.md
@@ -406,7 +406,7 @@ func (o *Operation) ProposeCredential(rw http.ResponseWriter, req *http.Request)
 // RequestCredential swagger:route POST /vcwallet/request-credential vcwallet requestCredReq
 //
 // Sends request credential message from wallet to issuer and optionally waits for credential fulfillment.
-// https://w3c-ccg.github.io/universal-wallet-interop-spec/#proposecredential
+// https://w3c-ccg.github.io/universal-wallet-interop-spec/#requestcredential
 //
 // Currently Supporting : 0453-issueCredentialV2
 // https://github.com/hyperledger/aries-rfcs/blob/main/features/0453-issue-credential-v2/README.md

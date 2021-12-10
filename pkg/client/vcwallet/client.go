@@ -408,10 +408,10 @@ func (c *Client) ProposePresentation(invitation *wallet.GenericInvitation, optio
 // 		- presentation: presentation to be sent.
 //
 // Returns:
-// 		- present proof status including web redirect info.
+// 		- Credential interaction status containing status, redirectURL.
 // 		- error if operation fails.
 //
-func (c *Client) PresentProof(thID string, presentProofFrom ...wallet.ConcludeInteractionOptions) (*wallet.PresentProofStatus, error) { //nolint: lll
+func (c *Client) PresentProof(thID string, presentProofFrom ...wallet.ConcludeInteractionOptions) (*wallet.CredentialInteractionStatus, error) { //nolint: lll
 	auth, err := c.auth()
 	if err != nil {
 		return nil, err
@@ -434,7 +434,7 @@ func (c *Client) PresentProof(thID string, presentProofFrom ...wallet.ConcludeIn
 // 		- DIDCommMsgMap containing offer credential message if operation is successful.
 // 		- error if operation fails.
 //
-func (c *Client) ProposeCredential(invitation *outofband.Invitation, options ...wallet.InitiateInteractionOption) (*service.DIDCommMsgMap, error) { // nolint: lll
+func (c *Client) ProposeCredential(invitation *wallet.GenericInvitation, options ...wallet.InitiateInteractionOption) (*service.DIDCommMsgMap, error) { // nolint: lll
 	auth, err := c.auth()
 	if err != nil {
 		return nil, err
@@ -455,10 +455,10 @@ func (c *Client) ProposeCredential(invitation *outofband.Invitation, options ...
 // 		- concludeInteractionOptions: options to conclude interaction like presentation to be shared etc.
 //
 // Returns:
-// 		- RequestCredentialStatus containing status, redirectURL, credential fullfillment attachments.
+// 		- Credential interaction status containing status, redirectURL.
 // 		- error if operation fails.
 //
-func (c *Client) RequestCredential(thID string, options ...wallet.ConcludeInteractionOptions) (*wallet.RequestCredentialStatus, error) { // nolint: lll
+func (c *Client) RequestCredential(thID string, options ...wallet.ConcludeInteractionOptions) (*wallet.CredentialInteractionStatus, error) { // nolint: lll
 	auth, err := c.auth()
 	if err != nil {
 		return nil, err

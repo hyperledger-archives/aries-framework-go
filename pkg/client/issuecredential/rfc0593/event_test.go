@@ -50,8 +50,8 @@ func TestAutoExecute(t *testing.T) { // nolint:gocyclo
 		}{
 			{
 				label: "handles proposals",
-				check: func(md *issuecredential.MetaData) { require.NotEmpty(t, md.OfferCredential()) },
-				msg: &issuecredential.ProposeCredential{
+				check: func(md *issuecredential.MetaData) { require.NotEmpty(t, md.OfferCredentialV2()) },
+				msg: &issuecredential.ProposeCredentialV2{
 					Type: issuecredential.ProposeCredentialMsgTypeV2,
 					Formats: []issuecredential.Format{{
 						AttachID: "123",
@@ -67,8 +67,8 @@ func TestAutoExecute(t *testing.T) { // nolint:gocyclo
 			},
 			{
 				label: "handles offers",
-				check: func(md *issuecredential.MetaData) { require.NotEmpty(t, md.RequestCredential()) },
-				msg: &issuecredential.OfferCredential{
+				check: func(md *issuecredential.MetaData) { require.NotEmpty(t, md.RequestCredentialV2()) },
+				msg: &issuecredential.OfferCredentialV2{
 					Type: issuecredential.OfferCredentialMsgTypeV2,
 					Formats: []issuecredential.Format{{
 						AttachID: "123",
@@ -84,8 +84,8 @@ func TestAutoExecute(t *testing.T) { // nolint:gocyclo
 			},
 			{
 				label: "handles requests",
-				check: func(md *issuecredential.MetaData) { require.NotEmpty(t, md.IssueCredential()) },
-				msg: &issuecredential.RequestCredential{
+				check: func(md *issuecredential.MetaData) { require.NotEmpty(t, md.IssueCredentialV2()) },
+				msg: &issuecredential.RequestCredentialV2{
 					Type: issuecredential.RequestCredentialMsgTypeV2,
 					Formats: []issuecredential.Format{{
 						AttachID: "123",
@@ -183,7 +183,7 @@ func TestAutoExecute(t *testing.T) { // nolint:gocyclo
 
 		go rfc0593.AutoExecute(agent(t), next)(events)
 
-		expected := &issuecredential.RequestCredential{
+		expected := &issuecredential.RequestCredentialV2{
 			Type:    issuecredential.RequestCredentialMsgTypeV2,
 			Comment: uuid.New().String(),
 			RequestsAttach: []decorator.Attachment{{
@@ -204,7 +204,7 @@ func TestAutoExecute(t *testing.T) { // nolint:gocyclo
 		case <-time.After(time.Second):
 			require.Fail(t, "timeout")
 		case event := <-next:
-			result := &issuecredential.RequestCredential{}
+			result := &issuecredential.RequestCredentialV2{}
 
 			err := event.Message.Decode(result)
 			require.NoError(t, err)
@@ -221,7 +221,7 @@ func TestAutoExecute(t *testing.T) { // nolint:gocyclo
 
 		go func() {
 			events <- service.DIDCommAction{
-				Message: service.NewDIDCommMsgMap(&issuecredential.RequestCredential{
+				Message: service.NewDIDCommMsgMap(&issuecredential.RequestCredentialV2{
 					Type:    issuecredential.RequestCredentialMsgTypeV2,
 					Comment: uuid.New().String(),
 					Formats: []issuecredential.Format{{
@@ -267,7 +267,7 @@ func TestAutoExecute(t *testing.T) { // nolint:gocyclo
 
 		go func() {
 			events <- service.DIDCommAction{
-				Message: service.NewDIDCommMsgMap(&issuecredential.RequestCredential{
+				Message: service.NewDIDCommMsgMap(&issuecredential.RequestCredentialV2{
 					Type:    issuecredential.RequestCredentialMsgTypeV2,
 					Comment: uuid.New().String(),
 					Formats: []issuecredential.Format{{
@@ -314,7 +314,7 @@ func TestReplayProposal(t *testing.T) {
 			},
 		}
 
-		arg, options, err := rfc0593.ReplayProposal(agent(t), service.NewDIDCommMsgMap(&issuecredential.ProposeCredential{
+		arg, options, err := rfc0593.ReplayProposal(agent(t), service.NewDIDCommMsgMap(&issuecredential.ProposeCredentialV2{
 			Type: issuecredential.ProposeCredentialMsgTypeV2,
 			Formats: []issuecredential.Format{{
 				AttachID: "123",
@@ -336,11 +336,11 @@ func TestReplayProposal(t *testing.T) {
 		md := &issuecredential.MetaData{}
 		opt(md)
 
-		require.NotEmpty(t, md.OfferCredential())
+		require.NotEmpty(t, md.OfferCredentialV2())
 		require.Equal(t,
 			expected,
 			extractPayload(t,
-				rfc0593.ProofVCDetailFormat, md.OfferCredential().Formats, md.OfferCredential().OffersAttach),
+				rfc0593.ProofVCDetailFormat, md.OfferCredentialV2().Formats, md.OfferCredentialV2().OffersAttach),
 		)
 	})
 
@@ -348,7 +348,7 @@ func TestReplayProposal(t *testing.T) {
 		spec := randomCredSpec(t)
 		spec.Template = nil
 
-		_, _, err := rfc0593.ReplayProposal(agent(t), service.NewDIDCommMsgMap(&issuecredential.ProposeCredential{
+		_, _, err := rfc0593.ReplayProposal(agent(t), service.NewDIDCommMsgMap(&issuecredential.ProposeCredentialV2{
 			Type: issuecredential.ProposeCredentialMsgTypeV2,
 			Formats: []issuecredential.Format{{
 				AttachID: "123",
@@ -380,7 +380,7 @@ func TestReplayOffer(t *testing.T) {
 			},
 		}
 
-		arg, options, err := rfc0593.ReplayOffer(agent(t), service.NewDIDCommMsgMap(&issuecredential.OfferCredential{
+		arg, options, err := rfc0593.ReplayOffer(agent(t), service.NewDIDCommMsgMap(&issuecredential.OfferCredentialV2{
 			Type: issuecredential.OfferCredentialMsgTypeV2,
 			Formats: []issuecredential.Format{{
 				AttachID: "123",
@@ -402,11 +402,11 @@ func TestReplayOffer(t *testing.T) {
 		md := &issuecredential.MetaData{}
 		opt(md)
 
-		require.NotEmpty(t, md.RequestCredential())
+		require.NotEmpty(t, md.RequestCredentialV2())
 		require.Equal(t,
 			expected,
 			extractPayload(t,
-				rfc0593.ProofVCDetailFormat, md.RequestCredential().Formats, md.RequestCredential().RequestsAttach),
+				rfc0593.ProofVCDetailFormat, md.RequestCredentialV2().Formats, md.RequestCredentialV2().RequestsAttach),
 		)
 	})
 
@@ -414,7 +414,7 @@ func TestReplayOffer(t *testing.T) {
 		spec := randomCredSpec(t)
 		spec.Template = nil
 
-		_, _, err := rfc0593.ReplayOffer(agent(t), service.NewDIDCommMsgMap(&issuecredential.OfferCredential{
+		_, _, err := rfc0593.ReplayOffer(agent(t), service.NewDIDCommMsgMap(&issuecredential.OfferCredentialV2{
 			Type: issuecredential.OfferCredentialMsgTypeV2,
 			Formats: []issuecredential.Format{{
 				AttachID: "123",
@@ -449,7 +449,7 @@ func TestIssueCredential(t *testing.T) {
 				},
 			}
 
-			arg, options, err := rfc0593.IssueCredential(agent, service.NewDIDCommMsgMap(&issuecredential.RequestCredential{
+			arg, options, err := rfc0593.IssueCredential(agent, service.NewDIDCommMsgMap(&issuecredential.RequestCredentialV2{
 				Type: issuecredential.RequestCredentialMsgTypeV2,
 				Formats: []issuecredential.Format{{
 					AttachID: "123",
@@ -471,10 +471,10 @@ func TestIssueCredential(t *testing.T) {
 			md := &issuecredential.MetaData{}
 			opt(md)
 
-			require.NotEmpty(t, md.IssueCredential())
-			require.NotEmpty(t, md.IssueCredential().CredentialsAttach)
+			require.NotEmpty(t, md.IssueCredentialV2())
+			require.NotEmpty(t, md.IssueCredentialV2().CredentialsAttach)
 
-			raw, err := md.IssueCredential().CredentialsAttach[0].Data.Fetch()
+			raw, err := md.IssueCredentialV2().CredentialsAttach[0].Data.Fetch()
 			require.NoError(t, err)
 
 			verifiableCredential, err := verifiable.ParseCredential(
@@ -506,7 +506,7 @@ func TestIssueCredential(t *testing.T) {
 				},
 			}
 
-			arg, options, err := rfc0593.IssueCredential(agent, service.NewDIDCommMsgMap(&issuecredential.RequestCredential{
+			arg, options, err := rfc0593.IssueCredential(agent, service.NewDIDCommMsgMap(&issuecredential.RequestCredentialV2{
 				Type: issuecredential.RequestCredentialMsgTypeV2,
 				Formats: []issuecredential.Format{{
 					AttachID: "123",
@@ -528,10 +528,10 @@ func TestIssueCredential(t *testing.T) {
 			md := &issuecredential.MetaData{}
 			opt(md)
 
-			require.NotEmpty(t, md.IssueCredential())
-			require.NotEmpty(t, md.IssueCredential().CredentialsAttach)
+			require.NotEmpty(t, md.IssueCredentialV2())
+			require.NotEmpty(t, md.IssueCredentialV2().CredentialsAttach)
 
-			raw, err := md.IssueCredential().CredentialsAttach[0].Data.Fetch()
+			raw, err := md.IssueCredentialV2().CredentialsAttach[0].Data.Fetch()
 			require.NoError(t, err)
 
 			verifiableCredential, err := verifiable.ParseCredential(
@@ -552,7 +552,7 @@ func TestIssueCredential(t *testing.T) {
 		spec := randomCredSpec(t)
 		spec.Template = nil
 
-		_, _, err := rfc0593.IssueCredential(agent(t), service.NewDIDCommMsgMap(&issuecredential.RequestCredential{
+		_, _, err := rfc0593.IssueCredential(agent(t), service.NewDIDCommMsgMap(&issuecredential.RequestCredentialV2{
 			Type: issuecredential.RequestCredentialMsgTypeV2,
 			Formats: []issuecredential.Format{{
 				AttachID: "123",
@@ -573,7 +573,7 @@ func TestIssueCredential(t *testing.T) {
 		spec := randomCredSpec(t)
 		spec.Options.ProofType = "UNSUPPORTED"
 
-		_, _, err := rfc0593.IssueCredential(agent(t), service.NewDIDCommMsgMap(&issuecredential.RequestCredential{
+		_, _, err := rfc0593.IssueCredential(agent(t), service.NewDIDCommMsgMap(&issuecredential.RequestCredentialV2{
 			Type: issuecredential.RequestCredentialMsgTypeV2,
 			Formats: []issuecredential.Format{{
 				AttachID: "123",
@@ -601,7 +601,7 @@ func TestIssueCredential(t *testing.T) {
 			sp:     mem.NewProvider(),
 		}
 
-		_, _, err := rfc0593.IssueCredential(provider, service.NewDIDCommMsgMap(&issuecredential.RequestCredential{
+		_, _, err := rfc0593.IssueCredential(provider, service.NewDIDCommMsgMap(&issuecredential.RequestCredentialV2{
 			Type: issuecredential.RequestCredentialMsgTypeV2,
 			Formats: []issuecredential.Format{{
 				AttachID: "123",
@@ -624,7 +624,7 @@ func TestVerifyCredential(t *testing.T) {
 		spec := randomCredSpec(t)
 		name := uuid.New().String()
 		attachID := uuid.New().String()
-		msg := service.NewDIDCommMsgMap(&issuecredential.IssueCredential{
+		msg := service.NewDIDCommMsgMap(&issuecredential.IssueCredentialV2{
 			Type: issuecredential.IssueCredentialMsgTypeV2,
 			Formats: []issuecredential.Format{{
 				AttachID: attachID,
@@ -657,7 +657,7 @@ func TestVerifyCredential(t *testing.T) {
 		t.Skip()
 		agent := agent(t)
 		attachID := uuid.New().String()
-		msg := service.NewDIDCommMsgMap(&issuecredential.IssueCredential{
+		msg := service.NewDIDCommMsgMap(&issuecredential.IssueCredentialV2{
 			Type: issuecredential.IssueCredentialMsgTypeV2,
 			Formats: []issuecredential.Format{{
 				AttachID: attachID,

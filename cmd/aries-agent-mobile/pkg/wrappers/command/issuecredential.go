@@ -31,7 +31,7 @@ func (ic *IssueCredential) Actions(request *models.RequestEnvelope) *models.Resp
 
 // SendOffer is used by the Issuer to send an offer.
 func (ic *IssueCredential) SendOffer(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	args := cmdisscred.SendOfferArgs{}
+	args := cmdisscred.SendOfferArgsV2{}
 
 	if err := json.Unmarshal(request.Payload, &args); err != nil {
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
@@ -47,7 +47,7 @@ func (ic *IssueCredential) SendOffer(request *models.RequestEnvelope) *models.Re
 
 // SendProposal is used by the Holder to send a proposal.
 func (ic *IssueCredential) SendProposal(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	args := cmdisscred.SendProposalArgs{}
+	args := cmdisscred.SendProposalArgsV2{}
 
 	if err := json.Unmarshal(request.Payload, &args); err != nil {
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
@@ -63,7 +63,7 @@ func (ic *IssueCredential) SendProposal(request *models.RequestEnvelope) *models
 
 // SendRequest is used by the Holder to send a request.
 func (ic *IssueCredential) SendRequest(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	args := cmdisscred.SendRequestArgs{}
+	args := cmdisscred.SendRequestArgsV2{}
 
 	if err := json.Unmarshal(request.Payload, &args); err != nil {
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
@@ -79,7 +79,7 @@ func (ic *IssueCredential) SendRequest(request *models.RequestEnvelope) *models.
 
 // AcceptProposal is used when the Issuer is willing to accept the proposal.
 func (ic *IssueCredential) AcceptProposal(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	args := cmdisscred.AcceptProposalArgs{}
+	args := cmdisscred.AcceptProposalArgsV2{}
 
 	if err := json.Unmarshal(request.Payload, &args); err != nil {
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
@@ -95,7 +95,7 @@ func (ic *IssueCredential) AcceptProposal(request *models.RequestEnvelope) *mode
 
 // NegotiateProposal is used when the Holder wants to negotiate about an offer he received.
 func (ic *IssueCredential) NegotiateProposal(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	args := cmdisscred.NegotiateProposalArgs{}
+	args := cmdisscred.NegotiateProposalArgsV2{}
 
 	if err := json.Unmarshal(request.Payload, &args); err != nil {
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
@@ -175,7 +175,7 @@ func (ic *IssueCredential) DeclineOffer(request *models.RequestEnvelope) *models
 
 // AcceptRequest is used when the Issuer is willing to accept the request.
 func (ic *IssueCredential) AcceptRequest(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	args := cmdisscred.AcceptRequestArgs{}
+	args := cmdisscred.AcceptRequestArgsV2{}
 
 	if err := json.Unmarshal(request.Payload, &args); err != nil {
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}

@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package credentialmanifest_test
+package cm_test
 
 import (
 	_ "embed"
@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/credentialmanifest"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/cm"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
 
@@ -33,7 +33,7 @@ func TestCredentialFulfillment_Unmarshal(t *testing.T) {
 	t.Run("Missing ID", func(t *testing.T) {
 		credentialFulfillmentBytes := makeCredentialFulfillmentWithMissingID(t)
 
-		var credentialFulfillment credentialmanifest.CredentialFulfillment
+		var credentialFulfillment cm.CredentialFulfillment
 
 		err := json.Unmarshal(credentialFulfillmentBytes, &credentialFulfillment)
 		require.EqualError(t, err, "invalid Credential Fulfillment: missing ID")
@@ -41,7 +41,7 @@ func TestCredentialFulfillment_Unmarshal(t *testing.T) {
 	t.Run("Missing Manifest ID", func(t *testing.T) {
 		credentialFulfillmentBytes := makeCredentialFulfillmentWithMissingManifestID(t)
 
-		var credentialFulfillment credentialmanifest.CredentialFulfillment
+		var credentialFulfillment cm.CredentialFulfillment
 
 		err := json.Unmarshal(credentialFulfillmentBytes, &credentialFulfillment)
 		require.EqualError(t, err, "invalid Credential Fulfillment: missing manifest ID")
@@ -95,8 +95,8 @@ func TestCredentialFulfillment_ResolveDescriptorMap(t *testing.T) {
 	})
 }
 
-func makeValidCredentialFulfillment(t *testing.T) credentialmanifest.CredentialFulfillment {
-	var credentialFulfillment credentialmanifest.CredentialFulfillment
+func makeValidCredentialFulfillment(t *testing.T) cm.CredentialFulfillment {
+	var credentialFulfillment cm.CredentialFulfillment
 
 	err := json.Unmarshal(validCredentialFulfillment, &credentialFulfillment)
 	require.NoError(t, err)
@@ -155,7 +155,7 @@ func makeCredentialFulfillmentWithMissingManifestID(t *testing.T) []byte {
 	return credentialFulfillmentBytes
 }
 
-func makeCredentialFulfillmentWithInvalidJSONPath(t *testing.T) credentialmanifest.CredentialFulfillment {
+func makeCredentialFulfillmentWithInvalidJSONPath(t *testing.T) cm.CredentialFulfillment {
 	credentialFulfillment := makeValidCredentialFulfillment(t)
 
 	credentialFulfillment.OutputDescriptorMappingObjects[0].Path = invalidJSONPath

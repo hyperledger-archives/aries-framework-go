@@ -117,18 +117,18 @@ func (mr *MockMetadataMockRecorder) CredentialNames() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CredentialNames", reflect.TypeOf((*MockMetadata)(nil).CredentialNames))
 }
 
-// IssueCredential mocks base method.
-func (m *MockMetadata) IssueCredential() *issuecredential.IssueCredential {
+// IssueCredentialV2 mocks base method.
+func (m *MockMetadata) IssueCredentialV2() *issuecredential.IssueCredentialV2 {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IssueCredential")
-	ret0, _ := ret[0].(*issuecredential.IssueCredential)
+	ret := m.ctrl.Call(m, "IssueCredentialV2")
+	ret0, _ := ret[0].(*issuecredential.IssueCredentialV2)
 	return ret0
 }
 
-// IssueCredential indicates an expected call of IssueCredential.
-func (mr *MockMetadataMockRecorder) IssueCredential() *gomock.Call {
+// IssueCredentialV2 indicates an expected call of IssueCredentialV2.
+func (mr *MockMetadataMockRecorder) IssueCredentialV2() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IssueCredential", reflect.TypeOf((*MockMetadata)(nil).IssueCredential))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IssueCredentialV2", reflect.TypeOf((*MockMetadata)(nil).IssueCredentialV2))
 }
 
 // Message mocks base method.
@@ -145,18 +145,18 @@ func (mr *MockMetadataMockRecorder) Message() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Message", reflect.TypeOf((*MockMetadata)(nil).Message))
 }
 
-// OfferCredential mocks base method.
-func (m *MockMetadata) OfferCredential() *issuecredential.OfferCredential {
+// OfferCredentialV2 mocks base method.
+func (m *MockMetadata) OfferCredentialV2() *issuecredential.OfferCredentialV2 {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "OfferCredential")
-	ret0, _ := ret[0].(*issuecredential.OfferCredential)
+	ret := m.ctrl.Call(m, "OfferCredentialV2")
+	ret0, _ := ret[0].(*issuecredential.OfferCredentialV2)
 	return ret0
 }
 
-// OfferCredential indicates an expected call of OfferCredential.
-func (mr *MockMetadataMockRecorder) OfferCredential() *gomock.Call {
+// OfferCredentialV2 indicates an expected call of OfferCredentialV2.
+func (mr *MockMetadataMockRecorder) OfferCredentialV2() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OfferCredential", reflect.TypeOf((*MockMetadata)(nil).OfferCredential))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OfferCredentialV2", reflect.TypeOf((*MockMetadata)(nil).OfferCredentialV2))
 }
 
 // Properties mocks base method.
@@ -173,32 +173,32 @@ func (mr *MockMetadataMockRecorder) Properties() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Properties", reflect.TypeOf((*MockMetadata)(nil).Properties))
 }
 
-// ProposeCredential mocks base method.
-func (m *MockMetadata) ProposeCredential() *issuecredential.ProposeCredential {
+// ProposeCredentialV2 mocks base method.
+func (m *MockMetadata) ProposeCredentialV2() *issuecredential.ProposeCredentialV2 {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ProposeCredential")
-	ret0, _ := ret[0].(*issuecredential.ProposeCredential)
+	ret := m.ctrl.Call(m, "ProposeCredentialV2")
+	ret0, _ := ret[0].(*issuecredential.ProposeCredentialV2)
 	return ret0
 }
 
-// ProposeCredential indicates an expected call of ProposeCredential.
-func (mr *MockMetadataMockRecorder) ProposeCredential() *gomock.Call {
+// ProposeCredentialV2 indicates an expected call of ProposeCredentialV2.
+func (mr *MockMetadataMockRecorder) ProposeCredentialV2() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProposeCredential", reflect.TypeOf((*MockMetadata)(nil).ProposeCredential))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProposeCredentialV2", reflect.TypeOf((*MockMetadata)(nil).ProposeCredentialV2))
 }
 
-// RequestCredential mocks base method.
-func (m *MockMetadata) RequestCredential() *issuecredential.RequestCredential {
+// RequestCredentialV2 mocks base method.
+func (m *MockMetadata) RequestCredentialV2() *issuecredential.RequestCredentialV2 {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RequestCredential")
-	ret0, _ := ret[0].(*issuecredential.RequestCredential)
+	ret := m.ctrl.Call(m, "RequestCredentialV2")
+	ret0, _ := ret[0].(*issuecredential.RequestCredentialV2)
 	return ret0
 }
 
-// RequestCredential indicates an expected call of RequestCredential.
-func (mr *MockMetadataMockRecorder) RequestCredential() *gomock.Call {
+// RequestCredentialV2 indicates an expected call of RequestCredentialV2.
+func (mr *MockMetadataMockRecorder) RequestCredentialV2() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RequestCredential", reflect.TypeOf((*MockMetadata)(nil).RequestCredential))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RequestCredentialV2", reflect.TypeOf((*MockMetadata)(nil).RequestCredentialV2))
 }
 
 // StateName mocks base method.

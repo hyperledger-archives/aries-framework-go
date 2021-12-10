@@ -76,7 +76,7 @@ func TestSaveCredentials(t *testing.T) {
 	t.Run("Credentials not provided", func(t *testing.T) {
 		metadata := mocks.NewMockMetadata(ctrl)
 		metadata.EXPECT().StateName().Return(stateNameCredentialReceived)
-		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredential{
+		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredentialV2{
 			Type: issuecredential.IssueCredentialMsgTypeV2,
 		}))
 		metadata.EXPECT().Properties().Return(map[string]interface{}{
@@ -91,7 +91,7 @@ func TestSaveCredentials(t *testing.T) {
 	t.Run("Marshal credentials error", func(t *testing.T) {
 		metadata := mocks.NewMockMetadata(ctrl)
 		metadata.EXPECT().StateName().Return(stateNameCredentialReceived)
-		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredential{
+		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredentialV2{
 			Type: issuecredential.IssueCredentialMsgTypeV2,
 			CredentialsAttach: []decorator.Attachment{
 				{Data: decorator.AttachmentData{JSON: struct{ C chan int }{}}},
@@ -122,7 +122,7 @@ func TestSaveCredentials(t *testing.T) {
 	t.Run("Invalid credentials", func(t *testing.T) {
 		metadata := mocks.NewMockMetadata(ctrl)
 		metadata.EXPECT().StateName().Return(stateNameCredentialReceived)
-		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredential{
+		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredentialV2{
 			Type: issuecredential.IssueCredentialMsgTypeV2,
 			CredentialsAttach: []decorator.Attachment{
 				{Data: decorator.AttachmentData{JSON: &verifiable.Credential{
@@ -152,7 +152,7 @@ func TestSaveCredentials(t *testing.T) {
 			myDIDKey:    myDIDKey,
 			theirDIDKey: theirDIDKey,
 		})
-		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredential{
+		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredentialV2{
 			Type: issuecredential.IssueCredentialMsgTypeV2,
 			CredentialsAttach: []decorator.Attachment{
 				{Data: decorator.AttachmentData{JSON: getCredential()}},
@@ -178,7 +178,7 @@ func TestSaveCredentials(t *testing.T) {
 		metadata := mocks.NewMockMetadata(ctrl)
 		metadata.EXPECT().StateName().Return(stateNameCredentialReceived)
 		metadata.EXPECT().Properties().Return(map[string]interface{}{})
-		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredential{
+		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredentialV2{
 			Type: issuecredential.IssueCredentialMsgTypeV2,
 			CredentialsAttach: []decorator.Attachment{
 				{Data: decorator.AttachmentData{JSON: getCredential()}},
@@ -208,7 +208,7 @@ func TestSaveCredentials(t *testing.T) {
 		metadata.EXPECT().StateName().Return(stateNameCredentialReceived)
 		metadata.EXPECT().CredentialNames().Return([]string{vcName}).Times(2)
 		metadata.EXPECT().Properties().Return(props)
-		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredential{
+		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredentialV2{
 			Type: issuecredential.IssueCredentialMsgTypeV2,
 			CredentialsAttach: []decorator.Attachment{
 				{Data: decorator.AttachmentData{JSON: getCredential()}},
@@ -293,7 +293,7 @@ func TestSaveCredentials(t *testing.T) {
 		metadata.EXPECT().StateName().Return(stateNameCredentialReceived)
 		metadata.EXPECT().CredentialNames().Return([]string{})
 		metadata.EXPECT().Properties().Return(props)
-		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredential{
+		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredentialV2{
 			Type: issuecredential.IssueCredentialMsgTypeV2,
 			CredentialsAttach: []decorator.Attachment{
 				{Data: decorator.AttachmentData{JSON: cred}},
@@ -366,7 +366,7 @@ func TestSaveCredentials(t *testing.T) {
 		metadata.EXPECT().StateName().Return(stateNameCredentialReceived)
 		metadata.EXPECT().CredentialNames().Return([]string{vcName}).Times(2)
 		metadata.EXPECT().Properties().Return(props)
-		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredential{
+		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredentialV2{
 			Type: issuecredential.IssueCredentialMsgTypeV2,
 			CredentialsAttach: []decorator.Attachment{
 				{Data: decorator.AttachmentData{JSON: credential}},

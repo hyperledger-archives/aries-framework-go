@@ -100,7 +100,7 @@ func (h *handler) Handle(md issuecredential.Metadata) error {
 
 	switch md.Message().Type() {
 	case issuecredential.RequestCredentialMsgTypeV2:
-		p := &issuecredential.RequestCredential{}
+		p := &issuecredential.RequestCredentialV2{}
 		err = md.Message().Decode(p)
 		formats = p.Formats
 		attachments = p.RequestsAttach
