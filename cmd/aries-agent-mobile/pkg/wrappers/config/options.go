@@ -10,6 +10,7 @@ import (
 	"github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/api"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/msghandler"
 )
 
 // Options represents configurations for Aries.
@@ -24,6 +25,7 @@ type Options struct {
 	Logger               api.LoggerProvider
 	Storage              api.Provider
 	DocumentLoader       ld.DocumentLoader
+	MsgHandler           *msghandler.Registrar
 
 	// expected to be ignored by gomobile
 	// not intended to be used by golang code
