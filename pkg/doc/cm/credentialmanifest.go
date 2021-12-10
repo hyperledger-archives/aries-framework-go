@@ -4,9 +4,9 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-// Package credentialmanifest contains methods that are useful for parsing and validating the objects defined in
-// https://identity.foundation/credential-manifest.
-package credentialmanifest
+// Package cm contains methods that are useful for parsing and validating the objects defined in the Credential Manifest
+// spec: https://identity.foundation/credential-manifest.
+package cm
 
 import (
 	"encoding/json"
