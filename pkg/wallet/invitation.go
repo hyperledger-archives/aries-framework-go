@@ -38,7 +38,7 @@ type GenericInvitation struct {
 	Type      string                        `json:"type"`
 	Label     string                        `json:"label,omitempty"`
 	Goal      string                        `json:"goal,omitempty"`
-	GoalCode  string                        `json:"goal_code,omitempty"`
+	GoalCode  string                        `json:"goal-code,omitempty"`
 	Services  []interface{}                 `json:"services"`
 	Accept    []string                      `json:"accept,omitempty"`
 	Protocols []string                      `json:"handshake_protocols,omitempty"`
