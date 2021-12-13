@@ -50,6 +50,7 @@ all: clean dependencies unit-test bindings
 
 .PHONY: clean
 clean: clean-build
+	@rm -f coverage.out
 
 .PHONY: clean-build
 clean-build: clean-android clean-ios
@@ -99,5 +100,5 @@ unit-test:
 	@echo '----------------------------------------'
 	@echo '   Running unit tests                   '
 	@echo '----------------------------------------'
-	@go test $(MOBILE_BUILD_PACKAGES) -count=1 -race -timeout=10m -cover
+	@./check_unit.sh
 	

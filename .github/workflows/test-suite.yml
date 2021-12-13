@@ -26,10 +26,10 @@ jobs:
     timeout-minutes: 10
     steps:
 
-    - name: Setup Go 1.16
+    - name: Setup Go 1.17
       uses: actions/setup-go@v2
       with:
-        go-version: 1.16
+        go-version: 1.17
       id: go
 
     - name: Setup node
