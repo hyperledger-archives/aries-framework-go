@@ -20,6 +20,6 @@ type Invitation struct {
 // InvitationBody contains invitation's goal and accept headers.
 type InvitationBody struct {
 	Goal     string   `json:"goal,omitempty"`
-	GoalCode string   `json:"goal_code,omitempty"`
+	GoalCode string   `json:"goal-code,omitempty"`
 	Accept   []string `json:"accept,omitempty"`
 }
