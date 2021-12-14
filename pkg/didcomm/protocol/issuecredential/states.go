@@ -446,7 +446,8 @@ func (s *offerReceived) ExecuteInbound(md *MetaData) (state, stateAction, error)
 			Attachments: offer.Attachments,
 		}
 
-		if md.RequestCredentialV3() != nil {
+		req := md.RequestCredentialV3()
+		if req != nil && req.notEmpty() {
 			response = md.RequestCredentialV3()
 			response.Type = RequestCredentialMsgTypeV3
 		}
@@ -468,7 +469,8 @@ func (s *offerReceived) ExecuteInbound(md *MetaData) (state, stateAction, error)
 			RequestsAttach: offer.OffersAttach,
 		}
 
-		if md.RequestCredentialV2() != nil {
+		req := md.RequestCredentialV2()
+		if req != nil && req.notEmpty() {
 			response = md.RequestCredentialV2()
 			response.Type = RequestCredentialMsgTypeV2
 		}
