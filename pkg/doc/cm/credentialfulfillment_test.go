@@ -16,14 +16,22 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/cm"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 )
 
 var (
-	//go:embed testdata/valid_credential_fulfillment.json
+	//go:embed testdata/credential_fulfillment_university_degree.json
 	validCredentialFulfillment []byte //nolint:gochecknoglobals
-	//go:embed testdata/valid_issue_credential_message.json
+	//go:embed testdata/issue_credential_message_university_degree.json
 	validIssueCredentialMessage []byte //nolint:gochecknoglobals
+	//go:embed testdata/verifiable_presentation_drivers_license_without_credential_fulfillment.json
+	verifiablePresentationWithoutCredentialFulfillment []byte //nolint:gochecknoglobals
+	//go:embed testdata/verifiable_presentation_drivers_license_with_credential_fulfillment.json
+	verifiablePresentationWithCredentialFulfillment []byte //nolint:gochecknoglobals
+	//go:embed testdata/verifiable_presentation_basic_with_credential_fulfillment.json
+	verifiablePresentationBasicWithCredentialFulfillment []byte //nolint:gochecknoglobals
 )
 
 func TestCredentialFulfillment_Unmarshal(t *testing.T) {
@@ -93,6 +101,107 @@ func TestCredentialFulfillment_ResolveDescriptorMap(t *testing.T) {
 			"into Go value of type map[string]interface {}")
 		require.Nil(t, verifiableCredentials)
 	})
+}
+
+func TestAddCredentialFulfillmentToPresentation(t *testing.T) {
+	t.Run("Without using WithExistingPresentation option", func(t *testing.T) {
+		credentialManifest := makeCredentialManifestFromBytes(t, validCredentialManifestDriversLicense)
+
+		presentation, err := cm.PresentCredentialFulfillment(&credentialManifest)
+		require.NoError(t, err)
+		require.NotNil(t, presentation)
+
+		loader, err := ldtestutil.DocumentLoader()
+		require.NoError(t, err)
+
+		expectedPresentation, err := verifiable.ParsePresentation(verifiablePresentationBasicWithCredentialFulfillment,
+			verifiable.WithPresDisabledProofCheck(),
+			verifiable.WithPresJSONLDDocumentLoader(loader))
+		require.NoError(t, err)
+
+		reunmarshalledPresentation := marshalThenUnmarshalAgain(t, presentation, loader)
+
+		makeCredentialFulfillmentIDsTheSame(t, reunmarshalledPresentation, expectedPresentation)
+		require.True(t, reflect.DeepEqual(reunmarshalledPresentation, expectedPresentation),
+			"the presentation with a Credential Fulfillment added to it differs from what was expected")
+	})
+	t.Run("Using WithExistingPresentation option", func(t *testing.T) {
+		t.Run("CustomFields is not nil", func(t *testing.T) {
+			loader, err := ldtestutil.DocumentLoader()
+			require.NoError(t, err)
+
+			presentation, err := verifiable.ParsePresentation(verifiablePresentationWithoutCredentialFulfillment,
+				verifiable.WithPresDisabledProofCheck(),
+				verifiable.WithPresJSONLDDocumentLoader(loader))
+			require.NoError(t, err)
+
+			doPresentCredentialFulfillmentTestWithExistingPresentation(t, presentation, loader)
+		})
+		t.Run("CustomFields is nil", func(t *testing.T) {
+			loader, err := ldtestutil.DocumentLoader()
+			require.NoError(t, err)
+
+			presentation, err := verifiable.ParsePresentation(verifiablePresentationWithoutCredentialFulfillment,
+				verifiable.WithPresDisabledProofCheck(),
+				verifiable.WithPresJSONLDDocumentLoader(loader))
+			require.NoError(t, err)
+
+			presentation.CustomFields = nil
+
+			doPresentCredentialFulfillmentTestWithExistingPresentation(t, presentation, loader)
+		})
+	})
+}
+
+func doPresentCredentialFulfillmentTestWithExistingPresentation(t *testing.T,
+	presentationToAddCredentialFulfillmentTo *verifiable.Presentation, loader *ld.DocumentLoader) {
+	credentialManifest := makeCredentialManifestFromBytes(t, validCredentialManifestDriversLicense)
+
+	presentationWithAddedCredentialFulfillment, err := cm.PresentCredentialFulfillment(&credentialManifest,
+		cm.WithExistingPresentation(presentationToAddCredentialFulfillmentTo))
+	require.NoError(t, err)
+
+	expectedPresentation, err := verifiable.ParsePresentation(verifiablePresentationWithCredentialFulfillment,
+		verifiable.WithPresDisabledProofCheck(),
+		verifiable.WithPresJSONLDDocumentLoader(loader))
+	require.NoError(t, err)
+
+	reunmarshalledPresentation := marshalThenUnmarshalAgain(t, presentationWithAddedCredentialFulfillment, loader)
+
+	makeCredentialFulfillmentIDsTheSame(t, reunmarshalledPresentation, expectedPresentation)
+
+	require.True(t, reflect.DeepEqual(reunmarshalledPresentation, expectedPresentation),
+		"the presentation with a Credential Fulfillment added to it differs from what was expected")
+}
+
+// The credential Fulfillment ID is randomly generated in the PresentCredentialFulfillment method, so this method
+// is useful for allowing two presentations created by that method to be compared using reflect.DeepEqual.
+func makeCredentialFulfillmentIDsTheSame(t *testing.T, reunmarshalledPresentation,
+	expectedPresentation *verifiable.Presentation) {
+	credentialFulfillmentFromPresentation, ok :=
+		reunmarshalledPresentation.CustomFields["credential_fulfillment"].(map[string]interface{})
+	require.True(t, ok)
+
+	credentialFulfillmentFromExpectedPresentation, ok :=
+		expectedPresentation.CustomFields["credential_fulfillment"].(map[string]interface{})
+	require.True(t, ok)
+
+	credentialFulfillmentFromExpectedPresentation["id"] = credentialFulfillmentFromPresentation["id"]
+}
+
+// Marshals the presentation and then unmarshals it again so that the type of the custom fields matches the type of
+// the expected presentation - this allows us to use reflect.DeepEqual to compare them.
+func marshalThenUnmarshalAgain(t *testing.T, presentation *verifiable.Presentation,
+	loader *ld.DocumentLoader) *verifiable.Presentation {
+	presentationBytes, err := json.Marshal(presentation)
+	require.NoError(t, err)
+
+	reunmarshalledPresentation, err := verifiable.ParsePresentation(presentationBytes,
+		verifiable.WithPresDisabledProofCheck(),
+		verifiable.WithPresJSONLDDocumentLoader(loader))
+	require.NoError(t, err)
+
+	return reunmarshalledPresentation
 }
 
 func makeValidCredentialFulfillment(t *testing.T) cm.CredentialFulfillment {

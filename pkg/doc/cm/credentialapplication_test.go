@@ -18,15 +18,15 @@ import (
 
 const unknownFormatName = "SomeUnknownFormat"
 
-//go:embed testdata/valid_credential_application.json
+//go:embed testdata/credential_application_university_degree.json
 var validCredentialApplication []byte //nolint:gochecknoglobals
 
-//go:embed testdata/valid_credential_application_with_format.json
+//go:embed testdata/credential_application_university_degree_with_format.json
 var validCredentialApplicationWithFormat []byte //nolint:gochecknoglobals
 
 func TestUnmarshalAndValidateAgainstCredentialManifest(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		credentialManifest := makeCredentialManifestFromBytes(t, validCredentialManifest)
+		credentialManifest := makeCredentialManifestFromBytes(t, validCredentialManifestBachelorsDegree)
 
 		credentialApplication, err := cm.UnmarshalAndValidateAgainstCredentialManifest(
 			validCredentialApplication, &credentialManifest)
@@ -70,7 +70,7 @@ func TestCredentialApplication_ValidateAgainstCredentialManifest(t *testing.T) {
 		t.Run("Credential Application has no format and no presentation definition", func(t *testing.T) {
 			credentialApplication := makeCredentialApplicationFromBytes(t, validCredentialApplication)
 
-			credentialManifest := makeCredentialManifestFromBytes(t, validCredentialManifest)
+			credentialManifest := makeCredentialManifestFromBytes(t, validCredentialManifestBachelorsDegree)
 
 			err := credentialApplication.ValidateAgainstCredentialManifest(&credentialManifest)
 			require.NoError(t, err)
@@ -185,7 +185,7 @@ func TestCredentialApplication_ValidateAgainstCredentialManifest(t *testing.T) {
 	t.Run("Credential App's manifest ID does not match the given Credential Manifest", func(t *testing.T) {
 		credentialApplication := makeCredentialApplicationWithUnknownManifestID(t)
 
-		credentialManifest := makeCredentialManifestFromBytes(t, validCredentialManifest)
+		credentialManifest := makeCredentialManifestFromBytes(t, validCredentialManifestBachelorsDegree)
 
 		err := credentialApplication.ValidateAgainstCredentialManifest(&credentialManifest)
 		require.EqualError(t, err, "the Manifest ID of the Credential Application (SomeUnknownManifestID) "+
