@@ -13,6 +13,7 @@ type Invitation struct {
 	ID       string                    `json:"id"`
 	Type     string                    `json:"type"`
 	Label    string                    `json:"label,omitempty"`
+	From     string                    `json:"from"`
 	Body     *InvitationBody           `json:"body"`
 	Requests []*decorator.AttachmentV2 `json:"attachments,omitempty"`
 }

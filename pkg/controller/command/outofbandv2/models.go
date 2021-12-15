@@ -18,6 +18,7 @@ import (
 type CreateInvitationArgs struct {
 	Label string                     `json:"label"`
 	Body  outofbandv2.InvitationBody `json:"body"`
+	From  string                     `json:"from"`
 	// Attachments are intended to provide the possibility to include files, links or even JSON payload to the message.
 	Attachments []*decorator.AttachmentV2 `json:"attachments"`
 }

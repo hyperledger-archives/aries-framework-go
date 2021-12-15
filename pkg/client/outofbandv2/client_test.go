@@ -73,6 +73,13 @@ func TestCreateInvitation(t *testing.T) {
 		inv := c.CreateInvitation(WithLabel(expected))
 		require.Equal(t, expected, inv.Label)
 	})
+	t.Run("WithFrom", func(t *testing.T) {
+		c, err := New(withTestProvider())
+		require.NoError(t, err)
+		expected := uuid.New().String()
+		inv := c.CreateInvitation(WithFrom(expected))
+		require.Equal(t, expected, inv.From)
+	})
 	t.Run("WithGoal", func(t *testing.T) {
 		c, err := New(withTestProvider())
 		require.NoError(t, err)

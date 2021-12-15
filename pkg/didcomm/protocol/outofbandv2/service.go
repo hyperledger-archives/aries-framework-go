@@ -194,12 +194,16 @@ func (s *Service) HandleOutbound(_ service.DIDCommMsg, _, _ string) (string, err
 
 // AcceptInvitation from another agent.
 //nolint:funlen,gocyclo
-func (s *Service) AcceptInvitation(i *Invitation) (string, error) { // nolint: gocognit
+func (s *Service) AcceptInvitation(i *Invitation) (string, error) {
 	msg := service.NewDIDCommMsgMap(i)
 
 	err := validateInvitationAcceptance(msg, s.myMediaTypeProfiles)
 	if err != nil {
 		return "", fmt.Errorf("oob/2.0 unable to accept invitation: %w", err)
+	}
+
+	if i.From == "" {
+		return "", fmt.Errorf("oob/2.0 does not have from field")
 	}
 
 	clbk := &callback{
@@ -225,7 +229,7 @@ func (s *Service) AcceptInvitation(i *Invitation) (string, error) { // nolint: g
 		serviceURL := s.msgTypeServicesTargets[i.Body.GoalCode]
 		for _, srvc := range s.allServices {
 			if strings.Contains(serviceURL, srvc.Name()) {
-				connID := s.handleInboundService(serviceURL, srvc, i.Requests, newDID)
+				connID := s.handleInboundService(serviceURL, srvc, i.From, i.Requests, newDID)
 
 				if connID != "" {
 					logger.Debugf("oob/2.0 matching target service found for url '%v' and executed, "+
@@ -242,76 +246,47 @@ func (s *Service) AcceptInvitation(i *Invitation) (string, error) { // nolint: g
 	logger.Debugf("oob/2.0 request body or Goal code is empty, oobv2.AcceptInvitation() is done but no" +
 		"target service triggered, generating a new peer DID for the first valid attachment and return it")
 
-	for _, atchmnt := range i.Requests {
-		serviceRequest, err := atchmnt.Data.Fetch()
-		if err != nil {
-			logger.Debugf("oob/2.0 fetching attachment request failed:%v, skipping attachment entry..", err)
-
-			continue
-		}
-
-		didCommMsgRequest := service.DIDCommMsgMap{}
-
-		err = didCommMsgRequest.UnmarshalJSON(serviceRequest)
-		if err != nil {
-			logger.Debugf("oob/2.0 fetching attachment request failed: %v, skipping attachment entry..", err)
-
-			continue
-		}
-
-		senderDID, ok := didCommMsgRequest["from"].(string)
-		if !ok {
-			logger.Debugf("oob/2.0 fetching attachment request does not have from field, skipping " +
-				"attachment entry..")
-
-			continue
-		}
-
-		senderDoc, err := s.vdrRegistry.Resolve(senderDID)
-		if err != nil {
-			return "", fmt.Errorf("failed to resolve inviter DID: %w", err)
-		}
-
-		myDID, err := s.vdrRegistry.Create(peer.DIDMethod, newDID)
-		if err != nil {
-			logger.Debugf("oob/2.0 creating new DID via VDR failed: %v, skipping attachment entry..", err)
-
-			continue
-		}
-
-		destination, err := service.CreateDestination(senderDoc.DIDDocument)
-		if err != nil {
-			return "", fmt.Errorf("failed to create destination: %w", err)
-		}
-
-		connRecord := &connection.Record{
-			ConnectionID:      uuid.New().String(),
-			ParentThreadID:    i.ID,
-			State:             "null",
-			InvitationID:      i.ID,
-			ServiceEndPoint:   destination.ServiceEndpoint,
-			RecipientKeys:     destination.RecipientKeys,
-			RoutingKeys:       destination.RoutingKeys,
-			TheirLabel:        i.Label,
-			TheirDID:          senderDID,
-			Namespace:         "my",
-			MediaTypeProfiles: s.myMediaTypeProfiles,
-			Implicit:          true,
-			InvitationDID:     myDID.DIDDocument.ID,
-			DIDCommVersion:    service.V2,
-		}
-
-		if err := s.connectionRecorder.SaveConnectionRecord(connRecord); err != nil {
-			return "", err
-		}
-
-		return connRecord.ConnectionID, nil
+	senderDoc, err := s.vdrRegistry.Resolve(i.From)
+	if err != nil {
+		return "", fmt.Errorf("oob/2.0 failed to resolve inviter DID: %w", err)
 	}
 
-	return "", fmt.Errorf("oob/2.0 invitation request has no attachment requests to fulfill request Goal")
+	myDID, err := s.vdrRegistry.Create(peer.DIDMethod, newDID)
+	if err != nil {
+		return "", fmt.Errorf("oob/2.0 creating new DID via VDR failed: %w", err)
+	}
+
+	destination, err := service.CreateDestination(senderDoc.DIDDocument)
+	if err != nil {
+		return "", fmt.Errorf("oob/2.0 failed to create destination: %w", err)
+	}
+
+	connRecord := &connection.Record{
+		ConnectionID:      uuid.New().String(),
+		ParentThreadID:    i.ID,
+		State:             connection.StateNameCompleted,
+		InvitationID:      i.ID,
+		ServiceEndPoint:   destination.ServiceEndpoint,
+		RecipientKeys:     destination.RecipientKeys,
+		RoutingKeys:       destination.RoutingKeys,
+		TheirLabel:        i.Label,
+		TheirDID:          i.From,
+		MyDID:             myDID.DIDDocument.ID,
+		Namespace:         "my",
+		MediaTypeProfiles: s.myMediaTypeProfiles,
+		Implicit:          true,
+		InvitationDID:     myDID.DIDDocument.ID,
+		DIDCommVersion:    service.V2,
+	}
+
+	if err := s.connectionRecorder.SaveConnectionRecord(connRecord); err != nil {
+		return "", fmt.Errorf("oob/2.0 failed to create connection: %w", err)
+	}
+
+	return connRecord.ConnectionID, nil
 }
 
-func (s *Service) handleInboundService(serviceURL string, srvc dispatcher.ProtocolService,
+func (s *Service) handleInboundService(serviceURL string, srvc dispatcher.ProtocolService, senderDID string,
 	attachments []*decorator.AttachmentV2, newDID *did.Doc) string {
 	for _, atchmnt := range attachments {
 		serviceRequest, err := atchmnt.Data.Fetch()
@@ -332,14 +307,6 @@ func (s *Service) handleInboundService(serviceURL string, srvc dispatcher.Protoc
 			continue
 		}
 
-		senderDID, ok := didCommMsgRequest["from"]
-		if !ok {
-			logger.Debugf("oob/2.0 fetching target service '%v' for url '%v' attachment request does not have "+
-				"from field, skipping attachment entry..", srvc.Name(), serviceURL)
-
-			continue
-		}
-
 		myDID, err := s.vdrRegistry.Create(peer.DIDMethod, newDID)
 		if err != nil {
 			logger.Debugf("oob/2.0 fetching target service '%v' for url '%v' creating new DID via VDR "+
@@ -350,7 +317,7 @@ func (s *Service) handleInboundService(serviceURL string, srvc dispatcher.Protoc
 
 		// TODO bug: most services don't return a connection ID from handleInbound, we can't expect it from there.
 		connID, err := srvc.HandleInbound(didCommMsgRequest, service.NewDIDCommContext(myDID.DIDDocument.ID,
-			senderDID.(string), nil))
+			senderDID, nil))
 		if err != nil {
 			logger.Debugf("oob/2.0 executing target service '%v' for url '%v' failed: %v, skipping "+
 				"attachment entry..", srvc.Name(), serviceURL, err)
