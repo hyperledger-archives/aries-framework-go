@@ -692,7 +692,7 @@ func TestService_HandleInboundV2(t *testing.T) {
 		require.Equal(t, properties.MyDID(), Alice)
 		require.Equal(t, properties.TheirDID(), Bob)
 
-		action.Continue(WithRequestCredential(&RequestCredentialParams{}))
+		action.Continue(WithRequestCredential(&RequestCredentialParams{Comment: "test"}))
 
 		select {
 		case <-done:
@@ -1594,7 +1594,7 @@ func TestService_HandleInboundV3(t *testing.T) {
 		require.Equal(t, properties.MyDID(), Alice)
 		require.Equal(t, properties.TheirDID(), Bob)
 
-		action.Continue(WithRequestCredential(&RequestCredentialParams{}))
+		action.Continue(WithRequestCredential(&RequestCredentialParams{Comment: "test"}))
 
 		select {
 		case <-done:
