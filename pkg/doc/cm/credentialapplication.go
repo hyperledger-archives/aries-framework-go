@@ -11,14 +11,27 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/google/uuid"
+
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+)
+
+const (
+	credentialApplicationPresentationContext = "https://identity.foundation/credential-manifest/application/v1"
+	credentialApplicationPresentationType    = "CredentialApplication"
 )
 
 // CredentialApplication represents a credential_application object as defined in
 // https://identity.foundation/credential-manifest/#credential-application.
-// When used in an envelope like a Verifiable Presentation (under a field named "credential_application", that
-// envelope then becomes a Credential Application.
-// This object may also have a sibling presentation_submission object within the envelope.
+// Note that the term "Credential Application" is overloaded in the spec - a "Credential Application" may be referring
+// to one of two different, but related, concepts. A "Credential Application" can be the object defined below, which is
+// intended to be embedded in an envelope like a Verifiable Presentation. Additionally, when that envelope contains
+// the object defined below under a field named "credential_application", then that envelope itself can be called
+// a "Credential Application". The larger "envelope version" of a Credential Application may also have a sibling
+// presentation_submission object within the envelope, as demonstrated by the PresentCredentialApplication method.
+// See https://github.com/decentralized-identity/credential-manifest/issues/73 for more information about this name
+// overloading.
 type CredentialApplication struct {
 	ID string `json:"id,omitempty"`
 	// The value of this property MUST be the ID of a valid Credential Manifest.
@@ -156,6 +169,141 @@ func (ca *CredentialApplication) ensureFormatIsSubsetOfCredManifestFormat(credMa
 	}
 
 	return nil
+}
+
+// presentCredentialApplicationOpts holds options for the PresentCredentialApplication method.
+type presentCredentialApplicationOpts struct {
+	existingPresentation    verifiable.Presentation
+	existingPresentationSet bool
+}
+
+// PresentCredentialApplicationOpt is an option for the PresentCredentialApplication method.
+type PresentCredentialApplicationOpt func(opts *presentCredentialApplicationOpts)
+
+// WithExistingPresentationForPresentCredentialApplication is an option for the PresentCredentialApplication method
+// that allows Credential Application data to be added to an existing Presentation
+// (turning it into a Credential Application in the process). The existing Presentation should not already have
+// Credential Application data.
+func WithExistingPresentationForPresentCredentialApplication(
+	presentation *verifiable.Presentation) PresentCredentialApplicationOpt {
+	return func(opts *presentCredentialApplicationOpts) {
+		opts.existingPresentation = *presentation
+		opts.existingPresentationSet = true
+	}
+}
+
+// PresentCredentialApplication creates a minimal Presentation (without proofs) with Credential Application data based
+// on credentialManifest. The WithExistingPresentationForPresentCredentialFulfillment can be used to add the Credential
+// Application data to an existing Presentation object instead. If the
+// "https://identity.foundation/presentation-exchange/submission/v1" context is found, it will be replaced with
+// the "https://identity.foundation/credential-manifest/application/v1" context. Note that any existing proofs are
+// not updated. Note also the following assumptions/limitations of this method:
+// 1. The format of all claims in the Presentation Submission are assumed to be ldp_vp and will be set as such.
+// 2. The format for the Credential Application object will be set to match the format from the Credential Manifest
+//    exactly. If a caller wants to use a smaller subset of the Credential Manifest's format, then they will have to
+//    set it manually.
+// 2. The location of the Verifiable Credentials is assumed to be an array at the root under a field called
+//    "verifiableCredential".
+// 3. The Verifiable Credentials in the presentation is assumed to be in the same order as the Output Descriptors in
+//    the Credential Manifest.
+func PresentCredentialApplication(credentialManifest *CredentialManifest,
+	opts ...PresentCredentialApplicationOpt) (*verifiable.Presentation, error) {
+	if credentialManifest == nil {
+		return nil, errors.New("credential manifest argument cannot be nil")
+	}
+
+	appliedOptions := getPresentCredentialApplicationOpts(opts)
+
+	var presentation verifiable.Presentation
+
+	if appliedOptions.existingPresentationSet {
+		presentation = appliedOptions.existingPresentation
+	} else {
+		newPresentation, err := verifiable.NewPresentation()
+		if err != nil {
+			return nil, err
+		}
+
+		presentation = *newPresentation
+	}
+
+	setCredentialApplicationContext(&presentation)
+
+	presentation.Type = append(presentation.Type, credentialApplicationPresentationType)
+
+	setCustomFields(&presentation, credentialManifest)
+
+	return &presentation, nil
+}
+
+func getPresentCredentialApplicationOpts(opts []PresentCredentialApplicationOpt) *presentCredentialApplicationOpts {
+	processedOptions := &presentCredentialApplicationOpts{}
+
+	for _, opt := range opts {
+		if opt != nil {
+			opt(processedOptions)
+		}
+	}
+
+	return processedOptions
+}
+
+func setCredentialApplicationContext(presentation *verifiable.Presentation) {
+	var newContextSet bool
+
+	for i := range presentation.Context {
+		if presentation.Context[i] == presexch.PresentationSubmissionJSONLDContextIRI {
+			presentation.Context[i] = credentialApplicationPresentationContext
+			newContextSet = true
+
+			break
+		}
+	}
+
+	if !newContextSet {
+		presentation.Context = append(presentation.Context, credentialApplicationPresentationContext)
+	}
+}
+
+func setCustomFields(presentation *verifiable.Presentation, credentialManifest *CredentialManifest) {
+	application := CredentialApplication{
+		ID:         uuid.New().String(),
+		ManifestID: credentialManifest.ID,
+		Format:     credentialManifest.Format,
+	}
+
+	if presentation.CustomFields == nil {
+		presentation.CustomFields = make(map[string]interface{})
+	}
+
+	presentation.CustomFields["credential_application"] = application
+
+	if credentialManifest.PresentationDefinition != nil {
+		submission := makePresentationSubmission(credentialManifest.PresentationDefinition)
+
+		presentation.CustomFields["presentation_submission"] = submission
+	}
+}
+
+func makePresentationSubmission(presentationDef *presexch.PresentationDefinition) presexch.PresentationSubmission {
+	descriptorMap := make([]*presexch.InputDescriptorMapping,
+		len(presentationDef.InputDescriptors))
+
+	for i := range presentationDef.InputDescriptors {
+		descriptorMap[i] = &presexch.InputDescriptorMapping{
+			ID:     presentationDef.InputDescriptors[i].ID,
+			Format: "ldp_vp",
+			Path:   fmt.Sprintf("$.verifiableCredential[%d]", i),
+		}
+	}
+
+	submission := presexch.PresentationSubmission{
+		ID:            uuid.New().String(),
+		DefinitionID:  presentationDef.ID,
+		DescriptorMap: descriptorMap,
+	}
+
+	return submission
 }
 
 func ensureCredAppJWTAlgsAreSubsetOfCredManiJWTAlgs(algType string,

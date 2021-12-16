@@ -113,10 +113,11 @@ type presentCredentialFulfillmentOpts struct {
 // PresentCredentialFulfillmentOpt is an option for the PresentCredentialFulfillment method.
 type PresentCredentialFulfillmentOpt func(opts *presentCredentialFulfillmentOpts)
 
-// WithExistingPresentation is an option for the PresentCredentialFulfillment method that allows Credential Fulfillment
-// data to be added to an existing Presentation (turning it into a Credential Fulfillment in the process).
-// The existing Presentation should not already have Credential Fulfillment data.
-func WithExistingPresentation(presentation *verifiable.Presentation) PresentCredentialFulfillmentOpt {
+// WithExistingPresentationForPresentCredentialFulfillment is an option for the PresentCredentialFulfillment method
+// that allows Credential Fulfillment data to be added to an existing Presentation (turning it into a Credential
+// Fulfillment in the process). The existing Presentation should not already have Credential Fulfillment data.
+func WithExistingPresentationForPresentCredentialFulfillment(
+	presentation *verifiable.Presentation) PresentCredentialFulfillmentOpt {
 	return func(opts *presentCredentialFulfillmentOpts) {
 		opts.existingPresentation = *presentation
 		opts.existingPresentationSet = true
@@ -124,9 +125,9 @@ func WithExistingPresentation(presentation *verifiable.Presentation) PresentCred
 }
 
 // PresentCredentialFulfillment creates a basic Presentation (without proofs) with Credential Fulfillment data based
-// on credentialManifest. The WithExistingPresentation can be used to add the Credential Fulfillment data to an existing
-// Presentation object instead. Note that any existing proofs are not updated.
-// Note the following assumptions/limitations of this method:
+// on credentialManifest. The WithExistingPresentationForPresentCredentialFulfillment can be used to add the Credential
+// Fulfillment data to an existing Presentation object instead. Note that any existing proofs are not updated.
+// Note also the following assumptions/limitations of this method:
 // 1. The format of all credentials is assumed to be ldp_vc.
 // 2. The location of the Verifiable Credentials is assumed to be an array at the root under a field called
 //    "verifiableCredential".
@@ -138,7 +139,7 @@ func PresentCredentialFulfillment(credentialManifest *CredentialManifest,
 		return nil, errors.New("credential manifest argument cannot be nil")
 	}
 
-	appliedOptions := getOpts(opts)
+	appliedOptions := getPresentCredentialFulfillmentOpts(opts)
 
 	var presentation verifiable.Presentation
 
@@ -180,7 +181,7 @@ func PresentCredentialFulfillment(credentialManifest *CredentialManifest,
 	return &presentation, nil
 }
 
-func getOpts(opts []PresentCredentialFulfillmentOpt) *presentCredentialFulfillmentOpts {
+func getPresentCredentialFulfillmentOpts(opts []PresentCredentialFulfillmentOpt) *presentCredentialFulfillmentOpts {
 	processedOptions := &presentCredentialFulfillmentOpts{}
 
 	for _, opt := range opts {
