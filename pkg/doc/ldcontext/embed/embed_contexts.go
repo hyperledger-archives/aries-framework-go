@@ -44,6 +44,8 @@ var (
 	secp256k12019 []byte
 	//go:embed third_party/identity.foundation/credential-fulfillment.jsonld
 	credentialFulfillment []byte
+	//go:embed third_party/identity.foundation/credential-application.jsonld
+	credentialApplication []byte
 )
 
 // Contexts contains JSON-LD contexts embedded into a Go binary.
@@ -132,5 +134,10 @@ var Contexts = []ldcontext.Document{ //nolint:gochecknoglobals
 		URL:         "https://identity.foundation/credential-manifest/fulfillment/v1",
 		DocumentURL: "https://identity.foundation/credential-manifest/fulfillment/v1",
 		Content:     credentialFulfillment,
+	},
+	{
+		URL:         "https://identity.foundation/credential-manifest/application/v1",
+		DocumentURL: "https://identity.foundation/credential-manifest/application/v1",
+		Content:     credentialApplication,
 	},
 }
