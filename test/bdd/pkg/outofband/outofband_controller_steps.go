@@ -346,8 +346,6 @@ func (s *ControllerSteps) createOOBV2WithPresentProof(agentID string) error {
 		}},
 	})
 
-	ppfv3Req["from"] = agentIDDIDDoc.ID
-
 	ppfv3Attachment := []*decorator.AttachmentV2{{
 		ID:          uuid.New().String(),
 		Description: "PresentProof V3 propose presentation request",
@@ -361,6 +359,7 @@ func (s *ControllerSteps) createOOBV2WithPresentProof(agentID string) error {
 
 	createOOBInv := outofbandcmdv2.CreateInvitationArgs{
 		Label: agentID,
+		From:  agentIDDIDDoc.ID,
 		Body: oobv2.InvitationBody{
 			Goal:     ppfGoal,
 			GoalCode: ppfGoalCode,

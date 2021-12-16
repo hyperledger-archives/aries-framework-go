@@ -82,6 +82,7 @@ func (c *Command) CreateInvitation(rw io.Writer, req io.Reader) command.Error {
 	invitation := c.client.CreateInvitation(
 		outofbandv2.WithGoal(args.Body.Goal, args.Body.GoalCode),
 		outofbandv2.WithLabel(args.Label),
+		outofbandv2.WithFrom(args.From),
 		outofbandv2.WithAccept(args.Body.Accept...),
 		outofbandv2.WithAttachments(args.Attachments...),
 	)

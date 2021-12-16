@@ -11,6 +11,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -27,9 +28,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/jwkkid"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -181,7 +180,34 @@ func TestAcceptInvitation(t *testing.T) {
 		require.EqualError(t, err, "oob/2.0 failed to accept invitation : unsupported message type: invalidType")
 		require.Empty(t, connID)
 	})
+	t.Run("error if invitation empty From field", func(t *testing.T) {
+		provider := testProvider(t)
+		s := newAutoService(t, provider)
+		inv := newInvitation()
+		inv.From = ""
+		inv.Body.Accept = []string{transport.MediaTypeDIDCommV2Profile}
+		connID, err := s.AcceptInvitation(inv)
+		require.EqualError(t, err, "oob/2.0 does not have from field")
+		require.Empty(t, connID)
+	})
+	t.Run("error if invitation with invalid signing key", func(t *testing.T) {
+		provider := testProvider(t)
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 
+		km := mockkms.NewMockKeyManager(ctrl)
+		km.EXPECT().CreateAndExportPubKeyBytes(gomock.Any()).MaxTimes(1).Return("", nil, fmt.Errorf("signing key error"))
+
+		provider.CustomKMS = km
+
+		s := newAutoService(t, provider)
+		inv := newInvitation()
+		inv.Body.Accept = []string{transport.MediaTypeDIDCommV2Profile}
+		connID, err := s.AcceptInvitation(inv)
+		require.EqualError(t, err, "oob/2.0 AcceptInvitation: creating new keys and VMS for DID document failed:"+
+			" createSigningVM: signing key error")
+		require.Empty(t, connID)
+	})
 	t.Run("invitation valid accept values", func(t *testing.T) {
 		provider := testProvider(t)
 		ed25519RawKey, p384KeyMarshalled := createAuthenticationAndAgreementKeys(t, provider)
@@ -216,8 +242,6 @@ func TestAcceptInvitation(t *testing.T) {
 				},
 			}},
 		})
-
-		msg["from"] = `{"from":"did:example:alice"}`
 
 		provider := testProvider(t)
 		s := newAutoService(t, provider)
@@ -254,122 +278,6 @@ func TestAcceptInvitation(t *testing.T) {
 		}
 
 		connID, err := s.AcceptInvitation(inv)
-		require.NoError(t, err)
-		require.NotEmpty(t, connID)
-	})
-
-	t.Run("invitation accept values with a invalid presentproof V3 target code", func(t *testing.T) {
-		provider := testProvider(t)
-		ed25519RawKey, p384KeyMarshalled := createAuthenticationAndAgreementKeys(t, provider)
-
-		provider.CustomKMS.(*mockkms.MockKeyManager).EXPECT().
-			CreateAndExportPubKeyBytes(provider.KeyTypeValue).Return("", ed25519RawKey, nil)
-		provider.CustomKMS.(*mockkms.MockKeyManager).EXPECT().
-			CreateAndExportPubKeyBytes(provider.KeyAgreementTypeValue).Return("", p384KeyMarshalled, nil)
-
-		s := newAutoService(t, provider)
-		inv := newInvitation()
-		inv.Body.Goal = "propose a present-proof V3.0"
-		inv.Body.GoalCode = "present-proof/3.0/propose-presentation"
-		inv.Body.Accept = []string{transport.MediaTypeDIDCommV2Profile}
-		inv.Requests = []*decorator.AttachmentV2{
-			{
-				ID:          uuid.New().String(),
-				Description: "PresentProof V3 propose presentation request",
-				FileName:    "presentproofv3.json",
-				MediaType:   "application/json",
-				LastModTime: time.Time{},
-				Data:        decorator.AttachmentData{}, // empty Data should trigger an error on 'atchmnt.Data.Fetch()'
-			},
-		}
-
-		connID, err := s.AcceptInvitation(inv)
-		require.EqualError(t, err, "oob/2.0 invitation request has no attachment requests to fulfill request Goal")
-		require.Empty(t, connID)
-
-		inv.Requests = []*decorator.AttachmentV2{
-			{
-				ID:          uuid.New().String(),
-				Description: "PresentProof V3 propose presentation request",
-				FileName:    "presentproofv3.json",
-				MediaType:   "application/json",
-				LastModTime: time.Time{},
-				// invalid json triggers an error on 'didCommMsgRequest.UnmarshalJSON(serviceRequest)'
-				Data: decorator.AttachmentData{JSON: "invalid{}"},
-			},
-		}
-
-		provider.CustomKMS.(*mockkms.MockKeyManager).EXPECT().
-			CreateAndExportPubKeyBytes(provider.KeyTypeValue).Return("", ed25519RawKey, nil)
-		provider.CustomKMS.(*mockkms.MockKeyManager).EXPECT().
-			CreateAndExportPubKeyBytes(provider.KeyAgreementTypeValue).Return("", p384KeyMarshalled, nil)
-
-		connID, err = s.AcceptInvitation(inv)
-		require.EqualError(t, err, "oob/2.0 invitation request has no attachment requests to fulfill request Goal")
-		require.Empty(t, connID)
-
-		ppv3Response := &presentproof.PresentationV3{
-			Attachments: []decorator.AttachmentV2{{
-				MediaType: "application/ld+json",
-				Data: decorator.AttachmentData{
-					JSON: &verifiable.Credential{
-						ID:      "http://example.edu/credentials/1872",
-						Context: []string{verifiable.ContextURI},
-						Types:   []string{verifiable.VCType},
-						Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
-						Issued: &util.TimeWrapper{
-							Time: time.Now(),
-						},
-						Issuer: verifiable.Issuer{
-							ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
-						},
-						CustomFields: map[string]interface{}{
-							"first_name": "First name",
-							"last_name":  "Last name",
-							"info":       "Info",
-						},
-					},
-				},
-			}, {
-				MediaType: "application/json",
-				Data: decorator.AttachmentData{
-					JSON: map[string]struct{}{},
-				},
-			}},
-		}
-
-		didCommMsg := service.NewDIDCommMsgMap(ppv3Response)
-		didCommMsg["from"] = "did:example:alice"
-		didCommMsg["id"] = "12345"
-		didCommMsg["type"] = "https://didcomm.org/present-proof/3.0/propose-presentation"
-
-		inv.Requests = []*decorator.AttachmentV2{
-			{
-				ID:          uuid.New().String(),
-				Description: "PresentProof V3 propose presentation request",
-				FileName:    "presentproofv3.json",
-				MediaType:   "application/json",
-				LastModTime: time.Time{},
-				// setting ppv3Response as json triggers an error on 'srvc.HandleInbound(didCommMsgRequest,...)' since
-				// present proof protocol was not initialized yet.
-				Data: decorator.AttachmentData{JSON: didCommMsg},
-			},
-		}
-
-		provider.CustomKMS.(*mockkms.MockKeyManager).EXPECT().
-			CreateAndExportPubKeyBytes(provider.KeyTypeValue).Return("", ed25519RawKey, nil)
-		provider.CustomKMS.(*mockkms.MockKeyManager).EXPECT().
-			CreateAndExportPubKeyBytes(provider.KeyAgreementTypeValue).Return("", p384KeyMarshalled, nil)
-
-		s.vdrRegistry = &mockvdr.MockVDRegistry{
-			ResolveFunc: func(id string, _ ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
-				return &did.DocResolution{
-					DIDDocument: mockdiddoc.GetMockDIDDoc(t),
-				}, nil
-			},
-		}
-
-		connID, err = s.AcceptInvitation(inv)
 		require.NoError(t, err)
 		require.NotEmpty(t, connID)
 	})
@@ -494,6 +402,7 @@ func newInvitation() *Invitation {
 		ID:    uuid.New().String(),
 		Type:  InvitationMsgType,
 		Label: "test",
+		From:  "did:example:alice",
 		Body: &InvitationBody{
 			Goal:     "test",
 			GoalCode: "test",
@@ -508,7 +417,6 @@ func newInvitation() *Invitation {
 					JSON: map[string]interface{}{
 						"id":   "123",
 						"type": "test-type",
-						"from": "did:example:alice",
 					},
 				},
 			},
