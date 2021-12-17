@@ -29,6 +29,7 @@ type message struct {
 	Label              string
 	Goal               string
 	GoalCode           string
+	From               string
 	RouterConnections  []string
 	Service            []interface{}
 	HandshakeProtocols []string
@@ -96,6 +97,7 @@ func (c *Client) CreateInvitation(opts ...MessageOption) *oobv2.Invitation {
 		ID:    uuid.New().String(),
 		Type:  InvitationMsgType,
 		Label: msg.Label,
+		From:  msg.From,
 		Body: &oobv2.InvitationBody{
 			Goal:     msg.Goal,
 			GoalCode: msg.GoalCode,
@@ -125,6 +127,13 @@ func (c *Client) AcceptInvitation(i *oobv2.Invitation) (string, error) {
 func WithLabel(l string) MessageOption {
 	return func(m *message) {
 		m.Label = l
+	}
+}
+
+// WithFrom allows you to specify the sender's DID on the message.
+func WithFrom(f string) MessageOption {
+	return func(m *message) {
+		m.From = f
 	}
 }
 

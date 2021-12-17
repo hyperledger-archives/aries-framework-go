@@ -12,6 +12,7 @@ import (
 	"fmt"
 
 	"github.com/PaesslerAG/jsonpath"
+	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -101,6 +102,93 @@ func (cf *CredentialFulfillment) validate() error {
 	}
 
 	return nil
+}
+
+// presentCredentialFulfillmentOpts holds options for the PresentCredentialFulfillment method.
+type presentCredentialFulfillmentOpts struct {
+	existingPresentation    verifiable.Presentation
+	existingPresentationSet bool
+}
+
+// PresentCredentialFulfillmentOpt is an option for the PresentCredentialFulfillment method.
+type PresentCredentialFulfillmentOpt func(opts *presentCredentialFulfillmentOpts)
+
+// WithExistingPresentationForPresentCredentialFulfillment is an option for the PresentCredentialFulfillment method
+// that allows Credential Fulfillment data to be added to an existing Presentation (turning it into a Credential
+// Fulfillment in the process). The existing Presentation should not already have Credential Fulfillment data.
+func WithExistingPresentationForPresentCredentialFulfillment(
+	presentation *verifiable.Presentation) PresentCredentialFulfillmentOpt {
+	return func(opts *presentCredentialFulfillmentOpts) {
+		opts.existingPresentation = *presentation
+		opts.existingPresentationSet = true
+	}
+}
+
+// PresentCredentialFulfillment creates a basic Presentation (without proofs) with Credential Fulfillment data based
+// on credentialManifest. The WithExistingPresentationForPresentCredentialFulfillment can be used to add the Credential
+// Fulfillment data to an existing Presentation object instead. Note that any existing proofs are not updated.
+// Note also the following assumptions/limitations of this method:
+// 1. The format of all credentials is assumed to be ldp_vc.
+// 2. The location of the Verifiable Credentials is assumed to be an array at the root under a field called
+//    "verifiableCredential".
+// 3. The Verifiable Credentials in the presentation is assumed to be in the same order as the Output Descriptors in
+//    the Credential Manifest.
+func PresentCredentialFulfillment(credentialManifest *CredentialManifest,
+	opts ...PresentCredentialFulfillmentOpt) (*verifiable.Presentation, error) {
+	if credentialManifest == nil {
+		return nil, errors.New("credential manifest argument cannot be nil")
+	}
+
+	appliedOptions := getPresentCredentialFulfillmentOpts(opts)
+
+	var presentation verifiable.Presentation
+
+	if appliedOptions.existingPresentationSet {
+		presentation = appliedOptions.existingPresentation
+	} else {
+		newPresentation, err := verifiable.NewPresentation()
+		if err != nil {
+			return nil, err
+		}
+
+		presentation = *newPresentation
+	}
+
+	presentation.Context = append(presentation.Context,
+		"https://identity.foundation/credential-manifest/fulfillment/v1")
+	presentation.Type = append(presentation.Type, "CredentialFulfillment")
+
+	outputDescriptorMappingObjects := make([]OutputDescriptorMap, len(credentialManifest.OutputDescriptors))
+
+	for i := range credentialManifest.OutputDescriptors {
+		outputDescriptorMappingObjects[i].ID = credentialManifest.OutputDescriptors[i].ID
+		outputDescriptorMappingObjects[i].Format = "ldp_vc"
+		outputDescriptorMappingObjects[i].Path = fmt.Sprintf("$.verifiableCredential[%d]", i)
+	}
+
+	fulfillment := CredentialFulfillment{
+		ID:                             uuid.New().String(),
+		ManifestID:                     credentialManifest.ID,
+		OutputDescriptorMappingObjects: outputDescriptorMappingObjects,
+	}
+
+	if presentation.CustomFields == nil {
+		presentation.CustomFields = make(map[string]interface{})
+	}
+
+	presentation.CustomFields["credential_fulfillment"] = fulfillment
+
+	return &presentation, nil
+}
+
+func getPresentCredentialFulfillmentOpts(opts []PresentCredentialFulfillmentOpt) *presentCredentialFulfillmentOpts {
+	processedOptions := &presentCredentialFulfillmentOpts{}
+
+	for _, opt := range opts {
+		opt(processedOptions)
+	}
+
+	return processedOptions
 }
 
 func resolveDescriptorMap(descriptorMap OutputDescriptorMap, jsonDataFromAttachmentAsMap map[string]interface{},

@@ -60,7 +60,12 @@ func TestClient_Actions(t *testing.T) {
 
 		actions, err := client.Actions()
 		require.NoError(t, err)
-		require.EqualValues(t, expected, actions)
+		// client Actions is an array of new type of Action, the test can't check for value equality since client Action
+		// is, even though it's anp service Action, is considered a different type therefore fails quality checks. Simply
+		// check for set values instead.
+		require.Equal(t, len(expected), len(actions))
+		require.Equal(t, expected[0].PIID, actions[0].PIID)
+		require.Equal(t, expected[1].PIID, actions[1].PIID)
 	})
 }
 

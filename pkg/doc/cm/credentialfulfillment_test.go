@@ -20,10 +20,19 @@ import (
 )
 
 var (
-	//go:embed testdata/valid_credential_fulfillment.json
+	//go:embed testdata/credential_fulfillment_university_degree.json
 	validCredentialFulfillment []byte //nolint:gochecknoglobals
-	//go:embed testdata/valid_issue_credential_message.json
+	//go:embed testdata/issue_credential_message_university_degree.json
 	validIssueCredentialMessage []byte //nolint:gochecknoglobals
+	//go:embed testdata/VP_with_drivers_license_VC.json
+	vpWithDriversLicenseVC []byte //nolint:gochecknoglobals
+	//go:embed testdata/VP_with_drivers_license_VC_and_credential_fulfillment.json
+	vpWithDriversLicenseVCAndCredentialFulfillment []byte //nolint:gochecknoglobals
+	// The "minimal" VP below is ones that was created by a call to verifiable.NewPresentation() with no
+	// arguments/options, which is how the cm.PresentCredentialFulfillment method generates a VP if the
+	// WithExistingPresentationForPresentCredentialFulfillment option is not used.
+	//go:embed testdata/VP_minimal_with_credential_fulfillment.json
+	vpMinimalWithCredentialFulfillment []byte //nolint:gochecknoglobals
 )
 
 func TestCredentialFulfillment_Unmarshal(t *testing.T) {
@@ -93,6 +102,77 @@ func TestCredentialFulfillment_ResolveDescriptorMap(t *testing.T) {
 			"into Go value of type map[string]interface {}")
 		require.Nil(t, verifiableCredentials)
 	})
+}
+
+func TestPresentCredentialFulfillment(t *testing.T) {
+	t.Run("Without using WithExistingPresentationForPresentCredentialFulfillment option", func(t *testing.T) {
+		credentialManifest := makeCredentialManifestFromBytes(t, credentialManifestDriversLicenseWithPresentationDefinition)
+
+		presentation, err := cm.PresentCredentialFulfillment(&credentialManifest)
+		require.NoError(t, err)
+		require.NotNil(t, presentation)
+
+		expectedPresentation := makePresentationFromBytes(t, vpMinimalWithCredentialFulfillment,
+			"Present Credential Fulfillment without existing Presentation")
+
+		reunmarshalledPresentation := marshalThenUnmarshalAgain(t, presentation,
+			"Present Credential Fulfillment without existing presentation")
+
+		makeCredentialFulfillmentIDsTheSame(t, reunmarshalledPresentation, expectedPresentation)
+		require.True(t, reflect.DeepEqual(reunmarshalledPresentation, expectedPresentation),
+			"the presentation with a Credential Fulfillment added to it differs from what was expected")
+	})
+	t.Run("Using WithExistingPresentationForPresentCredentialFulfillment option", func(t *testing.T) {
+		t.Run("CustomFields is not nil", func(t *testing.T) {
+			testName := "Present Credential Fulfillment with existing presentation, CustomFields is not nil"
+
+			presentation := makePresentationFromBytes(t, vpWithDriversLicenseVC, testName)
+
+			doPresentCredentialFulfillmentTestWithExistingPresentation(t, presentation, testName)
+		})
+		t.Run("CustomFields is nil", func(t *testing.T) {
+			testName := "Present Credential Fulfillment with existing presentation, CustomFields is nil"
+
+			presentation := makePresentationFromBytes(t, vpWithDriversLicenseVC, testName)
+
+			presentation.CustomFields = nil
+
+			doPresentCredentialFulfillmentTestWithExistingPresentation(t, presentation, testName)
+		})
+	})
+}
+
+func doPresentCredentialFulfillmentTestWithExistingPresentation(t *testing.T,
+	presentationToAddCredentialFulfillmentTo *verifiable.Presentation, testName string) {
+	credentialManifest := makeCredentialManifestFromBytes(t, credentialManifestDriversLicenseWithPresentationDefinition)
+
+	presentationWithAddedCredentialFulfillment, err := cm.PresentCredentialFulfillment(&credentialManifest,
+		cm.WithExistingPresentationForPresentCredentialFulfillment(presentationToAddCredentialFulfillmentTo))
+	require.NoError(t, err)
+
+	expectedPresentation := makePresentationFromBytes(t, vpWithDriversLicenseVCAndCredentialFulfillment, testName)
+
+	reunmarshalledPresentation := marshalThenUnmarshalAgain(t, presentationWithAddedCredentialFulfillment, testName)
+
+	makeCredentialFulfillmentIDsTheSame(t, reunmarshalledPresentation, expectedPresentation)
+
+	require.True(t, reflect.DeepEqual(reunmarshalledPresentation, expectedPresentation),
+		"the presentation with a Credential Fulfillment added to it differs from what was expected")
+}
+
+// The credential Fulfillment ID is randomly generated in the PresentCredentialFulfillment method, so this method
+// is useful for allowing two presentations created by that method to be compared using reflect.DeepEqual.
+func makeCredentialFulfillmentIDsTheSame(t *testing.T, presentation1,
+	presentation2 *verifiable.Presentation) {
+	credentialFulfillmentFromPresentation1, ok :=
+		presentation1.CustomFields["credential_fulfillment"].(map[string]interface{})
+	require.True(t, ok)
+
+	credentialFulfillmentFromPresentation2, ok :=
+		presentation2.CustomFields["credential_fulfillment"].(map[string]interface{})
+	require.True(t, ok)
+
+	credentialFulfillmentFromPresentation2["id"] = credentialFulfillmentFromPresentation1["id"]
 }
 
 func makeValidCredentialFulfillment(t *testing.T) cm.CredentialFulfillment {

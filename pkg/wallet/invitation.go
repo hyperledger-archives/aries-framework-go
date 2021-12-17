@@ -19,6 +19,7 @@ import (
 type rawInvitation struct {
 	IDv1       string                   `json:"@id"`
 	TypeV1     string                   `json:"@type"`
+	From       string                   `json:"from,omitempty"`
 	Label      string                   `json:"label,omitempty"`
 	GoalV1     string                   `json:"goal,omitempty"`
 	GoalCodeV1 string                   `json:"goal_code,omitempty"`
@@ -36,9 +37,10 @@ type rawInvitation struct {
 type GenericInvitation struct {
 	ID        string                        `json:"id"`
 	Type      string                        `json:"type"`
+	From      string                        `json:"from,omitempty"`
 	Label     string                        `json:"label,omitempty"`
 	Goal      string                        `json:"goal,omitempty"`
-	GoalCode  string                        `json:"goal_code,omitempty"`
+	GoalCode  string                        `json:"goal-code,omitempty"`
 	Services  []interface{}                 `json:"services"`
 	Accept    []string                      `json:"accept,omitempty"`
 	Protocols []string                      `json:"handshake_protocols,omitempty"`
@@ -70,6 +72,7 @@ func (gi *GenericInvitation) UnmarshalJSON(data []byte) error {
 	case service.V2:
 		gi.ID = raw.IDv2
 		gi.Type = raw.TypeV2
+		gi.From = raw.From
 		gi.Label = raw.Label
 		gi.Goal = raw.Body.Goal
 		gi.GoalCode = raw.Body.GoalCode
@@ -128,6 +131,7 @@ func (gi *GenericInvitation) AsV2() *oobv2.Invitation {
 	return &oobv2.Invitation{
 		ID:    gi.ID,
 		Type:  gi.Type,
+		From:  gi.From,
 		Label: gi.Label,
 		Body: &oobv2.InvitationBody{
 			Goal:     gi.Goal,
