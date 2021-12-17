@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package httpbinding
 
 import (
-	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
@@ -86,12 +85,10 @@ func WithTimeout(timeout time.Duration) Option {
 	}
 }
 
-// WithTLSConfig option is for definition of secured HTTP transport using a tls.Config instance.
-func WithTLSConfig(tlsConfig *tls.Config) Option {
+// WithHTTPClient option is for custom http client.
+func WithHTTPClient(httpClient *http.Client) Option {
 	return func(opts *VDR) {
-		opts.client.Transport = &http.Transport{
-			TLSClientConfig: tlsConfig,
-		}
+		opts.client = httpClient
 	}
 }
 

@@ -35,8 +35,6 @@ func (v *VDR) resolveDID(uri string) ([]byte, error) {
 		req.Header.Add("Authorization", v.resolveAuthToken)
 	}
 
-	req.Close = true
-
 	resp, err := v.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("HTTP Get request failed: %w", err)
