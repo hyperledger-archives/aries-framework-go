@@ -25,7 +25,10 @@
         "proofPurpose":"assertionMethod",
         "type":"Ed25519Signature2018",
         "verificationMethod":"did:orb:EiA3Xmv8A8vUH5lRRZeKakd-cjAxGC2A4aoPDjLysjghow#tMIstfHSzXfBUF7O0m2FiBEfTb93_j_4ron47IXPgEo"
-      }
+      },
+      "name": "Driver's License",
+      "class": "A",
+      "donor": true
     }
   ]
 }
