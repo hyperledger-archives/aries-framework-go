@@ -9,6 +9,7 @@ package cm_test
 import (
 	_ "embed"
 	"encoding/json"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -262,6 +263,157 @@ func TestCredentialManifest_ResolveOutputDescriptors(t *testing.T) {
 				`1:2 unexpected "%" while scanning extensions`)
 			require.Nil(t, resolvedDataDisplayDescriptors)
 		})
+	})
+}
+
+func TestResolveFulfillmentVC(t *testing.T) {
+	t.Run("Successes", func(t *testing.T) {
+		testTable := map[string]struct {
+			credentialManifest             []byte
+			presentation                   []byte
+			expectedDataDisplayDescriptors [][]cm.ResolvedDataDisplayDescriptor
+		}{
+			"No fallback values needed to be used used": {
+				credentialManifest: credentialManifestDriversLicense,
+				presentation:       vpWithDriversLicenseVCAndDisplayData,
+				expectedDataDisplayDescriptors: [][]cm.ResolvedDataDisplayDescriptor{
+					{
+						{
+							Title:    "Driver's License",
+							Subtitle: "A",
+							Description: "License to operate a vehicle with a gross combined weight rating (GCWR) of " +
+								"26,001 or more pounds, as long as the GVWR of the vehicle(s) being towed is over " +
+								"10,000 pounds.",
+							Properties: []interface{}{true},
+						},
+					},
+				},
+			},
+			"Fallback values used for every field": {
+				credentialManifest: credentialManifestDriversLicense,
+				presentation:       vpWithDriversLicenseVC,
+				expectedDataDisplayDescriptors: [][]cm.ResolvedDataDisplayDescriptor{
+					{
+						{
+							Title:    "Washington State Driver License",
+							Subtitle: "Class A, Commercial",
+							Description: "License to operate a vehicle with a gross combined weight rating (GCWR) of " +
+								"26,001 or more pounds, as long as the GVWR of the vehicle(s) being towed is over " +
+								"10,000 pounds.",
+							Properties: []interface{}{"Unknown"},
+						},
+					},
+				},
+			},
+		}
+
+		for testName, testData := range testTable {
+			credentialManifest := makeCredentialManifestFromBytes(t, testData.credentialManifest)
+
+			existingPresentation := makePresentationFromBytes(t, testData.presentation, testName)
+
+			presentation, err := cm.PresentCredentialFulfillment(&credentialManifest,
+				cm.WithExistingPresentationForPresentCredentialFulfillment(existingPresentation))
+			require.NoError(t, err, errorMessageTestNameFormat, testName)
+			require.NotNil(t, presentation, errorMessageTestNameFormat, testName)
+
+			resolvedDataDisplayDescriptors, err := credentialManifest.ResolveFulfillmentVC(presentation,
+				verifiable.WithDisabledProofCheck(), verifiable.WithJSONLDDocumentLoader(createTestDocumentLoader(t)))
+			require.NoError(t, err, errorMessageTestNameFormat, testName)
+			require.NotNil(t, resolvedDataDisplayDescriptors, errorMessageTestNameFormat, testName)
+
+			require.True(t, reflect.DeepEqual(resolvedDataDisplayDescriptors, testData.expectedDataDisplayDescriptors),
+				errorMessageTestNameFormat+" the data display descriptors differ from what was expected", testName)
+		}
+	})
+	t.Run("Nil VP argument", func(t *testing.T) {
+		credentialManifest := makeCredentialManifestFromBytes(t, credentialManifestDriversLicense)
+
+		resolvedDataDisplayDescriptors, err := credentialManifest.ResolveFulfillmentVC(nil)
+		require.EqualError(t, err, "fulfillment presentation cannot be nil")
+		require.Nil(t, resolvedDataDisplayDescriptors)
+	})
+	t.Run("VP has no Credential Fulfillment", func(t *testing.T) {
+		credentialManifest := makeCredentialManifestFromBytes(t, credentialManifestDriversLicense)
+
+		presentation := makePresentationFromBytes(t,
+			vpWithDriversLicenseVC, "VP has no Credential Fulfillment")
+
+		resolvedDataDisplayDescriptors, err := credentialManifest.ResolveFulfillmentVC(presentation)
+		require.EqualError(t, err, "the given presentation does not have an embedded Credential Fulfillment")
+		require.Nil(t, resolvedDataDisplayDescriptors)
+	})
+	t.Run("Fail to parse credential", func(t *testing.T) {
+		credentialManifest := makeCredentialManifestFromBytes(t, credentialManifestDriversLicense)
+
+		existingPresentation := makePresentationFromBytes(t,
+			vpWithDriversLicenseVC, "Fail to parse credential")
+
+		presentation, err := cm.PresentCredentialFulfillment(&credentialManifest,
+			cm.WithExistingPresentationForPresentCredentialFulfillment(existingPresentation))
+		require.NoError(t, err)
+		require.NotNil(t, presentation)
+
+		resolvedDataDisplayDescriptors, err := credentialManifest.ResolveFulfillmentVC(presentation)
+		require.EqualError(t, err, "failed to parse the credential at index 0: "+
+			"decode new credential: public key fetcher is not defined")
+		require.Nil(t, resolvedDataDisplayDescriptors)
+	})
+	t.Run("Fail to resolve output descriptors credential", func(t *testing.T) {
+		credentialManifest := createCredentialManifestWithInvalidTitleJSONPath(t)
+
+		existingPresentation := makePresentationFromBytes(t,
+			vpWithDriversLicenseVC, "Fail to resolve output descriptors credential")
+
+		presentation, err := cm.PresentCredentialFulfillment(&credentialManifest,
+			cm.WithExistingPresentationForPresentCredentialFulfillment(existingPresentation))
+		require.NoError(t, err)
+		require.NotNil(t, presentation)
+
+		resolvedDataDisplayDescriptors, err := credentialManifest.ResolveFulfillmentVC(presentation,
+			verifiable.WithDisabledProofCheck(), verifiable.WithJSONLDDocumentLoader(createTestDocumentLoader(t)))
+		require.EqualError(t, err, "failed to resolve data display descriptors for the credential at index "+
+			"0: failed to resolve output descriptors at index 0: failed to resolve title display mapping object: "+
+			`parsing error: %InvalidJSONPath	:1:1 - 1:2 unexpected "%" while scanning extensions`)
+		require.Nil(t, resolvedDataDisplayDescriptors)
+	})
+	t.Run("Fail to marshal raw Credential Fulfillment", func(t *testing.T) {
+		credentialManifest := createCredentialManifestWithInvalidTitleJSONPath(t)
+
+		existingPresentation := makePresentationFromBytes(t,
+			vpWithDriversLicenseVC, "Fail to marshal raw Credential Fulfillment")
+
+		presentation, err := cm.PresentCredentialFulfillment(&credentialManifest,
+			cm.WithExistingPresentationForPresentCredentialFulfillment(existingPresentation))
+		require.NoError(t, err)
+		require.NotNil(t, presentation)
+
+		presentation.CustomFields = map[string]interface{}{"credential_fulfillment": make(chan struct{})}
+
+		resolvedDataDisplayDescriptors, err := credentialManifest.ResolveFulfillmentVC(presentation,
+			verifiable.WithDisabledProofCheck(), verifiable.WithJSONLDDocumentLoader(createTestDocumentLoader(t)))
+		require.EqualError(t, err, "failed to marshal the raw Credential Fulfillment obtained from the "+
+			"presentation into bytes: json: unsupported type: chan struct {}")
+		require.Nil(t, resolvedDataDisplayDescriptors)
+	})
+	t.Run("Fail to unmarshal raw Credential Fulfillment", func(t *testing.T) {
+		credentialManifest := createCredentialManifestWithInvalidTitleJSONPath(t)
+
+		existingPresentation := makePresentationFromBytes(t,
+			vpWithDriversLicenseVC, "Fail to unmarshal raw Credential Fulfillment")
+
+		presentation, err := cm.PresentCredentialFulfillment(&credentialManifest,
+			cm.WithExistingPresentationForPresentCredentialFulfillment(existingPresentation))
+		require.NoError(t, err)
+		require.NotNil(t, presentation)
+
+		presentation.CustomFields = map[string]interface{}{"credential_fulfillment": "invalid"}
+
+		resolvedDataDisplayDescriptors, err := credentialManifest.ResolveFulfillmentVC(presentation,
+			verifiable.WithDisabledProofCheck(), verifiable.WithJSONLDDocumentLoader(createTestDocumentLoader(t)))
+		require.EqualError(t, err, "failed to unmarshal the raw Credential Fulfillment: json: cannot "+
+			"unmarshal string into Go value of type cm.CredentialFulfillment")
+		require.Nil(t, resolvedDataDisplayDescriptors)
 	})
 }
 
