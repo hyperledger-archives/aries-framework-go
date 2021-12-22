@@ -15,6 +15,7 @@ Feature: DIDComm v2 features
      And "Lisa" creates public DID for did method "sidetree"
      And "Bart" waits for public did to become available in sidetree for up to 10 seconds
      And "Lisa" waits for public did to become available in sidetree for up to 10 seconds
+     And "Bart" and "Lisa" have a DIDComm v2 connection
     Given "Bart" requests credential V3 from "Lisa"
      And "Lisa" accepts request V3 and sends credential to the Holder
      And "Bart" accepts credential with name "abcd"
