@@ -70,6 +70,13 @@ func (s *SDKSteps) connectAgentToOther(agent, other string) error {
 
 	agentCtx := s.bddContext.AgentCtx[agent]
 
+	didExClient, err := didexchange.New(agentCtx)
+	if err != nil {
+		return err
+	}
+
+	s.bddContext.DIDExchangeClients[agent] = didExClient
+
 	agentClient, err := connection.New(agentCtx)
 	if err != nil {
 		return fmt.Errorf(": %w", err)

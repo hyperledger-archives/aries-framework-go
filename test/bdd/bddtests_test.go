@@ -57,7 +57,7 @@ type feature interface {
 
 func TestMain(m *testing.M) {
 	// default is to run all tests with tag @all
-	tags := "outofbandv2_controller"
+	tags := "all"
 
 	flag.Parse()
 
