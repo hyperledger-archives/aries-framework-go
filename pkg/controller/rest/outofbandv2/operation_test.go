@@ -27,6 +27,7 @@ import (
 func provider(ctrl *gomock.Controller) client.Provider {
 	service := mocks.NewMockOobService(ctrl)
 	service.EXPECT().AcceptInvitation(gomock.Any()).Return("123", nil).AnyTimes()
+	service.EXPECT().SaveInvitation(gomock.Any()).Return(nil).AnyTimes()
 
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().Service(gomock.Any()).Return(service, nil)

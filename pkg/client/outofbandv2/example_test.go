@@ -84,7 +84,7 @@ func ExampleClient_AcceptInvitation() { //nolint:gocyclo,gocognit
 	}
 
 	// router creates outofband request and embeds the route-request message in it
-	inv := router.CreateInvitation(
+	inv, err := router.CreateInvitation(
 		WithLabel(Router),
 		WithAttachments(&decorator.AttachmentV2{
 			ID: uuid.New().String(),
@@ -93,6 +93,9 @@ func ExampleClient_AcceptInvitation() { //nolint:gocyclo,gocognit
 			},
 		}),
 	)
+	if err != nil {
+		panic(err)
+	}
 
 	fmt.Printf("%s creates an out-of-band/2.0 invitation message\n", Router)
 

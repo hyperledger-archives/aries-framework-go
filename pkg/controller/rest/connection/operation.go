@@ -16,8 +16,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/connection"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/didrotate"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/middleware"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/store/did"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
@@ -32,10 +33,13 @@ const (
 
 type provider interface {
 	VDRegistry() vdr.Registry
-	DIDRotator() *didrotate.DIDRotator
+	DIDRotator() *middleware.DIDCommMessageMiddleware
 	StorageProvider() storage.Provider
 	ProtocolStateStorageProvider() storage.Provider
 	DIDConnectionStore() did.ConnectionStore
+	KMS() kms.KeyManager
+	KeyType() kms.KeyType
+	KeyAgreementType() kms.KeyType
 }
 
 // Operation is the REST controller for connection management.

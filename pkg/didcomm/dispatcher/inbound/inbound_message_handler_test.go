@@ -14,8 +14,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/middleware"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/didrotate"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -236,7 +236,7 @@ func TestMessageHandler_HandleInboundEnvelope(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	didRotator, err := didrotate.New(&p)
+	didRotator, err := middleware.New(&p)
 	require.NoError(t, err)
 
 	t.Parallel()
@@ -317,7 +317,7 @@ func TestMessageHandler_getDIDs(t *testing.T) {
 		myDID, theirDID, err := h.getDIDs(&transport.Envelope{
 			ToKey:   []byte("abcd"),
 			FromKey: []byte("abcd"),
-		})
+		}, nil)
 
 		require.NoError(t, err)
 		require.Equal(t, "", myDID)
@@ -332,11 +332,43 @@ func TestMessageHandler_getDIDs(t *testing.T) {
 		myDID, theirDID, err := h.getDIDs(&transport.Envelope{
 			ToKey:   []byte(`{"kid":"did:peer:alice#key-1"}`),
 			FromKey: []byte(`{"kid":"did:peer:bob#key-1"}`),
+		}, nil)
+
+		require.NoError(t, err)
+		require.Equal(t, "did:peer:alice", myDID)
+		require.Equal(t, "did:peer:bob", theirDID)
+	})
+
+	t.Run("success: their DID from message", func(t *testing.T) {
+		p := emptyProvider()
+
+		h := NewInboundMessageHandler(p)
+
+		myDID, theirDID, err := h.getDIDs(&transport.Envelope{
+			ToKey:   []byte(`{"kid":"did:peer:alice#key-1"}`),
+			FromKey: nil,
+		}, service.DIDCommMsgMap{
+			"from": "did:peer:bob",
 		})
 
 		require.NoError(t, err)
 		require.Equal(t, "did:peer:alice", myDID)
 		require.Equal(t, "did:peer:bob", theirDID)
+	})
+
+	t.Run("fail: invalid DID in message from field", func(t *testing.T) {
+		p := emptyProvider()
+
+		h := NewInboundMessageHandler(p)
+
+		_, _, err := h.getDIDs(&transport.Envelope{
+			ToKey:   []byte(`{"kid":"did:peer:alice#key-1"}`),
+			FromKey: nil,
+		}, service.DIDCommMsgMap{
+			"from": "oops",
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "parsing their DID")
 	})
 
 	t.Run("fail: bad did key", func(t *testing.T) {
@@ -346,14 +378,14 @@ func TestMessageHandler_getDIDs(t *testing.T) {
 
 		_, _, err := h.getDIDs(&transport.Envelope{
 			ToKey: []byte(`abcd # abcd "kid":"did:`), // matches string matching, but is not JSON
-		})
+		}, nil)
 
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "pubKeyToDID: unmarshal key")
 
 		_, _, err = h.getDIDs(&transport.Envelope{
 			FromKey: []byte(`abcd # abcd "kid":"did:`), // matches string matching, but is not JSON
-		})
+		}, nil)
 
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "pubKeyToDID: unmarshal key")
@@ -374,7 +406,7 @@ func TestMessageHandler_getDIDs(t *testing.T) {
 		_, _, err := h.getDIDs(&transport.Envelope{
 			ToKey:   []byte("my_key"),
 			FromKey: []byte("their_key"),
-		})
+		}, nil)
 
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "mock did store error")
@@ -395,7 +427,7 @@ func TestMessageHandler_getDIDs(t *testing.T) {
 		_, _, err := h.getDIDs(&transport.Envelope{
 			ToKey:   []byte("my_key"),
 			FromKey: []byte("their_key"),
-		})
+		}, nil)
 
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "mock did store error")
@@ -413,7 +445,7 @@ func TestMessageHandler_getDIDs(t *testing.T) {
 		myDID, theirDID, err := h.getDIDs(&transport.Envelope{
 			ToKey:   []byte("my_key"),
 			FromKey: []byte("their_key"),
-		})
+		}, nil)
 
 		require.NoError(t, err)
 		require.Equal(t, "", myDID)
@@ -439,7 +471,7 @@ func TestMessageHandler_getDIDs(t *testing.T) {
 		myDID, theirDID, err := h.getDIDs(&transport.Envelope{
 			ToKey:   []byte("my_key"),
 			FromKey: []byte("their_key"),
-		})
+		}, nil)
 
 		require.NoError(t, err)
 		require.Equal(t, "aaa", myDID)

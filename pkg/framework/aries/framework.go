@@ -14,8 +14,8 @@ import (
 	jsonld "github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/middleware"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/didrotate"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher/inbound"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher/outbound"
@@ -81,7 +81,7 @@ type Aries struct {
 	keyAgreementType           kms.KeyType
 	mediaTypeProfiles          []string
 	inboundEnvelopeHandler     inbound.MessageHandler
-	didRotator                 didrotate.DIDRotator
+	didRotator                 middleware.DIDCommMessageMiddleware
 }
 
 // Option configures the framework.
@@ -536,7 +536,7 @@ func createDIDRotator(frameworkOpts *Aries) error {
 		return fmt.Errorf("context creation failed: %w", err)
 	}
 
-	dr, err := didrotate.New(ctx)
+	dr, err := middleware.New(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to init did rotator: %w", err)
 	}

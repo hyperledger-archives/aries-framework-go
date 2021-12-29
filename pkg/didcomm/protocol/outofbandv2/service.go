@@ -261,22 +261,28 @@ func (s *Service) AcceptInvitation(i *Invitation) (string, error) {
 		return "", fmt.Errorf("oob/2.0 failed to create destination: %w", err)
 	}
 
+	initialState, err := peer.UnsignedGenesisDelta(myDID.DIDDocument)
+	if err != nil {
+		return "", fmt.Errorf("marshalling peer DID into initialState: %w", err)
+	}
+
 	connRecord := &connection.Record{
-		ConnectionID:      uuid.New().String(),
-		ParentThreadID:    i.ID,
-		State:             connection.StateNameCompleted,
-		InvitationID:      i.ID,
-		ServiceEndPoint:   destination.ServiceEndpoint,
-		RecipientKeys:     destination.RecipientKeys,
-		RoutingKeys:       destination.RoutingKeys,
-		TheirLabel:        i.Label,
-		TheirDID:          i.From,
-		MyDID:             myDID.DIDDocument.ID,
-		Namespace:         "my",
-		MediaTypeProfiles: s.myMediaTypeProfiles,
-		Implicit:          true,
-		InvitationDID:     myDID.DIDDocument.ID,
-		DIDCommVersion:    service.V2,
+		ConnectionID:        uuid.New().String(),
+		ParentThreadID:      i.ID,
+		State:               connection.StateNameCompleted,
+		InvitationID:        i.ID,
+		ServiceEndPoint:     destination.ServiceEndpoint,
+		RecipientKeys:       destination.RecipientKeys,
+		RoutingKeys:         destination.RoutingKeys,
+		TheirLabel:          i.Label,
+		TheirDID:            i.From,
+		MyDID:               myDID.DIDDocument.ID,
+		Namespace:           connection.MyNSPrefix,
+		MediaTypeProfiles:   s.myMediaTypeProfiles,
+		Implicit:            true,
+		InvitationDID:       myDID.DIDDocument.ID,
+		DIDCommVersion:      service.V2,
+		PeerDIDInitialState: initialState,
 	}
 
 	if err := s.connectionRecorder.SaveConnectionRecord(connRecord); err != nil {
@@ -284,6 +290,11 @@ func (s *Service) AcceptInvitation(i *Invitation) (string, error) {
 	}
 
 	return connRecord.ConnectionID, nil
+}
+
+// SaveInvitation saves OOB v2 Invitation.
+func (s *Service) SaveInvitation(inv *Invitation) error {
+	return s.connectionRecorder.SaveOOBv2Invitation(inv.From, *inv)
 }
 
 func (s *Service) handleInboundService(serviceURL string, srvc dispatcher.ProtocolService, senderDID string,

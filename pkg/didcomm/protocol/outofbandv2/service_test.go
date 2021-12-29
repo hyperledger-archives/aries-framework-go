@@ -283,6 +283,38 @@ func TestAcceptInvitation(t *testing.T) {
 	})
 }
 
+func TestSaveInvitation(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		provider := testProvider(t)
+
+		inv := newInvitation()
+
+		s, err := New(provider)
+		require.NoError(t, err)
+
+		err = s.SaveInvitation(inv)
+		require.NoError(t, err)
+	})
+
+	t.Run("failure", func(t *testing.T) {
+		provider := testProvider(t)
+
+		expectErr := fmt.Errorf("expected store error")
+
+		provider.StoreProvider = mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
+			ErrPut: expectErr,
+		})
+
+		inv := newInvitation()
+
+		s, err := New(provider)
+		require.NoError(t, err)
+
+		err = s.SaveInvitation(inv)
+		require.ErrorIs(t, err, expectErr)
+	})
+}
+
 func createAuthenticationAndAgreementKeys(t *testing.T, provider *protocol.MockProvider) ([]byte, []byte) {
 	ed25519RawKey := base58.Decode("B12NYF8RrR3h41TDCTJojY59usg3mbtbjnFs7Eud1Y6u")
 	p384RawKey := base58.Decode("7xunFyusHxhJS3tbNWcX7xHCLRPnsScaBJJQUWw8KPpTTPfUSw9RbdyQYCBaLopw6eVQJv1G4ZD4EWgnE" +

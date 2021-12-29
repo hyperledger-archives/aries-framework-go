@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -52,6 +53,7 @@ func TestCommand_CreateInvitation(t *testing.T) {
 	defer ctrl.Finish()
 
 	service := mocks.NewMockOobService(ctrl)
+	service.EXPECT().SaveInvitation(gomock.Any()).Return(nil).AnyTimes()
 
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().Service(gomock.Any()).Return(service, nil).AnyTimes()
@@ -72,6 +74,7 @@ func TestCommand_CreateInvitation(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		service := mocks.NewMockOobService(ctrl)
+		service.EXPECT().SaveInvitation(gomock.Any()).Return(nil).AnyTimes()
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
@@ -99,6 +102,37 @@ func TestCommand_CreateInvitation(t *testing.T) {
 		require.Equal(t, expected.Label, res.Invitation.Label)
 		require.Equal(t, expected.Body.Goal, res.Invitation.Body.Goal)
 		require.Equal(t, expected.Body.GoalCode, res.Invitation.Body.GoalCode)
+	})
+
+	t.Run("client error", func(t *testing.T) {
+		expectErr := fmt.Errorf("expected error")
+
+		service := mocks.NewMockOobService(ctrl)
+		service.EXPECT().SaveInvitation(gomock.Any()).Return(expectErr).AnyTimes()
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+		provider.EXPECT().MediaTypeProfiles().AnyTimes()
+
+		cmd, err := New(provider)
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+
+		expected := CreateInvitationArgs{
+			Label: "label",
+			Body: outofbandv2.InvitationBody{
+				Goal:     "goal",
+				GoalCode: "goal_code",
+			},
+		}
+		args, err := json.Marshal(expected)
+		require.NoError(t, err)
+
+		cmdErr := cmd.CreateInvitation(&b, bytes.NewBuffer(args))
+		require.Error(t, cmdErr)
+		require.Equal(t, CreateInvitationErrorCode, cmdErr.Code())
 	})
 }
 

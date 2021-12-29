@@ -1220,6 +1220,86 @@ func TestParseDID(t *testing.T) {
 	})
 }
 
+func TestParseDIDURL(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		expectErr string
+		result    *DIDURL
+	}{
+		{
+			name:      "success: plain DID without URL components",
+			input:     "did:test:abc",
+			expectErr: "",
+			result: &DIDURL{
+				DID: DID{
+					Scheme:           "did",
+					Method:           "test",
+					MethodSpecificID: "abc",
+				},
+				Queries: map[string][]string{},
+			},
+		},
+		{
+			name:      "success: full DID URL with all components",
+			input:     "did:test:abc/path/a/b/c?query1=value1&query2=value2&query1=value3#fragment",
+			expectErr: "",
+			result: &DIDURL{
+				DID: DID{
+					Scheme:           "did",
+					Method:           "test",
+					MethodSpecificID: "abc",
+				},
+				Path: "/path/a/b/c",
+				Queries: map[string][]string{
+					"query1": {"value1", "value3"},
+					"query2": {"value2"},
+				},
+				Fragment: "fragment",
+			},
+		},
+		{
+			name:      "success: DID URL with fragment only",
+			input:     "did:test:abc#fragment",
+			expectErr: "",
+			result: &DIDURL{
+				DID: DID{
+					Scheme:           "did",
+					Method:           "test",
+					MethodSpecificID: "abc",
+				},
+				Queries:  map[string][]string{},
+				Fragment: "fragment",
+			},
+		},
+		{
+			name:      "fail: error parsing DID",
+			input:     "foo",
+			expectErr: "invalid did",
+		},
+		{
+			name:      "fail: DID URL doesn't satisfy URL format",
+			input:     "did:test:abc/\t",
+			expectErr: "failed to parse",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			actual, err := ParseDIDURL(tc.input)
+
+			if tc.expectErr != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.expectErr)
+
+				return
+			}
+
+			require.Equal(t, tc.result, actual)
+		})
+	}
+}
+
 func Test_DID_String(t *testing.T) {
 	const expected = "did:example:123456"
 	did, err := Parse(expected)

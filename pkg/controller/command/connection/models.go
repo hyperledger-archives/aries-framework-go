@@ -8,8 +8,14 @@ package connection
 
 // RotateDIDRequest request to rotate MyDID in the connection with the given ID.
 type RotateDIDRequest struct {
-	ID     string `json:"id"`
-	KID    string `json:"kid"`
+	ID            string `json:"id"`
+	KID           string `json:"kid"`
+	NewDID        string `json:"new_did"`
+	CreatePeerDID bool   `json:"create_peer_did"`
+}
+
+// RotateDIDResponse response from a DID rotation call, with the new DID that the connection was rotated to.
+type RotateDIDResponse struct {
 	NewDID string `json:"new_did"`
 }
 
