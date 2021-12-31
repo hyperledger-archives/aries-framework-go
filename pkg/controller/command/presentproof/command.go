@@ -87,7 +87,8 @@ const (
 	errEmptyPresentation        = "empty Presentation"
 	errEmptyProposePresentation = "empty ProposePresentation"
 	errEmptyRequestPresentation = "empty RequestPresentation"
-	errMissingConnection        = "no connection for given connection ID"
+	errNoConnectionForDIDs      = "no connection for given DIDs"
+	errNoConnectionByID         = "no connection for given connection ID"
 
 	// log constants.
 	successString = "success"
@@ -182,21 +183,28 @@ func (c *Command) Actions(rw io.Writer, _ io.Reader) command.Error {
 
 // SendRequestPresentation is used by the Verifier to send a request presentation.
 func (c *Command) SendRequestPresentation(rw io.Writer, req io.Reader) command.Error {
-	var args SendRequestPresentationArgs
+	var (
+		args   SendRequestPresentationArgs
+		err    error
+		errMsg string
+		rec    *connection.Record
+	)
 
-	if err := json.NewDecoder(req).Decode(&args); err != nil {
+	if err = json.NewDecoder(req).Decode(&args); err != nil {
 		logutil.LogInfo(logger, CommandName, SendRequestPresentation, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
-	if args.MyDID == "" {
-		logutil.LogDebug(logger, CommandName, SendRequestPresentation, errEmptyMyDID)
-		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyMyDID))
-	}
+	if args.ConnectionID == "" {
+		if args.MyDID == "" {
+			logutil.LogDebug(logger, CommandName, SendRequestPresentation, errEmptyMyDID)
+			return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyMyDID))
+		}
 
-	if args.TheirDID == "" {
-		logutil.LogDebug(logger, CommandName, SendRequestPresentation, errEmptyTheirDID)
-		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyTheirDID))
+		if args.TheirDID == "" {
+			logutil.LogDebug(logger, CommandName, SendRequestPresentation, errEmptyTheirDID)
+			return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyTheirDID))
+		}
 	}
 
 	if args.RequestPresentation == nil {
@@ -204,10 +212,17 @@ func (c *Command) SendRequestPresentation(rw io.Writer, req io.Reader) command.E
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyRequestPresentation))
 	}
 
-	rec, err := c.lookup.GetConnectionRecordByDIDs(args.MyDID, args.TheirDID)
+	if args.ConnectionID == "" {
+		rec, err = c.lookup.GetConnectionRecordByDIDs(args.MyDID, args.TheirDID)
+		errMsg = errNoConnectionForDIDs
+	} else {
+		rec, err = c.lookup.GetConnectionRecord(args.ConnectionID)
+		errMsg = errNoConnectionByID
+	}
+
 	if err != nil {
-		logutil.LogDebug(logger, CommandName, SendRequestPresentation, errMissingConnection)
-		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errMissingConnection))
+		logutil.LogDebug(logger, CommandName, SendRequestPresentation, errMsg)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errMsg))
 	}
 
 	piid, err := c.client.SendRequestPresentation(args.RequestPresentation, rec)
@@ -227,21 +242,28 @@ func (c *Command) SendRequestPresentation(rw io.Writer, req io.Reader) command.E
 
 // SendProposePresentation is used by the Prover to send a propose presentation.
 func (c *Command) SendProposePresentation(rw io.Writer, req io.Reader) command.Error {
-	var args SendProposePresentationArgs
+	var (
+		args   SendProposePresentationArgs
+		err    error
+		errMsg string
+		rec    *connection.Record
+	)
 
-	if err := json.NewDecoder(req).Decode(&args); err != nil {
+	if err = json.NewDecoder(req).Decode(&args); err != nil {
 		logutil.LogInfo(logger, CommandName, SendProposePresentation, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
-	if args.MyDID == "" {
-		logutil.LogDebug(logger, CommandName, SendProposePresentation, errEmptyMyDID)
-		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyMyDID))
-	}
+	if args.ConnectionID == "" {
+		if args.MyDID == "" {
+			logutil.LogDebug(logger, CommandName, SendProposePresentation, errEmptyMyDID)
+			return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyMyDID))
+		}
 
-	if args.TheirDID == "" {
-		logutil.LogDebug(logger, CommandName, SendProposePresentation, errEmptyTheirDID)
-		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyTheirDID))
+		if args.TheirDID == "" {
+			logutil.LogDebug(logger, CommandName, SendProposePresentation, errEmptyTheirDID)
+			return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyTheirDID))
+		}
 	}
 
 	if args.ProposePresentation == nil {
@@ -249,10 +271,17 @@ func (c *Command) SendProposePresentation(rw io.Writer, req io.Reader) command.E
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyProposePresentation))
 	}
 
-	rec, err := c.lookup.GetConnectionRecordByDIDs(args.MyDID, args.TheirDID)
+	if args.ConnectionID == "" {
+		rec, err = c.lookup.GetConnectionRecordByDIDs(args.MyDID, args.TheirDID)
+		errMsg = errNoConnectionForDIDs
+	} else {
+		rec, err = c.lookup.GetConnectionRecord(args.ConnectionID)
+		errMsg = errNoConnectionByID
+	}
+
 	if err != nil {
-		logutil.LogDebug(logger, CommandName, SendProposePresentation, errMissingConnection)
-		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errMissingConnection))
+		logutil.LogDebug(logger, CommandName, SendProposePresentation, errMsg)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errMsg))
 	}
 
 	piid, err := c.client.SendProposePresentation(args.ProposePresentation, rec)

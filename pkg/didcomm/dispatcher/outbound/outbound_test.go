@@ -15,8 +15,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/middleware"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/didrotate"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -203,6 +203,8 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 	})
 }
 
+const testDID = "did:test:abc"
+
 func TestOutboundDispatcher_SendToDID(t *testing.T) {
 	mockDoc := mockdiddoc.GetMockDIDDoc(t)
 
@@ -226,7 +228,10 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 			getConnectionRecordVal: &connection.Record{},
 		}
 
-		require.NoError(t, o.SendToDID("data", "", ""))
+		require.NoError(t, o.SendToDID(service.DIDCommMsgMap{
+			"@id":   "123",
+			"@type": "abc",
+		}, testDID, ""))
 	})
 
 	t.Run("success with did rotation check", func(t *testing.T) {
@@ -241,19 +246,21 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 			storageProvider:      mockstore.NewMockStoreProvider(),
 			protoStorageProvider: mockstore.NewMockStoreProvider(),
 			mediaTypeProfiles:    []string{transport.MediaTypeDIDCommV2Profile},
-			didRotator:           didrotate.DIDRotator{},
+			didRotator:           middleware.DIDCommMessageMiddleware{},
 		})
 		require.NoError(t, err)
 
 		o.connections = &mockConnectionLookup{
 			getConnectionByDIDsVal: "mock1",
-			getConnectionRecordVal: &connection.Record{},
+			getConnectionRecordVal: &connection.Record{
+				PeerDIDInitialState: "mock-peer-initial-state",
+			},
 		}
 
 		require.NoError(t, o.SendToDID(service.DIDCommMsgMap{
 			"id":   "123",
 			"type": "abc",
-		}, "", ""))
+		}, testDID, ""))
 	})
 
 	t.Run("did rotation err", func(t *testing.T) {
@@ -268,7 +275,7 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 			storageProvider:      mockstore.NewMockStoreProvider(),
 			protoStorageProvider: mockstore.NewMockStoreProvider(),
 			mediaTypeProfiles:    []string{transport.MediaTypeDIDCommV2Profile},
-			didRotator:           didrotate.DIDRotator{},
+			didRotator:           middleware.DIDCommMessageMiddleware{},
 		})
 		require.NoError(t, err)
 
@@ -280,7 +287,7 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 		// did rotation err is logged, not returned
 		require.NoError(t, o.SendToDID(&service.DIDCommMsgMap{
 			"invalid": "message",
-		}, "", ""))
+		}, testDID, ""))
 	})
 
 	t.Run("resolve err", func(t *testing.T) {
@@ -302,7 +309,7 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 			getConnectionRecordVal: &connection.Record{},
 		}
 
-		err = o.SendToDID("data", "", "")
+		err = o.SendToDID("data", testDID, "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "resolve error")
 	})
@@ -326,7 +333,7 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 			getConnectionRecordVal: &connection.Record{},
 		}
 
-		err = o.SendToDID("data", "", "")
+		err = o.SendToDID("data", testDID, "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "resolve error")
 	})
@@ -353,7 +360,7 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 			getConnectionRecordErr: expected,
 		}
 
-		err = o.SendToDID("data", "", "")
+		err = o.SendToDID("data", testDID, "")
 		require.ErrorIs(t, err, expected)
 		require.Contains(t, err.Error(), "failed to fetch connection record")
 	})
@@ -378,7 +385,7 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 			getConnectionRecordVal: &connection.Record{},
 		}
 
-		err = o.SendToDID("data", "abc", "def")
+		err = o.SendToDID("data", testDID, "def")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to get didcomm destination")
 	})
@@ -403,7 +410,7 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 			getConnectionRecordVal: &connection.Record{},
 		}
 
-		err = o.SendToDID("data", "abc", "def")
+		err = o.SendToDID("data", testDID, "def")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to get didcomm destination")
 	})
@@ -429,7 +436,7 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 			getConnectionRecordErr: expected,
 		}
 
-		require.NoError(t, o.SendToDID("data", "", ""))
+		require.NoError(t, o.SendToDID("data", testDID, ""))
 	})
 
 	t.Run("fail with nil connection record, unable to save new record", func(t *testing.T) {
@@ -454,7 +461,7 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 			saveConnectionErr:      expected,
 		}
 
-		err = o.SendToDID("data", "", "")
+		err = o.SendToDID("data", testDID, "")
 		require.ErrorIs(t, err, expected)
 		require.Contains(t, err.Error(), "failed to save new connection")
 	})
@@ -486,7 +493,7 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 			getConnectionRecordErr: expected,
 		}
 
-		require.NoError(t, o.SendToDID("data", "", ""))
+		require.NoError(t, o.SendToDID("data", testDID, ""))
 	})
 }
 
@@ -663,7 +670,7 @@ type mockProvider struct {
 	protoStorageProvider    storage.Provider
 	mediaTypeProfiles       []string
 	keyAgreementType        kms.KeyType
-	didRotator              didrotate.DIDRotator
+	didRotator              middleware.DIDCommMessageMiddleware
 }
 
 func (p *mockProvider) Packager() transport.Packager {
@@ -706,7 +713,7 @@ func (p *mockProvider) KeyAgreementType() kms.KeyType {
 	return p.keyAgreementType
 }
 
-func (p *mockProvider) DIDRotator() *didrotate.DIDRotator {
+func (p *mockProvider) DIDRotator() *middleware.DIDCommMessageMiddleware {
 	return &p.didRotator
 }
 

@@ -30,18 +30,13 @@ type docDelta struct {
 	ModifiedAt time.Time     `json:"when,omitempty"`
 }
 
-// storeDID saves Peer DID Document along with user key/signature.
-func (v *VDR) storeDID(doc *did.Doc, by *[]modifiedBy) error { //nolint: unparam
-	if doc == nil || doc.ID == "" {
-		return errors.New("DID and document are mandatory")
-	}
-
+func genesisDeltaBytes(doc *did.Doc, by *[]modifiedBy) ([]byte, error) {
 	var deltas []docDelta
 
 	// For now, assume the doc is a genesis document
 	jsonDoc, err := doc.JSONBytes()
 	if err != nil {
-		return fmt.Errorf("JSON marshalling of document failed: %w", err)
+		return nil, fmt.Errorf("JSON marshalling of document failed: %w", err)
 	}
 
 	docDelta := &docDelta{
@@ -54,10 +49,58 @@ func (v *VDR) storeDID(doc *did.Doc, by *[]modifiedBy) error { //nolint: unparam
 
 	val, err := json.Marshal(deltas)
 	if err != nil {
-		return fmt.Errorf("JSON marshalling of document deltas failed: %w", err)
+		return nil, fmt.Errorf("JSON marshalling of document deltas failed: %w", err)
+	}
+
+	return val, nil
+}
+
+// storeDID saves Peer DID Document along with user key/signature.
+func (v *VDR) storeDID(doc *did.Doc, by *[]modifiedBy) error { //nolint: unparam
+	if doc == nil || doc.ID == "" {
+		return errors.New("DID and document are mandatory")
+	}
+
+	val, err := genesisDeltaBytes(doc, by)
+	if err != nil {
+		return err
 	}
 
 	return v.store.Put(doc.ID, val)
+}
+
+// UnsignedGenesisDelta returns a marshaled and base64-encoded json array containing a single peer DID delta
+// for the given doc.
+func UnsignedGenesisDelta(doc *did.Doc) (string, error) {
+	peerDeltaBytes, err := genesisDeltaBytes(doc, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate peer DID initialState: %w", err)
+	}
+
+	peerDeltaB64 := base64.RawURLEncoding.EncodeToString(peerDeltaBytes)
+
+	return peerDeltaB64, nil
+}
+
+// DocFromGenesisDelta parses a marshaled genesis delta, returning the doc contained within.
+func DocFromGenesisDelta(initialState string) (*did.Doc, error) {
+	var deltas []docDelta
+
+	genesis, err := base64.RawURLEncoding.DecodeString(initialState)
+	if err != nil {
+		return nil, fmt.Errorf("decoding initialState: %w", err)
+	}
+
+	err = json.Unmarshal(genesis, &deltas)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshaling deltas: %w", err)
+	}
+
+	if len(deltas) != 1 {
+		return nil, fmt.Errorf("unsupported: only delta arrays with a single delta are supported")
+	}
+
+	return assembleDocFromDeltas(deltas)
 }
 
 // Get returns Peer DID Document.
@@ -71,6 +114,10 @@ func (v *VDR) Get(id string) (*did.Doc, error) {
 		return nil, fmt.Errorf("delta data fetch from store for did [%s] failed: %w", id, err)
 	}
 
+	return assembleDocFromDeltas(deltas)
+}
+
+func assembleDocFromDeltas(deltas []docDelta) (*did.Doc, error) {
 	// For now, assume storage contains only one delta(genesis document)
 	delta := deltas[0]
 

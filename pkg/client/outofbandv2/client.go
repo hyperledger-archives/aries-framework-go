@@ -40,6 +40,7 @@ type message struct {
 // OobService defines the outofband service.
 type OobService interface {
 	AcceptInvitation(*oobv2.Invitation) (string, error)
+	SaveInvitation(inv *oobv2.Invitation) error
 }
 
 // Provider provides the dependencies for the client.
@@ -86,7 +87,7 @@ func New(p Provider) (*Client, error) {
 }
 
 // CreateInvitation creates and saves an out-of-band/v2 invitation.
-func (c *Client) CreateInvitation(opts ...MessageOption) *oobv2.Invitation {
+func (c *Client) CreateInvitation(opts ...MessageOption) (*oobv2.Invitation, error) {
 	msg := &message{}
 
 	for _, opt := range opts {
@@ -110,7 +111,12 @@ func (c *Client) CreateInvitation(opts ...MessageOption) *oobv2.Invitation {
 		inv.Body.Accept = c.mediaTypeProfiles
 	}
 
-	return inv
+	err := c.oobService.SaveInvitation(inv)
+	if err != nil {
+		return nil, fmt.Errorf("out-of-band/2.0 service failed to save invitation : %w", err)
+	}
+
+	return inv, nil
 }
 
 // AcceptInvitation from another agent and return the ID of the new connection records.

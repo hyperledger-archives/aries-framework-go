@@ -12,7 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/didrotate"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/middleware"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
@@ -71,7 +71,7 @@ func mockProvider(t *testing.T) *mockprovider.Provider {
 
 	prov.KMSValue = &mockkms.KeyManager{}
 
-	didRotator, err := didrotate.New(prov)
+	didRotator, err := middleware.New(prov)
 	require.NoError(t, err)
 
 	prov.DIDRotatorValue = *didRotator
@@ -97,7 +97,7 @@ func TestClient_RotateDID(t *testing.T) {
 	c, err := New(mockProvider(t))
 	require.NoError(t, err)
 
-	err = c.RotateDID("a", "b", "c")
+	_, err = c.RotateDID("a", "b", WithNewDID("c"))
 	require.Error(t, err)
 }
 

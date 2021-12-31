@@ -21,8 +21,8 @@ import (
 
 	command "github.com/hyperledger/aries-framework-go/pkg/controller/command/connection"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/middleware"
 	didcomm "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/didrotate"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
@@ -81,7 +81,7 @@ func mockProvider(t *testing.T) *mockprovider.Provider {
 
 	prov.KMSValue = &mockkms.KeyManager{}
 
-	didRotator, err := didrotate.New(prov)
+	didRotator, err := middleware.New(prov)
 	require.NoError(t, err)
 
 	prov.DIDRotatorValue = *didRotator

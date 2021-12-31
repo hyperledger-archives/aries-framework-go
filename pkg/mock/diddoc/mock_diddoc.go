@@ -158,6 +158,8 @@ func GetMockDIDDocWithDIDCommV2Bloc(t *testing.T, id string) *did.Doc {
 		},
 		KeyAgreement: []did.Verification{
 			{
+				Relationship: did.KeyAgreement,
+				Embedded:     true,
 				VerificationMethod: did.VerificationMethod{
 					ID:         peerDID + "#key-4",
 					Controller: peerDID,

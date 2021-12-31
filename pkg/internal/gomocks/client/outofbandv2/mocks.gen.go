@@ -157,3 +157,17 @@ func (mr *MockOobServiceMockRecorder) AcceptInvitation(arg0 interface{}) *gomock
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcceptInvitation", reflect.TypeOf((*MockOobService)(nil).AcceptInvitation), arg0)
 }
+
+// SaveInvitation mocks base method.
+func (m *MockOobService) SaveInvitation(arg0 *outofbandv2.Invitation) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveInvitation", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveInvitation indicates an expected call of SaveInvitation.
+func (mr *MockOobServiceMockRecorder) SaveInvitation(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveInvitation", reflect.TypeOf((*MockOobService)(nil).SaveInvitation), arg0)
+}

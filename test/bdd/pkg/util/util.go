@@ -69,7 +69,7 @@ func SendHTTP(method, destination string, message []byte, result interface{}) er
 }
 
 // PullEventsFromWebSocket returns WebSocket event by given filter
-// nolint: gocyclo,gocognit
+// nolint: gocyclo,gocognit,funlen
 func PullEventsFromWebSocket(bdd *bddcontext.BDDContext, agentID string, filters ...Filter) (*Incoming, error) {
 	const timeoutPullTopics = 30 * time.Second
 
@@ -126,6 +126,10 @@ func PullEventsFromWebSocket(bdd *bddcontext.BDDContext, agentID string, filters
 			continue
 		}
 
+		if filter.MyDID != nil && incoming.Message.Properties["myDID"].(string) != *filter.MyDID {
+			continue
+		}
+
 		return incoming, nil
 	}
 }
@@ -135,6 +139,7 @@ type eventFilter struct {
 	StateID         *string
 	Type            *string
 	PIID            *string
+	MyDID           *string
 	NotEmptyMessage *bool
 }
 
@@ -166,6 +171,13 @@ func FilterPIID(val string) Filter {
 func FilterType(val string) Filter {
 	return func(filter *eventFilter) {
 		filter.Type = &val
+	}
+}
+
+// FilterMyDID filters WebSocket events by agent's DID.
+func FilterMyDID(val string) Filter {
+	return func(filter *eventFilter) {
+		filter.MyDID = &val
 	}
 }
 

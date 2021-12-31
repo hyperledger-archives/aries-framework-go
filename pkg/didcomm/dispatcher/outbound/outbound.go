@@ -15,12 +15,11 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/middleware"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/didrotate"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
-	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
@@ -39,7 +38,7 @@ type provider interface {
 	ProtocolStateStorageProvider() storage.Provider
 	StorageProvider() storage.Provider
 	MediaTypeProfiles() []string
-	DIDRotator() *didrotate.DIDRotator
+	DIDRotator() *middleware.DIDCommMessageMiddleware
 }
 
 type connectionLookup interface {
@@ -63,7 +62,7 @@ type Dispatcher struct {
 	keyAgreementType     kms.KeyType
 	connections          connectionRecorder
 	mediaTypeProfiles    []string
-	didRotator           *didrotate.DIDRotator
+	didcommV2Handler     *middleware.DIDCommMessageMiddleware
 }
 
 var logger = log.New("aries-framework/didcomm/dispatcher")
@@ -78,7 +77,7 @@ func NewOutbound(prov provider) (*Dispatcher, error) {
 		kms:                  prov.KMS(),
 		keyAgreementType:     prov.KeyAgreementType(),
 		mediaTypeProfiles:    prov.MediaTypeProfiles(),
-		didRotator:           prov.DIDRotator(),
+		didcommV2Handler:     prov.DIDRotator(),
 	}
 
 	var err error
@@ -92,7 +91,7 @@ func NewOutbound(prov provider) (*Dispatcher, error) {
 }
 
 // SendToDID sends a message from myDID to the agent who owns theirDID.
-func (o *Dispatcher) SendToDID(msg interface{}, myDID, theirDID string) error {
+func (o *Dispatcher) SendToDID(msg interface{}, myDID, theirDID string) error { // nolint:funlen,gocyclo
 	myDocResolution, err := o.vdRegistry.Resolve(myDID)
 	if err != nil {
 		return fmt.Errorf("failed to resolve my DID: %w", err)
@@ -103,37 +102,54 @@ func (o *Dispatcher) SendToDID(msg interface{}, myDID, theirDID string) error {
 		return fmt.Errorf("failed to resolve their DID: %w", err)
 	}
 
-	myDoc := myDocResolution.DIDDocument
-	theirDoc := theirDocResolution.DIDDocument
+	var connectionVersion service.Version
 
-	connRec, err := o.getOrCreateConnection(myDoc, theirDoc)
+	if didcommMsg, ok := msg.(service.DIDCommMsgMap); ok { // nolint:nestif
+		isV2, e := service.IsDIDCommV2(&didcommMsg)
+		if e != nil {
+			logger.Warnf("failed to check didcomm version on outbound message: %w", e)
+		} else {
+			if isV2 {
+				connectionVersion = service.V2
+			} else {
+				connectionVersion = service.V1
+			}
+		}
+	}
+
+	connRec, err := o.getOrCreateConnection(myDID, theirDID, connectionVersion)
 	if err != nil {
 		return fmt.Errorf("failed to fetch connection record: %w", err)
 	}
 
-	mediaTypes := make([]string, len(connRec.MediaTypeProfiles))
-	copy(mediaTypes, connRec.MediaTypeProfiles)
+	var sendWithAnoncrypt bool
 
 	if didcommMsg, ok := msg.(service.DIDCommMsgMap); ok {
-		didcommMsg, err = o.didRotator.HandleOutboundMessage(didcommMsg, connRec)
-		if err != nil {
-			logger.Warnf("did rotation failed on didcomm message: %w", err)
-		} else {
-			msg = &didcommMsg
+		didcommMsg = o.didcommV2Handler.HandleOutboundMessage(didcommMsg, connRec)
+		msg = &didcommMsg
+
+		if connRec.PeerDIDInitialState != "" {
+			// we need to use anoncrypt if myDID is a peer DID being shared with the recipient through this message.
+			sendWithAnoncrypt = true
 		}
 	}
 
-	dest, err := service.CreateDestination(theirDoc)
+	dest, err := service.CreateDestination(theirDocResolution.DIDDocument)
 	if err != nil {
 		return fmt.Errorf(
 			"outboundDispatcher.SendToDID failed to get didcomm destination for theirDID [%s]: %w", theirDID, err)
 	}
 
-	if len(mediaTypes) > 0 {
-		dest.MediaTypeProfiles = mediaTypes
+	if len(connRec.MediaTypeProfiles) > 0 {
+		dest.MediaTypeProfiles = make([]string, len(connRec.MediaTypeProfiles))
+		copy(dest.MediaTypeProfiles, connRec.MediaTypeProfiles)
 	}
 
-	src, err := service.CreateDestination(myDoc)
+	if sendWithAnoncrypt {
+		return o.Send(msg, "", dest)
+	}
+
+	src, err := service.CreateDestination(myDocResolution.DIDDocument)
 	if err != nil {
 		return fmt.Errorf("outboundDispatcher.SendToDID failed to get didcomm destination for myDID [%s]: %w", myDID, err)
 	}
@@ -152,8 +168,10 @@ func (o *Dispatcher) defaultMediaTypeProfiles() []string {
 	return mediaTypes
 }
 
-func (o *Dispatcher) getOrCreateConnection(myDoc, theirDoc *diddoc.Doc) (*connection.Record, error) {
-	record, err := o.connections.GetConnectionRecordByDIDs(myDoc.ID, theirDoc.ID)
+// getOrCreateConnection returns true iff it created a new connection rather than fetching one.
+func (o *Dispatcher) getOrCreateConnection(myDID, theirDID string, connectionVersion service.Version,
+) (*connection.Record, error) {
+	record, err := o.connections.GetConnectionRecordByDIDs(myDID, theirDID)
 	if err == nil {
 		return record, nil
 	} else if !errors.Is(err, storage.ErrDataNotFound) {
@@ -161,15 +179,16 @@ func (o *Dispatcher) getOrCreateConnection(myDoc, theirDoc *diddoc.Doc) (*connec
 	}
 
 	// myDID and theirDID never had a connection, create a default connection for OOBless communication.
-	logger.Debugf("no connection record found for myDID=%s theirDID=%s, will create", myDoc.ID, theirDoc.ID)
+	logger.Debugf("no connection record found for myDID=%s theirDID=%s, will create", myDID, theirDID)
 
 	newRecord := connection.Record{
 		ConnectionID:      uuid.New().String(),
-		MyDID:             myDoc.ID,
-		TheirDID:          theirDoc.ID,
+		MyDID:             myDID,
+		TheirDID:          theirDID,
 		State:             connection.StateNameCompleted,
 		Namespace:         connection.MyNSPrefix,
 		MediaTypeProfiles: o.defaultMediaTypeProfiles(),
+		DIDCommVersion:    connectionVersion,
 	}
 
 	err = o.connections.SaveConnectionRecord(&newRecord)
@@ -181,7 +200,7 @@ func (o *Dispatcher) getOrCreateConnection(myDoc, theirDoc *diddoc.Doc) (*connec
 }
 
 // Send sends the message after packing with the sender key and recipient keys.
-func (o *Dispatcher) Send(msg interface{}, senderKey string, des *service.Destination) error { // nolint:gocyclo
+func (o *Dispatcher) Send(msg interface{}, senderKey string, des *service.Destination) error { // nolint:funlen,gocyclo
 	// check if outbound accepts routing keys, else use recipient keys
 	keys := des.RecipientKeys
 	if len(des.RoutingKeys) != 0 {
@@ -214,10 +233,16 @@ func (o *Dispatcher) Send(msg interface{}, senderKey string, des *service.Destin
 
 	mtp := o.mediaTypeProfile(des)
 
+	var fromKey []byte
+
+	if len(senderKey) > 0 {
+		fromKey = []byte(senderKey)
+	}
+
 	packedMsg, err := o.packager.PackMessage(&transport.Envelope{
 		MediaTypeProfile: mtp,
 		Message:          req,
-		FromKey:          []byte(senderKey),
+		FromKey:          fromKey,
 		ToKeys:           des.RecipientKeys,
 	})
 	if err != nil {

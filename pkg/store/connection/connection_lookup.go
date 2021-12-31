@@ -29,6 +29,7 @@ const (
 	bothDIDsTagName    = "bothDIDs"
 	theirDIDTagName    = "theirDID"
 	invKeyPrefix       = "inv"
+	oobV2InvKeyPrefix  = "oob2"
 	eventDataKeyPrefix = "connevent"
 	keySeparator       = "_"
 	stateIDEmptyErr    = "stateID can't be empty"
@@ -53,23 +54,24 @@ type DIDRotationRecord struct {
 
 // Record contain info about did exchange connection.
 type Record struct {
-	ConnectionID      string
-	State             string
-	ThreadID          string
-	ParentThreadID    string
-	TheirLabel        string
-	TheirDID          string
-	MyDID             string
-	ServiceEndPoint   string   // ServiceEndPoint is 'their' DIDComm service endpoint.
-	RecipientKeys     []string // RecipientKeys holds 'their' DIDComm recipient keys.
-	RoutingKeys       []string // RoutingKeys holds 'their' DIDComm routing keys.
-	InvitationID      string
-	InvitationDID     string
-	Implicit          bool
-	Namespace         string
-	MediaTypeProfiles []string
-	DIDCommVersion    didcomm.Version
-	MyDIDRotation     *DIDRotationRecord `json:"myDIDRotation,omitempty"`
+	ConnectionID        string
+	State               string
+	ThreadID            string
+	ParentThreadID      string
+	TheirLabel          string
+	TheirDID            string
+	MyDID               string
+	ServiceEndPoint     string   // ServiceEndPoint is 'their' DIDComm service endpoint.
+	RecipientKeys       []string // RecipientKeys holds 'their' DIDComm recipient keys.
+	RoutingKeys         []string // RoutingKeys holds 'their' DIDComm routing keys.
+	InvitationID        string
+	InvitationDID       string
+	Implicit            bool
+	Namespace           string
+	MediaTypeProfiles   []string
+	DIDCommVersion      didcomm.Version
+	PeerDIDInitialState string
+	MyDIDRotation       *DIDRotationRecord `json:"myDIDRotation,omitempty"`
 }
 
 // NewLookup returns new connection lookup instance.
@@ -258,6 +260,16 @@ func (c *Lookup) GetInvitation(id string, target interface{}) error {
 	return getAndUnmarshal(getInvitationKeyPrefix()(id), target, c.store)
 }
 
+// GetOOBv2Invitation finds and parses stored OOBv2 invitation to target type.
+// TODO should avoid using target of type `interface{}` [Issue #1030].
+func (c *Lookup) GetOOBv2Invitation(myDID string, target interface{}) error {
+	if myDID == "" {
+		return fmt.Errorf(errMsgInvalidKey)
+	}
+
+	return getAndUnmarshal(getOOBInvitationV2KeyPrefix()(tagValueFromDIDs(myDID)), target, c.store)
+}
+
 // GetEvent returns persisted event data for given connection ID.
 // TODO connection event data shouldn't be transient [Issues #1029].
 func (c *Recorder) GetEvent(connectionID string) ([]byte, error) {
@@ -340,6 +352,13 @@ func getConnectionStateKeyPrefix() KeyPrefix {
 func getInvitationKeyPrefix() KeyPrefix {
 	return func(key ...string) string {
 		return fmt.Sprintf(keyPattern, invKeyPrefix, strings.Join(key, keySeparator))
+	}
+}
+
+// getOOBInvitationV2KeyPrefix key prefix for saving OOBv2 invitations.
+func getOOBInvitationV2KeyPrefix() KeyPrefix {
+	return func(key ...string) string {
+		return fmt.Sprintf(keyPattern, oobV2InvKeyPrefix, strings.Join(key, keySeparator))
 	}
 }
 
