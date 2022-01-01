@@ -70,6 +70,13 @@ func (s *SDKSteps) connectAgentToOther(agent, other string) error {
 
 	agentCtx := s.bddContext.AgentCtx[agent]
 
+	didExClient, err := didexchange.New(agentCtx)
+	if err != nil {
+		return err
+	}
+
+	s.bddContext.DIDExchangeClients[agent] = didExClient
+
 	agentClient, err := connection.New(agentCtx)
 	if err != nil {
 		return fmt.Errorf(": %w", err)
@@ -80,13 +87,7 @@ func (s *SDKSteps) connectAgentToOther(agent, other string) error {
 		return err
 	}
 
-	idMap, ok := s.bddContext.ConnectionIDs[agent]
-	if !ok {
-		s.bddContext.ConnectionIDs[agent] = make(map[string]string)
-		idMap = s.bddContext.ConnectionIDs[agent]
-	}
-
-	idMap[other] = connID
+	s.bddContext.SaveConnectionID(agent, other, connID)
 
 	return nil
 }
@@ -150,10 +151,12 @@ func (s *SDKSteps) rotateDID(agentID, otherAgent string) error { // nolint:gocyc
 		return fmt.Errorf("creating connection client: %w", err)
 	}
 
-	err = client.RotateDID(connID, authKID, newDoc.ID)
+	newDID, err := client.RotateDID(connID, authKID, connection.WithNewDID(newDoc.ID))
 	if err != nil {
 		return fmt.Errorf("rotate did: %w", err)
 	}
+
+	s.bddContext.PeerDIDs[agentID] = newDID
 
 	return nil
 }

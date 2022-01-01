@@ -57,6 +57,16 @@ func (c *Recorder) SaveInvitation(id string, invitation interface{}) error {
 	return marshalAndSave(getInvitationKeyPrefix()(id), invitation, c.store)
 }
 
+// SaveOOBv2Invitation saves OOBv2 invitation in permanent store under given ID.
+// TODO should avoid using target of type `interface{}` [Issue #1030].
+func (c *Recorder) SaveOOBv2Invitation(myDID string, invitation interface{}) error {
+	if myDID == "" {
+		return fmt.Errorf(errMsgInvalidKey)
+	}
+
+	return marshalAndSave(getOOBInvitationV2KeyPrefix()(tagValueFromDIDs(myDID)), invitation, c.store)
+}
+
 // SaveConnectionRecord saves given connection records in underlying store.
 func (c *Recorder) SaveConnectionRecord(record *Record) error {
 	if err := marshalAndSave(getConnectionKeyPrefix()(record.ConnectionID),

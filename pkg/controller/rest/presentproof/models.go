@@ -36,11 +36,17 @@ type presentProofSendRequestPresentationRequest struct { // nolint: unused,deadc
 	// in: body
 	Body struct {
 		// MyDID sender's did
-		// required: true
+		//
+		// optional: required if ConnectionID is not present.
 		MyDID string `json:"my_did"`
 		// TheirDID receiver's did
-		// required: true
+		//
+		// optional: required if ConnectionID is not present.
 		TheirDID string `json:"their_did"`
+		// ConnectionID ID of connection between sender and receiver.
+		//
+		// optional: if present, is used instead of MyDID + TheirDID.
+		ConnectionID string `json:"connection_id"`
 		// RequestPresentation describes values that need to be revealed and predicates that need to be fulfilled.
 		// required: true
 		RequestPresentation struct {
@@ -58,11 +64,17 @@ type presentProofSendRequestPresentationV3Request struct { // nolint: unused,dea
 	// in: body
 	Body struct {
 		// MyDID sender's did
-		// required: true
+		//
+		// optional: required if ConnectionID is not present.
 		MyDID string `json:"my_did"`
 		// TheirDID receiver's did
-		// required: true
+		//
+		// optional: required if ConnectionID is not present.
 		TheirDID string `json:"their_did"`
+		// ConnectionID ID of connection between sender and receiver.
+		//
+		// optional: if present, is used instead of MyDID + TheirDID.
+		ConnectionID string `json:"connection_id"`
 		// RequestPresentation describes values that need to be revealed and predicates that need to be fulfilled.
 		// required: true
 		RequestPresentation struct {
@@ -93,11 +105,17 @@ type presentProofSendProposePresentationRequest struct { // nolint: unused,deadc
 	// in: body
 	Body struct {
 		// MyDID sender's did
-		// required: true
+		//
+		// optional: required if ConnectionID is not present.
 		MyDID string `json:"my_did"`
 		// TheirDID receiver's did
-		// required: true
+		//
+		// optional: required if ConnectionID is not present.
 		TheirDID string `json:"their_did"`
+		// ConnectionID ID of connection between sender and receiver.
+		//
+		// optional: if present, is used instead of MyDID + TheirDID.
+		ConnectionID string `json:"connection_id"`
 		// ProposePresentation is a message sent by the Prover to the verifier to initiate a proof presentation process.
 		// required: true
 		ProposePresentation struct {
@@ -115,11 +133,17 @@ type presentProofSendProposePresentationV3Request struct { // nolint: unused,dea
 	// in: body
 	Body struct {
 		// MyDID sender's did
-		// required: true
+		//
+		// optional: required if ConnectionID is not present.
 		MyDID string `json:"my_did"`
 		// TheirDID receiver's did
-		// required: true
+		//
+		// optional: required if ConnectionID is not present.
 		TheirDID string `json:"their_did"`
+		// ConnectionID ID of connection between sender and receiver.
+		//
+		// optional: if present, is used instead of MyDID + TheirDID.
+		ConnectionID string `json:"connection_id"`
 		// ProposePresentation is a message sent by the Prover to the verifier to initiate a proof presentation process.
 		// required: true
 		ProposePresentation struct {

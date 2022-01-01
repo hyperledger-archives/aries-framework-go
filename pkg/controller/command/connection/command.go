@@ -15,9 +15,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/didrotate"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/middleware"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/store/did"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
@@ -59,10 +60,13 @@ const (
 
 type provider interface {
 	VDRegistry() vdr.Registry
-	DIDRotator() *didrotate.DIDRotator
+	DIDRotator() *middleware.DIDCommMessageMiddleware
 	StorageProvider() storage.Provider
 	ProtocolStateStorageProvider() storage.Provider
 	DIDConnectionStore() did.ConnectionStore
+	KMS() kms.KeyManager
+	KeyType() kms.KeyType
+	KeyAgreementType() kms.KeyType
 }
 
 // Command provides controller API for connection commands.
@@ -162,7 +166,7 @@ func (c *Command) SetConnectionToDIDCommV2(_ io.Writer, req io.Reader) command.E
 
 // RotateDIDGivenConnIDCmd takes a connection ID and returns a command.Exec that rotates the given connection's DID.
 func (c *Command) RotateDIDGivenConnIDCmd(connID string) command.Exec {
-	return func(_ io.Writer, req io.Reader) command.Error {
+	return func(rw io.Writer, req io.Reader) command.Error {
 		var request RotateDIDRequest
 
 		err := json.NewDecoder(req).Decode(&request)
@@ -174,7 +178,7 @@ func (c *Command) RotateDIDGivenConnIDCmd(connID string) command.Exec {
 
 		request.ID = connID
 
-		return c.rotateDID(&request)
+		return c.rotateDID(rw, &request)
 	}
 }
 
@@ -189,10 +193,10 @@ func (c *Command) RotateDID(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
-	return c.rotateDID(&request)
+	return c.rotateDID(rw, &request)
 }
 
-func (c *Command) rotateDID(request *RotateDIDRequest) command.Error {
+func (c *Command) rotateDID(rw io.Writer, request *RotateDIDRequest) command.Error {
 	if request.ID == "" {
 		logutil.LogDebug(logger, CommandName, RotateDIDCommandMethod, errEmptyConnID)
 
@@ -205,18 +209,32 @@ func (c *Command) rotateDID(request *RotateDIDRequest) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyKID))
 	}
 
-	if request.NewDID == "" {
+	if request.NewDID == "" && !request.CreatePeerDID {
 		logutil.LogDebug(logger, CommandName, RotateDIDCommandMethod, errEmptyNewDID)
 
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyNewDID))
 	}
 
-	err := c.client.RotateDID(request.ID, request.KID, request.NewDID)
+	var opts []connection.RotateDIDOption
+
+	if request.NewDID != "" {
+		opts = append(opts, connection.WithNewDID(request.NewDID))
+	}
+
+	if request.CreatePeerDID {
+		opts = append(opts, connection.ByCreatingPeerDID())
+	}
+
+	newDID, err := c.client.RotateDID(request.ID, request.KID, opts...)
 	if err != nil {
 		logutil.LogDebug(logger, CommandName, RotateDIDCommandMethod, err.Error())
 
 		return command.NewExecuteError(RotateDIDErrorCode, err)
 	}
+
+	command.WriteNillableResponse(rw, &RotateDIDResponse{
+		NewDID: newDID,
+	}, logger)
 
 	logutil.LogDebug(logger, CommandName, RotateDIDCommandMethod, successString,
 		logutil.CreateKeyValueString(connectionIDString, request.ID),

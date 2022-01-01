@@ -23,6 +23,8 @@ import (
 	didexcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	cmdkms "github.com/hyperledger/aries-framework-go/pkg/controller/command/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/sidetree"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/util"
@@ -258,6 +260,7 @@ func (a *ControllerSteps) performCreateImplicitInvitation(inviteeAgentID, invite
 
 	// invitee connectionID
 	a.connectionIDs[inviteeAgentID] = result.ConnectionID
+	a.bddContext.SaveConnectionID(inviteeAgentID, inviterAgentID, result.ConnectionID)
 
 	return nil
 }
@@ -318,6 +321,7 @@ func (a *ControllerSteps) receiveInvitation(inviteeAgentID, inviterAgentID strin
 
 	// invitee connectionID
 	a.connectionIDs[inviteeAgentID] = result.ConnectionID
+	a.bddContext.SaveConnectionID(inviteeAgentID, inviterAgentID, result.ConnectionID)
 
 	return nil
 }
@@ -329,7 +333,9 @@ func (a *ControllerSteps) saveConnectionID(agentID, varName string) error {
 }
 
 func (a *ControllerSteps) approveInvitation(agentID string) error {
-	return a.performApproveInvitation(agentID, "", false)
+	_, err := a.performApproveInvitation(agentID, "", false)
+
+	return err
 }
 
 func (a *ControllerSteps) approveInvitationWithRouter(agentID, router string) error {
@@ -338,17 +344,21 @@ func (a *ControllerSteps) approveInvitationWithRouter(agentID, router string) er
 		return fmt.Errorf("approve invitation with router: connection %q was not found", router)
 	}
 
-	return a.performApproveInvitation(agentID, routerID, false)
+	_, err := a.performApproveInvitation(agentID, routerID, false)
+
+	return err
 }
 
 func (a *ControllerSteps) approveInvitationWithPublicDID(agentID string) error {
-	return a.performApproveInvitation(agentID, "", true)
+	_, err := a.performApproveInvitation(agentID, "", true)
+
+	return err
 }
 
-func (a *ControllerSteps) performApproveInvitation(agentID, routerID string, useDID bool) error {
+func (a *ControllerSteps) performApproveInvitation(agentID, routerID string, useDID bool) (string, error) {
 	connectionID, err := a.pullEventsFromWebSocket(agentID, "invited")
 	if err != nil {
-		return fmt.Errorf("approve exchange invitation : %w", err)
+		return "", fmt.Errorf("approve exchange invitation : %w", err)
 	}
 
 	// invitee connectionID
@@ -358,20 +368,22 @@ func (a *ControllerSteps) performApproveInvitation(agentID, routerID string, use
 
 	err = a.performApprove(agentID, useDID, connectionID, routerID, acceptInvitationPath, &response)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if response.ConnectionID == "" {
 		logger.Errorf("Failed to perform approve invitation, cause : %s", err)
-		return fmt.Errorf("failed to perform approve invitation, invalid response")
+		return "", fmt.Errorf("failed to perform approve invitation, invalid response")
 	}
 
-	return nil
+	return response.ConnectionID, nil
 }
 
 // ApproveRequest approves a request.
 func (a *ControllerSteps) ApproveRequest(agentID string) error {
-	return a.performApproveRequest(agentID, "", false)
+	_, err := a.performApproveRequest(agentID, "", false)
+
+	return err
 }
 
 // ApproveRequestWithRouter approves a request.
@@ -381,11 +393,15 @@ func (a *ControllerSteps) ApproveRequestWithRouter(agentID, router string) error
 		return fmt.Errorf("create invitation with router: connection %q was not found", router)
 	}
 
-	return a.performApproveRequest(agentID, routerID, false)
+	_, err := a.performApproveRequest(agentID, routerID, false)
+
+	return err
 }
 
 func (a *ControllerSteps) approveRequestWithPublicDID(agentID string) error {
-	return a.performApproveRequest(agentID, "", true)
+	_, err := a.performApproveRequest(agentID, "", true)
+
+	return err
 }
 
 func (a *ControllerSteps) performApprove(agentID string, useDID bool, connectionID, routerID, operationPath string,
@@ -427,10 +443,10 @@ func (a *ControllerSteps) performApprove(agentID string, useDID bool, connection
 	return nil
 }
 
-func (a *ControllerSteps) performApproveRequest(agentID, routerID string, useDID bool) error {
+func (a *ControllerSteps) performApproveRequest(agentID, routerID string, useDID bool) (string, error) {
 	connectionID, err := a.pullEventsFromWebSocket(agentID, "requested")
 	if err != nil {
-		return fmt.Errorf("failed to get connection ID for agent: '%v', router: '%v' from webhook, %w",
+		return "", fmt.Errorf("failed to get connection ID for agent: '%v', router: '%v' from webhook, %w",
 			agentID, routerID, err)
 	}
 
@@ -441,15 +457,15 @@ func (a *ControllerSteps) performApproveRequest(agentID, routerID string, useDID
 
 	err = a.performApprove(agentID, useDID, connectionID, routerID, acceptRequestPath, &response)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if response.ConnectionID == "" {
 		logger.Errorf("Failed to perform approve request, cause : %s", err)
-		return fmt.Errorf("failed to perform approve request, invalid response")
+		return "", fmt.Errorf("failed to perform approve request, invalid response")
 	}
 
-	return nil
+	return response.ConnectionID, nil
 }
 
 // WaitForPostEvent waits for the specific post event state.
@@ -552,84 +568,120 @@ func (a *ControllerSteps) verifyConnectionList(agentID, queryState, verifyID str
 }
 
 // CreatePublicDID step creates a public sidetree DID for the given agent. Second parameter is ignored.
-func (a *ControllerSteps) CreatePublicDID(agentID, _ string) error { //nolint:funlen,gocyclo
+func (a *ControllerSteps) CreatePublicDID(agentID, _ string) error {
+	_, err := a.CreatePublicDIDWithKeyType(agentID, "ED25519", "")
+
+	return err
+}
+
+// CreatePublicDIDWithKeyType creates a public sidetree DID with the given key type, returning the DID.
+func (a *ControllerSteps) CreatePublicDIDWithKeyType( // nolint:funlen,gocyclo
+	agentID, keyType, encKeyType string) (string, error) {
+	isDIDCommV2 := encKeyType != ""
+
 	destination, ok := a.bddContext.GetControllerURL(agentID)
 	if !ok {
-		return fmt.Errorf(" unable to find controller URL registered for agent [%s]", agentID)
+		return "", fmt.Errorf(" unable to find controller URL registered for agent [%s]", agentID)
 	}
 
 	path := fmt.Sprintf("%s%s", destination, createKeySetPath)
 
-	reqBytes, err := json.Marshal(cmdkms.CreateKeySetRequest{KeyType: "ED25519"})
+	reqBytes, err := json.Marshal(cmdkms.CreateKeySetRequest{KeyType: keyType})
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	var result cmdkms.CreateKeySetResponse
 
 	err = util.SendHTTP(http.MethodPost, path, reqBytes, &result)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	// keys received from controller kms command are base64 RawURL encoded
 	verKey, err := base64.RawURLEncoding.DecodeString(result.PublicKey)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	pubKeyEd25519 := ed25519.PublicKey(verKey)
-
-	j, err := jwksupport.JWKFromKey(pubKeyEd25519)
+	j, err := jwksupport.PubKeyBytesToJWK(verKey, kms.KeyType(keyType))
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	j.KeyID = result.KeyID
 
+	var encKey []byte
+
+	if isDIDCommV2 {
+		reqBytes, err = json.Marshal(cmdkms.CreateKeySetRequest{KeyType: encKeyType})
+		if err != nil {
+			return "", err
+		}
+
+		err = util.SendHTTP(http.MethodPost, path, reqBytes, &result)
+		if err != nil {
+			return "", err
+		}
+
+		// keys received from controller kms command are base64 RawURL encoded
+		encKey, err = base64.RawURLEncoding.DecodeString(result.PublicKey)
+		if err != nil {
+			return "", err
+		}
+	}
+
 	publicKeyRecovery, _, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	recoveryJWK, err := jwksupport.JWKFromKey(publicKeyRecovery)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	publicKeyUpdate, _, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	updateJWK, err := jwksupport.JWKFromKey(publicKeyUpdate)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	doc, err := sidetree.CreateDID(
-		&sidetree.CreateDIDParams{
-			URL:             a.bddContext.Args[sideTreeURL] + "operations",
-			KeyID:           result.KeyID,
-			JWK:             j,
-			RecoveryJWK:     recoveryJWK,
-			UpdateJWK:       updateJWK,
-			ServiceEndpoint: a.agentServiceEndpoints[destination],
-		})
+	params := sidetree.CreateDIDParams{
+		URL:             a.bddContext.Args[sideTreeURL] + "operations",
+		KeyID:           result.KeyID,
+		JWK:             j,
+		RecoveryJWK:     recoveryJWK,
+		UpdateJWK:       updateJWK,
+		ServiceEndpoint: a.agentServiceEndpoints[destination],
+	}
+
+	if isDIDCommV2 {
+		params.ServiceType = vdr.DIDCommV2ServiceType
+		params.EncryptionKey = encKey
+		params.EncKeyType = kms.KeyType(encKeyType)
+	}
+
+	doc, err := sidetree.CreateDID(&params)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	err = a.waitForPublicDID(doc.ID)
 	if err != nil {
 		logger.Errorf("Failed to resolve public DID created, cause : %s", err)
-		return fmt.Errorf("failed to resolve public DID created, %w", err)
+		return "", fmt.Errorf("failed to resolve public DID created, %w", err)
 	}
 
 	// save public DID for later use
 	a.bddContext.PublicDIDs[agentID] = doc.ID
+	a.bddContext.PublicDIDDocs[agentID] = doc
 
-	return nil
+	return doc.ID, nil
 }
 
 // waitForPublicDID wait for public DID to be available before throw error after timeout.
@@ -673,12 +725,12 @@ func (a *ControllerSteps) performDIDExchange(inviter, invitee string) error {
 		return err
 	}
 
-	err = a.approveInvitation(invitee)
+	inviteeConnID, err := a.performApproveInvitation(invitee, "", false)
 	if err != nil {
 		return err
 	}
 
-	err = a.ApproveRequest(inviter)
+	inviterConnID, err := a.performApproveRequest(inviter, "", false)
 	if err != nil {
 		return err
 	}
@@ -697,6 +749,9 @@ func (a *ControllerSteps) performDIDExchange(inviter, invitee string) error {
 			return err
 		}
 	}
+
+	a.bddContext.SaveConnectionID(invitee, inviter, inviteeConnID)
+	a.bddContext.SaveConnectionID(inviter, invitee, inviterConnID)
 
 	return nil
 }

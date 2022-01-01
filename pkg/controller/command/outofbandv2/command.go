@@ -79,13 +79,17 @@ func (c *Command) CreateInvitation(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
-	invitation := c.client.CreateInvitation(
+	invitation, err := c.client.CreateInvitation(
 		outofbandv2.WithGoal(args.Body.Goal, args.Body.GoalCode),
 		outofbandv2.WithLabel(args.Label),
 		outofbandv2.WithFrom(args.From),
 		outofbandv2.WithAccept(args.Body.Accept...),
 		outofbandv2.WithAttachments(args.Attachments...),
 	)
+	if err != nil {
+		logutil.LogError(logger, CommandName, CreateInvitation, err.Error())
+		return command.NewExecuteError(CreateInvitationErrorCode, err)
+	}
 
 	command.WriteNillableResponse(rw, &CreateInvitationResponse{
 		Invitation: invitation,

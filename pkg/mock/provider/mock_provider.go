@@ -11,14 +11,15 @@ import (
 	jsonld "github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/middleware"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/didrotate"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/store/did"
 	"github.com/hyperledger/aries-framework-go/pkg/store/ld"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
@@ -51,8 +52,14 @@ type Provider struct {
 	InboundMessengerValue             service.InboundMessenger
 	GetDIDsBackoffDurationValue       time.Duration
 	GetDIDsMaxRetriesValue            uint64
-	DIDRotatorValue                   didrotate.DIDRotator
+	DIDRotatorValue                   middleware.DIDCommMessageMiddleware
 	MessengerValue                    service.Messenger
+	SecretLockValue                   secretlock.Service
+}
+
+// SecretLock returns secret lock.
+func (p *Provider) SecretLock() secretlock.Service {
+	return p.SecretLockValue
 }
 
 // Messenger return messenger.
@@ -204,6 +211,6 @@ func (p *Provider) KeyAgreementType() kms.KeyType {
 }
 
 // DIDRotator returns the did rotator.
-func (p *Provider) DIDRotator() *didrotate.DIDRotator {
+func (p *Provider) DIDRotator() *middleware.DIDCommMessageMiddleware {
 	return &p.DIDRotatorValue
 }

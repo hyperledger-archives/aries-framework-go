@@ -11,9 +11,11 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/middleware"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/peerdid"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/didrotate"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	didstore "github.com/hyperledger/aries-framework-go/pkg/store/did"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
@@ -21,18 +23,22 @@ import (
 
 type provider interface {
 	VDRegistry() vdr.Registry
-	DIDRotator() *didrotate.DIDRotator
+	DIDRotator() *middleware.DIDCommMessageMiddleware
 	StorageProvider() storage.Provider
 	ProtocolStateStorageProvider() storage.Provider
 	DIDConnectionStore() didstore.ConnectionStore
+	KMS() kms.KeyManager
+	KeyType() kms.KeyType
+	KeyAgreementType() kms.KeyType
 }
 
 // Client is a connection management SDK client.
 type Client struct {
-	didRotator         *didrotate.DIDRotator
+	didRotator         *middleware.DIDCommMessageMiddleware
 	connectionRecorder *connection.Recorder
 	didMap             didstore.ConnectionStore
-	didResolver        vdr.Registry
+	vdr                vdr.Registry
+	peerDIDCreator     *peerdid.Creator
 }
 
 // New creates connection Client.
@@ -45,20 +51,36 @@ func New(prov provider) (*Client, error) {
 	return &Client{
 		didRotator:         prov.DIDRotator(),
 		connectionRecorder: connRec,
-		didResolver:        prov.VDRegistry(),
+		vdr:                prov.VDRegistry(),
 		didMap:             prov.DIDConnectionStore(),
+		peerDIDCreator:     peerdid.New(prov),
 	}, nil
 }
 
 // RotateDID rotates the DID of the given connection to the given new DID, using the signing KID for the key in the old
 // DID doc to sign the DID rotation.
-func (c *Client) RotateDID(connectionID, signingKID, newDID string) error {
-	return c.didRotator.RotateConnectionDID(connectionID, signingKID, newDID)
+func (c *Client) RotateDID(connectionID, signingKID string, opts ...RotateDIDOption) (string, error) {
+	options := rotateDIDOpts{}
+
+	for _, opt := range opts {
+		opt(&options)
+	}
+
+	if options.createPeerDID {
+		newDoc, err := c.peerDIDCreator.CreatePeerDIDV2()
+		if err != nil {
+			return "", fmt.Errorf("creating peer DID: %w", err)
+		}
+
+		options.newDID = newDoc.ID
+	}
+
+	return options.newDID, c.didRotator.RotateConnectionDID(connectionID, signingKID, options.newDID)
 }
 
 // CreateConnectionV2 creates a DIDComm V2 connection with the given DID.
 func (c *Client) CreateConnectionV2(myDID, theirDID string, opts ...CreateConnectionOption) (string, error) {
-	theirDocRes, err := c.didResolver.Resolve(theirDID)
+	theirDocRes, err := c.vdr.Resolve(theirDID)
 	if err != nil {
 		return "", fmt.Errorf("resolving their DID: %w", err)
 	}
@@ -121,6 +143,28 @@ func (c *Client) SetConnectionToDIDCommV2(connID string) error {
 	}
 
 	return nil
+}
+
+type rotateDIDOpts struct {
+	createPeerDID bool
+	newDID        string
+}
+
+// RotateDIDOption options for Client.RotateDID.
+type RotateDIDOption func(opts *rotateDIDOpts)
+
+// WithNewDID option for rotating a DID, with the given DID for the new DID.
+func WithNewDID(newDID string) RotateDIDOption {
+	return func(opts *rotateDIDOpts) {
+		opts.newDID = newDID
+	}
+}
+
+// ByCreatingPeerDID option for rotating a DID to a peer DID, by creating a fresh peer DID.
+func ByCreatingPeerDID() RotateDIDOption {
+	return func(opts *rotateDIDOpts) {
+		opts.createPeerDID = true
+	}
 }
 
 // CreateConnectionOption options for Client.CreateConnectionV2.

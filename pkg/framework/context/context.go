@@ -15,8 +15,8 @@ import (
 	jsonld "github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/middleware"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/didrotate"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher/inbound"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
@@ -68,7 +68,7 @@ type Provider struct {
 	getDIDsMaxRetries          uint64
 	getDIDsBackOffDuration     time.Duration
 	inboundEnvelopeHandler     InboundEnvelopeHandler
-	didRotator                 *didrotate.DIDRotator
+	didRotator                 *middleware.DIDCommMessageMiddleware
 	connectionRecorder         *connection.Recorder
 }
 
@@ -228,7 +228,7 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 }
 
 // DIDRotator returns the didcomm/v2 connection DID rotation service.
-func (p *Provider) DIDRotator() *didrotate.DIDRotator {
+func (p *Provider) DIDRotator() *middleware.DIDCommMessageMiddleware {
 	return p.didRotator
 }
 
@@ -350,7 +350,7 @@ func WithGetDIDsBackOffDuration(duration time.Duration) ProviderOption {
 }
 
 // WithDIDRotator injects a DID rotator into the context.
-func WithDIDRotator(didRotator *didrotate.DIDRotator) ProviderOption {
+func WithDIDRotator(didRotator *middleware.DIDCommMessageMiddleware) ProviderOption {
 	return func(opts *Provider) error {
 		opts.didRotator = didRotator
 		return nil

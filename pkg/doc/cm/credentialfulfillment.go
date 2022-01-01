@@ -114,8 +114,8 @@ type presentCredentialFulfillmentOpts struct {
 type PresentCredentialFulfillmentOpt func(opts *presentCredentialFulfillmentOpts)
 
 // WithExistingPresentationForPresentCredentialFulfillment is an option for the PresentCredentialFulfillment method
-// that allows Credential Fulfillment data to be added to an existing Presentation (turning it into a Credential
-// Fulfillment in the process). The existing Presentation should not already have Credential Fulfillment data.
+// that allows Credential Fulfillment data to be added to an existing Presentation. The existing Presentation
+// should not already have Credential Fulfillment data.
 func WithExistingPresentationForPresentCredentialFulfillment(
 	presentation *verifiable.Presentation) PresentCredentialFulfillmentOpt {
 	return func(opts *presentCredentialFulfillmentOpts) {

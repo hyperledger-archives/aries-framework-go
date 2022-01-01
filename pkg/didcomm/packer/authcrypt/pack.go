@@ -130,7 +130,7 @@ func (p *Packer) Pack(contentType string, payload, senderID []byte, recipientsPu
 
 	mPh, err := json.Marshal(jwe.ProtectedHeaders)
 	if err != nil {
-		return nil, fmt.Errorf("anoncrypt Pack: %w", err)
+		return nil, fmt.Errorf("authcrypt Pack: %w", err)
 	}
 
 	logger.Debugf("protected headers: %s", mPh)

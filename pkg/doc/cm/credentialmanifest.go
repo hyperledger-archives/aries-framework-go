@@ -140,9 +140,68 @@ func (cm *CredentialManifest) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// ResolveFulfillmentVC resolves the actual display values for all output descriptors in this credential manifest
+// based on the given presentation. The given presentation must have a credential_fulfillment field.
+// This method pulls out the VCs from the given presentation and uses the rules specified in the output descriptors
+// in this Credential Manifest against each VC. For each VC in the presentation, this method returns an array of
+// ResolvedDataDisplayDescriptors, one for each OutputDescriptor (and in the same order).
+// For each display mapping object, the resolution process is as follows:
+// If the display mapping object uses 1 or more paths, then we try to resolve them one-by-one by looking at the VC. We
+// return the first one that resolves successfully. If none of the paths are resolvable, then we return the fallback.
+// If no fallback is specified, then a blank string is returned. This isn't considered an error.
+// If the text field is used instead of paths, then that will simply be returned without needing to look at the VC.
+func (cm *CredentialManifest) ResolveFulfillmentVC(vp *verifiable.Presentation,
+	parseCredentialOpts ...verifiable.CredentialOpt) ([][]ResolvedDataDisplayDescriptor, error) {
+	if vp == nil {
+		return nil, errors.New("fulfillment presentation cannot be nil")
+	}
+
+	credentialFulfillmentRaw, ok := vp.CustomFields["credential_fulfillment"]
+	if !ok {
+		return nil, errors.New("the given presentation does not have an embedded Credential Fulfillment")
+	}
+
+	credentialFulfillmentBytes, err := json.Marshal(credentialFulfillmentRaw)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal the raw Credential Fulfillment obtained from the "+
+			"presentation into bytes: %w", err)
+	}
+
+	var credentialFulfillment CredentialFulfillment
+
+	err = json.Unmarshal(credentialFulfillmentBytes, &credentialFulfillment)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal the raw Credential Fulfillment: %w", err)
+	}
+
+	credentialsRaw := vp.Credentials()
+
+	resolvedDataDisplayDescriptors := make([][]ResolvedDataDisplayDescriptor, len(credentialsRaw))
+
+	for i, credentialRaw := range credentialsRaw {
+		credentialBytes, err := json.Marshal(credentialRaw)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal the raw credential obtained from the presentation "+
+				"into bytes: %w", err)
+		}
+
+		credential, err := verifiable.ParseCredential(credentialBytes, parseCredentialOpts...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse the credential at index %d: %w", i, err)
+		}
+
+		resolvedDataDisplayDescriptors[i], err = cm.ResolveOutputDescriptors(credential)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve data display descriptors for the credential at index "+
+				"%d: %w", i, err)
+		}
+	}
+
+	return resolvedDataDisplayDescriptors, nil
+}
+
 // ResolveOutputDescriptors resolves the actual display values for all output descriptors in this credential manifest
 // based on the given vc.
-// vc must be a valid Verifiable Credential in JSON format.
 // It returns an array of ResolvedDataDisplayDescriptors, one for each OutputDescriptor (and in the same order).
 // For each display mapping object, the resolution process is as follows:
 // If the display mapping object uses 1 or more paths, then we try to resolve them one-by-one by looking at vc. We

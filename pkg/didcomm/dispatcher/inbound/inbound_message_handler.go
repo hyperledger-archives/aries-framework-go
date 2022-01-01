@@ -18,13 +18,15 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/middleware"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/didrotate"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
-	"github.com/hyperledger/aries-framework-go/pkg/store/did"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	didstore "github.com/hyperledger/aries-framework-go/pkg/store/did"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
@@ -37,24 +39,26 @@ const (
 // MessageHandler handles inbound envelopes, processing then dispatching to a protocol service based on the
 // message type.
 type MessageHandler struct {
-	didConnectionStore     did.ConnectionStore
-	didRotator             *didrotate.DIDRotator
+	didConnectionStore     didstore.ConnectionStore
+	didcommV2Handler       *middleware.DIDCommMessageMiddleware
 	msgSvcProvider         api.MessageServiceProvider
 	services               []dispatcher.ProtocolService
 	getDIDsBackOffDuration time.Duration
 	getDIDsMaxRetries      uint64
 	messenger              service.InboundMessenger
+	vdr                    vdrapi.Registry
 	initialized            bool
 }
 
 type provider interface {
-	DIDConnectionStore() did.ConnectionStore
+	DIDConnectionStore() didstore.ConnectionStore
 	MessageServiceProvider() api.MessageServiceProvider
 	AllServices() []dispatcher.ProtocolService
 	GetDIDsBackOffDuration() time.Duration
 	GetDIDsMaxRetries() uint64
 	InboundMessenger() service.InboundMessenger
-	DIDRotator() *didrotate.DIDRotator
+	DIDRotator() *middleware.DIDCommMessageMiddleware
+	VDRegistry() vdrapi.Registry
 }
 
 // NewInboundMessageHandler creates an inbound message handler, that processes inbound message Envelopes,
@@ -78,40 +82,10 @@ func (handler *MessageHandler) Initialize(p provider) {
 	handler.getDIDsBackOffDuration = p.GetDIDsBackOffDuration()
 	handler.getDIDsMaxRetries = p.GetDIDsMaxRetries()
 	handler.messenger = p.InboundMessenger()
-	handler.didRotator = p.DIDRotator()
+	handler.didcommV2Handler = p.DIDRotator()
+	handler.vdr = p.VDRegistry()
 
 	handler.initialized = true
-}
-
-type getDIDsResult struct {
-	myDID    string
-	theirDID string
-	err      error
-}
-
-// didGetter wraps MessageHandler.getDIDs and caches the result.
-type didGetter struct {
-	result   *getDIDsResult
-	handler  *MessageHandler
-	envelope *transport.Envelope
-}
-
-func newDIDGetter(envelope *transport.Envelope, handler *MessageHandler) *didGetter {
-	return &didGetter{
-		handler:  handler,
-		envelope: envelope,
-	}
-}
-
-// get returns the return values of MessageHandler.getDIDs.
-func (dg *didGetter) get() (string, string, error) {
-	if dg.result == nil {
-		var res getDIDsResult
-		res.myDID, res.theirDID, res.err = dg.handler.getDIDs(dg.envelope)
-		dg.result = &res
-	}
-
-	return dg.result.myDID, dg.result.theirDID, dg.result.err
 }
 
 // HandlerFunc returns the MessageHandler's transport.InboundMessageHandler function.
@@ -122,13 +96,12 @@ func (handler *MessageHandler) HandlerFunc() transport.InboundMessageHandler {
 }
 
 // HandleInboundEnvelope handles an inbound envelope, dispatching it to the appropriate ProtocolService.
-func (handler *MessageHandler) HandleInboundEnvelope(envelope *transport.Envelope) error { // nolint:gocyclo,funlen
+func (handler *MessageHandler) HandleInboundEnvelope(envelope *transport.Envelope, // nolint:funlen,gocognit,gocyclo
+) error {
 	var (
 		msg service.DIDCommMsgMap
 		err error
 	)
-
-	dg := newDIDGetter(envelope, handler)
 
 	msg, err = service.ParseDIDCommMsgMap(envelope.Message)
 	if err != nil {
@@ -140,16 +113,21 @@ func (handler *MessageHandler) HandleInboundEnvelope(envelope *transport.Envelop
 		return err
 	}
 
-	var myDID, theirDID string
+	var (
+		myDID, theirDID string
+		gotDIDs         bool
+	)
 
 	// if msg is a didcomm v2 message, do additional handling
 	if isV2 {
-		myDID, theirDID, err = dg.get()
+		myDID, theirDID, err = handler.getDIDs(envelope, msg)
 		if err != nil {
 			return fmt.Errorf("get DIDs for didcomm/v2 message: %w", err)
 		}
 
-		err = handler.didRotator.HandleInboundMessage(msg, theirDID, myDID)
+		gotDIDs = true
+
+		err = handler.didcommV2Handler.HandleInboundMessage(msg, theirDID, myDID)
 		if err != nil {
 			return fmt.Errorf("handle rotation: %w", err)
 		}
@@ -170,9 +148,11 @@ func (handler *MessageHandler) HandleInboundEnvelope(envelope *transport.Envelop
 		// perf: DID exchange doesn't require myDID and theirDID
 		case didexchange.DIDExchange:
 		default:
-			myDID, theirDID, err = dg.get()
-			if err != nil {
-				return fmt.Errorf("inbound message handler: %w", err)
+			if !gotDIDs {
+				myDID, theirDID, err = handler.getDIDs(envelope, msg)
+				if err != nil {
+					return fmt.Errorf("inbound message handler: %w", err)
+				}
 			}
 		}
 
@@ -181,7 +161,7 @@ func (handler *MessageHandler) HandleInboundEnvelope(envelope *transport.Envelop
 		return err
 	}
 
-	if !isV2 {
+	if !isV2 { // nolint:nestif
 		h := struct {
 			Purpose []string `json:"~purpose"`
 		}{}
@@ -193,23 +173,32 @@ func (handler *MessageHandler) HandleInboundEnvelope(envelope *transport.Envelop
 
 		// in case of no services are registered for given message type, and message is didcomm v1,
 		// find generic inbound services registered for given message header
+		var foundMessageService dispatcher.MessageService
+
 		for _, svc := range handler.msgSvcProvider.Services() {
 			if svc.Accept(msg.Type(), h.Purpose) {
-				myDID, theirDID, err := handler.getDIDs(envelope)
+				foundMessageService = svc
+			}
+		}
+
+		if foundMessageService != nil {
+			if !gotDIDs {
+				myDID, theirDID, err = handler.getDIDs(envelope, nil)
 				if err != nil {
 					return fmt.Errorf("inbound message handler: %w", err)
 				}
-
-				return handler.tryToHandle(svc, msg, service.NewDIDCommContext(myDID, theirDID, nil))
 			}
+
+			return handler.tryToHandle(foundMessageService, msg, service.NewDIDCommContext(myDID, theirDID, nil))
 		}
 	}
 
 	return fmt.Errorf("no message handlers found for the message type: %s", msg.Type())
 }
 
-//nolint:funlen,gocyclo
-func (handler *MessageHandler) getDIDs(envelope *transport.Envelope) (string, string, error) {
+func (handler *MessageHandler) getDIDs( // nolint:funlen,gocyclo,gocognit
+	envelope *transport.Envelope, message service.DIDCommMsgMap,
+) (string, string, error) {
 	var (
 		myDID    string
 		theirDID string
@@ -226,12 +215,23 @@ func (handler *MessageHandler) getDIDs(envelope *transport.Envelope) (string, st
 		return myDID, theirDID, err
 	}
 
+	if len(envelope.FromKey) == 0 && message != nil && theirDID == "" {
+		if from, ok := message["from"].(string); ok {
+			didURL, e := did.ParseDIDURL(from)
+			if e != nil {
+				return "", "", fmt.Errorf("parsing their DID: %w", e)
+			}
+
+			theirDID = didURL.DID.String()
+		}
+	}
+
 	return myDID, theirDID, backoff.Retry(func() error {
 		var notFound bool
 
 		if myDID == "" {
 			myDID, err = handler.didConnectionStore.GetDID(base58.Encode(envelope.ToKey))
-			if errors.Is(err, did.ErrNotFound) {
+			if errors.Is(err, didstore.ErrNotFound) {
 				// try did:key
 				// CreateDIDKey below is for Ed25519 keys only, use the more general CreateDIDKeyByCode if other key
 				// types will be used. Currently, did:key is for legacy packers only, so only support Ed25519 keys.
@@ -239,7 +239,7 @@ func (handler *MessageHandler) getDIDs(envelope *transport.Envelope) (string, st
 				myDID, err = handler.didConnectionStore.GetDID(didKey)
 			}
 
-			if errors.Is(err, did.ErrNotFound) {
+			if errors.Is(err, didstore.ErrNotFound) {
 				notFound = true
 			} else if err != nil {
 				myDID = ""
@@ -253,7 +253,7 @@ func (handler *MessageHandler) getDIDs(envelope *transport.Envelope) (string, st
 
 		if theirDID == "" {
 			theirDID, err = handler.didConnectionStore.GetDID(base58.Encode(envelope.FromKey))
-			if errors.Is(err, did.ErrNotFound) {
+			if errors.Is(err, didstore.ErrNotFound) {
 				// try did:key
 				// CreateDIDKey below is for Ed25519 keys only, use the more general CreateDIDKeyByCode if other key
 				// types will be used. Currently, did:key is for legacy packers, so only support Ed25519 keys.
@@ -265,7 +265,7 @@ func (handler *MessageHandler) getDIDs(envelope *transport.Envelope) (string, st
 				return nil
 			}
 
-			if notFound && errors.Is(err, did.ErrNotFound) {
+			if notFound && errors.Is(err, didstore.ErrNotFound) {
 				// if neither DID is found, using either base58 key or did:key as lookup key
 				return nil
 			}

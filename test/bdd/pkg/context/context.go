@@ -41,6 +41,7 @@ type BDDContext struct {
 	PublicEncKeys      map[string][]byte
 	KeyHandles         map[string]interface{}
 	PublicDIDs         map[string]string
+	PeerDIDs           map[string]string
 	Agents             map[string]*aries.Aries
 	AgentCtx           map[string]*bddcontext.Provider
 	MessageRegistrar   map[string]*msghandler.Registrar
@@ -66,6 +67,7 @@ func NewBDDContext() *BDDContext {
 		PublicKeys:         make(map[string]*jwk.JWK),
 		KeyHandles:         make(map[string]interface{}),
 		PublicDIDs:         make(map[string]string),
+		PeerDIDs:           make(map[string]string),
 		Agents:             make(map[string]*aries.Aries),
 		AgentCtx:           make(map[string]*bddcontext.Provider),
 		MessageRegistrar:   make(map[string]*msghandler.Registrar),
@@ -168,6 +170,52 @@ func (b *BDDContext) RegisterWebSocketConn(agentID string, conn *websocket.Conn)
 			logger.Errorf("failed to get topics for agent '%s' : %v", agentID, err)
 		}
 	}()
+}
+
+// GetConnectionID gets the connection ID for agent's connection to target, or the empty string if there is none.
+func (b *BDDContext) GetConnectionID(agent, target string) string {
+	idMap, ok := b.ConnectionIDs[agent]
+	if !ok {
+		return ""
+	}
+
+	return idMap[target]
+}
+
+// SaveConnectionID sets the connection ID for agent's connection to target.
+func (b *BDDContext) SaveConnectionID(agent, target, connID string) {
+	if _, ok := b.ConnectionIDs[agent]; !ok {
+		b.ConnectionIDs[agent] = make(map[string]string)
+	}
+
+	b.ConnectionIDs[agent][target] = connID
+}
+
+// OwnerOfDID helper function for finding an agent name that has a given DID within the bdd context.
+func (b *BDDContext) OwnerOfDID(didStr string) string {
+	for agent, pubDID := range b.PublicDIDs {
+		if pubDID == didStr {
+			return agent
+		}
+	}
+
+	for agent, peerDID := range b.PeerDIDs {
+		if peerDID == didStr {
+			return agent
+		}
+	}
+
+	for agent, pubDoc := range b.PublicDIDDocs {
+		if pubDoc == nil {
+			continue
+		}
+
+		if pubDoc.ID == didStr {
+			return agent
+		}
+	}
+
+	return ""
 }
 
 // ReadFromWebSocket reads from WebSocket.

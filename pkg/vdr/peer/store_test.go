@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package peer
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"testing"
@@ -87,4 +88,39 @@ func TestVDR_Close(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, v.Close())
 	})
+}
+
+func TestGenesisDeltas(t *testing.T) {
+	mockdoc := &did.Doc{
+		Context: []string{"https://w3id.org/did/v1"},
+		ID:      "did:peer:1234",
+		Service: []did.Service{},
+		Proof:   []did.Proof{},
+	}
+
+	delta, err := UnsignedGenesisDelta(mockdoc)
+	require.NoError(t, err)
+
+	result, err := DocFromGenesisDelta(delta)
+	require.NoError(t, err)
+
+	require.Equal(t, mockdoc, result)
+
+	badBase64 := "#(*$&#&%@^%#"
+
+	_, err = DocFromGenesisDelta(badBase64)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "decoding initialState")
+
+	badDeltaData := base64.RawURLEncoding.EncodeToString([]byte("blah blah"))
+
+	_, err = DocFromGenesisDelta(badDeltaData)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unmarshaling deltas")
+
+	emptyDeltaArray := base64.RawURLEncoding.EncodeToString([]byte("[]"))
+
+	_, err = DocFromGenesisDelta(emptyDeltaArray)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unsupported")
 }

@@ -81,8 +81,11 @@ func (s *ControllerSteps) RegisterSteps(suite *godog.Suite) {
 	suite.Step(`^"([^"]*)" and "([^"]*)" have a connection \(controller\)$`, s.CheckConnection)
 	suite.Step(`^"([^"]*)" creates an out-of-band-v2 invitation with embedded present proof v3 request`+
 		` as target service \(controller\)$`, s.createOOBV2WithPresentProof)
+	suite.Step(`^"([^"]*)" creates an out-of-band-v2 invitation \(controller\)$`, s.CreateOOBV2)
 	suite.Step(`^"([^"]*)" sends the request to "([^"]*)" and he accepts it by processing both OOBv2 and the `+
-		`embedded present proof v3 request \(controller\)$`, s.acceptOOBV2Invitation)
+		`embedded present proof v3 request \(controller\)$`, s.acceptOOBV2InvitationStep)
+	suite.Step(`^the OOBv2 invitation from "([^"]*)" is accepted by "([^"]*)" \(controller\)$`,
+		s.acceptOOBV2InvitationStep)
 }
 
 func (s *ControllerSteps) scenario(accept string) error {
@@ -325,6 +328,50 @@ func (s *ControllerSteps) ConnectAll(agents string) error {
 	return nil
 }
 
+// CreateOOBV2 creates an OOBv2 invitation for the given agent.
+func (s *ControllerSteps) CreateOOBV2(agentID string) error {
+	controllerURL, ok := s.bddContext.GetControllerURL(agentID)
+	if !ok {
+		return fmt.Errorf("unable to find controller URL registered for agent [%s]", agentID)
+	}
+
+	agentIDDIDDoc, ok := s.bddContext.PublicDIDDocs[agentID]
+	if !ok {
+		return fmt.Errorf("oobv2: missing DID Doc for %s", agentID)
+	}
+
+	createOOBInv := outofbandcmdv2.CreateInvitationArgs{
+		Label: agentID,
+		From:  agentIDDIDDoc.ID,
+		Body:  oobv2.InvitationBody{},
+	}
+
+	if len(s.accept) > 0 {
+		accepts := strings.Split(s.accept, ",")
+		createOOBInv.Body.Accept = accepts
+	}
+
+	req, err := json.Marshal(createOOBInv)
+	if err != nil {
+		return fmt.Errorf("marshal create oob/2.0 invitation: %w", err)
+	}
+
+	res := outofbandcmdv2.CreateInvitationResponse{}
+
+	err = util.SendHTTP(http.MethodPost, controllerURL+createInvitationV2, req, &res)
+	if err != nil {
+		return err
+	}
+
+	if res.Invitation == nil {
+		return fmt.Errorf("response oob/2.0 invitation was not created")
+	}
+
+	s.pendingV2Invites[agentID] = res.Invitation
+
+	return nil
+}
+
 //nolint:funlen
 func (s *ControllerSteps) createOOBV2WithPresentProof(agentID string) error {
 	controllerURL, ok := s.bddContext.GetControllerURL(agentID)
@@ -393,30 +440,38 @@ func (s *ControllerSteps) createOOBV2WithPresentProof(agentID string) error {
 	return nil
 }
 
-func (s *ControllerSteps) acceptOOBV2Invitation(agent1, agent2 string) error {
-	controllerURL, ok := s.bddContext.GetControllerURL(agent2)
+// AcceptOOBV2Invitation makes invitee accept the OOB V2 invitation from inviter.
+func (s *ControllerSteps) AcceptOOBV2Invitation(inviter, invitee string) (string, error) {
+	controllerURL, ok := s.bddContext.GetControllerURL(invitee)
 	if !ok {
-		return fmt.Errorf("unable to find controller URL registered for agent [%s]", agent2)
+		return "", fmt.Errorf("unable to find controller URL registered for agent [%s]", invitee)
 	}
 
-	inv := s.pendingV2Invites[agent1]
+	inv := s.pendingV2Invites[inviter]
 
 	acceptOOBInv := outofbandcmdv2.AcceptInvitationArgs{
 		Invitation: inv,
-		MyLabel:    agent1,
+		MyLabel:    inviter,
 	}
 
 	req, err := json.Marshal(acceptOOBInv)
 	if err != nil {
-		return fmt.Errorf("marshal accept oob/2.0 invitation: %w", err)
+		return "", fmt.Errorf("marshal accept oob/2.0 invitation: %w", err)
 	}
 
 	res := outofbandcmdv2.AcceptInvitationResponse{}
 
 	err = util.SendHTTP(http.MethodPost, controllerURL+acceptInvitationV2, req, &res)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	return nil
+	s.bddContext.SaveConnectionID(invitee, inviter, res.ConnectionID)
+
+	return res.ConnectionID, nil
+}
+
+func (s *ControllerSteps) acceptOOBV2InvitationStep(inviter, invitee string) error {
+	_, err := s.AcceptOOBV2Invitation(inviter, invitee)
+	return err
 }

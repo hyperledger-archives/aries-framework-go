@@ -17,8 +17,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/middleware"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/didrotate"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher/inbound"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
@@ -710,7 +710,7 @@ func TestNewProvider(t *testing.T) {
 	})
 
 	t.Run("test new with did rotator service", func(t *testing.T) {
-		didRotator := &didrotate.DIDRotator{}
+		didRotator := &middleware.DIDCommMessageMiddleware{}
 		prov, err := New(WithDIDRotator(didRotator))
 		require.NoError(t, err)
 		require.Equal(t, didRotator, prov.DIDRotator())

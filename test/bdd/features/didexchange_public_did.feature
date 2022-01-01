@@ -129,9 +129,8 @@ Feature: Decentralized Identifier(DID) exchange between the agents using public 
 
   @controller
   @didexchange_controller_public_dids_invitation
-  Scenario Outline: did exchange e2e flow using public DID in invitation
-    Given options "<keyType>" "<keyAgreementType>" "<mediaTypeProfile>"
-      And  "Filip" agent is running on "localhost" port "8081" with controller "https://localhost:8082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+  Scenario: did exchange e2e controller flow with public DID in invitation and invitee public DID
+    Given  "Filip" agent is running on "localhost" port "8081" with controller "https://localhost:8082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
       And  "Derek" agent is running on "localhost" port "9081" with controller "https://localhost:9082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
 
     Then "Filip" creates "sidetree" public DID through controller
@@ -147,18 +146,11 @@ Feature: Decentralized Identifier(DID) exchange between the agents using public 
 
     Then  "Filip" retrieves connection record through controller and validates that connection state is "completed"
     And  "Derek" retrieves connection record through controller and validates that connection state is "completed"
-    Examples:
-      | keyType    | keyAgreementType   | mediaTypeProfile          |
-      | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip1"            |
-      | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc19"  |
-      | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc587" |
-      | "ED25519"  | "NISTP384ECDHKW"   | "didcomm/v2"              |
 
   @controller
   @didexchange_controller_mixed_public_and_peer_dids
-  Scenario Outline: did exchange e2e flow using public DID in invitation
-    Given options "<keyType>" "<keyAgreementType>" "<mediaTypeProfile>"
-      And  "Filip" agent is running on "localhost" port "8081" with controller "https://localhost:8082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+  Scenario: did exchange e2e controller flow using public DID in invitation
+    Given  "Filip" agent is running on "localhost" port "8081" with controller "https://localhost:8082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
       And  "Derek" agent is running on "localhost" port "9081" with controller "https://localhost:9082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
 
     Then "Filip" creates "sidetree" public DID through controller
@@ -172,18 +164,11 @@ Feature: Decentralized Identifier(DID) exchange between the agents using public 
 
     Then  "Filip" retrieves connection record through controller and validates that connection state is "completed"
       And  "Derek" retrieves connection record through controller and validates that connection state is "completed"
-    Examples:
-      | keyType    | keyAgreementType   | mediaTypeProfile          |
-      | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip1"            |
-      | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc19"  |
-      | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc587" |
-      | "ED25519"  | "NISTP384ECDHKW"   | "didcomm/v2"              |
 
   @controller
   @didexchange_controller_implicit_invitation_peer_did
-  Scenario Outline: did exchange e2e flow using public DID in invitation
-    Given options "<keyType>" "<keyAgreementType>" "<mediaTypeProfile>"
-      And  "Filip" agent is running on "localhost" port "8081" with controller "https://localhost:8082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+  Scenario: did exchange e2e controller flow with implicit invitation and invitee peer DID
+    Given  "Filip" agent is running on "localhost" port "8081" with controller "https://localhost:8082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
       And  "Derek" agent is running on "localhost" port "9081" with controller "https://localhost:9082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
 
     Then "Filip" creates "sidetree" public DID through controller
@@ -195,19 +180,12 @@ Feature: Decentralized Identifier(DID) exchange between the agents using public 
 
     Then  "Filip" retrieves connection record through controller and validates that connection state is "completed"
       And  "Derek" retrieves connection record through controller and validates that connection state is "completed"
-    Examples:
-      | keyType    | keyAgreementType   | mediaTypeProfile          |
-      | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip1"            |
-      | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc19"  |
-      | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc587" |
-      | "ED25519"  | "NISTP384ECDHKW"   | "didcomm/v2"              |
 
   @controller
   @didexchange_controller_implicit_invitation_public_did
-  Scenario Outline: did exchange e2e flow using public DID in invitation
-    Given options "<keyType>" "<keyAgreementType>" "<mediaTypeProfile>"
-    And  "Filip" agent is running on "localhost" port "8081" with controller "https://localhost:8082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
-    And  "Derek" agent is running on "localhost" port "9081" with controller "https://localhost:9082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+  Scenario: did exchange e2e controller flow with implicit invitation and invitee public DID
+    Given "Filip" agent is running on "localhost" port "8081" with controller "https://localhost:8082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+      And "Derek" agent is running on "localhost" port "9081" with controller "https://localhost:9082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
 
     Then "Filip" creates "sidetree" public DID through controller
       And  "Derek" creates "sidetree" public DID through controller
@@ -218,10 +196,4 @@ Feature: Decentralized Identifier(DID) exchange between the agents using public 
 
     Then  "Filip" retrieves connection record through controller and validates that connection state is "completed"
       And  "Derek" retrieves connection record through controller and validates that connection state is "completed"
-    Examples:
-      | keyType    | keyAgreementType   | mediaTypeProfile          |
-      | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip1"            |
-      | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc19"  |
-      | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc587" |
-      | "ED25519"  | "NISTP384ECDHKW"   | "didcomm/v2"              |
 

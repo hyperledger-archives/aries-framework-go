@@ -21,6 +21,8 @@ type rotateDIDRequest struct { // nolint: unused,deadcode
 	KID string `json:"kid"`
 	// NewDID DID that the given connection will rotate to.
 	NewDID string `json:"new_did"`
+	// CreatePeerDID flag that, when true, makes the DID rotation create a new peer DID, ignoring the NewDID parameter.
+	CreatePeerDID bool `json:"create_peer_did"`
 }
 
 // rotateDIDResponse model
@@ -30,7 +32,9 @@ type rotateDIDRequest struct { // nolint: unused,deadcode
 // swagger:response rotateDIDResponse
 type rotateDIDResponse struct { // nolint: unused,deadcode
 	// in: body
-	Body struct{}
+	Body struct {
+		NewDID string `json:"new_did"`
+	}
 }
 
 // createConnectionRequest model

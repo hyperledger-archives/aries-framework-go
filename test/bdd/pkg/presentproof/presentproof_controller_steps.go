@@ -27,6 +27,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/kms"
 	presentproofcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
+	connectionrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/connection"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	protocol "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
@@ -36,6 +37,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/connection"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	didexsteps "github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/outofband"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/util"
 )
 
@@ -84,6 +86,8 @@ func (s *ControllerSteps) SetContext(ctx *context.BDDContext) {
 func (s *ControllerSteps) RegisterSteps(gs *godog.Suite) {
 	gs.Step(`^"([^"]*)" has established connection with "([^"]*)" through PresentProof controller$`, s.establishConnection)
 	gs.Step(`^"([^"]*)" has established DIDComm v2 connection with "([^"]*)" through PresentProof controller$`, s.establishDIDCommV2Connection)
+	gs.Step(`^"([^"]*)" sends OOBv2 invitation to "([^"]*)" to establish connection through PresentProof controller$`, s.createDIDCommV2ConnectionWithOOBv2)
+	gs.Step(`^"([^"]*)" waits to receive a message from "([^"]*)" through PresentProof controller$`, s.waitForMessageFrom)
 	gs.Step(`^"([^"]*)" sends a propose presentation to "([^"]*)" through PresentProof controller$`, s.sendProposePresentation)
 	gs.Step(`^"([^"]*)" sends a propose presentation v3 to "([^"]*)" through PresentProof controller$`, s.sendProposePresentationV3)
 	gs.Step(`^"([^"]*)" negotiates about the request presentation with a proposal through PresentProof controller$`, s.negotiateRequestPresentation)
@@ -152,6 +156,55 @@ func (s *ControllerSteps) establishDIDCommV2Connection(agent1, agent2 string) er
 	return nil
 }
 
+func (s *ControllerSteps) createDIDCommV2ConnectionWithOOBv2(inviter, invitee string) error {
+	didexSteps := didexsteps.NewDIDExchangeControllerSteps()
+	didexSteps.SetContext(s.bddContext)
+
+	inviterDID, err := didexSteps.CreatePublicDIDWithKeyType(inviter, "ECDSAP256IEEEP1363", "NISTP256ECDHKW")
+	if err != nil {
+		return fmt.Errorf("create public DID for [%s] using didexchange controller step: %w", inviter, err)
+	}
+
+	oobSteps := outofband.NewOutofbandControllerSteps()
+	oobSteps.SetContext(s.bddContext)
+
+	connSteps := connection.NewControllerSteps()
+	connSteps.SetContext(s.bddContext)
+
+	err = oobSteps.CreateOOBV2(inviter)
+	if err != nil {
+		return fmt.Errorf("creating oob v2 invitation for [%s] using oob controller steps: %w", inviter, err)
+	}
+
+	connID, err := oobSteps.AcceptOOBV2Invitation(inviter, invitee)
+	if err != nil {
+		return fmt.Errorf(
+			"accepting oob v2 invitation from [%s] with [%s] using oob controller step: %w",
+			inviter, invitee, err)
+	}
+
+	url, ok := s.bddContext.GetControllerURL(invitee)
+	if !ok {
+		return fmt.Errorf("unable to find controller URL registered for agent [%s]", invitee)
+	}
+
+	resp := &didexcmd.QueryConnectionResponse{}
+
+	err = util.SendHTTP(http.MethodGet, url+"/connections/"+connID, nil, &resp)
+	if err != nil {
+		return fmt.Errorf("getting connection record from agent [%s]: %w", invitee, err)
+	}
+
+	inviteeConn := resp.Result.Record
+
+	s.bddContext.PeerDIDs[invitee] = inviteeConn.MyDID
+
+	s.did[inviter] = inviterDID
+	s.did[invitee] = inviteeConn.MyDID
+
+	return nil
+}
+
 func getMsgBytes(msgFile string) (string, []byte, error) {
 	_, path, _, ok := runtime.Caller(0)
 	if !ok {
@@ -182,10 +235,10 @@ func getMsgBytes(msgFile string) (string, []byte, error) {
 	return msg.Type(), buf.Bytes(), err
 }
 
-func (s *ControllerSteps) sendMessage(verifier, msgFile, prover string) error {
-	url, ok := s.bddContext.GetControllerURL(verifier)
+func (s *ControllerSteps) sendMessage(sender, msgFile, recipient string) error {
+	url, ok := s.bddContext.GetControllerURL(sender)
 	if !ok {
-		return fmt.Errorf("unable to find controller URL registered for agent [%s]", verifier)
+		return fmt.Errorf("unable to find controller URL registered for agent [%s]", sender)
 	}
 
 	mt, msg, err := getMsgBytes(msgFile)
@@ -193,7 +246,9 @@ func (s *ControllerSteps) sendMessage(verifier, msgFile, prover string) error {
 		return err
 	}
 
-	piid, _ := s.actionPIID(verifier) // nolint: errcheck
+	connID := s.bddContext.GetConnectionID(sender, recipient)
+
+	piid, _ := s.actionPIID(sender) // nolint: errcheck
 
 	switch mt {
 	case protocol.RequestPresentationMsgTypeV2:
@@ -201,13 +256,13 @@ func (s *ControllerSteps) sendMessage(verifier, msgFile, prover string) error {
 			return sendAcceptProposePresentation(url, piid, msg)
 		}
 
-		return sendRequestPresentationMsg(url, s.did[verifier], s.did[prover], msg)
+		return sendRequestPresentationMsg(url, connID, msg)
 	case protocol.RequestPresentationMsgTypeV3:
 		if piid != "" {
 			return sendAcceptProposePresentationV3(url, piid, msg)
 		}
 
-		return sendRequestPresentationMsgV3(url, s.did[verifier], s.did[prover], msg)
+		return sendRequestPresentationMsgV3(url, connID, msg)
 	case protocol.PresentationMsgTypeV2:
 		return sendPresentationMsg(url, piid, msg)
 	case protocol.PresentationMsgTypeV3:
@@ -339,7 +394,7 @@ func sendPresentationMsgV3(url, piid string, msg []byte) error {
 		}, nil)
 }
 
-func sendRequestPresentationMsg(url, myDID, theirDID string, msg []byte) error {
+func sendRequestPresentationMsg(url, connID string, msg []byte) error {
 	var requestPresentation *presentproof.RequestPresentationV2
 
 	err := json.Unmarshal(msg, &requestPresentation)
@@ -348,13 +403,12 @@ func sendRequestPresentationMsg(url, myDID, theirDID string, msg []byte) error {
 	}
 
 	return postToURL(url+sendRequestPresentation, presentproofcmd.SendRequestPresentationV2Args{
-		MyDID:               myDID,
-		TheirDID:            theirDID,
+		ConnectionID:        connID,
 		RequestPresentation: requestPresentation,
 	}, nil)
 }
 
-func sendRequestPresentationMsgV3(url, myDID, theirDID string, msg []byte) error {
+func sendRequestPresentationMsgV3(url, connID string, msg []byte) error {
 	var requestPresentation *presentproof.RequestPresentationV3
 
 	err := json.Unmarshal(msg, &requestPresentation)
@@ -363,8 +417,7 @@ func sendRequestPresentationMsgV3(url, myDID, theirDID string, msg []byte) error
 	}
 
 	return postToURL(url+sendRequestPresentationV3, presentproofcmd.SendRequestPresentationV3Args{
-		MyDID:               myDID,
-		TheirDID:            theirDID,
+		ConnectionID:        connID,
 		RequestPresentation: requestPresentation,
 	}, nil)
 }
@@ -404,8 +457,7 @@ func (s *ControllerSteps) sendProposePresentation(prover, verifier string) error
 	}
 
 	return postToURL(url+sendProposalPresentation, presentproofcmd.SendProposePresentationV2Args{
-		MyDID:               s.did[prover],
-		TheirDID:            s.did[verifier],
+		ConnectionID:        s.bddContext.GetConnectionID(prover, verifier),
 		ProposePresentation: &presentproof.ProposePresentationV2{},
 	}, nil)
 }
@@ -417,8 +469,7 @@ func (s *ControllerSteps) sendProposePresentationV3(prover, verifier string) err
 	}
 
 	return postToURL(url+sendProposalPresentationV3, presentproofcmd.SendProposePresentationV3Args{
-		MyDID:               s.did[prover],
-		TheirDID:            s.did[verifier],
+		ConnectionID:        s.bddContext.GetConnectionID(prover, verifier),
 		ProposePresentation: &presentproof.ProposePresentationV3{},
 	}, nil)
 }
@@ -512,6 +563,50 @@ func (s *ControllerSteps) actionPIID(agentID string) (string, error) {
 	}
 
 	return msg.Message.Properties["piid"].(string), nil
+}
+
+func (s *ControllerSteps) waitForMessageFrom(agentID, otherAgent string) error {
+	msg, err := util.PullEventsFromWebSocket(s.bddContext, agentID, util.FilterTopic("present-proof_actions"),
+		util.FilterMyDID(s.bddContext.PublicDIDs[agentID]))
+	if err != nil {
+		return fmt.Errorf("pull events from WebSocket: %w", err)
+	}
+
+	controllerURL, ok := s.bddContext.GetControllerURL(agentID)
+	if !ok {
+		return fmt.Errorf(" unable to find controller URL registered for agent [%s]", agentID)
+	}
+
+	queryPath := controllerURL + connectionrest.OperationID
+
+	resp := &didexcmd.QueryConnectionsResponse{}
+
+	err = util.SendHTTP(http.MethodGet, queryPath, nil, &resp)
+	if err != nil {
+		return fmt.Errorf("getting connection record from agent [%s]: %w", agentID, err)
+	}
+
+	if len(resp.Results) == 0 {
+		return fmt.Errorf("no connection exists for given agent")
+	}
+
+	myDID := msg.Message.Properties["myDID"]
+	theirDID := msg.Message.Properties["theirDID"]
+
+	var connID string
+
+	for _, conn := range resp.Results {
+		if conn != nil && conn.MyDID == myDID && conn.TheirDID == theirDID {
+			connID = conn.ConnectionID
+			break
+		}
+	}
+
+	if connID != "" {
+		s.bddContext.SaveConnectionID(agentID, otherAgent, connID)
+	}
+
+	return nil
 }
 
 func (s *ControllerSteps) checkPresentation(verifier, name string) error {

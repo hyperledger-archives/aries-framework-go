@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -198,7 +199,7 @@ func TestCommand_SendRequestPresentation(t *testing.T) {
 		cmdErr := cmd.SendRequestPresentation(&b, bytes.NewBufferString(jsonPayload))
 		require.Error(t, cmdErr)
 		require.Equal(t, InvalidRequestErrorCode, cmdErr.Code())
-		require.Contains(t, cmdErr.Error(), errMissingConnection)
+		require.Contains(t, cmdErr.Error(), errNoConnectionForDIDs)
 	})
 
 	t.Run("SendRequestPresentation (error)", func(t *testing.T) {
@@ -262,6 +263,37 @@ func TestCommand_SendRequestPresentation(t *testing.T) {
 		var b bytes.Buffer
 		const jsonPayload = `{"my_did":"id","their_did":"id","request_presentation":{}}`
 		require.NoError(t, cmd.SendRequestPresentation(&b, bytes.NewBufferString(jsonPayload)))
+	})
+
+	t.Run("Success - with connection ID parameter", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		service := clientmocks.NewMockProtocolService(ctrl)
+		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+		service.EXPECT().HandleOutbound(gomock.Any(), gomock.Any(), gomock.Any())
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+
+		connID := uuid.New().String()
+
+		mockConnRec := mockConnectionRecorder(t, connection.Record{
+			ConnectionID: connID,
+			MyDID:        "id",
+			TheirDID:     "id",
+		})
+
+		provider.EXPECT().ConnectionLookup().Return(mockConnRec.Lookup).AnyTimes()
+
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		payload := fmt.Sprintf(`{"connection_id":"%s","request_presentation":{}}`, connID)
+		require.NoError(t, cmd.SendRequestPresentation(&b, bytes.NewBufferString(payload)))
 	})
 
 	t.Run("Success (v3)", func(t *testing.T) {
@@ -392,7 +424,7 @@ func TestCommand_SendProposePresentation(t *testing.T) {
 		cmdErr := cmd.SendProposePresentation(&b, bytes.NewBufferString(jsonPayload))
 		require.Error(t, cmdErr)
 		require.Equal(t, InvalidRequestErrorCode, cmdErr.Code())
-		require.Contains(t, cmdErr.Error(), errMissingConnection)
+		require.Contains(t, cmdErr.Error(), errNoConnectionForDIDs)
 	})
 	t.Run("SendProposePresentation (error)", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -455,6 +487,37 @@ func TestCommand_SendProposePresentation(t *testing.T) {
 		var b bytes.Buffer
 		const jsonPayload = `{"my_did":"id","their_did":"id","propose_presentation":{}}`
 		require.NoError(t, cmd.SendProposePresentation(&b, bytes.NewBufferString(jsonPayload)))
+	})
+
+	t.Run("Success - with connection ID parameter", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		service := clientmocks.NewMockProtocolService(ctrl)
+		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+		service.EXPECT().HandleOutbound(gomock.Any(), gomock.Any(), gomock.Any())
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+
+		connID := uuid.New().String()
+
+		mockConnRec := mockConnectionRecorder(t, connection.Record{
+			ConnectionID: connID,
+			MyDID:        "id",
+			TheirDID:     "id",
+		})
+
+		provider.EXPECT().ConnectionLookup().Return(mockConnRec.Lookup).AnyTimes()
+
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		payload := fmt.Sprintf(`{"connection_id":"%s","propose_presentation":{}}`, connID)
+		require.NoError(t, cmd.SendProposePresentation(&b, bytes.NewBufferString(payload)))
 	})
 
 	t.Run("Success (v3)", func(t *testing.T) {

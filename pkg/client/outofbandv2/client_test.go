@@ -57,27 +57,31 @@ func TestCreateInvitation(t *testing.T) {
 	t.Run("sets an id", func(t *testing.T) {
 		c, err := New(withTestProvider())
 		require.NoError(t, err)
-		inv := c.CreateInvitation()
+		inv, err := c.CreateInvitation()
+		require.NoError(t, err)
 		require.NotEmpty(t, inv.ID)
 	})
 	t.Run("sets correct type", func(t *testing.T) {
 		c, err := New(withTestProvider())
 		require.NoError(t, err)
-		inv := c.CreateInvitation()
+		inv, err := c.CreateInvitation()
+		require.NoError(t, err)
 		require.Equal(t, "https://didcomm.org/out-of-band/2.0/invitation", inv.Type)
 	})
 	t.Run("WithLabel", func(t *testing.T) {
 		c, err := New(withTestProvider())
 		require.NoError(t, err)
 		expected := uuid.New().String()
-		inv := c.CreateInvitation(WithLabel(expected))
+		inv, err := c.CreateInvitation(WithLabel(expected))
+		require.NoError(t, err)
 		require.Equal(t, expected, inv.Label)
 	})
 	t.Run("WithFrom", func(t *testing.T) {
 		c, err := New(withTestProvider())
 		require.NoError(t, err)
 		expected := uuid.New().String()
-		inv := c.CreateInvitation(WithFrom(expected))
+		inv, err := c.CreateInvitation(WithFrom(expected))
+		require.NoError(t, err)
 		require.Equal(t, expected, inv.From)
 	})
 	t.Run("WithGoal", func(t *testing.T) {
@@ -85,7 +89,8 @@ func TestCreateInvitation(t *testing.T) {
 		require.NoError(t, err)
 		expectedGoal := uuid.New().String()
 		expectedGoalCode := uuid.New().String()
-		inv := c.CreateInvitation(WithGoal(expectedGoal, expectedGoalCode))
+		inv, err := c.CreateInvitation(WithGoal(expectedGoal, expectedGoalCode))
+		require.NoError(t, err)
 		require.Equal(t, expectedGoal, inv.Body.Goal)
 		require.Equal(t, expectedGoalCode, inv.Body.GoalCode)
 	})
@@ -93,15 +98,30 @@ func TestCreateInvitation(t *testing.T) {
 		c, err := New(withTestProvider())
 		require.NoError(t, err)
 		expected := dummyAttachment(t)
-		inv := c.CreateInvitation(WithAttachments(expected))
+		inv, err := c.CreateInvitation(WithAttachments(expected))
+		require.NoError(t, err)
 		require.Contains(t, inv.Requests, expected)
 	})
 	t.Run("WithAttachments", func(t *testing.T) {
 		c, err := New(withTestProvider())
 		require.NoError(t, err)
 		expected := dummyAttachment(t)
-		inv := c.CreateInvitation(WithAttachments(expected))
+		inv, err := c.CreateInvitation(WithAttachments(expected))
+		require.NoError(t, err)
 		require.Contains(t, inv.Requests, expected)
+	})
+	t.Run("fails to save", func(t *testing.T) {
+		expectErr := fmt.Errorf("expected error")
+
+		prov := withTestProvider()
+		prov.ServiceMap[oobv2.Name] = &stubOOBService{saveInvErr: expectErr}
+
+		c, err := New(prov)
+		require.NoError(t, err)
+
+		_, err = c.CreateInvitation()
+		require.Error(t, err)
+		require.ErrorIs(t, err, expectErr)
 	})
 }
 
@@ -195,6 +215,11 @@ type stubOOBService struct {
 	service.Event
 	acceptInvFunc func(*oobv2.Invitation) error
 	connID        string
+	saveInvErr    error
+}
+
+func (s *stubOOBService) SaveInvitation(i *oobv2.Invitation) error {
+	return s.saveInvErr
 }
 
 func (s *stubOOBService) AcceptInvitation(i *oobv2.Invitation) (string, error) {

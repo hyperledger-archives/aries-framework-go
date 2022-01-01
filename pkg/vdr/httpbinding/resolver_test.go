@@ -50,12 +50,8 @@ func TestWithOutboundOpts(t *testing.T) {
 	// opt.client is nil, so setting timeout should panic
 	require.Panics(t, func() { opt(clOpts) })
 
-	opt = WithTLSConfig(nil)
+	opt = WithHTTPClient(&http.Client{})
 	require.NotNil(t, opt)
-
-	clOpts = &VDR{}
-	// opt.client is nil, so setting TLS config should panic
-	require.Panics(t, func() { opt(clOpts) })
 }
 
 func TestNew(t *testing.T) {

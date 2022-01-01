@@ -224,6 +224,9 @@ type SendProposePresentationArgs struct {
 	MyDID string `json:"my_did"`
 	// TheirDID receiver's did
 	TheirDID string `json:"their_did"`
+	// ConnectionID ID of connection between sender and receiver.
+	// Optional: if present, is used instead of MyDID + TheirDID.
+	ConnectionID string `json:"connection_id"`
 	// ProposePresentation is a message sent by the Prover to the verifier to initiate a proof
 	// presentation process.
 	ProposePresentation *presentproof.ProposePresentation `json:"propose_presentation"`
@@ -238,6 +241,9 @@ type SendProposePresentationV2Args struct {
 	MyDID string `json:"my_did"`
 	// TheirDID receiver's did
 	TheirDID string `json:"their_did"`
+	// ConnectionID ID of connection between sender and receiver.
+	// Optional: if present, is used instead of MyDID + TheirDID.
+	ConnectionID string `json:"connection_id"`
 	// ProposePresentation is a message sent by the Prover to the verifier to initiate a proof
 	// presentation process.
 	ProposePresentation *presentproof.ProposePresentationV2 `json:"propose_presentation"`
@@ -252,6 +258,9 @@ type SendProposePresentationV3Args struct {
 	MyDID string `json:"my_did"`
 	// TheirDID receiver's did
 	TheirDID string `json:"their_did"`
+	// ConnectionID ID of connection between sender and receiver.
+	// Optional: if present, is used instead of MyDID + TheirDID.
+	ConnectionID string `json:"connection_id"`
 	// ProposePresentation is a message sent by the Prover to the verifier to initiate a proof
 	// presentation process.
 	ProposePresentation *presentproof.ProposePresentationV3 `json:"propose_presentation"`
@@ -275,6 +284,9 @@ type SendRequestPresentationArgs struct {
 	MyDID string `json:"my_did"`
 	// TheirDID receiver's did
 	TheirDID string `json:"their_did"`
+	// ConnectionID ID of connection between sender and receiver.
+	// Optional: if present, is used instead of MyDID + TheirDID.
+	ConnectionID string `json:"connection_id"`
 	// RequestPresentation describes values that need to be revealed and predicates that need to be fulfilled.
 	RequestPresentation *presentproof.RequestPresentation `json:"request_presentation"`
 }
@@ -288,6 +300,9 @@ type SendRequestPresentationV2Args struct {
 	MyDID string `json:"my_did"`
 	// TheirDID receiver's did
 	TheirDID string `json:"their_did"`
+	// ConnectionID ID of connection between sender and receiver.
+	// Optional: if present, is used instead of MyDID + TheirDID.
+	ConnectionID string `json:"connection_id"`
 	// RequestPresentation describes values that need to be revealed and predicates that need to be fulfilled.
 	RequestPresentation *presentproof.RequestPresentationV2 `json:"request_presentation"`
 }
@@ -301,6 +316,9 @@ type SendRequestPresentationV3Args struct {
 	MyDID string `json:"my_did"`
 	// TheirDID receiver's did
 	TheirDID string `json:"their_did"`
+	// ConnectionID ID of connection between sender and receiver.
+	// Optional: if present, is used instead of MyDID + TheirDID.
+	ConnectionID string `json:"connection_id"`
 	// RequestPresentation describes values that need to be revealed and predicates that need to be fulfilled.
 	RequestPresentation *presentproof.RequestPresentationV3 `json:"request_presentation"`
 }

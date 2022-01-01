@@ -5,7 +5,6 @@
 #
 # Reference : https://github.com/hyperledger/aries-rfcs/tree/master/features/0023-did-exchange
 
-@all
 @webkms
 Feature: Decentralized Identifier(DID) exchange between the agents using SDK
 
