@@ -26,6 +26,8 @@ type ProposeCredentialV2 struct {
 	// FiltersAttach is an array of attachments that further define the credential being proposed.
 	// This might be used to clarify which formats or format versions are wanted.
 	FiltersAttach []decorator.Attachment `json:"filters~attach,omitempty"`
+	// Optional field containing ID of the invitation which initiated this protocol.
+	InvitationID string `json:"invitationID,omitempty"`
 }
 
 // ProposeCredentialV3 is an optional message sent by the potential Holder to the Issuer
@@ -39,6 +41,8 @@ type ProposeCredentialV3 struct {
 	// Accepted values for the format attribute of each attachment are provided in the per format Attachment
 	// registry immediately below.
 	Attachments []decorator.AttachmentV2 `json:"attachments,omitempty"`
+	// Optional field containing ID of the invitation which initiated this protocol.
+	InvitationID string `json:"pthid,omitempty"`
 }
 
 // ProposeCredentialV3Body represents body for ProposeCredentialV3.

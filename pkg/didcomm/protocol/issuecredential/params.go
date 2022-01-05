@@ -22,6 +22,7 @@ type ProposeCredentialParams struct {
 	Formats            []Format
 	GoalCode           string
 	CredentialPreview  interface{}
+	InvitationID       string
 }
 
 // AsV2 translates this credential proposal into an issue credential 2.0 proposal message.
@@ -32,14 +33,16 @@ func (p *ProposeCredentialParams) AsV2() *ProposeCredentialV2 {
 		CredentialProposal: p.CredentialProposal,
 		Formats:            p.Formats,
 		FiltersAttach:      decorator.GenericAttachmentsToV1(p.Attachments),
+		InvitationID:       p.InvitationID,
 	}
 }
 
 // AsV3 translates this credential proposal into an issue credential 3.0 proposal message.
 func (p *ProposeCredentialParams) AsV3() *ProposeCredentialV3 {
 	return &ProposeCredentialV3{
-		Type: p.Type,
-		ID:   p.ID,
+		Type:         p.Type,
+		ID:           p.ID,
+		InvitationID: p.InvitationID,
 		Body: ProposeCredentialV3Body{
 			GoalCode:          p.GoalCode,
 			Comment:           p.Comment,
