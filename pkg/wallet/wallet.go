@@ -866,7 +866,10 @@ func (c *Wallet) ProposeCredential(authToken string, invitation *GenericInvitati
 
 	opts = prepareInteractionOpts(connRecord, opts)
 
-	_, err = c.issueCredentialClient.SendProposal(&issuecredential.ProposeCredential{}, connRecord)
+	_, err = c.issueCredentialClient.SendProposal(
+		&issuecredential.ProposeCredential{InvitationID: invitation.ID},
+		connRecord,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to propose credential from wallet: %w", err)
 	}
