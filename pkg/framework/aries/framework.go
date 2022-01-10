@@ -136,6 +136,11 @@ func initializeServices(frameworkOpts *Aries) (*Aries, error) {
 		return nil, err
 	}
 
+	// Create DID connection store
+	if err := createDIDConnectionStore(frameworkOpts); err != nil {
+		return nil, err
+	}
+
 	// Create DID rotator
 	if err := createDIDRotator(frameworkOpts); err != nil {
 		return nil, err
@@ -148,11 +153,6 @@ func initializeServices(frameworkOpts *Aries) (*Aries, error) {
 
 	// Create messenger handler
 	if err := createMessengerHandler(frameworkOpts); err != nil {
-		return nil, err
-	}
-
-	// Create DID connection store
-	if err := createDIDConnectionStore(frameworkOpts); err != nil {
 		return nil, err
 	}
 
@@ -531,6 +531,7 @@ func createDIDRotator(frameworkOpts *Aries) error {
 		context.WithVDRegistry(frameworkOpts.vdrRegistry),
 		context.WithStorageProvider(frameworkOpts.storeProvider),
 		context.WithProtocolStateStorageProvider(frameworkOpts.protocolStateStoreProvider),
+		context.WithDIDConnectionStore(frameworkOpts.didConnectionStore),
 	)
 	if err != nil {
 		return fmt.Errorf("context creation failed: %w", err)

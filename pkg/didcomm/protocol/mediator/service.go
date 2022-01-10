@@ -421,7 +421,7 @@ func (s *Service) handleInboundRequest(c *callback) error {
 		return fmt.Errorf("handleInboundRequest: failed to handle inbound request : %w", err)
 	}
 
-	return s.outbound.SendToDID(grant, c.myDID, c.theirDID)
+	return s.outbound.SendToDID(service.NewDIDCommMsgMap(grant), c.myDID, c.theirDID)
 }
 
 func outboundGrant(
@@ -503,7 +503,7 @@ func (s *Service) handleKeylistUpdate(msg service.DIDCommMsg, myDID, theirDID st
 		Updated: updates,
 	}
 
-	return s.outbound.SendToDID(updateResponse, myDID, theirDID)
+	return s.outbound.SendToDID(service.NewDIDCommMsgMap(updateResponse), myDID, theirDID)
 }
 
 func (s *Service) handleKeylistUpdateResponse(msg service.DIDCommMsg) error {
@@ -597,7 +597,7 @@ func (s *Service) doRegistration(record *connection.Record, req *Request, timeou
 	req.ExpiresTime = time.Now().UTC().Add(timeout)
 
 	// send message to the router
-	if err = s.outbound.SendToDID(req, record.MyDID, record.TheirDID); err != nil {
+	if err = s.outbound.SendToDID(service.NewDIDCommMsgMap(req), record.MyDID, record.TheirDID); err != nil {
 		return fmt.Errorf("send route request: %w", err)
 	}
 
@@ -740,7 +740,7 @@ func (s *Service) AddKey(connID, recKey string) error {
 		},
 	}
 
-	if err := s.outbound.SendToDID(keyUpdate, conn.MyDID, conn.TheirDID); err != nil {
+	if err := s.outbound.SendToDID(service.NewDIDCommMsgMap(keyUpdate), conn.MyDID, conn.TheirDID); err != nil {
 		return fmt.Errorf("send route request: %w", err)
 	}
 

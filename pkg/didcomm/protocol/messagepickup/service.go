@@ -228,7 +228,17 @@ func (s *Service) handleStatusRequest(msg service.DIDCommMsg, myDID, theirDID st
 		},
 	}
 
-	return s.outbound.SendToDID(resp, myDID, theirDID)
+	msgBytes, err := json.Marshal(resp)
+	if err != nil {
+		return fmt.Errorf("marshal batch: %w", err)
+	}
+
+	msgMap, err := service.ParseDIDCommMsgMap(msgBytes)
+	if err != nil {
+		return fmt.Errorf("parse batch into didcomm msg map: %w", err)
+	}
+
+	return s.outbound.SendToDID(msgMap, myDID, theirDID)
 }
 
 func (s *Service) handleBatchPickup(msg service.DIDCommMsg, myDID, theirDID string) error {
@@ -273,13 +283,23 @@ func (s *Service) handleBatchPickup(msg service.DIDCommMsg, myDID, theirDID stri
 
 	msgs = msgs[0:end]
 
-	batch := &Batch{
+	batch := Batch{
 		Type:     BatchMsgType,
 		ID:       msg.ID(),
 		Messages: msgs,
 	}
 
-	return s.outbound.SendToDID(batch, myDID, theirDID)
+	msgBytes, err := json.Marshal(batch)
+	if err != nil {
+		return fmt.Errorf("marshal batch: %w", err)
+	}
+
+	msgMap, err := service.ParseDIDCommMsgMap(msgBytes)
+	if err != nil {
+		return fmt.Errorf("parse batch into didcomm msg map: %w", err)
+	}
+
+	return s.outbound.SendToDID(msgMap, myDID, theirDID)
 }
 
 func (s *Service) handleBatch(msg service.DIDCommMsg) error {
@@ -504,8 +524,18 @@ func (s *Service) BatchPickup(connectionID string, size int) (int, error) {
 		BatchSize: size,
 	}
 
+	msgBytes, err := json.Marshal(req)
+	if err != nil {
+		return -1, fmt.Errorf("marshal req: %w", err)
+	}
+
+	msgMap, err := service.ParseDIDCommMsgMap(msgBytes)
+	if err != nil {
+		return -1, fmt.Errorf("parse req into didcomm msg map: %w", err)
+	}
+
 	// send message to the router
-	if err := s.outbound.SendToDID(req, conn.MyDID, conn.TheirDID); err != nil {
+	if err := s.outbound.SendToDID(msgMap, conn.MyDID, conn.TheirDID); err != nil {
 		return -1, fmt.Errorf("send batch pickup request: %w", err)
 	}
 
@@ -539,7 +569,18 @@ func (s *Service) Noop(connectionID string) error {
 	}
 
 	noop := &Noop{ID: uuid.New().String(), Type: NoopMsgType}
-	if err := s.outbound.SendToDID(noop, conn.MyDID, conn.TheirDID); err != nil {
+
+	msgBytes, err := json.Marshal(noop)
+	if err != nil {
+		return fmt.Errorf("marshal noop: %w", err)
+	}
+
+	msgMap, err := service.ParseDIDCommMsgMap(msgBytes)
+	if err != nil {
+		return fmt.Errorf("parse noop into didcomm msg map: %w", err)
+	}
+
+	if err := s.outbound.SendToDID(msgMap, conn.MyDID, conn.TheirDID); err != nil {
 		return fmt.Errorf("send noop request: %w", err)
 	}
 
