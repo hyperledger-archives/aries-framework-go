@@ -12,8 +12,8 @@ import (
 	"fmt"
 	"strings"
 
+	gojose "github.com/go-jose/go-jose/v3"
 	"github.com/google/uuid"
-	gojose "github.com/square/go-jose/v3"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"

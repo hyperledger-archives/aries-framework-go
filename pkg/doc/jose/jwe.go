@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-// General serialization/deserialization design based off of https://github.com/square/go-jose/blob/master/jwe.go.
+// General serialization/deserialization design based off of https://github.com/go-jose/go-jose/blob/v3/jwe.go.
 
 package jose
 

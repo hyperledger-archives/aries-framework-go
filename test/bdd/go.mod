@@ -13,10 +13,10 @@ require (
 	github.com/fsouza/go-dockerclient v1.6.6
 	github.com/google/uuid v1.1.2
 	github.com/gorilla/mux v1.8.0
-	github.com/hyperledger/aries-framework-go v0.1.7-0.20210603210127-e57b8c94e3cf
-	github.com/hyperledger/aries-framework-go/component/storage/leveldb v0.0.0-20210820175050-dcc7a225178d
+	github.com/hyperledger/aries-framework-go v0.1.8-0.20220106195936-a9d6794663ed
+	github.com/hyperledger/aries-framework-go/component/storage/leveldb v0.0.0-20220106195936-a9d6794663ed
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210820175050-dcc7a225178d
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20211203210130-e927c9ed581a
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20220106195936-a9d6794663ed
 	github.com/moby/sys/mount v0.2.0 // indirect
 	github.com/moby/term v0.0.0-20201110203204-bea5bbe245bf // indirect
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
@@ -43,6 +43,7 @@ require (
 	github.com/docker/docker v20.10.0+incompatible // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
+	github.com/go-jose/go-jose/v3 v3.0.1-0.20210613005559-6f2534b08aeb // indirect
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/protobuf v1.5.2 // indirect

@@ -13,8 +13,8 @@ import (
 	"fmt"
 	"testing"
 
+	josecipher "github.com/go-jose/go-jose/v3/cipher"
 	"github.com/google/tink/go/subtle/random"
-	josecipher "github.com/square/go-jose/v3/cipher"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/aead/subtle"

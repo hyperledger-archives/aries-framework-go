@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package jwkkid
 
 import (
-	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/elliptic"
@@ -16,7 +15,6 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"strings"
 	"testing"
 
@@ -26,7 +24,6 @@ import (
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
@@ -38,22 +35,6 @@ func TestCreateKID(t *testing.T) {
 	kid, err := CreateKID(pubKey, kms.ED25519Type)
 	require.NoError(t, err)
 	require.NotEmpty(t, kid)
-
-	// now try building go-jose thumbprint and compare its base64URL with kid above
-	// they should not match since go-jose's thumbprint is built from a wrong Ed25519 JWK.
-	j, err := jwksupport.JWKFromKey(pubKey)
-	require.NoError(t, err)
-
-	goJoseTP, err := j.Thumbprint(crypto.SHA256)
-	require.NoError(t, err)
-
-	goJoseKID := base64.RawURLEncoding.EncodeToString(goJoseTP)
-	require.NotEqual(t, kid, goJoseKID)
-
-	// now build bad thumbprint and ensure it matches goJoseTP
-	// TODO remove createBadED25519Thumbprint function when go-jose fixes the Ed25519 JWK template used for Thumbprint.
-	badTP := createBadED25519Thumbprint(t, pubKey)
-	require.EqualValues(t, goJoseTP, badTP)
 
 	_, err = CreateKID(nil, kms.ED25519Type)
 	require.EqualError(t, err, "createKID: empty key")
@@ -96,7 +77,7 @@ func TestCreateKID(t *testing.T) {
 
 	_, err = CreateKID(badPubKey, kms.ECDSAP256TypeIEEEP1363)
 	require.EqualError(t, err, "createKID: failed to build jwk: buildJWK: failed to build JWK from ecdsa key "+
-		"in IEEE1363 format: create JWK: square/go-jose: invalid EC key (nil, or X/Y missing)")
+		"in IEEE1363 format: create JWK: go-jose/go-jose: invalid EC key (nil, or X/Y missing)")
 
 	ecKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
@@ -218,39 +199,6 @@ func TestBuildJWKX25519(t *testing.T) {
 		require.EqualError(t, err, "buildJWK: failed to build JWK from X25519 key: create JWK: marshalX25519: "+
 			"invalid key")
 	})
-}
-
-func TestCreateED25519KID_Failure(t *testing.T) {
-	key := &cryptoapi.PublicKey{
-		Curve: "Ed25519",
-		X:     []byte(strings.Repeat("a", ed25519.PublicKeySize+1)), // public key > Ed25519 key size
-		Y:     []byte{},
-		Type:  ecdhpb.KeyType_OKP.String(),
-	}
-
-	mKey, err := json.Marshal(key)
-	require.NoError(t, err)
-
-	_, err = CreateKID(mKey, kms.ED25519Type)
-	require.EqualError(t, err, "createKID: createED25519KID: invalid Ed25519 key")
-}
-
-func createBadED25519Thumbprint(t *testing.T, keyBytes []byte) []byte { // similar to go-jose's Ed25519 bad thumbprint
-	t.Helper()
-
-	const badED25519ThumbprintTemplate = `{"crv":"Ed25519","kty":"OKP",x":"%s"}` // <- x is missing left double quotes.
-
-	lenKey := len(keyBytes)
-	require.NotZero(t, lenKey, "createED25519KID: empty Ed25519 key")
-
-	require.LessOrEqual(t, lenKey, ed25519.PublicKeySize, "createED25519KID: invalid Ed25519 key")
-
-	pad := make([]byte, ed25519.PublicKeySize-lenKey)
-	ed25519RawKey := append(pad, keyBytes...)
-
-	jwk := fmt.Sprintf(badED25519ThumbprintTemplate, base64.RawURLEncoding.EncodeToString(ed25519RawKey))
-
-	return sha256Sum(jwk)
 }
 
 func TestCreateBLS12381G2KID(t *testing.T) {

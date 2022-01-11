@@ -2,6 +2,8 @@ github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/google/uuid v1.1.2 h1:EVhdT+1Kseyi1/pUmXKaFxYsDNy9RQYkMWRH68J/W7Y=
 github.com/google/uuid v1.1.2/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
+github.com/hyperledger/aries-framework-go/spi v0.0.0-20220106195936-a9d6794663ed h1:I2kPDTGHxS4UefWQYUxsiAFnaBENtybjD8OALeTxe2k=
+github.com/hyperledger/aries-framework-go/spi v0.0.0-20220106195936-a9d6794663ed/go.mod h1:4bD5c5fj5K7rkQurVa/8I8+TfNcI4bxIBzaUNcxTOTg=
 github.com/hyperledger/aries-framework-go/spi v0.0.0-20211203210130-e927c9ed581a h1:Nt9R2X9ya7S+h3blPwo085//C6C9JkKcHLegjUSD9wE=
 github.com/hyperledger/aries-framework-go/spi v0.0.0-20211203210130-e927c9ed581a/go.mod h1:dBYKKD8U8U9o0g5BdNFFaRtjt9KTkiAYfQt+TTp+w1o=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=

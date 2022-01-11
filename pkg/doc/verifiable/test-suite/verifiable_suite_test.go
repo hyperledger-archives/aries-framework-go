@@ -1,3 +1,4 @@
+//go:build testsuite
 // +build testsuite
 
 /*
@@ -26,7 +27,7 @@ import (
 	"path/filepath"
 
 	jsonld "github.com/piprate/json-gold/ld"
-	"github.com/square/go-jose/v3"
+	"github.com/go-jose/go-jose/v3"
 
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"

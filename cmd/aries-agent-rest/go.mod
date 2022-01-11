@@ -9,10 +9,10 @@ go 1.17
 require (
 	github.com/cenkalti/backoff/v4 v4.1.0
 	github.com/gorilla/mux v1.7.3
-	github.com/hyperledger/aries-framework-go v0.1.7-0.20210603210127-e57b8c94e3cf
-	github.com/hyperledger/aries-framework-go/component/storage/leveldb v0.0.0-20210819200955-992239f52706
-	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210820175050-dcc7a225178d
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210820175050-dcc7a225178d
+	github.com/hyperledger/aries-framework-go v0.1.8-0.20220106195936-a9d6794663ed
+	github.com/hyperledger/aries-framework-go/component/storage/leveldb v0.0.0-20220106195936-a9d6794663ed
+	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220106195936-a9d6794663ed
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20220106195936-a9d6794663ed
 	github.com/rs/cors v1.7.0
 	github.com/spf13/cobra v1.0.0
 	github.com/stretchr/testify v1.7.0
@@ -27,6 +27,7 @@ require (
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/go-jose/go-jose/v3 v3.0.1-0.20210613005559-6f2534b08aeb // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.3 // indirect
 	github.com/google/tink/go v1.6.1-0.20210519071714-58be99b3c4d0 // indirect
@@ -51,7 +52,6 @@ require (
 	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/square/go-jose/v3 v3.0.0-20200630053402-0a67ce9b0693 // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
 	github.com/teserakt-io/golang-ed25519 v0.0.0-20210104091850-3888c087a4c8 // indirect
 	github.com/tidwall/gjson v1.6.7 // indirect
