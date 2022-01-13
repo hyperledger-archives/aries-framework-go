@@ -186,26 +186,43 @@ func (d *SDKSteps) WaitForPostEvent(agents, statesValue string) error {
 // ValidateConnection checks the agents connection status against the given value.
 func (d *SDKSteps) ValidateConnection(agents, stateValue string) error {
 	for _, agentID := range strings.Split(agents, ",") {
-		conn, err := d.bddContext.DIDExchangeClients[agentID].GetConnection(d.connectionID[agentID])
+		err := d.validateConnection(agentID, d.connectionID[agentID], stateValue)
 		if err != nil {
-			return fmt.Errorf("failed to query connection by id: %w", err)
+			return err
 		}
+	}
 
-		prettyConn, err := json.MarshalIndent(conn, "", "  ")
-		if err != nil {
-			return fmt.Errorf("failed to marshal connection: %w", err)
-		}
+	return nil
+}
 
-		logger.Debugf("Agent[%s] state[%s] connection: \n %s", agentID, stateValue, string(prettyConn))
+func (d *SDKSteps) validateConnToAgent(agent, other, stateValue string) error {
+	connID := d.bddContext.GetConnectionID(agent, other)
 
-		if conn.State != stateValue {
-			return fmt.Errorf("state from connection %s not equal %s", conn.State, stateValue)
-		}
+	d.connectionID[agent] = connID
 
-		if stateValue == "completed" {
-			if err = d.validateResolveDID(agentID, conn.TheirDID); err != nil {
-				return fmt.Errorf("validate resolve DID: %w", err)
-			}
+	return d.validateConnection(agent, connID, stateValue)
+}
+
+func (d *SDKSteps) validateConnection(agentID, connID, stateValue string) error {
+	conn, err := d.bddContext.DIDExchangeClients[agentID].GetConnection(connID)
+	if err != nil {
+		return fmt.Errorf("failed to query connection by id: %w", err)
+	}
+
+	prettyConn, err := json.MarshalIndent(conn, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal connection: %w", err)
+	}
+
+	logger.Debugf("Agent[%s] state[%s] connection: \n %s", agentID, stateValue, string(prettyConn))
+
+	if conn.State != stateValue {
+		return fmt.Errorf("state from connection %s not equal %s", conn.State, stateValue)
+	}
+
+	if stateValue == "completed" {
+		if err = d.validateResolveDID(agentID, conn.TheirDID); err != nil {
+			return fmt.Errorf("validate resolve DID: %w", err)
 		}
 	}
 
@@ -464,8 +481,10 @@ func resolveDID(vdr vdrapi.Registry, did string, maxRetry int) (*diddoc.Doc, err
 	var err error
 	for i := 1; i <= maxRetry; i++ {
 		doc, err = vdr.Resolve(did)
-		if err == nil || !errors.Is(err, vdrapi.ErrNotFound) {
-			return doc.DIDDocument, err
+		if err == nil {
+			return doc.DIDDocument, nil
+		} else if !errors.Is(err, vdrapi.ErrNotFound) {
+			return nil, err
 		}
 
 		time.Sleep(1 * time.Second)
@@ -496,6 +515,8 @@ func (d *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" waits for post state event "([^"]*)"$`, d.WaitForPostEvent)
 	s.Step(`^"([^"]*)" retrieves connection record and validates that connection state is "([^"]*)"$`,
 		d.ValidateConnection)
+	s.Step(`^"([^"]*)" validates that connection to "([^"]*)" has state "([^"]*)"$`,
+		d.validateConnToAgent)
 	s.Step(`^"([^"]*)" creates did exchange client$`, d.CreateDIDExchangeClient)
 	s.Step(`^"([^"]*)" approves did exchange request$`, d.ApproveRequest)
 	s.Step(`^"([^"]*)" approves invitation request$`, d.ApproveRequest)

@@ -408,11 +408,18 @@ func (a *SDKSteps) createEdgeAgentByDIDCommVer(agentID, scheme, routeOpt string,
 		return fmt.Errorf("create document loader: %w", err)
 	}
 
+	resolverOpts, err := withHTTPResolver(sideTreeURL, "sidetree")(a, agentID)
+	if err != nil {
+		return fmt.Errorf("create http resolver: %w", err)
+	}
+
 	opts = append(opts,
 		aries.WithStoreProvider(storeProv),
 		aries.WithTransportReturnRoute(routeOpt),
 		aries.WithJSONLDDocumentLoader(loader),
 	)
+
+	opts = append(opts, resolverOpts...)
 
 	if useDIDCommV2 {
 		opts = append(opts, aries.WithMediaTypeProfiles([]string{transport.MediaTypeDIDCommV2Profile}))

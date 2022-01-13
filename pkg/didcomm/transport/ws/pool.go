@@ -8,6 +8,7 @@ package ws
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/internal"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/peer"
 )
 
 const (
@@ -128,7 +130,7 @@ func (d *connPool) addKey(unpackMsg *transport.Envelope, trans *decorator.Transp
 
 		err := json.Unmarshal(unpackMsg.FromKey, fromPubKey)
 		if err != nil {
-			logger.Infof("addKey: unpackMsg.FromKey is not a public key [err: %s]. "+
+			logger.Debugf("addKey: unpackMsg.FromKey is not a public key [err: %s]. "+
 				"It will not be added to the ws connection.", err)
 		} else {
 			fromKey = fromPubKey.KID
@@ -140,7 +142,7 @@ func (d *connPool) addKey(unpackMsg *transport.Envelope, trans *decorator.Transp
 			d.add(fromKey, conn)
 		}
 
-		keyAgreementIDs := d.checkKeyAgreementIDs(unpackMsg.Message)
+		keyAgreementIDs := checkKeyAgreementIDs(unpackMsg.Message)
 
 		for _, kaID := range keyAgreementIDs {
 			d.add(kaID, conn)
@@ -163,38 +165,93 @@ func (d *connPool) close(conn *websocket.Conn, verKeys []string) {
 	}
 }
 
-func (d *connPool) checkKeyAgreementIDs(message []byte) []string {
+func checkKeyAgreementIDs(message []byte) []string {
+	var err1, err2 error
+
+	var doc *did.Doc
+
+	doc, err1 = didCommV1PeerDoc(message)
+
+	if err1 != nil {
+		doc, err2 = didCommV2PeerDoc(message)
+	}
+
+	if err1 != nil && err2 != nil {
+		logger.Debugf("failed to find a DIDComm DID doc in websocket message, will not add any keyAgreementIDs."+
+			" DIDComm V1 parse result=[%s], DIDComm V2 parse result=[%s]", err1.Error(), err2.Error())
+
+		return nil
+	}
+
+	return docKeyAgreementIDs(doc)
+}
+
+func didCommV1PeerDoc(message []byte) (*did.Doc, error) {
 	req := &didexchange.Request{}
 
 	err := json.Unmarshal(message, req)
 	if err != nil {
-		logger.Debugf("unmarshal request message failed, ignoring keyAgreementID, err: %v", err)
-
-		return nil
+		return nil, fmt.Errorf("unmarshal request message failed: %w", err)
 	}
 
 	if req.DocAttach == nil {
-		logger.Debugf("fetch message attachment/attachmentData is empty. Skipping adding KeyAgreementID to the pool.")
-
-		return nil
+		return nil, fmt.Errorf("fetch message attachment/attachmentData is empty")
 	}
 
 	data, err := req.DocAttach.Data.Fetch()
 	if err != nil {
-		logger.Debugf("fetch message attachment data failed, ignoring keyAgreementID, err: %v", err)
-
-		return nil
+		return nil, fmt.Errorf("fetch message attachment data failed: %w", err)
 	}
 
 	doc := &did.Doc{}
 
 	err = json.Unmarshal(data, doc)
 	if err != nil {
-		logger.Debugf("unmarshal DID doc from attachment data failed, ignoring keyAgreementID, err: %v", err)
-
-		return nil
+		return nil, fmt.Errorf("unmarshal DID doc from attachment data failed: %w", err)
 	}
 
+	return doc, nil
+}
+
+type msgFromField struct {
+	From string `json:"from"`
+}
+
+func didCommV2PeerDoc(message []byte) (*did.Doc, error) {
+	msg := &msgFromField{}
+
+	err := json.Unmarshal(message, msg)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal message as didcomm/v2 failed: %w", err)
+	}
+
+	if msg.From == "" {
+		return nil, fmt.Errorf("message has no didcomm/v2 'from' field")
+	}
+
+	didURL, err := did.ParseDIDURL(msg.From)
+	if err != nil {
+		return nil, fmt.Errorf("'from' field not did url: %w", err)
+	}
+
+	if didURL.Method != "peer" {
+		return nil, fmt.Errorf("'from' DID not peer DID")
+	}
+
+	stateQueries := didURL.Queries["initialState"]
+	if len(stateQueries) == 0 {
+		return nil, fmt.Errorf("peer DID URL has no initialState parameter")
+	}
+
+	doc, err := peer.DocFromGenesisDelta(stateQueries[0])
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse initialState into DID doc: %w", err)
+	}
+
+	return doc, nil
+}
+
+func docKeyAgreementIDs(doc *did.Doc) []string {
 	var keyAgreementIDs []string
 
 	for _, ka := range doc.KeyAgreement {
