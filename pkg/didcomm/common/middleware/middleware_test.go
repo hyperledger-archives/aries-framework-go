@@ -32,6 +32,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
+	didstore "github.com/hyperledger/aries-framework-go/pkg/store/did"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/peer"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
@@ -439,24 +440,37 @@ func TestHandleInboundPeerDID(t *testing.T) {
 	t.Run("skip: message has no from field", func(t *testing.T) {
 		h := createBlankDIDRotator(t)
 
-		err := h.handleInboundPeerDID(service.DIDCommMsgMap{})
+		err := h.HandleInboundPeerDID(service.DIDCommMsgMap{})
 		require.NoError(t, err)
 	})
 
 	t.Run("fail: parsing their DID", func(t *testing.T) {
 		h := createBlankDIDRotator(t)
 
-		err := h.handleInboundPeerDID(service.DIDCommMsgMap{
+		err := h.HandleInboundPeerDID(service.DIDCommMsgMap{
+			"id":           "foo",
+			"type":         "bar",
 			fromDIDJSONKey: "argle bargle",
 		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "parsing their DID")
 	})
 
+	t.Run("skip: from field not a DID, but not didcomm v2 message", func(t *testing.T) {
+		h := createBlankDIDRotator(t)
+
+		err := h.HandleInboundPeerDID(service.DIDCommMsgMap{
+			"@id":          "foo",
+			"@type":        "bar",
+			fromDIDJSONKey: "argle bargle",
+		})
+		require.NoError(t, err)
+	})
+
 	t.Run("skip: sender DID not a peer DID", func(t *testing.T) {
 		h := createBlankDIDRotator(t)
 
-		err := h.handleInboundPeerDID(service.DIDCommMsgMap{
+		err := h.HandleInboundPeerDID(service.DIDCommMsgMap{
 			fromDIDJSONKey: "did:foo:bar",
 		})
 		require.NoError(t, err)
@@ -465,7 +479,7 @@ func TestHandleInboundPeerDID(t *testing.T) {
 	t.Run("skip: sender peer DID doesn't include initialState", func(t *testing.T) {
 		h := createBlankDIDRotator(t)
 
-		err := h.handleInboundPeerDID(service.DIDCommMsgMap{
+		err := h.HandleInboundPeerDID(service.DIDCommMsgMap{
 			fromDIDJSONKey: "did:peer:abc",
 		})
 		require.NoError(t, err)
@@ -474,7 +488,7 @@ func TestHandleInboundPeerDID(t *testing.T) {
 	t.Run("fail: can't parse initialState", func(t *testing.T) {
 		h := createBlankDIDRotator(t)
 
-		err := h.handleInboundPeerDID(service.DIDCommMsgMap{
+		err := h.HandleInboundPeerDID(service.DIDCommMsgMap{
 			fromDIDJSONKey: "did:peer:abc?" + initialStateParam,
 		})
 		require.Error(t, err)
@@ -487,11 +501,43 @@ func TestHandleInboundPeerDID(t *testing.T) {
 		mockInitialState, err := peer.UnsignedGenesisDelta(mockdiddoc.GetMockDIDDocWithDIDCommV2Bloc(t, "abc"))
 		require.NoError(t, err)
 
-		err = h.handleInboundPeerDID(service.DIDCommMsgMap{
+		err = h.HandleInboundPeerDID(service.DIDCommMsgMap{
 			fromDIDJSONKey: "did:peer:abc?" + initialStateParam + "=" + mockInitialState,
 		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "saving their peer DID")
+	})
+
+	t.Run("fail: saving DIDs from doc", func(t *testing.T) {
+		h := createBlankDIDRotator(t)
+
+		h.vdr = &mockvdr.MockVDRegistry{
+			CreateFunc: func(_ string, doc *did.Doc, _ ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+				return &did.DocResolution{DIDDocument: doc}, nil
+			},
+		}
+
+		var err error
+
+		expectedErr := fmt.Errorf("expected error")
+
+		h.didStore, err = didstore.NewConnectionStore(&mockProvider{storeProvider: mockstorage.NewCustomMockStoreProvider(
+			&mockstorage.MockStore{ErrPut: expectedErr})})
+		require.NoError(t, err)
+
+		mockInitialState, err := peer.UnsignedGenesisDelta(mockdiddoc.GetMockDIDDocWithDIDCommV2Bloc(t, "abc"))
+		require.NoError(t, err)
+
+		peerDID := "did:peer:abc"
+
+		msg := service.DIDCommMsgMap{
+			fromDIDJSONKey: peerDID + "?" + initialStateParam + "=" + mockInitialState,
+		}
+
+		err = h.HandleInboundPeerDID(msg)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "saving key to did map")
+		require.ErrorIs(t, err, expectedErr)
 	})
 
 	t.Run("success", func(t *testing.T) {
@@ -517,7 +563,7 @@ func TestHandleInboundPeerDID(t *testing.T) {
 			fromDIDJSONKey: peerDID + "?" + initialStateParam + "=" + mockInitialState,
 		}
 
-		err = h.handleInboundPeerDID(msg)
+		err = h.HandleInboundPeerDID(msg)
 		require.NoError(t, err)
 		require.NotNil(t, checkDoc)
 		require.Equal(t, expectedDoc.ID, checkDoc.ID)
@@ -994,7 +1040,7 @@ func TestDIDRotator_verifyJWSAndPayload(t *testing.T) {
 	})
 }
 
-func createBlankDIDRotator(t *testing.T) *DIDCommMessageMiddleware {
+func createMockProvider(t *testing.T) *mockProvider {
 	t.Helper()
 
 	kmsStorage, err := localkms.New("local-lock://test/master/key/", &mockProvider{
@@ -1015,12 +1061,22 @@ func createBlankDIDRotator(t *testing.T) *DIDCommMessageMiddleware {
 		},
 	}
 
-	dr, err := New(&mockProvider{
+	didStore, err := didstore.NewConnectionStore(&mockProvider{storeProvider: mockstorage.NewMockStoreProvider()})
+	require.NoError(t, err)
+
+	return &mockProvider{
 		kms:           kmsStorage,
 		crypto:        cr,
 		vdr:           vdr,
 		storeProvider: mockstorage.NewMockStoreProvider(),
-	})
+		didStore:      didStore,
+	}
+}
+
+func createBlankDIDRotator(t *testing.T) *DIDCommMessageMiddleware {
+	t.Helper()
+
+	dr, err := New(createMockProvider(t))
 	require.NoError(t, err)
 
 	return dr
@@ -1110,6 +1166,11 @@ type mockProvider struct {
 	secretLock    secretlock.Service
 	vdr           vdrapi.Registry
 	mediaTypes    []string
+	didStore      didstore.ConnectionStore
+}
+
+func (m *mockProvider) DIDConnectionStore() didstore.ConnectionStore {
+	return m.didStore
 }
 
 func (m *mockProvider) MediaTypeProfiles() []string {

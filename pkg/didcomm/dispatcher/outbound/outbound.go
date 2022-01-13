@@ -124,13 +124,23 @@ func (o *Dispatcher) SendToDID(msg interface{}, myDID, theirDID string) error { 
 
 	var sendWithAnoncrypt bool
 
-	if didcommMsg, ok := msg.(service.DIDCommMsgMap); ok {
+	didcommMsg, ok := msg.(service.DIDCommMsgMap)
+
+	if ok {
 		didcommMsg = o.didcommV2Handler.HandleOutboundMessage(didcommMsg, connRec)
 		msg = &didcommMsg
 
 		if connRec.PeerDIDInitialState != "" {
 			// we need to use anoncrypt if myDID is a peer DID being shared with the recipient through this message.
 			sendWithAnoncrypt = true
+		}
+	} else {
+		didcommMsgPtr, ok := msg.(*service.DIDCommMsgMap)
+		if ok {
+			didcommMsg = *didcommMsgPtr
+		} else {
+			didcommMsg = service.NewDIDCommMsgMap(msg)
+			msg = &didcommMsg
 		}
 	}
 
@@ -143,6 +153,13 @@ func (o *Dispatcher) SendToDID(msg interface{}, myDID, theirDID string) error { 
 	if len(connRec.MediaTypeProfiles) > 0 {
 		dest.MediaTypeProfiles = make([]string, len(connRec.MediaTypeProfiles))
 		copy(dest.MediaTypeProfiles, connRec.MediaTypeProfiles)
+	}
+
+	mtp := o.mediaTypeProfile(dest)
+	switch mtp {
+	case transport.MediaTypeV1PlaintextPayload, transport.MediaTypeV1EncryptedEnvelope,
+		transport.MediaTypeRFC0019EncryptedEnvelope, transport.MediaTypeAIP2RFC0019Profile:
+		sendWithAnoncrypt = false
 	}
 
 	if sendWithAnoncrypt {

@@ -118,6 +118,12 @@ func (handler *MessageHandler) HandleInboundEnvelope(envelope *transport.Envelop
 		gotDIDs         bool
 	)
 
+	// handle inbound peer DID initial state
+	err = handler.didcommV2Handler.HandleInboundPeerDID(msg)
+	if err != nil {
+		return fmt.Errorf("handling inbound peer DID: %w", err)
+	}
+
 	// if msg is a didcomm v2 message, do additional handling
 	if isV2 {
 		myDID, theirDID, err = handler.getDIDs(envelope, msg)
@@ -218,11 +224,9 @@ func (handler *MessageHandler) getDIDs( // nolint:funlen,gocyclo,gocognit
 	if len(envelope.FromKey) == 0 && message != nil && theirDID == "" {
 		if from, ok := message["from"].(string); ok {
 			didURL, e := did.ParseDIDURL(from)
-			if e != nil {
-				return "", "", fmt.Errorf("parsing their DID: %w", e)
+			if e == nil {
+				theirDID = didURL.DID.String()
 			}
-
-			theirDID = didURL.DID.String()
 		}
 	}
 

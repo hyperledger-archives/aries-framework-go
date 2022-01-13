@@ -205,6 +205,10 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 
 const testDID = "did:test:abc"
 
+type mockMessage struct {
+	Type string
+}
+
 func TestOutboundDispatcher_SendToDID(t *testing.T) {
 	mockDoc := mockdiddoc.GetMockDIDDoc(t)
 
@@ -309,7 +313,7 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 			getConnectionRecordVal: &connection.Record{},
 		}
 
-		err = o.SendToDID("data", testDID, "")
+		err = o.SendToDID(service.DIDCommMsgMap{}, testDID, "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "resolve error")
 	})
@@ -333,7 +337,7 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 			getConnectionRecordVal: &connection.Record{},
 		}
 
-		err = o.SendToDID("data", testDID, "")
+		err = o.SendToDID(service.DIDCommMsgMap{}, testDID, "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "resolve error")
 	})
@@ -360,7 +364,7 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 			getConnectionRecordErr: expected,
 		}
 
-		err = o.SendToDID("data", testDID, "")
+		err = o.SendToDID(service.DIDCommMsgMap{}, testDID, "")
 		require.ErrorIs(t, err, expected)
 		require.Contains(t, err.Error(), "failed to fetch connection record")
 	})
@@ -385,7 +389,7 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 			getConnectionRecordVal: &connection.Record{},
 		}
 
-		err = o.SendToDID("data", testDID, "def")
+		err = o.SendToDID(service.DIDCommMsgMap{}, testDID, "def")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to get didcomm destination")
 	})
@@ -410,7 +414,7 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 			getConnectionRecordVal: &connection.Record{},
 		}
 
-		err = o.SendToDID("data", testDID, "def")
+		err = o.SendToDID(&mockMessage{Type: "foo"}, testDID, "def")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to get didcomm destination")
 	})
@@ -436,7 +440,7 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 			getConnectionRecordErr: expected,
 		}
 
-		require.NoError(t, o.SendToDID("data", testDID, ""))
+		require.NoError(t, o.SendToDID(service.DIDCommMsgMap{}, testDID, ""))
 	})
 
 	t.Run("fail with nil connection record, unable to save new record", func(t *testing.T) {
@@ -461,7 +465,7 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 			saveConnectionErr:      expected,
 		}
 
-		err = o.SendToDID("data", testDID, "")
+		err = o.SendToDID(service.DIDCommMsgMap{}, testDID, "")
 		require.ErrorIs(t, err, expected)
 		require.Contains(t, err.Error(), "failed to save new connection")
 	})
@@ -493,7 +497,7 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 			getConnectionRecordErr: expected,
 		}
 
-		require.NoError(t, o.SendToDID("data", testDID, ""))
+		require.NoError(t, o.SendToDID(service.DIDCommMsgMap{}, testDID, ""))
 	})
 }
 

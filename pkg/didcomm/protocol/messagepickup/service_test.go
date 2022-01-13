@@ -171,8 +171,14 @@ func TestHandleInbound(t *testing.T) {
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					require.Equal(t, myDID, MYDID)
 					require.Equal(t, theirDID, THEIRDID)
-					request, ok := msg.(*Status)
+
+					reqMsgMap, ok := msg.(service.DIDCommMsgMap)
 					require.True(t, ok)
+
+					request := &Status{}
+
+					err = reqMsgMap.Decode(request)
+					require.NoError(t, err)
 
 					require.Equal(t, 1, request.MessageCount)
 					require.Equal(t, tyme, request.LastAddedTime)
@@ -264,8 +270,13 @@ func TestHandleInbound(t *testing.T) {
 					require.Equal(t, myDID, MYDID)
 					require.Equal(t, theirDID, THEIRDID)
 
-					request, ok := msg.(*Batch)
+					reqMsgMap, ok := msg.(service.DIDCommMsgMap)
 					require.True(t, ok)
+
+					request := &Batch{}
+
+					err = reqMsgMap.Decode(request)
+					require.NoError(t, err)
 
 					require.Equal(t, 2, len(request.Messages))
 
@@ -727,7 +738,14 @@ func TestBatchPickup(t *testing.T) {
 					require.Equal(t, myDID, MYDID)
 					require.Equal(t, theirDID, THEIRDID)
 
-					batchpickup, ok := msg.(*BatchPickup)
+					reqMsgMap, ok := msg.(service.DIDCommMsgMap)
+					require.True(t, ok)
+
+					batchpickup := &BatchPickup{}
+
+					err := reqMsgMap.Decode(batchpickup)
+					require.NoError(t, err)
+
 					require.True(t, ok)
 
 					require.Equal(t, 1, batchpickup.BatchSize)
@@ -885,8 +903,13 @@ func TestNoop(t *testing.T) {
 					require.Equal(t, myDID, MYDID)
 					require.Equal(t, theirDID, THEIRDID)
 
-					_, ok := msg.(*Noop)
+					reqMsgMap, ok := msg.(service.DIDCommMsgMap)
 					require.True(t, ok)
+
+					request := &Noop{}
+
+					err := reqMsgMap.Decode(request)
+					require.NoError(t, err)
 
 					return nil
 				},
