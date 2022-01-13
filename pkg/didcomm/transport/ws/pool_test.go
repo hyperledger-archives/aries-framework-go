@@ -7,6 +7,8 @@ package ws
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"strconv"
 	"testing"
 	"time"
@@ -16,11 +18,13 @@ import (
 	"nhooyr.io/websocket"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/test/transportutil"
 	mockpackager "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/packager"
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/peer"
 )
 
 func TestConnectionStore(t *testing.T) {
@@ -131,5 +135,122 @@ func TestConnectionStore(t *testing.T) {
 		case <-time.After(5 * time.Second):
 			require.Fail(t, "tests are not validated due to timeout")
 		}
+	})
+}
+
+func TestCheckKeyAgreementIDs(t *testing.T) {
+	t.Run("fail: didcomm v1", func(t *testing.T) {
+		tests := []struct {
+			name string
+			data string
+			err  string
+		}{
+			{
+				name: "unmarshal message",
+				data: "not json",
+				err:  "unmarshal request message failed",
+			},
+			{
+				name: "no attachment",
+				data: `{}`,
+				err:  "fetch message attachment/attachmentData is empty",
+			},
+			{
+				name: "attachment error",
+				data: `{"did_doc~attach":{}}`,
+				err:  "fetch message attachment data failed",
+			},
+			{
+				name: "unmarshal did doc",
+				data: `{"did_doc~attach":{"data":{"base64":"bm90IGpzb24="}}}`,
+				err:  "unmarshal DID doc from attachment data failed",
+			},
+		}
+
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				_, err := didCommV1PeerDoc([]byte(tc.data))
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.err)
+			})
+		}
+	})
+
+	t.Run("fail: didcomm v2", func(t *testing.T) {
+		tests := []struct {
+			name string
+			data string
+			err  string
+		}{
+			{
+				name: "unmarshal message",
+				data: "not json",
+				err:  "unmarshal message as didcomm/v2 failed",
+			},
+			{
+				name: "no 'from' field",
+				data: `{}`,
+				err:  "message has no didcomm/v2 'from' field",
+			},
+			{
+				name: "'from' field not DID URL",
+				data: `{"from":"aaaaa"}`,
+				err:  "'from' field not did url",
+			},
+			{
+				name: "'from' DID not peer DID",
+				data: `{"from":"did:foo:bar"}`,
+				err:  "'from' DID not peer DID",
+			},
+			{
+				name: "DID has no initialState",
+				data: `{"from":"did:peer:foo"}`,
+				err:  "peer DID URL has no initialState parameter",
+			},
+		}
+
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				_, err := didCommV2PeerDoc([]byte(tc.data))
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.err)
+			})
+		}
+	})
+
+	t.Run("success: didcomm v1", func(t *testing.T) {
+		doc := mockdiddoc.GetMockDIDDocWithDIDCommV2Bloc(t, "foo")
+
+		req := &didexchange.Request{
+			DocAttach: &decorator.Attachment{
+				Data: decorator.AttachmentData{
+					JSON: doc,
+				},
+			},
+		}
+
+		msg, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		_, err = didCommV1PeerDoc(msg)
+		require.NoError(t, err)
+
+		ids := checkKeyAgreementIDs(msg)
+		require.Len(t, ids, 1)
+	})
+
+	t.Run("success: didcomm v2", func(t *testing.T) {
+		doc := mockdiddoc.GetMockDIDDocWithDIDCommV2Bloc(t, "foo")
+
+		initialState, err := peer.UnsignedGenesisDelta(doc)
+		require.NoError(t, err)
+
+		msg := fmt.Sprintf(`{"from":"%s?initialState=%s"}`, doc.ID, initialState)
+
+		_, err = didCommV2PeerDoc([]byte(msg))
+		require.NoError(t, err)
+
+		ids := checkKeyAgreementIDs([]byte(msg))
+		require.Len(t, ids, 1)
 	})
 }
