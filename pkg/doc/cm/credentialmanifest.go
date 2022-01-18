@@ -117,7 +117,7 @@ type ResolvedDataDisplayDescriptor struct {
 	Title       string
 	Subtitle    string
 	Description string
-	Properties  map[string]string // TODO should resolve properties not string format too [Issue#3092]
+	Properties  map[string]interface{}
 }
 
 // ResolvedDescriptor typically represents results of resolving manifests by credential fulfillment.
@@ -299,12 +299,16 @@ func resolveStaticDisplayMappingObjects(outputDescriptor *OutputDescriptor,
 		return staticDisplayMappingObjects{}, fmt.Errorf("failed to resolve description display mapping object: %w", err)
 	}
 
-	return staticDisplayMappingObjects{title: title, subtitle: subtitle, description: description}, nil
+	return staticDisplayMappingObjects{
+		title:       fmt.Sprintf("%v", title),
+		subtitle:    fmt.Sprintf("%v", subtitle),
+		description: fmt.Sprintf("%v", description),
+	}, nil
 }
 
 func resolveDynamicDisplayMappingObjects(properties []LabeledDisplayMappingObject,
-	vc map[string]interface{}) (map[string]string, error) {
-	resolvedProperties := make(map[string]string, len(properties))
+	vc map[string]interface{}) (map[string]interface{}, error) {
+	resolvedProperties := make(map[string]interface{}, len(properties))
 
 	for i, property := range properties {
 		var err error
@@ -320,18 +324,14 @@ func resolveDynamicDisplayMappingObjects(properties []LabeledDisplayMappingObjec
 
 // TODO should resolve data by schema.
 func resolveDisplayMappingObject(displayMappingObject *DisplayMappingObject,
-	vc map[string]interface{}) (string, error) {
+	vc map[string]interface{}) (interface{}, error) {
 	if len(displayMappingObject.Paths) > 0 {
 		resolvedValue, err := resolveJSONPathsUsingVC(displayMappingObject.Paths, displayMappingObject.Fallback, vc)
 		if err != nil {
 			return "", err
 		}
 
-		if resolved, ok := resolvedValue.(string); ok && resolved != "" {
-			return resolved, nil
-		}
-		// TODO need to format string properly based on different types supported
-		return fmt.Sprintf("%v", resolvedValue), nil
+		return resolvedValue, nil
 	}
 
 	return displayMappingObject.Fallback, nil
