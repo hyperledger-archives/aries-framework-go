@@ -189,7 +189,7 @@ func TestResolveFulfillment(t *testing.T) {
 						Resolved: &cm.ResolvedDataDisplayDescriptor{
 							Title:    "Washington State Driver License",
 							Subtitle: "Class A, Commercial",
-							Properties: map[string]string{
+							Properties: map[string]interface{}{
 								"Driving License Number": "34DGE352",
 							},
 						},
@@ -204,7 +204,7 @@ func TestResolveFulfillment(t *testing.T) {
 						Resolved: &cm.ResolvedDataDisplayDescriptor{
 							Title:    "Permanent Resident Card",
 							Subtitle: "Permanent Resident Card",
-							Properties: map[string]string{
+							Properties: map[string]interface{}{
 								"Card Holder's family name": "SMITH",
 								"Card Holder's first name":  "JOHN",
 							},
@@ -213,7 +213,7 @@ func TestResolveFulfillment(t *testing.T) {
 					"udc_output": {
 						Resolved: &cm.ResolvedDataDisplayDescriptor{
 							Title: "Bachelor's Degree",
-							Properties: map[string]string{
+							Properties: map[string]interface{}{
 								"Degree":               "BachelorDegree",
 								"Degree Holder's name": "Jayden Doe",
 							},
@@ -229,7 +229,7 @@ func TestResolveFulfillment(t *testing.T) {
 						Resolved: &cm.ResolvedDataDisplayDescriptor{
 							Title:    "Washington State Driver License",
 							Subtitle: "Class A, Commercial",
-							Properties: map[string]string{
+							Properties: map[string]interface{}{
 								"Driving License Number": "34DGE352",
 							},
 						},
@@ -486,9 +486,9 @@ func TestResolveCredential(t *testing.T) {
 		require.NotEmpty(t, result)
 		require.Equal(t, result.Title, "Bachelor of Applied Science")
 		require.Equal(t, result.Subtitle, "Electrical Systems Specialty")
-		require.EqualValues(t, result.Properties, map[string]string{
-			"With distinction": "true",
-			"Years studied":    "4",
+		require.EqualValues(t, result.Properties, map[string]interface{}{
+			"With distinction": true,
+			"Years studied":    float64(4),
 		})
 	})
 
