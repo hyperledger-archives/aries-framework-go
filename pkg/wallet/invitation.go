@@ -86,13 +86,26 @@ func (gi *GenericInvitation) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// Version returns the DIDComm version of this OOB invitation.
-func (gi *GenericInvitation) Version() service.Version {
-	if gi.version == "" {
-		return service.V1
+// MarshalJSON implements json.Marshaler interface.
+func (gi *GenericInvitation) MarshalJSON() ([]byte, error) {
+	if gi.Version() == service.V2 {
+		return json.Marshal(gi.AsV2())
 	}
 
-	return gi.version
+	return json.Marshal(gi.AsV1())
+}
+
+// Version returns the DIDComm version of this OOB invitation.
+func (gi *GenericInvitation) Version() service.Version {
+	if gi.version != "" {
+		return gi.version
+	}
+
+	if gi.Type == oobv2.InvitationMsgType {
+		return service.V2
+	}
+
+	return service.V1
 }
 
 // AsV1 returns this invitation as an OOB V1 invitation.
