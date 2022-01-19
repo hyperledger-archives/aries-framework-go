@@ -9,7 +9,6 @@ package cm_test
 import (
 	_ "embed"
 	"encoding/json"
-	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -43,7 +42,13 @@ var (
 // Sample verifiable credential for a university degree.
 var (
 	//go:embed testdata/credential_university_degree.jsonld
-	validVC []byte //nolint:gochecknoglobals
+	validVC []byte // nolint:gochecknoglobals
+)
+
+// miscellaneous samples.
+var (
+	//go:embed testdata/credential_manifest_multiple_vcs.json
+	credentialManifestMultipleVCs []byte // nolint:gochecknoglobals
 )
 
 const invalidJSONPath = "%InvalidJSONPath"
@@ -98,7 +103,7 @@ func TestCredentialManifest_Unmarshal(t *testing.T) {
 
 		credentialManifest.OutputDescriptors =
 			append(credentialManifest.OutputDescriptors,
-				cm.OutputDescriptor{ID: credentialManifest.OutputDescriptors[0].ID})
+				&cm.OutputDescriptor{ID: credentialManifest.OutputDescriptors[0].ID})
 
 		invalidCredentialManifest, err := json.Marshal(credentialManifest)
 		require.NoError(t, err)
@@ -169,251 +174,343 @@ func TestCredentialManifest_Unmarshal(t *testing.T) {
 	})
 }
 
-func TestCredentialManifest_ResolveOutputDescriptors(t *testing.T) {
-	t.Run("Success", func(t *testing.T) {
-		t.Run("All descriptors resolved without needing to use fallbacks", func(t *testing.T) {
-			var credentialManifest cm.CredentialManifest
-
-			err := json.Unmarshal(credentialManifestUniversityDegree, &credentialManifest)
-			require.NoError(t, err)
-
-			vc := parseTestCredential(t, validVC)
-
-			resolvedDataDisplayDescriptors, err := credentialManifest.ResolveOutputDescriptors(vc)
-			require.NoError(t, err)
-
-			require.Len(t, resolvedDataDisplayDescriptors, 1)
-			require.Equal(t, "Bachelor of Applied Science", resolvedDataDisplayDescriptors[0].Title)
-			require.Equal(t, "Electrical Systems Specialty", resolvedDataDisplayDescriptors[0].Subtitle)
-			require.Equal(t, "Awarded for completing a four year program at Example University.",
-				resolvedDataDisplayDescriptors[0].Description)
-			require.Equal(t, resolvedDataDisplayDescriptors[0].Properties[0], true)
-			require.Equal(t, resolvedDataDisplayDescriptors[0].Properties[1], float64(4))
-		})
-		t.Run("Fallbacks used for some descriptors", func(t *testing.T) {
-			var credentialManifest cm.CredentialManifest
-
-			err := json.Unmarshal(credentialManifestUniversityDegree, &credentialManifest)
-			require.NoError(t, err)
-
-			vc := parseTestCredential(t, createValidVCMissingSomeFields(t))
-
-			resolvedDataDisplayDescriptors, err :=
-				credentialManifest.ResolveOutputDescriptors(vc)
-			require.NoError(t, err)
-
-			require.Len(t, resolvedDataDisplayDescriptors, 1)
-			require.Equal(t, "Bachelor of Applied Science", resolvedDataDisplayDescriptors[0].Title)
-			// For the subtitle, the fallback is simply a blank string.
-			require.Equal(t, "", resolvedDataDisplayDescriptors[0].Subtitle)
-			require.Equal(t, "Awarded for completing a four year program at Example University.",
-				resolvedDataDisplayDescriptors[0].Description)
-			// For the "with distinction" property, the fallback is more specifically listed as "unknown".
-			require.Equal(t, resolvedDataDisplayDescriptors[0].Properties[0], "Unknown")
-			require.Equal(t, resolvedDataDisplayDescriptors[0].Properties[1], float64(4))
-		})
-	})
-	t.Run("Fail to resolve title display mapping object", func(t *testing.T) {
-		credentialManifest := createCredentialManifestWithInvalidTitleJSONPath(t)
-
-		vc := parseTestCredential(t, validVC)
-
-		resolvedDataDisplayDescriptors, err := credentialManifest.ResolveOutputDescriptors(vc)
-		require.EqualError(t, err, "failed to resolve output descriptors at index 0: failed to resolve "+
-			`title display mapping object: parsing error: %InvalidJSONPath	:1:1 - 1:2 unexpected "%" while `+
-			"scanning extensions")
-		require.Nil(t, resolvedDataDisplayDescriptors)
-	})
-	t.Run("Fail to resolve display mapping object", func(t *testing.T) {
-		vc := parseTestCredential(t, validVC)
-
-		t.Run("Display title", func(t *testing.T) {
-			credentialManifest := createCredentialManifestWithInvalidTitleJSONPath(t)
-
-			resolvedDataDisplayDescriptors, err := credentialManifest.ResolveOutputDescriptors(vc)
-			require.EqualError(t, err, "failed to resolve output descriptors at index 0: failed to resolve "+
-				`title display mapping object: parsing error: %InvalidJSONPath	:1:1 - 1:2 unexpected "%" while `+
-				"scanning extensions")
-			require.Nil(t, resolvedDataDisplayDescriptors)
-		})
-		t.Run("Display subtitle", func(t *testing.T) {
-			credentialManifest := createCredentialManifestWithInvalidSubtitleJSONPath(t)
-
-			resolvedDataDisplayDescriptors, err := credentialManifest.ResolveOutputDescriptors(vc)
-			require.EqualError(t, err, "failed to resolve output descriptors at index 0: failed to resolve "+
-				`subtitle display mapping object: parsing error: %InvalidJSONPath	:1:1 - 1:2 unexpected "%" while `+
-				"scanning extensions")
-			require.Nil(t, resolvedDataDisplayDescriptors)
-		})
-		t.Run("Display description", func(t *testing.T) {
-			credentialManifest := createCredentialManifestWithInvalidDescriptionJSONPath(t)
-
-			resolvedDataDisplayDescriptors, err := credentialManifest.ResolveOutputDescriptors(vc)
-			require.EqualError(t, err, "failed to resolve output descriptors at index 0: failed to resolve "+
-				`description display mapping object: parsing error: %InvalidJSONPath	:1:1 - 1:2 unexpected "%" `+
-				"while scanning extensions")
-			require.Nil(t, resolvedDataDisplayDescriptors)
-		})
-		t.Run("Display property", func(t *testing.T) {
-			credentialManifest := createCredentialManifestWithInvalidPropertyJSONPath(t)
-
-			resolvedDataDisplayDescriptors, err := credentialManifest.ResolveOutputDescriptors(vc)
-			require.EqualError(t, err, "failed to resolve output descriptors at index 0: failed to resolve "+
-				`the display mapping object for the property at index 0: parsing error: %InvalidJSONPath	:1:1 - `+
-				`1:2 unexpected "%" while scanning extensions`)
-			require.Nil(t, resolvedDataDisplayDescriptors)
-		})
-	})
-}
-
-func TestResolveFulfillmentVC(t *testing.T) {
+func TestResolveFulfillment(t *testing.T) {
 	t.Run("Successes", func(t *testing.T) {
 		testTable := map[string]struct {
-			credentialManifest             []byte
-			presentation                   []byte
-			expectedDataDisplayDescriptors [][]cm.ResolvedDataDisplayDescriptor
+			manifest    []byte
+			fulfillment []byte
+			expected    map[string]*cm.ResolvedDescriptor
 		}{
-			"No fallback values needed to be used used": {
-				credentialManifest: credentialManifestDriversLicense,
-				presentation:       vpWithDriversLicenseVCAndDisplayData,
-				expectedDataDisplayDescriptors: [][]cm.ResolvedDataDisplayDescriptor{
-					{
-						{
-							Title:    "Driver's License",
-							Subtitle: "A",
-							Description: "License to operate a vehicle with a gross combined weight rating (GCWR) of " +
-								"26,001 or more pounds, as long as the GVWR of the vehicle(s) being towed is over " +
-								"10,000 pounds.",
-							Properties: []interface{}{true},
+			"single descriptor and credential": {
+				manifest:    credentialManifestDriversLicense,
+				fulfillment: vpWithDriversLicenseVCAndCredentialFulfillment,
+				expected: map[string]*cm.ResolvedDescriptor{
+					"driver_license_output": {
+						Resolved: &cm.ResolvedDataDisplayDescriptor{
+							Title:    "Washington State Driver License",
+							Subtitle: "Class A, Commercial",
+							Properties: map[string]interface{}{
+								"Driving License Number": "34DGE352",
+							},
 						},
 					},
 				},
 			},
-			"Fallback values used for every field": {
-				credentialManifest: credentialManifestDriversLicense,
-				presentation:       vpWithDriversLicenseVC,
-				expectedDataDisplayDescriptors: [][]cm.ResolvedDataDisplayDescriptor{
-					{
-						{
-							Title:    "Washington State Driver License",
-							Subtitle: "Class A, Commercial",
-							Description: "License to operate a vehicle with a gross combined weight rating (GCWR) of " +
-								"26,001 or more pounds, as long as the GVWR of the vehicle(s) being towed is over " +
-								"10,000 pounds.",
-							Properties: []interface{}{"Unknown"},
+			"multiple descriptor and credentials": {
+				manifest:    credentialManifestMultipleVCs,
+				fulfillment: vpMultipleWithCredentialFulfillment,
+				expected: map[string]*cm.ResolvedDescriptor{
+					"prc_output": {
+						Resolved: &cm.ResolvedDataDisplayDescriptor{
+							Title:    "Permanent Resident Card",
+							Subtitle: "Permanent Resident Card",
+							Properties: map[string]interface{}{
+								"Card Holder's family name": "SMITH",
+								"Card Holder's first name":  "JOHN",
+							},
+						},
+					},
+					"udc_output": {
+						Resolved: &cm.ResolvedDataDisplayDescriptor{
+							Title: "Bachelor's Degree",
+							Properties: map[string]interface{}{
+								"Degree":               "BachelorDegree",
+								"Degree Holder's name": "Jayden Doe",
+							},
 						},
 					},
 				},
+			},
+			"single descriptor and credentials for multi descriptor manifest": {
+				manifest:    credentialManifestMultipleVCs,
+				fulfillment: vpWithDriversLicenseVCAndCredentialFulfillment,
+				expected: map[string]*cm.ResolvedDescriptor{
+					"driver_license_output": {
+						Resolved: &cm.ResolvedDataDisplayDescriptor{
+							Title:    "Washington State Driver License",
+							Subtitle: "Class A, Commercial",
+							Properties: map[string]interface{}{
+								"Driving License Number": "34DGE352",
+							},
+						},
+					},
+				},
+			},
+		}
+
+		t.Parallel()
+
+		for testName, testData := range testTable {
+			t.Run(testName, func(t *testing.T) {
+				fulfillment := makePresentationFromBytes(t, testData.fulfillment, testName)
+				manifest := &cm.CredentialManifest{}
+				require.NoError(t, manifest.UnmarshalJSON(testData.manifest))
+
+				results, err := manifest.ResolveFulfillment(fulfillment)
+				require.NoError(t, err)
+				require.Len(t, results, len(testData.expected))
+
+				for _, r := range results {
+					require.NotNil(t, r.Resolved)
+					expected, ok := testData.expected[r.DescriptorID]
+					require.True(t, ok, "unexpected descriptor ID '%s' in resolved properties", r.DescriptorID)
+					require.Equal(t, expected.Resolved.Title, r.Resolved.Title)
+					require.Equal(t, expected.Resolved.Subtitle, r.Resolved.Subtitle)
+					require.Equal(t, expected.Resolved.Description, r.Resolved.Description)
+					require.Len(t, r.Resolved.Properties, len(expected.Resolved.Properties))
+
+					for label, value := range r.Resolved.Properties {
+						expectedVal, ok := expected.Resolved.Properties[label]
+						require.True(t, ok, "expected to find '%s' label in resolved properties", label)
+						require.Equal(t, expectedVal, value)
+					}
+				}
+			})
+		}
+	})
+
+	t.Run("Fulfillment format failures", func(t *testing.T) {
+		fulfillment := makePresentationFromBytes(t, vpMultipleWithCredentialFulfillment, t.Name())
+		manifest := &cm.CredentialManifest{}
+		require.NoError(t, manifest.UnmarshalJSON(credentialManifestMultipleVCs))
+
+		t.Parallel()
+
+		testTable := map[string]struct {
+			credFulfillment []byte
+			error           string
+		}{
+			"missing credential": {
+				credFulfillment: []byte(`{
+                      "id":"a30e3b91-fb77-4d22-95fa-871689c322e2",
+                      "manifest_id":"dcc75a16-19f5-4273-84ce-4da69ee2b7fe",
+                      "descriptor_map":[
+                        {
+                          "id":"udc_output",
+                          "format":"ldp_vc",
+                          "path":"$.verifiableCredential[0]"
+                        },
+                        {
+                          "id":"prc_output",
+                          "format":"ldp_vc",
+                          "path":"$.verifiableCredential[5]"
+                        }
+                      ]
+                    }`),
+				error: "failed to select vc from descriptor",
+			},
+			"missing path in descriptor": {
+				credFulfillment: []byte(`{
+                      "id":"a30e3b91-fb77-4d22-95fa-871689c322e2",
+                      "manifest_id":"dcc75a16-19f5-4273-84ce-4da69ee2b7fe",
+                      "descriptor_map":[
+                        {
+                          "id":"udc_output",
+                          "format":"ldp_vc"
+                        },
+                        {
+                          "id":"prc_output",
+                          "format":"ldp_vc",
+                          "path":"$.verifiableCredential[5]"
+                        }
+                      ]
+                    }`),
+				error: "invalid credential path",
+			},
+			"descriptor id missing": {
+				credFulfillment: []byte(`{
+                      "id":"a30e3b91-fb77-4d22-95fa-871689c322e2",
+                      "manifest_id":"dcc75a16-19f5-4273-84ce-4da69ee2b7fe",
+                      "descriptor_map":[
+                        {
+                          "format":"ldp_vc",
+                          "path":"$.verifiableCredential[0]"
+                        }
+                      ]
+                    }`),
+				error: "invalid descriptor ID",
+			},
+			"incorrect descriptor format": {
+				credFulfillment: []byte(`{
+                      "id":"a30e3b91-fb77-4d22-95fa-871689c322e2",
+                      "manifest_id":"dcc75a16-19f5-4273-84ce-4da69ee2b7fe",
+                      "descriptor_map":[
+                          "format", "ldp_vc"
+                      ]
+                    }`),
+				error: "invalid descriptor format",
+			},
+			"empty descriptor map": {
+				credFulfillment: []byte(`{
+                      "id":"a30e3b91-fb77-4d22-95fa-871689c322e2",
+                      "manifest_id":"dcc75a16-19f5-4273-84ce-4da69ee2b7fe",
+                      "descriptor_map":[]
+                    }`),
+				error: "",
+			},
+			"invalid descriptor format": {
+				credFulfillment: []byte(`{
+                      "id":"a30e3b91-fb77-4d22-95fa-871689c322e2",
+                      "manifest_id":"dcc75a16-19f5-4273-84ce-4da69ee2b7fe",
+                      "descriptor_map": {}
+                    }`),
+				error: "invalid descriptor map",
+			},
+			"not matching manifest": {
+				credFulfillment: []byte(`{
+                      "id":"a30e3b91-fb77-4d22-95fa-871689c322e2",
+                      "manifest_id":"invalid",
+                      "descriptor_map": {}
+                    }`),
+				error: "credential fulfillment not matching",
+			},
+			"matching descriptor not found in manifest": {
+				credFulfillment: []byte(`{
+                      "id":"a30e3b91-fb77-4d22-95fa-871689c322e2",
+                      "manifest_id":"dcc75a16-19f5-4273-84ce-4da69ee2b7fe",
+                      "descriptor_map":[
+                        {
+                          "id":"udc_output_missing",
+                          "format":"ldp_vc",
+                          "path":"$.verifiableCredential[0]"
+                        },
+                        {
+                          "id":"prc_output",
+                          "format":"ldp_vc",
+                          "path":"$.verifiableCredential[1]"
+                        }
+                      ]
+                    }`),
+				error: "unable to find matching output descriptor from manifest",
 			},
 		}
 
 		for testName, testData := range testTable {
-			credentialManifest := makeCredentialManifestFromBytes(t, testData.credentialManifest)
+			t.Run(testName, func(t *testing.T) {
+				var credFulfillment map[string]interface{}
+				require.NoError(t, json.Unmarshal(testData.credFulfillment, &credFulfillment))
 
-			existingPresentation := makePresentationFromBytes(t, testData.presentation, testName)
+				fulfillment.CustomFields["credential_fulfillment"] = credFulfillment
 
-			presentation, err := cm.PresentCredentialFulfillment(&credentialManifest,
-				cm.WithExistingPresentationForPresentCredentialFulfillment(existingPresentation))
-			require.NoError(t, err, errorMessageTestNameFormat, testName)
-			require.NotNil(t, presentation, errorMessageTestNameFormat, testName)
+				results, err := manifest.ResolveFulfillment(fulfillment)
+				require.Empty(t, results)
+				if testData.error == "" {
+					require.NoError(t, err)
 
-			resolvedDataDisplayDescriptors, err := credentialManifest.ResolveFulfillmentVC(presentation,
-				verifiable.WithDisabledProofCheck(), verifiable.WithJSONLDDocumentLoader(createTestDocumentLoader(t)))
-			require.NoError(t, err, errorMessageTestNameFormat, testName)
-			require.NotNil(t, resolvedDataDisplayDescriptors, errorMessageTestNameFormat, testName)
+					return
+				}
 
-			require.True(t, reflect.DeepEqual(resolvedDataDisplayDescriptors, testData.expectedDataDisplayDescriptors),
-				errorMessageTestNameFormat+" the data display descriptors differ from what was expected", testName)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), testData.error)
+			})
 		}
 	})
-	t.Run("Nil VP argument", func(t *testing.T) {
-		credentialManifest := makeCredentialManifestFromBytes(t, credentialManifestDriversLicense)
 
-		resolvedDataDisplayDescriptors, err := credentialManifest.ResolveFulfillmentVC(nil)
-		require.EqualError(t, err, "fulfillment presentation cannot be nil")
-		require.Nil(t, resolvedDataDisplayDescriptors)
-	})
-	t.Run("VP has no Credential Fulfillment", func(t *testing.T) {
-		credentialManifest := makeCredentialManifestFromBytes(t, credentialManifestDriversLicense)
+	t.Run("Failures", func(t *testing.T) {
+		fulfillment := makePresentationFromBytes(t, vpMultipleWithCredentialFulfillment, t.Name())
+		manifest := &cm.CredentialManifest{}
+		require.NoError(t, manifest.UnmarshalJSON(credentialManifestMultipleVCs))
 
-		presentation := makePresentationFromBytes(t,
-			vpWithDriversLicenseVC, "VP has no Credential Fulfillment")
+		// resolve err (resolved value is not string)
+		for _, descr := range manifest.OutputDescriptors {
+			if descr.ID == "udc_output" {
+				incorrectProperties := `[{
+                    "path":[
+                      "$."
+                    ],
+                    "schema": {
+                      "type": "string"
+                    },
+                    "fallback":"Unknown",
+                    "label":"Driving License Number"
+                  }]`
 
-		resolvedDataDisplayDescriptors, err := credentialManifest.ResolveFulfillmentVC(presentation)
-		require.EqualError(t, err, "the given presentation does not have an embedded Credential Fulfillment")
-		require.Nil(t, resolvedDataDisplayDescriptors)
-	})
-	t.Run("Fail to parse credential", func(t *testing.T) {
-		credentialManifest := makeCredentialManifestFromBytes(t, credentialManifestDriversLicense)
+				require.NoError(t, json.Unmarshal([]byte(incorrectProperties), &descr.Display.Properties))
+			}
+		}
+		results, err := manifest.ResolveFulfillment(fulfillment)
+		require.Empty(t, results)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to resolve credential by descriptor")
 
-		existingPresentation := makePresentationFromBytes(t,
-			vpWithDriversLicenseVC, "Fail to parse credential")
+		// unsupported formats
+		var credFulfillment map[string]interface{}
+		require.NoError(t, json.Unmarshal([]byte(`{
+                      "id":"a30e3b91-fb77-4d22-95fa-871689c322e2",
+                      "manifest_id":"dcc75a16-19f5-4273-84ce-4da69ee2b7fe",
+                      "descriptor_map":[
+                        {
+                          "id":"udc_output",
+                          "format":"jwt_vc",
+                          "path":"$.verifiableCredential[0]"
+                        },
+                        {
+                          "id":"prc_output",
+                          "format":"jwt_vc",
+                          "path":"$.verifiableCredential[1]"
+                        }
+                      ]
+                    }`), &credFulfillment))
 
-		presentation, err := cm.PresentCredentialFulfillment(&credentialManifest,
-			cm.WithExistingPresentationForPresentCredentialFulfillment(existingPresentation))
+		fulfillment.CustomFields["credential_fulfillment"] = credFulfillment
+
+		results, err = manifest.ResolveFulfillment(fulfillment)
+		require.Empty(t, results)
 		require.NoError(t, err)
-		require.NotNil(t, presentation)
 
-		resolvedDataDisplayDescriptors, err := credentialManifest.ResolveFulfillmentVC(presentation)
-		require.EqualError(t, err, "failed to parse the credential at index 0: "+
-			"decode new credential: public key fetcher is not defined")
-		require.Nil(t, resolvedDataDisplayDescriptors)
+		// marshal presentation error
+		fulfillment.CustomFields["invalid"] = make(chan int)
+		results, err = manifest.ResolveFulfillment(fulfillment)
+		require.Empty(t, results)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to marshal vp")
+
+		// missing credential fulfillment
+		delete(fulfillment.CustomFields, "credential_fulfillment")
+		results, err = manifest.ResolveFulfillment(fulfillment)
+		require.Empty(t, results)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid credential fulfillment")
 	})
-	t.Run("Fail to resolve output descriptors credential", func(t *testing.T) {
-		credentialManifest := createCredentialManifestWithInvalidTitleJSONPath(t)
+}
 
-		existingPresentation := makePresentationFromBytes(t,
-			vpWithDriversLicenseVC, "Fail to resolve output descriptors credential")
+func TestResolveCredential(t *testing.T) {
+	t.Run("Successes", func(t *testing.T) {
+		manifest := &cm.CredentialManifest{}
+		require.NoError(t, manifest.UnmarshalJSON(credentialManifestUniversityDegree))
 
-		presentation, err := cm.PresentCredentialFulfillment(&credentialManifest,
-			cm.WithExistingPresentationForPresentCredentialFulfillment(existingPresentation))
+		vc := parseTestCredential(t, validVC)
+
+		result, err := manifest.ResolveCredential("bachelors_degree", vc)
 		require.NoError(t, err)
-		require.NotNil(t, presentation)
-
-		resolvedDataDisplayDescriptors, err := credentialManifest.ResolveFulfillmentVC(presentation,
-			verifiable.WithDisabledProofCheck(), verifiable.WithJSONLDDocumentLoader(createTestDocumentLoader(t)))
-		require.EqualError(t, err, "failed to resolve data display descriptors for the credential at index "+
-			"0: failed to resolve output descriptors at index 0: failed to resolve title display mapping object: "+
-			`parsing error: %InvalidJSONPath	:1:1 - 1:2 unexpected "%" while scanning extensions`)
-		require.Nil(t, resolvedDataDisplayDescriptors)
+		require.NotEmpty(t, result)
+		require.Equal(t, result.Title, "Bachelor of Applied Science")
+		require.Equal(t, result.Subtitle, "Electrical Systems Specialty")
+		require.EqualValues(t, result.Properties, map[string]interface{}{
+			"With distinction": true,
+			"Years studied":    float64(4),
+		})
 	})
-	t.Run("Fail to marshal raw Credential Fulfillment", func(t *testing.T) {
-		credentialManifest := createCredentialManifestWithInvalidTitleJSONPath(t)
 
-		existingPresentation := makePresentationFromBytes(t,
-			vpWithDriversLicenseVC, "Fail to marshal raw Credential Fulfillment")
+	t.Run("Failures", func(t *testing.T) {
+		manifest := &cm.CredentialManifest{}
+		require.NoError(t, manifest.UnmarshalJSON(credentialManifestUniversityDegree))
 
-		presentation, err := cm.PresentCredentialFulfillment(&credentialManifest,
-			cm.WithExistingPresentationForPresentCredentialFulfillment(existingPresentation))
-		require.NoError(t, err)
-		require.NotNil(t, presentation)
+		vc := parseTestCredential(t, validVC)
 
-		presentation.CustomFields = map[string]interface{}{"credential_fulfillment": make(chan struct{})}
+		// descriptor not found
+		result, err := manifest.ResolveCredential("bachelors_degree_incorrect", vc)
+		require.Empty(t, result)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "unable to find matching descriptor")
 
-		resolvedDataDisplayDescriptors, err := credentialManifest.ResolveFulfillmentVC(presentation,
-			verifiable.WithDisabledProofCheck(), verifiable.WithJSONLDDocumentLoader(createTestDocumentLoader(t)))
-		require.EqualError(t, err, "failed to marshal the raw Credential Fulfillment obtained from the "+
-			"presentation into bytes: json: unsupported type: chan struct {}")
-		require.Nil(t, resolvedDataDisplayDescriptors)
-	})
-	t.Run("Fail to unmarshal raw Credential Fulfillment", func(t *testing.T) {
-		credentialManifest := createCredentialManifestWithInvalidTitleJSONPath(t)
+		// credential marshal error
+		vc.CustomFields["invalid"] = make(chan int)
 
-		existingPresentation := makePresentationFromBytes(t,
-			vpWithDriversLicenseVC, "Fail to unmarshal raw Credential Fulfillment")
-
-		presentation, err := cm.PresentCredentialFulfillment(&credentialManifest,
-			cm.WithExistingPresentationForPresentCredentialFulfillment(existingPresentation))
-		require.NoError(t, err)
-		require.NotNil(t, presentation)
-
-		presentation.CustomFields = map[string]interface{}{"credential_fulfillment": "invalid"}
-
-		resolvedDataDisplayDescriptors, err := credentialManifest.ResolveFulfillmentVC(presentation,
-			verifiable.WithDisabledProofCheck(), verifiable.WithJSONLDDocumentLoader(createTestDocumentLoader(t)))
-		require.EqualError(t, err, "failed to unmarshal the raw Credential Fulfillment: json: cannot "+
-			"unmarshal string into Go value of type cm.CredentialFulfillment")
-		require.Nil(t, resolvedDataDisplayDescriptors)
+		result, err = manifest.ResolveCredential("bachelors_degree", vc)
+		require.Empty(t, result)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "JSON marshalling of verifiable credential")
 	})
 }
 
@@ -563,20 +660,4 @@ func createTestDocumentLoader(t *testing.T) *ld.DocumentLoader {
 	require.NoError(t, err)
 
 	return loader
-}
-
-// Two of the fields that JSONPaths in the valid credential manifest point to are deleted here.
-func createValidVCMissingSomeFields(t *testing.T) []byte {
-	vcUnmarshalledIntoMap := map[string]interface{}{}
-
-	err := json.Unmarshal(validVC, &vcUnmarshalledIntoMap)
-	require.NoError(t, err)
-
-	delete(vcUnmarshalledIntoMap, "minor")
-	delete(vcUnmarshalledIntoMap, "withDistinction")
-
-	vcMissingSomeFieldsBytes, err := json.Marshal(vcUnmarshalledIntoMap)
-	require.NoError(t, err)
-
-	return vcMissingSomeFieldsBytes
 }

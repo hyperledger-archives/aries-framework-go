@@ -9,11 +9,13 @@ SPDX-License-Identifier: Apache-2.0
 package cm
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/PaesslerAG/gval"
 	"github.com/PaesslerAG/jsonpath"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
@@ -26,7 +28,7 @@ type CredentialManifest struct {
 	ID                     string                           `json:"id,omitempty"`
 	Version                string                           `json:"version,omitempty"`
 	Issuer                 Issuer                           `json:"issuer,omitempty"`
-	OutputDescriptors      []OutputDescriptor               `json:"output_descriptors,omitempty"`
+	OutputDescriptors      []*OutputDescriptor              `json:"output_descriptors,omitempty"`
 	Format                 presexch.Format                  `json:"format,omitempty"`
 	PresentationDefinition *presexch.PresentationDefinition `json:"presentation_definition,omitempty"`
 }
@@ -115,7 +117,13 @@ type ResolvedDataDisplayDescriptor struct {
 	Title       string
 	Subtitle    string
 	Description string
-	Properties  []interface{}
+	Properties  map[string]interface{}
+}
+
+// ResolvedDescriptor typically represents results of resolving manifests by credential fulfillment.
+type ResolvedDescriptor struct {
+	DescriptorID string
+	Resolved     *ResolvedDataDisplayDescriptor
 }
 
 type staticDisplayMappingObjects struct {
@@ -132,7 +140,7 @@ func (cm *CredentialManifest) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	err = cm.validate()
+	err = cm.Validate()
 	if err != nil {
 		return fmt.Errorf("invalid credential manifest: %w", err)
 	}
@@ -140,102 +148,163 @@ func (cm *CredentialManifest) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// ResolveFulfillmentVC resolves the actual display values for all output descriptors in this credential manifest
-// based on the given presentation. The given presentation must have a credential_fulfillment field.
-// This method pulls out the VCs from the given presentation and uses the rules specified in the output descriptors
-// in this Credential Manifest against each VC. For each VC in the presentation, this method returns an array of
-// ResolvedDataDisplayDescriptors, one for each OutputDescriptor (and in the same order).
-// For each display mapping object, the resolution process is as follows:
-// If the display mapping object uses 1 or more paths, then we try to resolve them one-by-one by looking at the VC. We
-// return the first one that resolves successfully. If none of the paths are resolvable, then we return the fallback.
-// If no fallback is specified, then a blank string is returned. This isn't considered an error.
-// If the text field is used instead of paths, then that will simply be returned without needing to look at the VC.
-func (cm *CredentialManifest) ResolveFulfillmentVC(vp *verifiable.Presentation,
-	parseCredentialOpts ...verifiable.CredentialOpt) ([][]ResolvedDataDisplayDescriptor, error) {
-	if vp == nil {
-		return nil, errors.New("fulfillment presentation cannot be nil")
+// Validate ensures that this CredentialManifest is valid per the spec.
+// Note that this function is automatically called when unmarshalling a []byte into a CredentialManifest.
+func (cm *CredentialManifest) Validate() error {
+	if cm.Issuer.ID == "" {
+		return errors.New("issuer ID missing")
 	}
 
-	credentialFulfillmentRaw, ok := vp.CustomFields["credential_fulfillment"]
-	if !ok {
-		return nil, errors.New("the given presentation does not have an embedded Credential Fulfillment")
+	if len(cm.OutputDescriptors) == 0 {
+		return errors.New("no output descriptors found")
 	}
 
-	credentialFulfillmentBytes, err := json.Marshal(credentialFulfillmentRaw)
+	err := Validate(cm.OutputDescriptors)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal the raw Credential Fulfillment obtained from the "+
-			"presentation into bytes: %w", err)
+		return err
 	}
 
-	var credentialFulfillment CredentialFulfillment
-
-	err = json.Unmarshal(credentialFulfillmentBytes, &credentialFulfillment)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal the raw Credential Fulfillment: %w", err)
-	}
-
-	credentialsRaw := vp.Credentials()
-
-	resolvedDataDisplayDescriptors := make([][]ResolvedDataDisplayDescriptor, len(credentialsRaw))
-
-	for i, credentialRaw := range credentialsRaw {
-		credentialBytes, err := json.Marshal(credentialRaw)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal the raw credential obtained from the presentation "+
-				"into bytes: %w", err)
-		}
-
-		credential, err := verifiable.ParseCredential(credentialBytes, parseCredentialOpts...)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse the credential at index %d: %w", i, err)
-		}
-
-		resolvedDataDisplayDescriptors[i], err = cm.ResolveOutputDescriptors(credential)
-		if err != nil {
-			return nil, fmt.Errorf("failed to resolve data display descriptors for the credential at index "+
-				"%d: %w", i, err)
-		}
-	}
-
-	return resolvedDataDisplayDescriptors, nil
+	return nil
 }
 
-// ResolveOutputDescriptors resolves the actual display values for all output descriptors in this credential manifest
-// based on the given vc.
-// It returns an array of ResolvedDataDisplayDescriptors, one for each OutputDescriptor (and in the same order).
-// For each display mapping object, the resolution process is as follows:
-// If the display mapping object uses 1 or more paths, then we try to resolve them one-by-one by looking at vc. We
-// return the first one that resolves successfully. If none of the paths are resolvable, then we return the fallback.
-// If no fallback is specified, then a blank string is returned. This isn't considered an error.
-// If the text field is used instead of paths, then that will simply be returned without needing to look at vc.
-func (cm *CredentialManifest) ResolveOutputDescriptors(vc *verifiable.Credential) ([]ResolvedDataDisplayDescriptor,
-	error) {
-	vcBytes, err := json.Marshal(vc)
-	if err != nil {
-		return nil, err
+// ResolveFulfillment resolves given credential fulfillment and returns results.
+// Currently supporting only 'ldp_vc' format of fulfillment credentials.
+func (cm *CredentialManifest) ResolveFulfillment(fulfillment *verifiable.Presentation) ([]*ResolvedDescriptor, error) { //nolint:funlen,gocyclo,lll
+	var results []*ResolvedDescriptor
+
+	credentialFulfillmentMap, ok := lookupMap(fulfillment.CustomFields, "credential_fulfillment")
+	if !ok {
+		return nil, errors.New("invalid credential fulfillment")
 	}
 
-	// The jsonpath library needs the JSON unmarshalled into a map[string]interface{}.
-	vcUnmarshalledIntoMap := map[string]interface{}{}
-
-	err = json.Unmarshal(vcBytes, &vcUnmarshalledIntoMap)
-	if err != nil {
-		return nil, err
+	if manifestID, k := credentialFulfillmentMap["manifest_id"]; !k || cm.ID != manifestID {
+		return nil, errors.New("credential fulfillment not matching")
 	}
 
-	resolvedDataDisplayDescriptors := make([]ResolvedDataDisplayDescriptor, len(cm.OutputDescriptors))
+	descriptorMaps, ok := lookupArray(credentialFulfillmentMap, "descriptor_map")
+	if !ok {
+		return nil, errors.New("invalid descriptor map")
+	}
 
-	for i := range cm.OutputDescriptors {
-		var err error
+	if len(descriptorMaps) == 0 {
+		return results, nil
+	}
 
-		resolvedDataDisplayDescriptors[i], err =
-			resolveOutputDescriptor(&cm.OutputDescriptors[i], vcUnmarshalledIntoMap)
+	outputDescriptors := mapDescriptors(cm)
+
+	builder := gval.Full(jsonpath.PlaceholderExtension())
+
+	vpBits, err := fulfillment.MarshalJSON()
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal vp: %w", err)
+	}
+
+	typelessVP := interface{}(nil)
+
+	err = json.Unmarshal(vpBits, &typelessVP)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal vp: %w", err)
+	}
+
+	for _, descriptorMap := range descriptorMaps {
+		descriptor, ok := descriptorMap.(map[string]interface{})
+		if !ok {
+			return nil, errors.New("invalid descriptor format")
+		}
+
+		id, ok := lookupString(descriptor, "id")
+		if !ok {
+			return nil, errors.New("invalid descriptor ID")
+		}
+
+		outputDescriptor, ok := outputDescriptors[id]
+		if !ok {
+			return nil, errors.New("unable to find matching output descriptor from manifest")
+		}
+
+		if format, k := lookupString(descriptor, "format"); !k || format != "ldp_vc" {
+			// currently, only ldp_vc format is supported
+			continue
+		}
+
+		path, ok := lookupString(descriptor, "path")
+		if !ok {
+			return nil, fmt.Errorf("invalid credential path in descriptor '%s'", id)
+		}
+
+		credential, err := selectVCByPath(builder, typelessVP, path)
 		if err != nil {
-			return nil, fmt.Errorf("failed to resolve output descriptors at index %d: %w", i, err)
+			return nil, fmt.Errorf("failed to select vc from descriptor: %w", err)
+		}
+
+		resolved, err := resolveOutputDescriptor(outputDescriptor, credential)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve credential by descriptor: %w", err)
+		}
+
+		results = append(results, &ResolvedDescriptor{
+			DescriptorID: id,
+			Resolved:     resolved,
+		})
+	}
+
+	return results, nil
+}
+
+// ResolveCredential resolved given credential and returns results.
+func (cm *CredentialManifest) ResolveCredential(descriptorID string, credential *verifiable.Credential) (*ResolvedDataDisplayDescriptor, error) { //nolint:lll
+	credBytes, err := credential.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+
+	var vcmap map[string]interface{}
+
+	err = json.Unmarshal(credBytes, &vcmap)
+	if err != nil {
+		return nil, err
+	}
+
+	// find matching descriptor and resolve.
+	for _, descriptor := range cm.OutputDescriptors {
+		if descriptor.ID == descriptorID {
+			return resolveOutputDescriptor(descriptor, vcmap)
 		}
 	}
 
-	return resolvedDataDisplayDescriptors, nil
+	return nil, errors.New("unable to find matching descriptor")
+}
+
+// Validate checks the given slice of OutputDescriptors to ensure that they are valid (per the spec) when placed
+// together within a single Credential Manifest. To pass validation, the following two conditions must be satisfied:
+// 1. Each OutputDescriptor must have a unique ID.
+// 2. Each OutputDescriptor must also have valid contents. See the validateOutputDescriptor function for details.
+func Validate(outputDescriptors []*OutputDescriptor) error {
+	allOutputDescriptorIDs := make(map[string]struct{})
+
+	for i := range outputDescriptors {
+		if outputDescriptors[i].ID == "" {
+			return fmt.Errorf("missing ID for output descriptor at index %d", i)
+		}
+
+		_, foundDuplicateID := allOutputDescriptorIDs[outputDescriptors[i].ID]
+		if foundDuplicateID {
+			return fmt.Errorf("the ID %s appears in multiple output descriptors", outputDescriptors[i].ID)
+		}
+
+		allOutputDescriptorIDs[outputDescriptors[i].ID] = struct{}{}
+
+		if outputDescriptors[i].Schema == "" {
+			return fmt.Errorf("missing schema for output descriptor at index %d", i)
+		}
+
+		err := validateOutputDescriptor(outputDescriptors[i], i)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (cm *CredentialManifest) hasFormat() bool {
@@ -243,12 +312,12 @@ func (cm *CredentialManifest) hasFormat() bool {
 }
 
 func resolveOutputDescriptor(outputDescriptor *OutputDescriptor,
-	vc map[string]interface{}) (ResolvedDataDisplayDescriptor, error) {
+	vc map[string]interface{}) (*ResolvedDataDisplayDescriptor, error) {
 	var resolvedDataDisplayDescriptor ResolvedDataDisplayDescriptor
 
 	staticDisplayMappings, err := resolveStaticDisplayMappingObjects(outputDescriptor, vc)
 	if err != nil {
-		return ResolvedDataDisplayDescriptor{}, err
+		return nil, err
 	}
 
 	resolvedDataDisplayDescriptor.Title = staticDisplayMappings.title
@@ -258,81 +327,70 @@ func resolveOutputDescriptor(outputDescriptor *OutputDescriptor,
 	resolvedDataDisplayDescriptor.Properties, err =
 		resolveDynamicDisplayMappingObjects(outputDescriptor.Display.Properties, vc)
 	if err != nil {
-		return ResolvedDataDisplayDescriptor{}, err
+		return nil, fmt.Errorf("failed to resolve properties: %w", err)
 	}
 
-	return resolvedDataDisplayDescriptor, nil
+	return &resolvedDataDisplayDescriptor, nil
 }
 
 func resolveStaticDisplayMappingObjects(outputDescriptor *OutputDescriptor,
 	vc map[string]interface{}) (staticDisplayMappingObjects, error) {
-	titleRaw, err := resolveDisplayMappingObject(&outputDescriptor.Display.Title, vc)
+	title, err := resolveDisplayMappingObject(&outputDescriptor.Display.Title, vc)
 	if err != nil {
 		return staticDisplayMappingObjects{}, fmt.Errorf("failed to resolve title display mapping object: %w", err)
 	}
 
-	title, ok := titleRaw.(string)
-	if !ok {
-		return staticDisplayMappingObjects{}, fmt.Errorf("resolved title (%v) is not a string", titleRaw)
-	}
-
-	subtitleRaw, err := resolveDisplayMappingObject(&outputDescriptor.Display.Subtitle, vc)
+	subtitle, err := resolveDisplayMappingObject(&outputDescriptor.Display.Subtitle, vc)
 	if err != nil {
 		return staticDisplayMappingObjects{}, fmt.Errorf("failed to resolve subtitle display mapping object: %w", err)
 	}
 
-	subtitle, ok := subtitleRaw.(string)
-	if !ok {
-		return staticDisplayMappingObjects{}, fmt.Errorf("resolved subtitle (%v) is not a string", subtitleRaw)
-	}
-
-	descriptionRaw, err := resolveDisplayMappingObject(&outputDescriptor.Display.Description, vc)
+	description, err := resolveDisplayMappingObject(&outputDescriptor.Display.Description, vc)
 	if err != nil {
 		return staticDisplayMappingObjects{}, fmt.Errorf("failed to resolve description display mapping object: %w", err)
 	}
 
-	description, ok := descriptionRaw.(string)
-	if !ok {
-		return staticDisplayMappingObjects{}, fmt.Errorf("resolved description (%v) is not a string", descriptionRaw)
-	}
-
-	return staticDisplayMappingObjects{title: title, subtitle: subtitle, description: description}, nil
+	return staticDisplayMappingObjects{
+		title:       fmt.Sprintf("%v", title),
+		subtitle:    fmt.Sprintf("%v", subtitle),
+		description: fmt.Sprintf("%v", description),
+	}, nil
 }
 
 func resolveDynamicDisplayMappingObjects(properties []LabeledDisplayMappingObject,
-	vc map[string]interface{}) ([]interface{}, error) {
-	resolvedProperties := make([]interface{}, len(properties))
+	vc map[string]interface{}) (map[string]interface{}, error) {
+	resolvedProperties := make(map[string]interface{}, len(properties))
 
 	for i, property := range properties {
 		var err error
 
-		resolvedProperties[i], err = resolveDisplayMappingObject(&property.DisplayMappingObject, vc)
+		resolvedProperties[property.Label], err = resolveDisplayMappingObject(&property.DisplayMappingObject, vc)
 		if err != nil {
-			return nil, fmt.Errorf("failed to resolve the display mapping object for the property at "+
-				"index %d: %w", i, err)
+			return nil, fmt.Errorf("failed to resolve the display mapping object for the property at index %d: %w", i, err) // nolint:lll
 		}
 	}
 
 	return resolvedProperties, nil
 }
 
+// TODO should resolve data by schema.
 func resolveDisplayMappingObject(displayMappingObject *DisplayMappingObject,
 	vc map[string]interface{}) (interface{}, error) {
 	if len(displayMappingObject.Paths) > 0 {
 		resolvedValue, err := resolveJSONPathsUsingVC(displayMappingObject.Paths, displayMappingObject.Fallback, vc)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 
 		return resolvedValue, nil
 	}
 
-	return displayMappingObject.Text, nil
+	return displayMappingObject.Fallback, nil
 }
 
 func resolveJSONPathsUsingVC(paths []string, fallback string, vc map[string]interface{}) (interface{}, error) {
 	for _, path := range paths {
-		resolvedValue, err := resolveJSONPathUsingVC(path, vc)
+		resolvedValue, err := jsonpath.Get(path, vc)
 		if err != nil {
 			if strings.HasPrefix(err.Error(), "unknown key") {
 				continue
@@ -347,15 +405,6 @@ func resolveJSONPathsUsingVC(paths []string, fallback string, vc map[string]inte
 	return fallback, nil
 }
 
-func resolveJSONPathUsingVC(path string, vc map[string]interface{}) (interface{}, error) {
-	value, err := jsonpath.Get(path, vc)
-	if err != nil {
-		return nil, err
-	}
-
-	return value, nil
-}
-
 func (cm *CredentialManifest) standardUnmarshal(data []byte) error {
 	// The type alias below is used as to allow the standard json.Unmarshal to be called within a custom unmarshal
 	// function without causing infinite recursion. See https://stackoverflow.com/a/43178272 for more information.
@@ -364,51 +413,6 @@ func (cm *CredentialManifest) standardUnmarshal(data []byte) error {
 	err := json.Unmarshal(data, credentialManifestAliasWithoutMethods(cm))
 	if err != nil {
 		return err
-	}
-
-	return nil
-}
-
-func (cm *CredentialManifest) validate() error {
-	if cm.Issuer.ID == "" {
-		return errors.New("issuer ID missing")
-	}
-
-	if len(cm.OutputDescriptors) == 0 {
-		return errors.New("no output descriptors found")
-	}
-
-	err := cm.validateOutputDescriptors()
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (cm *CredentialManifest) validateOutputDescriptors() error {
-	allOutputDescriptorIDs := make(map[string]struct{})
-
-	for i := range cm.OutputDescriptors {
-		if cm.OutputDescriptors[i].ID == "" {
-			return fmt.Errorf("missing ID for output descriptor at index %d", i)
-		}
-
-		_, foundDuplicateID := allOutputDescriptorIDs[cm.OutputDescriptors[i].ID]
-		if foundDuplicateID {
-			return fmt.Errorf("the ID %s appears in multiple output descriptors", cm.OutputDescriptors[i].ID)
-		}
-
-		allOutputDescriptorIDs[cm.OutputDescriptors[i].ID] = struct{}{}
-
-		if cm.OutputDescriptors[i].Schema == "" {
-			return fmt.Errorf("missing schema for output descriptor at index %d", i)
-		}
-
-		err := validateOutputDescriptor(&cm.OutputDescriptors[i], i)
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil
@@ -447,7 +451,7 @@ func validateOutputDescriptor(outputDescriptor *OutputDescriptor, outputDescript
 func validateDisplayMappingObject(displayMappingObject *DisplayMappingObject) error {
 	if len(displayMappingObject.Paths) > 0 {
 		for i, path := range displayMappingObject.Paths {
-			_, err := jsonpath.New(path) // Just using this to validate the JSONPath.
+			_, err := jsonpath.New(path) // Just using this to Validate the JSONPath.
 			if err != nil {
 				return fmt.Errorf(`path "%s" at index %d is not a valid JSONPath: %w`, path, i, err)
 			}
@@ -496,4 +500,65 @@ func schemaFormatIsValid(format string) bool {
 	}
 
 	return isValidFormat
+}
+
+func lookupString(model map[string]interface{}, key string) (string, bool) {
+	raw, ok := model[key]
+	if !ok {
+		return "", false
+	}
+
+	val, ok := raw.(string)
+
+	return val, ok
+}
+
+func lookupMap(model map[string]interface{}, key string) (map[string]interface{}, bool) {
+	raw, ok := model[key]
+	if !ok {
+		return nil, false
+	}
+
+	val, ok := raw.(map[string]interface{})
+
+	return val, ok
+}
+
+func lookupArray(model map[string]interface{}, key string) ([]interface{}, bool) {
+	raw, ok := model[key]
+	if !ok {
+		return nil, false
+	}
+
+	val, ok := raw.([]interface{})
+
+	return val, ok
+}
+
+func mapDescriptors(manifest *CredentialManifest) map[string]*OutputDescriptor {
+	result := make(map[string]*OutputDescriptor, len(manifest.OutputDescriptors))
+
+	for _, outputDescr := range manifest.OutputDescriptors {
+		result[outputDescr.ID] = outputDescr
+	}
+
+	return result
+}
+
+func selectVCByPath(builder gval.Language, vp interface{}, jsonPath string) (map[string]interface{}, error) {
+	path, err := builder.NewEvaluable(jsonPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build new json path evaluator: %w", err)
+	}
+
+	cred, err := path(context.TODO(), vp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to evaluate json path [%s]: %w", jsonPath, err)
+	}
+
+	if credMap, ok := cred.(map[string]interface{}); ok {
+		return credMap, nil
+	}
+
+	return nil, fmt.Errorf("unexpected credential evaluation result")
 }

@@ -94,8 +94,10 @@ func (sdk *SDKSteps) RegisterSteps(suite *godog.Suite) {
 			`offer-credential message$`, sdk.createOOBInvitationReusePubDIDAndOfferCredential)
 	suite.Step(`^"([^"]*)" creates an out-of-band-v2 invitation with embedded present proof v3 request`+
 		` as target service$`, sdk.createOOBV2WithPresentProof)
+	suite.Step(`^"([^"]*)" creates an out-of-band-v2 invitation$`, sdk.createOOBV2)
 	suite.Step(`^"([^"]*)" sends the request to "([^"]*)" and he accepts it by processing both OOBv2 and the `+
 		`embedded present proof v3 request$`, sdk.acceptOOBV2Invitation)
+	suite.Step(`^"([^"]*)" sends the request to "([^"]*)", which accepts it$`, sdk.acceptOOBV2Invitation)
 }
 
 func (sdk *SDKSteps) createOOBInvitation(agentID string) error {
@@ -801,6 +803,35 @@ func (sdk *SDKSteps) createOOBV2WithPresentProof(agent1 string) error {
 	inv, err := oobv2Client1.CreateInvitation(
 		outofbandv2.WithGoal(ppfGoal, ppfGoalCode),
 		outofbandv2.WithAttachments(ppfv3Attachment...),
+		outofbandv2.WithFrom(agentDIDDoc.ID),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create invitation: %w", err)
+	}
+
+	sdk.pendingV2Invites[agent1] = inv
+
+	return nil
+}
+
+func (sdk *SDKSteps) createOOBV2(agent1 string) error {
+	err := sdk.CreateOOBV2Clients(agent1)
+	if err != nil {
+		return fmt.Errorf("send OOBV2 failed to register %s client: %w", agent1, err)
+	}
+
+	oobv2Client1, ok := sdk.context.OutOfBandV2Clients[agent1]
+	if !ok {
+		return fmt.Errorf("missing oobv2 client for %s", agent1)
+	}
+
+	agentDIDDoc, ok := sdk.context.PublicDIDDocs[agent1]
+	if !ok {
+		return fmt.Errorf("oobv2: missing DID Doc for %s", agent1)
+	}
+
+	inv, err := oobv2Client1.CreateInvitation(
+		outofbandv2.WithGoal(ppfGoal, ppfGoalCode),
 		outofbandv2.WithFrom(agentDIDDoc.ID),
 	)
 	if err != nil {

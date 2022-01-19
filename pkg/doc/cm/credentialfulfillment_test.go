@@ -28,13 +28,13 @@ var (
 	vpWithDriversLicenseVC []byte //nolint:gochecknoglobals
 	//go:embed testdata/VP_with_drivers_license_VC_and_credential_fulfillment.json
 	vpWithDriversLicenseVCAndCredentialFulfillment []byte //nolint:gochecknoglobals
-	//go:embed testdata/VP_with_drivers_license_VC_and_display_data.json
-	vpWithDriversLicenseVCAndDisplayData []byte //nolint:gochecknoglobals
 	// The "minimal" VP below is ones that was created by a call to verifiable.NewPresentation() with no
 	// arguments/options, which is how the cm.PresentCredentialFulfillment method generates a VP if the
 	// WithExistingPresentationForPresentCredentialFulfillment option is not used.
 	//go:embed testdata/VP_minimal_with_credential_fulfillment.json
 	vpMinimalWithCredentialFulfillment []byte //nolint:gochecknoglobals
+	//go:embed testdata/VP_with_multiple_VCs_and_credential_fulfillment.json
+	vpMultipleWithCredentialFulfillment []byte //nolint:gochecknoglobals
 )
 
 func TestCredentialFulfillment_Unmarshal(t *testing.T) {

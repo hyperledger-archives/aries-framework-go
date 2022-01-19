@@ -142,8 +142,13 @@ func TestServiceHandleOutbound(t *testing.T) {
 					require.Equal(t, myDID, MYDID)
 					require.Equal(t, theirDID, THEIRDID)
 
-					request, ok := msg.(*Request)
+					reqMsgMap, ok := msg.(service.DIDCommMsgMap)
 					require.True(t, ok)
+
+					request := &Request{}
+
+					err := reqMsgMap.Decode(request)
+					require.NoError(t, err)
 
 					msgID <- request.ID
 					return nil
@@ -961,8 +966,13 @@ func TestRegister(t *testing.T) {
 					require.Equal(t, myDID, MYDID)
 					require.Equal(t, theirDID, THEIRDID)
 
-					request, ok := msg.(*Request)
+					reqMsgMap, ok := msg.(service.DIDCommMsgMap)
 					require.True(t, ok)
+
+					request := &Request{}
+
+					err := reqMsgMap.Decode(request)
+					require.NoError(t, err)
 
 					msgID <- request.ID
 					return nil
@@ -1148,8 +1158,13 @@ func TestKeylistUpdate(t *testing.T) {
 					require.Equal(t, myDID, MYDID)
 					require.Equal(t, theirDID, THEIRDID)
 
-					request, ok := msg.(*KeylistUpdate)
+					reqMsgMap, ok := msg.(service.DIDCommMsgMap)
 					require.True(t, ok)
+
+					request := &KeylistUpdate{}
+
+					err := reqMsgMap.Decode(request)
+					require.NoError(t, err)
 
 					keyUpdateMsg <- *request
 					return nil
@@ -1204,8 +1219,13 @@ func TestKeylistUpdate(t *testing.T) {
 					require.Equal(t, myDID, MYDID)
 					require.Equal(t, theirDID, THEIRDID)
 
-					request, ok := msg.(*KeylistUpdate)
+					reqMsgMap, ok := msg.(service.DIDCommMsgMap)
 					require.True(t, ok)
+
+					request := &KeylistUpdate{}
+
+					err := reqMsgMap.Decode(request)
+					require.NoError(t, err)
 
 					keyUpdateMsg <- *request
 					return nil

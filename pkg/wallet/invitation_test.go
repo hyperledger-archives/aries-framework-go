@@ -14,6 +14,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
 )
 
 const (
@@ -124,6 +126,51 @@ func TestGenericInvitation_UnmarshalJSON(t *testing.T) {
 
 		err = json.Unmarshal([]byte(`{"id":["shouldn't'", "be", "a", "list"]}`), &invitation)
 		require.Error(t, err)
+	})
+}
+
+func TestGenericInvitation_MarshalJSON(t *testing.T) {
+	t.Run("success: v1", func(t *testing.T) {
+		attachments := []string{"lorem", "ipsum"}
+
+		rawV1 := []byte(v1Message(testID, testTypeV1, attachments))
+
+		v1Inv := outofband.Invitation{}
+
+		require.NoError(t, json.Unmarshal(rawV1, &v1Inv))
+
+		var err error
+		rawV1, err = json.Marshal(&v1Inv)
+		require.NoError(t, err)
+
+		expected := map[string]interface{}{}
+		actual := map[string]interface{}{}
+
+		require.NoError(t, json.Unmarshal(rawV1, &expected))
+
+		invitation := GenericInvitation{}
+		err = json.Unmarshal(rawV1, &invitation)
+		require.NoError(t, err)
+
+		invBytes, err := invitation.MarshalJSON()
+		require.NoError(t, err)
+
+		require.NoError(t, json.Unmarshal(invBytes, &actual))
+
+		require.Equal(t, expected, actual)
+	})
+
+	t.Run("success: from v2 invitation", func(t *testing.T) {
+		attachments := []string{"lorem", "ipsum"}
+
+		rawV2 := []byte(v2Message(testID, testTypeV2, attachments))
+
+		invitation := GenericInvitation{}
+		err := json.Unmarshal(rawV2, &invitation)
+		require.NoError(t, err)
+
+		_, err = json.Marshal(&invitation)
+		require.NoError(t, err)
 	})
 }
 

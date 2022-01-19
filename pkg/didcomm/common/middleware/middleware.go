@@ -24,6 +24,7 @@ import (
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
+	didstore "github.com/hyperledger/aries-framework-go/pkg/store/did"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/peer"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
@@ -37,6 +38,7 @@ type DIDCommMessageMiddleware struct {
 	crypto            crypto.Crypto
 	vdr               vdrapi.Registry
 	connStore         *connection.Recorder
+	didStore          didstore.ConnectionStore
 	mediaTypeProfiles []string
 }
 
@@ -47,6 +49,7 @@ type provider interface {
 	StorageProvider() storage.Provider
 	ProtocolStateStorageProvider() storage.Provider
 	MediaTypeProfiles() []string
+	DIDConnectionStore() didstore.ConnectionStore
 }
 
 // New creates a DIDCommMessageMiddleware.
@@ -62,6 +65,7 @@ func New(p provider) (*DIDCommMessageMiddleware, error) {
 		vdr:               p.VDRegistry(),
 		connStore:         connRecorder,
 		mediaTypeProfiles: p.MediaTypeProfiles(),
+		didStore:          p.DIDConnectionStore(),
 	}, nil
 }
 
@@ -77,7 +81,7 @@ const (
 	initialStateParam = "initialState"
 )
 
-// HandleInboundMessage processes did rotation, peer DID sharing, and invitee connection creation on inbound messages.
+// HandleInboundMessage processes did rotation and invitee connection creation on inbound messages.
 func (h *DIDCommMessageMiddleware) HandleInboundMessage( // nolint:gocyclo,funlen
 	msg didcomm.DIDCommMsgMap,
 	theirDID, myDID string,
@@ -90,12 +94,6 @@ func (h *DIDCommMessageMiddleware) HandleInboundMessage( // nolint:gocyclo,funle
 
 	// TODO: clean up some logic:
 	//  - inbound invitation acceptance cannot be a rotation
-
-	// handle inbound peer DID initial state
-	err := h.handleInboundPeerDID(msg) // no connection read/write
-	if err != nil {
-		return fmt.Errorf("handling inbound peer DID: %w", err)
-	}
 
 	// GetConnectionRecordByDIDs(myDID, theirDID)
 	// if no connection, create connection
@@ -156,16 +154,16 @@ func (h *DIDCommMessageMiddleware) HandleInboundMessage( // nolint:gocyclo,funle
 // HandleOutboundMessage processes an outbound message.
 func (h *DIDCommMessageMiddleware) HandleOutboundMessage(msg didcomm.DIDCommMsgMap, rec *connection.Record,
 ) didcomm.DIDCommMsgMap {
+	if rec.PeerDIDInitialState != "" {
+		msg[fromDIDJSONKey] = rec.MyDID + "?" + initialStateParam + "=" + rec.PeerDIDInitialState
+	}
+
 	if isV2, err := didcomm.IsDIDCommV2(&msg); !isV2 || err != nil {
 		return msg
 	}
 
 	if rec.MyDIDRotation != nil {
 		msg[fromPriorJSONKey] = rec.MyDIDRotation.FromPrior
-	}
-
-	if rec.PeerDIDInitialState != "" {
-		msg[fromDIDJSONKey] = rec.MyDID + "?" + initialStateParam + "=" + rec.PeerDIDInitialState
 	}
 
 	return msg
@@ -220,7 +218,8 @@ func (h *DIDCommMessageMiddleware) handleInboundInvitationAcceptance(senderDID, 
 	return rec, nil
 }
 
-func (h *DIDCommMessageMiddleware) handleInboundPeerDID(msg didcomm.DIDCommMsgMap) error {
+// HandleInboundPeerDID checks if an inbound message contains a peer DID, saving the peer DID if so.
+func (h *DIDCommMessageMiddleware) HandleInboundPeerDID(msg didcomm.DIDCommMsgMap) error { // nolint:gocyclo
 	from, ok := msg[fromDIDJSONKey].(string)
 	if !ok {
 		return nil
@@ -228,6 +227,11 @@ func (h *DIDCommMessageMiddleware) handleInboundPeerDID(msg didcomm.DIDCommMsgMa
 
 	didURL, err := did.ParseDIDURL(from)
 	if err != nil {
+		// special case - some didcomm v1 messages might have a "from" field, which isn't necessarily a DID
+		if isV2, e := didcomm.IsDIDCommV2(&msg); !isV2 || e != nil {
+			return nil // nolint:nilerr // ignore error from IsDIDCommV2, simply skip unusual unexpected messages.
+		}
+
 		return fmt.Errorf("parsing their DID: %w", err)
 	}
 
@@ -252,6 +256,11 @@ func (h *DIDCommMessageMiddleware) handleInboundPeerDID(msg didcomm.DIDCommMsgMa
 	_, err = h.vdr.Create(peer.DIDMethod, theirDoc, vdrapi.WithOption("store", true))
 	if err != nil {
 		return fmt.Errorf("saving their peer DID: %w", err)
+	}
+
+	err = h.didStore.SaveDIDFromDoc(theirDoc)
+	if err != nil {
+		return fmt.Errorf("saving key to did map for their peer DID: %w", err)
 	}
 
 	msg[fromDIDJSONKey] = didURL.DID.String()

@@ -356,21 +356,6 @@ func TestMessageHandler_getDIDs(t *testing.T) {
 		require.Equal(t, "did:peer:bob", theirDID)
 	})
 
-	t.Run("fail: invalid DID in message from field", func(t *testing.T) {
-		p := emptyProvider()
-
-		h := NewInboundMessageHandler(p)
-
-		_, _, err := h.getDIDs(&transport.Envelope{
-			ToKey:   []byte(`{"kid":"did:peer:alice#key-1"}`),
-			FromKey: nil,
-		}, service.DIDCommMsgMap{
-			"from": "oops",
-		})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "parsing their DID")
-	})
-
 	t.Run("fail: bad did key", func(t *testing.T) {
 		p := emptyProvider()
 

@@ -414,8 +414,17 @@ func (m DIDCommMsgMap) UnsetThread() {
 	delete(m, jsonParentThreadID)
 }
 
+// MsgMapDecoder is implemented by objects that handle their own parsing from DIDCommMsgMap.
+type MsgMapDecoder interface {
+	FromDIDCommMsgMap(msgMap DIDCommMsgMap) error
+}
+
 // Decode converts message to  struct.
 func (m DIDCommMsgMap) Decode(v interface{}) error {
+	if dec, ok := v.(MsgMapDecoder); ok {
+		return dec.FromDIDCommMsgMap(m)
+	}
+
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		DecodeHook:       decodeHook,
 		WeaklyTypedInput: true,
