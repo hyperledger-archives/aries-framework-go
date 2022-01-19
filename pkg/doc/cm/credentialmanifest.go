@@ -140,9 +140,28 @@ func (cm *CredentialManifest) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	err = cm.validate()
+	err = cm.Validate()
 	if err != nil {
 		return fmt.Errorf("invalid credential manifest: %w", err)
+	}
+
+	return nil
+}
+
+// Validate ensures that this CredentialManifest is valid per the spec.
+// Note that this function is automatically called when unmarshalling a []byte into a CredentialManifest.
+func (cm *CredentialManifest) Validate() error {
+	if cm.Issuer.ID == "" {
+		return errors.New("issuer ID missing")
+	}
+
+	if len(cm.OutputDescriptors) == 0 {
+		return errors.New("no output descriptors found")
+	}
+
+	err := Validate(cm.OutputDescriptors)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -256,6 +275,38 @@ func (cm *CredentialManifest) ResolveCredential(descriptorID string, credential 
 	return nil, errors.New("unable to find matching descriptor")
 }
 
+// Validate checks the given slice of OutputDescriptors to ensure that they are valid (per the spec) when placed
+// together within a single Credential Manifest. To pass validation, the following two conditions must be satisfied:
+// 1. Each OutputDescriptor must have a unique ID.
+// 2. Each OutputDescriptor must also have valid contents. See the validateOutputDescriptor function for details.
+func Validate(outputDescriptors []*OutputDescriptor) error {
+	allOutputDescriptorIDs := make(map[string]struct{})
+
+	for i := range outputDescriptors {
+		if outputDescriptors[i].ID == "" {
+			return fmt.Errorf("missing ID for output descriptor at index %d", i)
+		}
+
+		_, foundDuplicateID := allOutputDescriptorIDs[outputDescriptors[i].ID]
+		if foundDuplicateID {
+			return fmt.Errorf("the ID %s appears in multiple output descriptors", outputDescriptors[i].ID)
+		}
+
+		allOutputDescriptorIDs[outputDescriptors[i].ID] = struct{}{}
+
+		if outputDescriptors[i].Schema == "" {
+			return fmt.Errorf("missing schema for output descriptor at index %d", i)
+		}
+
+		err := validateOutputDescriptor(outputDescriptors[i], i)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (cm *CredentialManifest) hasFormat() bool {
 	return hasAnyAlgorithmsOrProofTypes(cm.Format)
 }
@@ -367,51 +418,6 @@ func (cm *CredentialManifest) standardUnmarshal(data []byte) error {
 	return nil
 }
 
-func (cm *CredentialManifest) validate() error {
-	if cm.Issuer.ID == "" {
-		return errors.New("issuer ID missing")
-	}
-
-	if len(cm.OutputDescriptors) == 0 {
-		return errors.New("no output descriptors found")
-	}
-
-	err := cm.validateOutputDescriptors()
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (cm *CredentialManifest) validateOutputDescriptors() error {
-	allOutputDescriptorIDs := make(map[string]struct{})
-
-	for i := range cm.OutputDescriptors {
-		if cm.OutputDescriptors[i].ID == "" {
-			return fmt.Errorf("missing ID for output descriptor at index %d", i)
-		}
-
-		_, foundDuplicateID := allOutputDescriptorIDs[cm.OutputDescriptors[i].ID]
-		if foundDuplicateID {
-			return fmt.Errorf("the ID %s appears in multiple output descriptors", cm.OutputDescriptors[i].ID)
-		}
-
-		allOutputDescriptorIDs[cm.OutputDescriptors[i].ID] = struct{}{}
-
-		if cm.OutputDescriptors[i].Schema == "" {
-			return fmt.Errorf("missing schema for output descriptor at index %d", i)
-		}
-
-		err := validateOutputDescriptor(cm.OutputDescriptors[i], i)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func validateOutputDescriptor(outputDescriptor *OutputDescriptor, outputDescriptorIndex int) error {
 	err := validateDisplayMappingObject(&outputDescriptor.Display.Title)
 	if err != nil {
@@ -445,7 +451,7 @@ func validateOutputDescriptor(outputDescriptor *OutputDescriptor, outputDescript
 func validateDisplayMappingObject(displayMappingObject *DisplayMappingObject) error {
 	if len(displayMappingObject.Paths) > 0 {
 		for i, path := range displayMappingObject.Paths {
-			_, err := jsonpath.New(path) // Just using this to validate the JSONPath.
+			_, err := jsonpath.New(path) // Just using this to Validate the JSONPath.
 			if err != nil {
 				return fmt.Errorf(`path "%s" at index %d is not a valid JSONPath: %w`, path, i, err)
 			}
