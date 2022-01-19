@@ -258,12 +258,15 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 			getConnectionByDIDsVal: "mock1",
 			getConnectionRecordVal: &connection.Record{
 				PeerDIDInitialState: "mock-peer-initial-state",
+				DIDCommVersion:      service.V2,
+				ParentThreadID:      "parent-thread-id-value",
 			},
 		}
 
 		require.NoError(t, o.SendToDID(service.DIDCommMsgMap{
 			"id":   "123",
 			"type": "abc",
+			"thid": "123",
 		}, testDID, ""))
 	})
 
