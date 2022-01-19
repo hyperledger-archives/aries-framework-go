@@ -91,7 +91,7 @@ func NewOutbound(prov provider) (*Dispatcher, error) {
 }
 
 // SendToDID sends a message from myDID to the agent who owns theirDID.
-func (o *Dispatcher) SendToDID(msg interface{}, myDID, theirDID string) error { // nolint:funlen,gocyclo
+func (o *Dispatcher) SendToDID(msg interface{}, myDID, theirDID string) error { // nolint:funlen,gocyclo,gocognit
 	myDocResolution, err := o.vdRegistry.Resolve(myDID)
 	if err != nil {
 		return fmt.Errorf("failed to resolve my DID: %w", err)
@@ -104,16 +104,14 @@ func (o *Dispatcher) SendToDID(msg interface{}, myDID, theirDID string) error { 
 
 	var connectionVersion service.Version
 
-	if didcommMsg, ok := msg.(service.DIDCommMsgMap); ok { // nolint:nestif
+	didcommMsg, isMsgMap := msg.(service.DIDCommMsgMap)
+
+	if isMsgMap {
 		isV2, e := service.IsDIDCommV2(&didcommMsg)
-		if e != nil {
-			logger.Warnf("failed to check didcomm version on outbound message: %w", e)
+		if e == nil && isV2 {
+			connectionVersion = service.V2
 		} else {
-			if isV2 {
-				connectionVersion = service.V2
-			} else {
-				connectionVersion = service.V1
-			}
+			connectionVersion = service.V1
 		}
 	}
 
@@ -124,16 +122,25 @@ func (o *Dispatcher) SendToDID(msg interface{}, myDID, theirDID string) error { 
 
 	var sendWithAnoncrypt bool
 
-	didcommMsg, ok := msg.(service.DIDCommMsgMap)
-
-	if ok {
+	if isMsgMap { // nolint:nestif
 		didcommMsg = o.didcommV2Handler.HandleOutboundMessage(didcommMsg, connRec)
-		msg = &didcommMsg
 
 		if connRec.PeerDIDInitialState != "" {
 			// we need to use anoncrypt if myDID is a peer DID being shared with the recipient through this message.
 			sendWithAnoncrypt = true
 		}
+
+		// the first message sent using didcomm v2 should contain the invitation ID as pthid
+		if connRec.DIDCommVersion == service.V2 && connRec.ParentThreadID != "" && connectionVersion == service.V2 {
+			pthid, hasPthid := didcommMsg["pthid"].(string)
+
+			thid, e := didcommMsg.ThreadID()
+			if e == nil && didcommMsg.ID() == thid && (!hasPthid || pthid == "") {
+				didcommMsg["pthid"] = connRec.ParentThreadID
+			}
+		}
+
+		msg = &didcommMsg
 	} else {
 		didcommMsgPtr, ok := msg.(*service.DIDCommMsgMap)
 		if ok {
