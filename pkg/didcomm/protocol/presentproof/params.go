@@ -9,6 +9,7 @@ package presentproof
 import (
 	"encoding/json"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 )
 
@@ -67,6 +68,26 @@ func (p *ProposePresentationParams) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
+	p.fromRaw(&raw)
+
+	return nil
+}
+
+// FromDIDCommMsgMap implements service.MsgMapDecoder.
+func (p *ProposePresentationParams) FromDIDCommMsgMap(msgMap service.DIDCommMsgMap) error {
+	raw := rawPropose{}
+
+	err := msgMap.Decode(&raw)
+	if err != nil {
+		return err
+	}
+
+	p.fromRaw(&raw)
+
+	return nil
+}
+
+func (p *ProposePresentationParams) fromRaw(raw *rawPropose) {
 	switch raw.version() {
 	default:
 		fallthrough
@@ -81,8 +102,6 @@ func (p *ProposePresentationParams) UnmarshalJSON(b []byte) error {
 		p.GoalCode = raw.BodyV3.GoalCode
 		p.Attachments = decorator.V2AttachmentsToGeneric(raw.AttachV3)
 	}
-
-	return nil
 }
 
 type rawRequest struct {
@@ -144,6 +163,26 @@ func (p *RequestPresentationParams) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
+	p.fromRaw(&raw)
+
+	return nil
+}
+
+// FromDIDCommMsgMap implements service.MsgMapDecoder.
+func (p *RequestPresentationParams) FromDIDCommMsgMap(msgMap service.DIDCommMsgMap) error {
+	raw := rawRequest{}
+
+	err := msgMap.Decode(&raw)
+	if err != nil {
+		return err
+	}
+
+	p.fromRaw(&raw)
+
+	return nil
+}
+
+func (p *RequestPresentationParams) fromRaw(raw *rawRequest) {
 	switch raw.version() {
 	default:
 		fallthrough
@@ -160,8 +199,6 @@ func (p *RequestPresentationParams) UnmarshalJSON(b []byte) error {
 		p.Attachments = decorator.V2AttachmentsToGeneric(raw.AttachV3)
 		p.GoalCode = raw.BodyV3.GoalCode
 	}
-
-	return nil
 }
 
 type rawPresentation struct {
@@ -217,6 +254,26 @@ func (p *PresentationParams) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
+	p.fromRaw(&raw)
+
+	return nil
+}
+
+// FromDIDCommMsgMap implements service.MsgMapDecoder.
+func (p *PresentationParams) FromDIDCommMsgMap(msgMap service.DIDCommMsgMap) error {
+	raw := rawPresentation{}
+
+	err := msgMap.Decode(&raw)
+	if err != nil {
+		return err
+	}
+
+	p.fromRaw(&raw)
+
+	return nil
+}
+
+func (p *PresentationParams) fromRaw(raw *rawPresentation) {
 	switch raw.version() {
 	default:
 		fallthrough
@@ -231,6 +288,4 @@ func (p *PresentationParams) UnmarshalJSON(b []byte) error {
 		p.Attachments = decorator.V2AttachmentsToGeneric(raw.AttachV3)
 		p.GoalCode = raw.BodyV3.GoalCode
 	}
-
-	return nil
 }

@@ -13,6 +13,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 )
 
 const foo = "foo"
@@ -25,7 +27,25 @@ func TestProposePresentationParams_UnmarshalJSON(t *testing.T) {
 
 	handleTestSet(t, func() interface{} {
 		return &ProposePresentationParams{}
-	}, tests)
+	}, tests, jsonUnmarshalTest)
+
+	t.Run("fail: parse error", func(t *testing.T) {
+		unMarshalTo := &ProposePresentationParams{}
+		dataBytes := []byte("{{{{bad json")
+
+		require.Error(t, json.Unmarshal(dataBytes, unMarshalTo))
+	})
+}
+
+func TestProposePresentationParams_FromDIDCommMsgMap(t *testing.T) {
+	tests := testTable(
+		&ProposePresentationParams{},
+		&ProposePresentationParams{Comment: foo},
+	)
+
+	handleTestSet(t, func() interface{} {
+		return &ProposePresentationParams{}
+	}, tests, msgMapDecodeTest)
 }
 
 func TestRequestPresentationParams_UnmarshalJSON(t *testing.T) {
@@ -37,7 +57,26 @@ func TestRequestPresentationParams_UnmarshalJSON(t *testing.T) {
 	handleTestSet(t, func() interface{} {
 		// this function returns an object for the test to unmarshal into
 		return &RequestPresentationParams{}
-	}, tests)
+	}, tests, jsonUnmarshalTest)
+
+	t.Run("fail: parse error", func(t *testing.T) {
+		unMarshalTo := &RequestPresentationParams{}
+		dataBytes := []byte("{{{{bad json")
+
+		require.Error(t, json.Unmarshal(dataBytes, unMarshalTo))
+	})
+}
+
+func TestRequestPresentationParams_FromDIDCommMsgMap(t *testing.T) {
+	tests := testTable(
+		&RequestPresentationParams{},
+		&RequestPresentationParams{Comment: foo},
+	)
+
+	handleTestSet(t, func() interface{} {
+		// this function returns an object for the test to unmarshal into
+		return &RequestPresentationParams{}
+	}, tests, msgMapDecodeTest)
 }
 
 func TestPresentationParams_UnmarshalJSON(t *testing.T) {
@@ -49,7 +88,26 @@ func TestPresentationParams_UnmarshalJSON(t *testing.T) {
 	handleTestSet(t, func() interface{} {
 		// this function returns an object for the test to unmarshal into
 		return &PresentationParams{}
-	}, tests)
+	}, tests, jsonUnmarshalTest)
+
+	t.Run("fail: parse error", func(t *testing.T) {
+		unMarshalTo := &PresentationParams{}
+		dataBytes := []byte("{{{{bad json")
+
+		require.Error(t, json.Unmarshal(dataBytes, unMarshalTo))
+	})
+}
+
+func TestPresentationParams_FromDIDCommMsgMap(t *testing.T) {
+	tests := testTable(
+		&PresentationParams{},
+		&PresentationParams{Comment: foo},
+	)
+
+	handleTestSet(t, func() interface{} {
+		// this function returns an object for the test to unmarshal into
+		return &PresentationParams{}
+	}, tests, msgMapDecodeTest)
 }
 
 func testTable(expectedEmpty, expectedWithComment interface{}) []testCase {
@@ -94,20 +152,21 @@ func testTable(expectedEmpty, expectedWithComment interface{}) []testCase {
 
 type testCase struct {
 	name     string
-	src      interface{}
 	srcBytes []byte
 	expect   interface{}
 }
 
 type freshObjGetter func() interface{}
 
-func handleTestSet(t *testing.T, getEmptyObject freshObjGetter, tests []testCase) {
+type unmarshalTester func(t *testing.T, srcBytes []byte, unMarshalTo, expected interface{}) error
+
+func handleTestSet(t *testing.T, getEmptyObject freshObjGetter, tests []testCase, testFunc unmarshalTester) {
 	t.Parallel()
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			result := getEmptyObject()
-			err := marshalUnmarshalTest(t, tc.src, tc.srcBytes, result, tc.expect)
+			err := testFunc(t, tc.srcBytes, result, tc.expect)
 			if err != nil {
 				t.FailNow()
 			}
@@ -115,22 +174,25 @@ func handleTestSet(t *testing.T, getEmptyObject freshObjGetter, tests []testCase
 	}
 }
 
-func marshalUnmarshalTest(t *testing.T, src interface{}, srcBytes []byte, unMarshalTo, expected interface{}) error {
+func jsonUnmarshalTest(t *testing.T, srcBytes []byte, unMarshalTo, expected interface{}) error {
 	t.Helper()
 
-	var (
-		dataBytes []byte
-		err       error
-	)
+	require.NoError(t, json.Unmarshal(srcBytes, unMarshalTo))
 
-	if srcBytes != nil {
-		dataBytes = srcBytes
-	} else {
-		dataBytes, err = json.Marshal(src)
-		require.NoError(t, err)
+	if !assert.Equal(t, expected, unMarshalTo) {
+		return fmt.Errorf("")
 	}
 
-	require.NoError(t, json.Unmarshal(dataBytes, unMarshalTo))
+	return nil
+}
+
+func msgMapDecodeTest(t *testing.T, srcBytes []byte, unMarshalTo, expected interface{}) error {
+	t.Helper()
+
+	msg, err := service.ParseDIDCommMsgMap(srcBytes)
+	require.NoError(t, err)
+
+	require.NoError(t, msg.Decode(unMarshalTo))
 
 	if !assert.Equal(t, expected, unMarshalTo) {
 		return fmt.Errorf("")
