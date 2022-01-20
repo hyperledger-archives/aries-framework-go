@@ -13,11 +13,13 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+	jsonld "github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/api"
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/config"
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/notifier"
-	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/storage"
+	storageWrapper "github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/storage"
+	"github.com/hyperledger/aries-framework-go/component/storageutil/cachedstore"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller"
@@ -26,7 +28,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/controller/command/ld"
+	ldcommand "github.com/hyperledger/aries-framework-go/pkg/controller/command/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/outofband"
@@ -38,8 +40,12 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/msghandler"
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/ws"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
+	ldstore "github.com/hyperledger/aries-framework-go/pkg/store/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 var logger = log.New("aries-agent-mobile/wrappers/command")
@@ -67,14 +73,14 @@ func NewAries(opts *config.Options) (*Aries, error) {
 		return nil, fmt.Errorf("failed to initialize Aries framework: %w", err)
 	}
 
-	context, err := framework.Context()
+	ctx, err := framework.Context()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get Framework context: %w", err)
 	}
 
 	notifications := make(chan notifier.NotificationPayload)
 
-	commandHandlers, err := controller.GetCommandHandlers(context,
+	commandHandlers, err := controller.GetCommandHandlers(ctx,
 		controller.WithNotifier(notifier.NewNotifier(notifications)),
 		controller.WithAutoAccept(opts.AutoAccept),
 		controller.WithMessageHandler(opts.MsgHandler),
@@ -106,42 +112,65 @@ func prepareFrameworkOptions(opts *config.Options) ([]aries.Option, error) {
 		options = append(options, aries.WithTransportReturnRoute(opts.TransportReturnRoute))
 	}
 
+	var storageProvider storage.Provider
 	if opts.Storage != nil {
-		options = append(options, aries.WithStoreProvider(storage.New(opts.Storage)))
+		storageProvider = storageWrapper.New(opts.Storage)
 	} else {
-		options = append(options, aries.WithStoreProvider(mem.NewProvider()))
+		storageProvider = mem.NewProvider()
 	}
 
-	for _, transport := range opts.OutboundTransport {
-		switch transport {
-		case "http":
-			outbound, err := arieshttp.NewOutbound(arieshttp.WithOutboundHTTPClient(&http.Client{}))
-			if err != nil {
-				return nil, err
-			}
+	options = append(options, aries.WithStoreProvider(storageProvider))
 
-			options = append(options, aries.WithOutboundTransports(outbound))
-		case "ws":
-			options = append(options, aries.WithOutboundTransports(ws.NewOutbound()))
-		default:
-			return nil, fmt.Errorf("unsupported transport : %s", transport)
+	for _, transport := range opts.OutboundTransport {
+		otOpts, err := getOutBoundTransportOpts(transport)
+		if err != nil {
+			return nil, fmt.Errorf("failed to prepare outbound transport opts : %w", err)
 		}
+
+		options = append(options, otOpts...)
 	}
 
 	if len(opts.HTTPResolvers) > 0 {
-		rsopts, err := getResolverOpts(opts.HTTPResolvers)
+		rsOpts, err := getResolverOpts(opts.HTTPResolvers)
 		if err != nil {
 			return nil, fmt.Errorf("failed to prepare http resolver opts : %w", err)
 		}
 
-		options = append(options, rsopts...)
+		options = append(options, rsOpts...)
 	}
 
 	if opts.DocumentLoader != nil {
 		options = append(options, aries.WithJSONLDDocumentLoader(opts.DocumentLoader))
+	} else {
+		dlOpts, err := getDocumentLoaderOpts(storageProvider, opts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to prepare document loader opts : %w", err)
+		}
+
+		options = append(options, dlOpts...)
 	}
 
 	return options, nil
+}
+
+func getOutBoundTransportOpts(transport string) ([]aries.Option, error) {
+	var opts []aries.Option
+
+	switch transport {
+	case "http":
+		outbound, err := arieshttp.NewOutbound(arieshttp.WithOutboundHTTPClient(&http.Client{}))
+		if err != nil {
+			return nil, err
+		}
+
+		opts = append(opts, aries.WithOutboundTransports(outbound))
+	case "ws":
+		opts = append(opts, aries.WithOutboundTransports(ws.NewOutbound()))
+	default:
+		return nil, fmt.Errorf("unsupported transport : %s", transport)
+	}
+
+	return opts, nil
 }
 
 func getResolverOpts(httpResolvers []string) ([]aries.Option, error) {
@@ -165,6 +194,55 @@ func getResolverOpts(httpResolvers []string) ([]aries.Option, error) {
 			opts = append(opts, aries.WithVDR(httpVDR))
 		}
 	}
+
+	return opts, nil
+}
+
+func createJSONLdContext(storageProvider storage.Provider) (*context.Provider, error) {
+	contextStore, err := ldstore.NewContextStore(cachedstore.NewProvider(storageProvider, mem.NewProvider()))
+	if err != nil {
+		return nil, fmt.Errorf("create JSON-LD context store: %w", err)
+	}
+
+	remoteProviderStore, err := ldstore.NewRemoteProviderStore(storageProvider)
+	if err != nil {
+		return nil, fmt.Errorf("create remote provider store: %w", err)
+	}
+
+	ctx, err := context.New(
+		context.WithStorageProvider(storageProvider),
+		context.WithJSONLDContextStore(contextStore),
+		context.WithJSONLDRemoteProviderStore(remoteProviderStore),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("context creation failed: %w", err)
+	}
+
+	return ctx, nil
+}
+
+func getDocumentLoaderOpts(storageProvider storage.Provider, options *config.Options) ([]aries.Option, error) {
+	var opts []aries.Option
+
+	ctx, err := createJSONLdContext(storageProvider)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare json ld context : %w", err)
+	}
+
+	var documentLoader *ld.DocumentLoader
+
+	if options.LoadRemoteDocuments {
+		remoteDocumentLoader := jsonld.NewDefaultDocumentLoader(http.DefaultClient)
+		documentLoader, err = ld.NewDocumentLoader(ctx, ld.WithRemoteDocumentLoader(remoteDocumentLoader))
+	} else {
+		documentLoader, err = ld.NewDocumentLoader(ctx)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare document loader opts : %w", err)
+	}
+
+	opts = append(opts, aries.WithJSONLDDocumentLoader(documentLoader))
 
 	return opts, nil
 }
@@ -343,9 +421,9 @@ func (a *Aries) GetKMSController() (api.KMSController, error) {
 
 // GetLDController returns an LD instance.
 func (a *Aries) GetLDController() (api.LDController, error) {
-	handlers, ok := a.handlers[ld.CommandName]
+	handlers, ok := a.handlers[ldcommand.CommandName]
 	if !ok {
-		return nil, fmt.Errorf("no handlers found for controller [%s]", ld.CommandName)
+		return nil, fmt.Errorf("no handlers found for controller [%s]", ldcommand.CommandName)
 	}
 
 	return &LD{handlers: handlers}, nil
