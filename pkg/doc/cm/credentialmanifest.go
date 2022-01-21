@@ -107,23 +107,22 @@ type Schema struct {
 	Format string `json:"format,omitempty"` // MAY be here if the Type is "string".
 }
 
-// ResolvedDataDisplayDescriptor represents a DataDisplayDescriptor that's had its various "template" fields resolved
-// into concrete values based on a Verifiable Credential.
-// Technically Title, Subtitle and Description could be a non-string type, as the spec doesn't enforce the type of
-// those Display Mapping Objects, but it seems unreasonable to expect anything other than a string.
-// The ResolveOutputDescriptors method will return an error if any of the resolved values of those three fields are
-// not strings.
-type ResolvedDataDisplayDescriptor struct {
-	Title       string
-	Subtitle    string
-	Description string
-	Properties  map[string]interface{}
+// ResolvedProperty contains resolved result for each resolved property.
+type ResolvedProperty struct {
+	Schema Schema      `json:"schema,omitempty"`
+	Label  string      `json:"label,omitempty"`
+	Value  interface{} `json:"value,omitempty"`
 }
 
 // ResolvedDescriptor typically represents results of resolving manifests by credential fulfillment.
+// typically represents a DataDisplayDescriptor that's had its various "template" fields resolved
+// into concrete values based on a Verifiable Credential.
 type ResolvedDescriptor struct {
-	DescriptorID string
-	Resolved     *ResolvedDataDisplayDescriptor
+	DescriptorID string              `json:"descriptor_id,omitempty"`
+	Title        string              `json:"title,omitempty"`
+	Subtitle     string              `json:"subtitle,omitempty"`
+	Description  string              `json:"description,omitempty"`
+	Properties   []*ResolvedProperty `json:"properties,omitempty"`
 }
 
 type staticDisplayMappingObjects struct {
@@ -148,7 +147,7 @@ func (cm *CredentialManifest) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// Validate ensures that this CredentialManifest is valid per the spec.
+// Validate ensures that this CredentialManifest is valid as per the spec.
 // Note that this function is automatically called when unmarshalling a []byte into a CredentialManifest.
 func (cm *CredentialManifest) Validate() error {
 	if cm.Issuer.ID == "" {
@@ -159,7 +158,7 @@ func (cm *CredentialManifest) Validate() error {
 		return errors.New("no output descriptors found")
 	}
 
-	err := Validate(cm.OutputDescriptors)
+	err := ValidateOutputDescriptors(cm.OutputDescriptors)
 	if err != nil {
 		return err
 	}
@@ -242,17 +241,14 @@ func (cm *CredentialManifest) ResolveFulfillment(fulfillment *verifiable.Present
 			return nil, fmt.Errorf("failed to resolve credential by descriptor: %w", err)
 		}
 
-		results = append(results, &ResolvedDescriptor{
-			DescriptorID: id,
-			Resolved:     resolved,
-		})
+		results = append(results, resolved)
 	}
 
 	return results, nil
 }
 
 // ResolveCredential resolved given credential and returns results.
-func (cm *CredentialManifest) ResolveCredential(descriptorID string, credential *verifiable.Credential) (*ResolvedDataDisplayDescriptor, error) { //nolint:lll
+func (cm *CredentialManifest) ResolveCredential(descriptorID string, credential *verifiable.Credential) (*ResolvedDescriptor, error) { //nolint:lll
 	credBytes, err := credential.MarshalJSON()
 	if err != nil {
 		return nil, err
@@ -275,30 +271,31 @@ func (cm *CredentialManifest) ResolveCredential(descriptorID string, credential 
 	return nil, errors.New("unable to find matching descriptor")
 }
 
-// Validate checks the given slice of OutputDescriptors to ensure that they are valid (per the spec) when placed
-// together within a single Credential Manifest. To pass validation, the following two conditions must be satisfied:
+// ValidateOutputDescriptors checks the given slice of OutputDescriptors to ensure that they are valid (per the spec)
+// when placed together within a single Credential Manifest.
+// To pass validation, the following two conditions must be satisfied:
 // 1. Each OutputDescriptor must have a unique ID.
 // 2. Each OutputDescriptor must also have valid contents. See the validateOutputDescriptor function for details.
-func Validate(outputDescriptors []*OutputDescriptor) error {
+func ValidateOutputDescriptors(descriptors []*OutputDescriptor) error {
 	allOutputDescriptorIDs := make(map[string]struct{})
 
-	for i := range outputDescriptors {
-		if outputDescriptors[i].ID == "" {
+	for i := range descriptors {
+		if descriptors[i].ID == "" {
 			return fmt.Errorf("missing ID for output descriptor at index %d", i)
 		}
 
-		_, foundDuplicateID := allOutputDescriptorIDs[outputDescriptors[i].ID]
+		_, foundDuplicateID := allOutputDescriptorIDs[descriptors[i].ID]
 		if foundDuplicateID {
-			return fmt.Errorf("the ID %s appears in multiple output descriptors", outputDescriptors[i].ID)
+			return fmt.Errorf("the ID %s appears in multiple output descriptors", descriptors[i].ID)
 		}
 
-		allOutputDescriptorIDs[outputDescriptors[i].ID] = struct{}{}
+		allOutputDescriptorIDs[descriptors[i].ID] = struct{}{}
 
-		if outputDescriptors[i].Schema == "" {
+		if descriptors[i].Schema == "" {
 			return fmt.Errorf("missing schema for output descriptor at index %d", i)
 		}
 
-		err := validateOutputDescriptor(outputDescriptors[i], i)
+		err := validateOutputDescriptor(descriptors[i], i)
 		if err != nil {
 			return err
 		}
@@ -312,25 +309,26 @@ func (cm *CredentialManifest) hasFormat() bool {
 }
 
 func resolveOutputDescriptor(outputDescriptor *OutputDescriptor,
-	vc map[string]interface{}) (*ResolvedDataDisplayDescriptor, error) {
-	var resolvedDataDisplayDescriptor ResolvedDataDisplayDescriptor
+	vc map[string]interface{}) (*ResolvedDescriptor, error) {
+	var resolved ResolvedDescriptor
 
 	staticDisplayMappings, err := resolveStaticDisplayMappingObjects(outputDescriptor, vc)
 	if err != nil {
 		return nil, err
 	}
 
-	resolvedDataDisplayDescriptor.Title = staticDisplayMappings.title
-	resolvedDataDisplayDescriptor.Subtitle = staticDisplayMappings.subtitle
-	resolvedDataDisplayDescriptor.Description = staticDisplayMappings.description
+	resolved.DescriptorID = outputDescriptor.ID
+	resolved.Title = staticDisplayMappings.title
+	resolved.Subtitle = staticDisplayMappings.subtitle
+	resolved.Description = staticDisplayMappings.description
 
-	resolvedDataDisplayDescriptor.Properties, err =
-		resolveDynamicDisplayMappingObjects(outputDescriptor.Display.Properties, vc)
+	resolved.Properties, err =
+		resolveDescriptorProperties(outputDescriptor.Display.Properties, vc)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve properties: %w", err)
 	}
 
-	return &resolvedDataDisplayDescriptor, nil
+	return &resolved, nil
 }
 
 func resolveStaticDisplayMappingObjects(outputDescriptor *OutputDescriptor,
@@ -357,23 +355,28 @@ func resolveStaticDisplayMappingObjects(outputDescriptor *OutputDescriptor,
 	}, nil
 }
 
-func resolveDynamicDisplayMappingObjects(properties []LabeledDisplayMappingObject,
-	vc map[string]interface{}) (map[string]interface{}, error) {
-	resolvedProperties := make(map[string]interface{}, len(properties))
+func resolveDescriptorProperties(properties []LabeledDisplayMappingObject,
+	vc map[string]interface{}) ([]*ResolvedProperty, error) {
+	var resolvedProperties []*ResolvedProperty
 
-	for i, property := range properties {
+	for _, property := range properties {
 		var err error
 
-		resolvedProperties[property.Label], err = resolveDisplayMappingObject(&property.DisplayMappingObject, vc)
+		value, err := resolveDisplayMappingObject(&property.DisplayMappingObject, vc)
 		if err != nil {
-			return nil, fmt.Errorf("failed to resolve the display mapping object for the property at index %d: %w", i, err) // nolint:lll
+			return nil, fmt.Errorf("failed to resolve the display mapping object for the property with label '%s': %w", property.Label, err) // nolint:lll
 		}
+
+		resolvedProperties = append(resolvedProperties, &ResolvedProperty{
+			Label:  property.Label,
+			Schema: property.Schema,
+			Value:  value,
+		})
 	}
 
 	return resolvedProperties, nil
 }
 
-// TODO should resolve data by schema.
 func resolveDisplayMappingObject(displayMappingObject *DisplayMappingObject,
 	vc map[string]interface{}) (interface{}, error) {
 	if len(displayMappingObject.Paths) > 0 {
@@ -451,7 +454,7 @@ func validateOutputDescriptor(outputDescriptor *OutputDescriptor, outputDescript
 func validateDisplayMappingObject(displayMappingObject *DisplayMappingObject) error {
 	if len(displayMappingObject.Paths) > 0 {
 		for i, path := range displayMappingObject.Paths {
-			_, err := jsonpath.New(path) // Just using this to Validate the JSONPath.
+			_, err := jsonpath.New(path) // Just using this to ValidateOutputDescriptors the JSONPath.
 			if err != nil {
 				return fmt.Errorf(`path "%s" at index %d is not a valid JSONPath: %w`, path, i, err)
 			}
