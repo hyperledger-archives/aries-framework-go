@@ -175,22 +175,34 @@ func TestCredentialManifest_Unmarshal(t *testing.T) {
 }
 
 func TestResolveFulfillment(t *testing.T) {
+	type match struct {
+		Title       string
+		Subtitle    string
+		Description string
+		Properties  map[string]*cm.ResolvedProperty
+	}
+
+	// nolint:lll
 	t.Run("Successes", func(t *testing.T) {
 		testTable := map[string]struct {
 			manifest    []byte
 			fulfillment []byte
-			expected    map[string]*cm.ResolvedDescriptor
+			expected    map[string]*match
 		}{
 			"single descriptor and credential": {
 				manifest:    credentialManifestDriversLicense,
 				fulfillment: vpWithDriversLicenseVCAndCredentialFulfillment,
-				expected: map[string]*cm.ResolvedDescriptor{
+				expected: map[string]*match{
 					"driver_license_output": {
-						Resolved: &cm.ResolvedDataDisplayDescriptor{
-							Title:    "Washington State Driver License",
-							Subtitle: "Class A, Commercial",
-							Properties: map[string]interface{}{
-								"Driving License Number": "34DGE352",
+						Title:    "Washington State Driver License",
+						Subtitle: "Class A, Commercial",
+						Properties: map[string]*cm.ResolvedProperty{
+							"Driving License Number": {
+								Label: "Driving License Number",
+								Value: "34DGE352",
+								Schema: cm.Schema{
+									Type: "boolean",
+								},
 							},
 						},
 					},
@@ -199,24 +211,20 @@ func TestResolveFulfillment(t *testing.T) {
 			"multiple descriptor and credentials": {
 				manifest:    credentialManifestMultipleVCs,
 				fulfillment: vpMultipleWithCredentialFulfillment,
-				expected: map[string]*cm.ResolvedDescriptor{
+				expected: map[string]*match{
 					"prc_output": {
-						Resolved: &cm.ResolvedDataDisplayDescriptor{
-							Title:    "Permanent Resident Card",
-							Subtitle: "Permanent Resident Card",
-							Properties: map[string]interface{}{
-								"Card Holder's family name": "SMITH",
-								"Card Holder's first name":  "JOHN",
-							},
+						Title:    "Permanent Resident Card",
+						Subtitle: "Permanent Resident Card",
+						Properties: map[string]*cm.ResolvedProperty{
+							"Card Holder's family name": {Label: "Card Holder's family name", Value: "SMITH", Schema: cm.Schema{Type: "string"}},
+							"Card Holder's first name":  {Label: "Card Holder's first name", Value: "JOHN", Schema: cm.Schema{Type: "string"}},
 						},
 					},
 					"udc_output": {
-						Resolved: &cm.ResolvedDataDisplayDescriptor{
-							Title: "Bachelor's Degree",
-							Properties: map[string]interface{}{
-								"Degree":               "BachelorDegree",
-								"Degree Holder's name": "Jayden Doe",
-							},
+						Title: "Bachelor's Degree",
+						Properties: map[string]*cm.ResolvedProperty{
+							"Degree":               {Label: "Degree", Value: "BachelorDegree", Schema: cm.Schema{Type: "string"}},
+							"Degree Holder's name": {Label: "Degree Holder's name", Value: "Jayden Doe", Schema: cm.Schema{Type: "string"}},
 						},
 					},
 				},
@@ -224,14 +232,12 @@ func TestResolveFulfillment(t *testing.T) {
 			"single descriptor and credentials for multi descriptor manifest": {
 				manifest:    credentialManifestMultipleVCs,
 				fulfillment: vpWithDriversLicenseVCAndCredentialFulfillment,
-				expected: map[string]*cm.ResolvedDescriptor{
+				expected: map[string]*match{
 					"driver_license_output": {
-						Resolved: &cm.ResolvedDataDisplayDescriptor{
-							Title:    "Washington State Driver License",
-							Subtitle: "Class A, Commercial",
-							Properties: map[string]interface{}{
-								"Driving License Number": "34DGE352",
-							},
+						Title:    "Washington State Driver License",
+						Subtitle: "Class A, Commercial",
+						Properties: map[string]*cm.ResolvedProperty{
+							"Driving License Number": {Label: "Driving License Number", Value: "34DGE352", Schema: cm.Schema{Type: "boolean"}},
 						},
 					},
 				},
@@ -251,18 +257,18 @@ func TestResolveFulfillment(t *testing.T) {
 				require.Len(t, results, len(testData.expected))
 
 				for _, r := range results {
-					require.NotNil(t, r.Resolved)
+					require.NotEmpty(t, r.DescriptorID)
 					expected, ok := testData.expected[r.DescriptorID]
 					require.True(t, ok, "unexpected descriptor ID '%s' in resolved properties", r.DescriptorID)
-					require.Equal(t, expected.Resolved.Title, r.Resolved.Title)
-					require.Equal(t, expected.Resolved.Subtitle, r.Resolved.Subtitle)
-					require.Equal(t, expected.Resolved.Description, r.Resolved.Description)
-					require.Len(t, r.Resolved.Properties, len(expected.Resolved.Properties))
+					require.Equal(t, expected.Title, r.Title)
+					require.Equal(t, expected.Subtitle, r.Subtitle)
+					require.Equal(t, expected.Description, r.Description)
+					require.Len(t, r.Properties, len(expected.Properties))
 
-					for label, value := range r.Resolved.Properties {
-						expectedVal, ok := expected.Resolved.Properties[label]
-						require.True(t, ok, "expected to find '%s' label in resolved properties", label)
-						require.Equal(t, expectedVal, value)
+					for _, resolvedProperty := range r.Properties {
+						expectedVal, ok := expected.Properties[resolvedProperty.Label]
+						require.True(t, ok, "expected to find '%s' label in resolved properties", resolvedProperty.Label)
+						require.EqualValues(t, expectedVal, resolvedProperty)
 					}
 				}
 			})
@@ -486,10 +492,29 @@ func TestResolveCredential(t *testing.T) {
 		require.NotEmpty(t, result)
 		require.Equal(t, result.Title, "Bachelor of Applied Science")
 		require.Equal(t, result.Subtitle, "Electrical Systems Specialty")
-		require.EqualValues(t, result.Properties, map[string]interface{}{
-			"With distinction": true,
-			"Years studied":    float64(4),
-		})
+
+		expected := map[string]*cm.ResolvedProperty{
+			"With distinction": {
+				Label: "With distinction",
+				Value: true,
+				Schema: cm.Schema{
+					Type: "boolean",
+				},
+			},
+			"Years studied": {
+				Label: "Years studied",
+				Value: float64(4),
+				Schema: cm.Schema{
+					Type: "number",
+				},
+			},
+		}
+
+		for _, property := range result.Properties {
+			expectedVal, ok := expected[property.Label]
+			require.True(t, ok, "unexpected label '%s' in resolved properties", property.Label)
+			require.EqualValues(t, expectedVal, property)
+		}
 	})
 
 	t.Run("Failures", func(t *testing.T) {
