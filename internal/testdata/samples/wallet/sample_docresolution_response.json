@@ -1,0 +1,37 @@
+{
+  "@context": [
+    "https://w3id.org/wallet/v1",
+    "https://w3id.org/did-resolution/v1"
+  ],
+  "id": "did:example:123",
+  "type": ["DIDResolutionResponse"],
+  "name": "Farming Sensor DID Document",
+  "image": "https://via.placeholder.com/150",
+  "description": "An IoT device in the middle of a corn field.",
+  "tags": ["professional"],
+  "correlation": ["4058a72a-9523-11ea-bb37-0242ac130002"],
+  "created": "2017-06-18T21:19:10Z",
+  "expires": "2026-06-18T21:19:10Z",
+  "didDocument": {
+    "@context": ["https://w3id.org/did/v1"],
+    "id": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
+    "verificationMethod": [{
+      "controller": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
+      "id": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
+      "publicKeyBase58": "8jkuMBqmu1TRA6is7TT5tKBksTZamrLhaXrg9NAczqeh",
+      "type": "Ed25519VerificationKey2018"
+    }],
+    "authentication": ["did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"],
+    "assertionMethod": ["did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"],
+    "capabilityDelegation": ["did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"],
+    "capabilityInvocation": ["did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"],
+    "keyAgreement": [{
+      "controller": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
+      "id": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6LSmjNfS5FC9W59JtPZq7fHgrjThxsidjEhZeMxCarbR998",
+      "publicKeyBase58": "B4CVumSL43MQDW1oJU9LNGWyrpLbw84YgfeGi8D4hmNN",
+      "type": "X25519KeyAgreementKey2019"
+    }],
+    "created": "2021-03-23T19:25:18.513655-04:00",
+    "updated": "2021-03-23T19:25:18.513655-04:00"
+  }
+}

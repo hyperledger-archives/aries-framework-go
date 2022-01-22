@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/component/storage/edv"
+	"github.com/hyperledger/aries-framework-go/internal/testdata"
 	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
@@ -64,125 +65,18 @@ import (
 
 // nolint: lll
 const (
-	sampleUserID       = "sample-user01"
-	sampleFakeTkn      = "fake-auth-tkn"
-	toBeImplementedErr = "to be implemented"
-	sampleWalletErr    = "sample wallet err"
-	sampleCreatedDate  = "2020-12-25"
-	sampleChallenge    = "sample-challenge"
-	sampleDomain       = "sample-domain"
-	sampleUDCVC        = `{
-      "@context": [
-        "https://www.w3.org/2018/credentials/v1",
-        "https://www.w3.org/2018/credentials/examples/v1",
-		"https://w3id.org/security/bbs/v1"
-      ],
-     "credentialSchema": [],
-      "credentialSubject": {
-        "degree": {
-          "type": "BachelorDegree",
-          "university": "MIT"
-        },
-        "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-        "name": "Jayden Doe",
-        "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
-      },
-      "expirationDate": "2020-01-01T19:23:24Z",
-      "id": "http://example.edu/credentials/1872",
-      "issuanceDate": "2010-01-01T19:23:24Z",
-      "issuer": {
-        "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
-        "name": "Example University"
-      },
-      "referenceNumber": 83294847,
-      "type": [
-        "VerifiableCredential",
-        "UniversityDegreeCredential"
-      ]
-    }`
-	sampleInvalidDIDID = "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHdI"
-	sampleInvalidDID   = `{
-    	"@context": ["https://w3id.org/did/v1"],
-    	"id": "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHdI",
-    	"verificationMethod": [{
-        	"controller": "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
-        	"id": "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
-        	"publicKeyBase58": "5yKdnU7ToTjAoRNDzfuzVTfWBH38qyhE1b9xh4v8JaWF",
-        	"type": "Ed25519VerificationKey2018"
-    	}],
-    	"capabilityDelegation": ["did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd"],
-    	"capabilityInvocation": ["did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd"],
-    	"keyAgreement": [{
-        	"controller": "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
-        	"id": "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6LShKMZ117txS1WuExddVM2rbJ2zy3AKFtZVY5WNi44aKzA",
-        	"publicKeyBase58": "6eBPUhK2ryHmoras6qq5Y15Z9pW3ceiQcZMptFQXrxDQ",
-        	"type": "X25519KeyAgreementKey2019"
-    	}],
-    	"created": "2021-03-23T16:23:39.682869-04:00",
-    	"updated": "2021-03-23T16:23:39.682869-04:00"
-		}`
+	sampleUserID            = "sample-user01"
+	sampleFakeTkn           = "fake-auth-tkn"
+	toBeImplementedErr      = "to be implemented"
+	sampleWalletErr         = "sample wallet err"
+	sampleCreatedDate       = "2020-12-25"
+	sampleChallenge         = "sample-challenge"
+	sampleDomain            = "sample-domain"
+	sampleInvalidDIDID      = "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHdI"
 	sampleInvalidDIDContent = `{
     	"@context": ["https://w3id.org/did/v1"],
     	"id": "did:example:sampleInvalidDIDContent"
 		}`
-	sampleDocResolutionResponse = `{
-  		"@context": [
-    		"https://w3id.org/wallet/v1",
-	    	"https://w3id.org/did-resolution/v1"
-  		],
-  		"id": "did:example:123",
-  		"type": ["DIDResolutionResponse"],
-  		"name": "Farming Sensor DID Document",
-  		"image": "https://via.placeholder.com/150",
-  		"description": "An IoT device in the middle of a corn field.",
-  		"tags": ["professional"],
-  		"correlation": ["4058a72a-9523-11ea-bb37-0242ac130002"],
-  		"created": "2017-06-18T21:19:10Z",
-  		"expires": "2026-06-18T21:19:10Z",
-  		"didDocument": {
-    		"@context": ["https://w3id.org/did/v1"],
-    		"id": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
-    		"verificationMethod": [{
-        		"controller": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
-        		"id": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
-        		"publicKeyBase58": "8jkuMBqmu1TRA6is7TT5tKBksTZamrLhaXrg9NAczqeh",
-        		"type": "Ed25519VerificationKey2018"
-    		}],
-    		"authentication": ["did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"],
-    		"assertionMethod": ["did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"],
-    		"capabilityDelegation": ["did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"],
-    		"capabilityInvocation": ["did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"],
-    		"keyAgreement": [{
-        		"controller": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
-        		"id": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6LSmjNfS5FC9W59JtPZq7fHgrjThxsidjEhZeMxCarbR998",
-        		"publicKeyBase58": "B4CVumSL43MQDW1oJU9LNGWyrpLbw84YgfeGi8D4hmNN",
-        		"type": "X25519KeyAgreementKey2019"
-    		}],
-    		"created": "2021-03-23T19:25:18.513655-04:00",
-    		"updated": "2021-03-23T19:25:18.513655-04:00"
-		} 
-	}`
-
-	sampleFrame = `
-		{
-			"@context": [
-    			"https://www.w3.org/2018/credentials/v1",
-        		"https://www.w3.org/2018/credentials/examples/v1",
-				"https://w3id.org/security/bbs/v1"
-			],
-  			"type": ["VerifiableCredential", "UniversityDegreeCredential"],
-  			"@explicit": true,
-  			"identifier": {},
-  			"issuer": {},
-  			"issuanceDate": {},
-  			"credentialSubject": {
-    			"@explicit": true,
-    			"degree": {},
-    			"name": {}
-  			}
-		}
-	`
-
 	sampleVerificationMethod = "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
 	didKey                   = "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
 	pkBase58                 = "2MP5gWCnf67jvW3E4Lz8PpVrDWAXMYY1sDxjnkEnKhkkbKD7yP2mkVeyVpu5nAtr3TeDgMNjBPirk2XcQacs3dvZ"
@@ -1249,7 +1143,7 @@ func TestWallet_Issue(t *testing.T) {
 	customVDR := &mockvdr.MockVDRegistry{
 		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 			if didID == sampleInvalidDIDID {
-				d, e := did.ParseDocument([]byte(sampleInvalidDID))
+				d, e := did.ParseDocument(testdata.SampleInvalidDID)
 				require.NoError(t, e)
 
 				return &did.DocResolution{DIDDocument: d}, nil
@@ -1295,7 +1189,7 @@ func TestWallet_Issue(t *testing.T) {
 		kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
 
 		// sign with just controller
-		result, err := walletInstance.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
+		result, err := walletInstance.Issue(authToken, testdata.SampleUDCVC, &ProofOptions{
 			Controller: didKey,
 		})
 		require.NoError(t, err)
@@ -1323,7 +1217,7 @@ func TestWallet_Issue(t *testing.T) {
 		kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
 
 		// sign with just controller
-		result, err := walletInstance.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
+		result, err := walletInstance.Issue(authToken, testdata.SampleUDCVC, &ProofOptions{
 			Controller: didKey,
 			ProofType:  JSONWebSignature2020,
 		})
@@ -1352,7 +1246,7 @@ func TestWallet_Issue(t *testing.T) {
 		kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
 
 		// issue
-		result, err := walletInstance.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
+		result, err := walletInstance.Issue(authToken, testdata.SampleUDCVC, &ProofOptions{
 			Controller:         didKey,
 			VerificationMethod: sampleVerificationMethod,
 		})
@@ -1386,7 +1280,7 @@ func TestWallet_Issue(t *testing.T) {
 		created, err := time.Parse("2006-01-02", sampleCreatedDate)
 		require.NoError(t, err)
 
-		result, err := walletInstance.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
+		result, err := walletInstance.Issue(authToken, testdata.SampleUDCVC, &ProofOptions{
 			Controller:          didKey,
 			VerificationMethod:  vm,
 			ProofType:           JSONWebSignature2020,
@@ -1430,7 +1324,7 @@ func TestWallet_Issue(t *testing.T) {
 
 		// sign with just controller
 		proofRepr := verifiable.SignatureProofValue
-		result, err := walletInstance.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
+		result, err := walletInstance.Issue(authToken, testdata.SampleUDCVC, &ProofOptions{
 			Controller:          didKeyBBS,
 			ProofType:           BbsBlsSignature2020,
 			ProofRepresentation: &proofRepr,
@@ -1467,11 +1361,11 @@ func TestWallet_Issue(t *testing.T) {
 		kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
 
 		// save DID Resolution response
-		err = walletInstance.Add(authToken, DIDResolutionResponse, []byte(sampleDocResolutionResponse))
+		err = walletInstance.Add(authToken, DIDResolutionResponse, testdata.SampleDocResolutionResponse)
 		require.NoError(t, err)
 
 		// sign with just controller
-		result, err := walletInstance.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
+		result, err := walletInstance.Issue(authToken, testdata.SampleUDCVC, &ProofOptions{
 			Controller: didKey,
 		})
 		require.NoError(t, err)
@@ -1503,13 +1397,13 @@ func TestWallet_Issue(t *testing.T) {
 		defer walletInstance.Close()
 
 		// no controller
-		result, err := walletInstance.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{})
+		result, err := walletInstance.Issue(authToken, testdata.SampleUDCVC, &ProofOptions{})
 		require.Empty(t, result)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid proof option, 'controller' is required")
 
 		// DID not found
-		result, err = walletInstance.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
+		result, err = walletInstance.Issue(authToken, testdata.SampleUDCVC, &ProofOptions{
 			Controller: "did:example:1234",
 		})
 		require.Empty(t, result)
@@ -1517,7 +1411,7 @@ func TestWallet_Issue(t *testing.T) {
 		require.Contains(t, err.Error(), "failed to prepare proof: did not found")
 
 		// no assertion method
-		result, err = walletInstance.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
+		result, err = walletInstance.Issue(authToken, testdata.SampleUDCVC, &ProofOptions{
 			Controller: sampleInvalidDIDID,
 		})
 		require.Empty(t, result)
@@ -1531,7 +1425,7 @@ func TestWallet_Issue(t *testing.T) {
 		require.NoError(t, err)
 
 		// wallet locked
-		result, err := walletInstance.Issue(sampleFakeTkn, []byte(sampleUDCVC), &ProofOptions{
+		result, err := walletInstance.Issue(sampleFakeTkn, testdata.SampleUDCVC, &ProofOptions{
 			Controller: didKey,
 		})
 		require.Empty(t, result)
@@ -1546,7 +1440,7 @@ func TestWallet_Issue(t *testing.T) {
 		defer walletInstance.Close()
 
 		// key not found
-		result, err = walletInstance.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
+		result, err = walletInstance.Issue(authToken, testdata.SampleUDCVC, &ProofOptions{
 			Controller: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
 		})
 		require.Empty(t, result)
@@ -1560,7 +1454,7 @@ func TestWallet_Issue(t *testing.T) {
 		kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
 
 		// invalid signature type
-		result, err = walletInstance.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
+		result, err = walletInstance.Issue(authToken, testdata.SampleUDCVC, &ProofOptions{
 			Controller: didKey,
 			ProofType:  "invalid",
 		})
@@ -1568,7 +1462,7 @@ func TestWallet_Issue(t *testing.T) {
 		require.Contains(t, err.Error(), " unsupported signature type 'invalid'")
 
 		// wrong key type
-		result, err = walletInstance.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
+		result, err = walletInstance.Issue(authToken, testdata.SampleUDCVC, &ProofOptions{
 			Controller: didKey,
 			ProofType:  BbsBlsSignature2020,
 		})
@@ -1582,7 +1476,7 @@ func TestWallet_Prove(t *testing.T) {
 	customVDR := &mockvdr.MockVDRegistry{
 		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 			if didID == sampleInvalidDIDID {
-				d, e := did.ParseDocument([]byte(sampleInvalidDID))
+				d, e := did.ParseDocument(testdata.SampleInvalidDID)
 				require.NoError(t, e)
 
 				return &did.DocResolution{DIDDocument: d}, nil
@@ -1633,7 +1527,7 @@ func TestWallet_Prove(t *testing.T) {
 	kmgr.ImportPrivateKey(privKeyBBS, kms.BLS12381G2Type, kms.WithKeyID(keyIDBBS))
 
 	// issue a credential with Ed25519Signature2018
-	result, err := walletForIssue.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
+	result, err := walletForIssue.Issue(authToken, testdata.SampleUDCVC, &ProofOptions{
 		Controller: didKey,
 	})
 	require.NoError(t, err)
@@ -1643,7 +1537,7 @@ func TestWallet_Prove(t *testing.T) {
 
 	// issue a credential with BbsBlsSignature2020
 	proofRepr := verifiable.SignatureProofValue
-	result, err = walletForIssue.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
+	result, err = walletForIssue.Issue(authToken, testdata.SampleUDCVC, &ProofOptions{
 		Controller:          didKeyBBS,
 		ProofType:           BbsBlsSignature2020,
 		ProofRepresentation: &proofRepr,
@@ -2066,7 +1960,7 @@ func Test_AddContext(t *testing.T) {
 	loader, err := ldtestutil.DocumentLoader()
 	require.NoError(t, err)
 
-	vc, err := verifiable.ParseCredential([]byte(sampleUDCVC), verifiable.WithJSONLDDocumentLoader(loader))
+	vc, err := verifiable.ParseCredential(testdata.SampleUDCVC, verifiable.WithJSONLDDocumentLoader(loader))
 	require.NoError(t, err)
 	require.NotEmpty(t, vc)
 
@@ -2082,7 +1976,7 @@ func TestWallet_Verify(t *testing.T) {
 	customVDR := &mockvdr.MockVDRegistry{
 		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 			if didID == sampleInvalidDIDID {
-				d, e := did.ParseDocument([]byte(sampleInvalidDID))
+				d, e := did.ParseDocument(testdata.SampleInvalidDID)
 				require.NoError(t, e)
 
 				return &did.DocResolution{DIDDocument: d}, nil
@@ -2127,7 +2021,7 @@ func TestWallet_Verify(t *testing.T) {
 	kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
 
 	// issue a credential
-	sampleVC, err := walletForIssue.Issue(tkn, []byte(sampleUDCVC), &ProofOptions{
+	sampleVC, err := walletForIssue.Issue(tkn, testdata.SampleUDCVC, &ProofOptions{
 		Controller: didKey,
 	})
 	require.NoError(t, err)
@@ -2317,7 +2211,7 @@ func TestWallet_Derive(t *testing.T) {
 	customVDR := &mockvdr.MockVDRegistry{
 		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 			if didID == sampleInvalidDIDID {
-				d, e := did.ParseDocument([]byte(sampleInvalidDID))
+				d, e := did.ParseDocument(testdata.SampleInvalidDID)
 				require.NoError(t, e)
 
 				return &did.DocResolution{DIDDocument: d}, nil
@@ -2372,7 +2266,7 @@ func TestWallet_Derive(t *testing.T) {
 	kmgr.ImportPrivateKey(privKeyBBS, kms.BLS12381G2Type, kms.WithKeyID(keyIDBBS))
 
 	// issue a credential with Ed25519Signature2018
-	result, err := walletForIssue.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
+	result, err := walletForIssue.Issue(authToken, testdata.SampleUDCVC, &ProofOptions{
 		Controller: didKey,
 	})
 	require.NoError(t, err)
@@ -2382,7 +2276,7 @@ func TestWallet_Derive(t *testing.T) {
 
 	// issue a credential with BbsBlsSignature2020
 	proofRepr := verifiable.SignatureProofValue
-	result, err = walletForIssue.Issue(authToken, []byte(sampleUDCVC), &ProofOptions{
+	result, err = walletForIssue.Issue(authToken, testdata.SampleUDCVC, &ProofOptions{
 		Controller:          didKeyBBS,
 		ProofType:           BbsBlsSignature2020,
 		ProofRepresentation: &proofRepr,
@@ -2397,7 +2291,7 @@ func TestWallet_Derive(t *testing.T) {
 	// prepare frame
 	var frameDoc map[string]interface{}
 
-	require.NoError(t, json.Unmarshal([]byte(sampleFrame), &frameDoc))
+	require.NoError(t, json.Unmarshal(testdata.SampleFrame, &frameDoc))
 
 	t.Run("Test derive a credential from wallet - success", func(t *testing.T) {
 		walletInstance, err := New(user, mockctx)
@@ -4111,6 +4005,125 @@ func TestWallet_RequestCredential(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "time out waiting for credential interaction to get completed")
 		require.Empty(t, response)
+	})
+}
+
+func TestWallet_ResolveCredentialManifest(t *testing.T) {
+	mockctx := newMockProvider(t)
+	user := uuid.New().String()
+
+	// create a wallet
+	err := CreateProfile(user, mockctx, WithPassphrase(samplePassPhrase))
+	require.NoError(t, err)
+
+	wallet, err := New(user, mockctx)
+	require.NoError(t, err)
+	require.NotEmpty(t, wallet)
+
+	// get token
+	token, err := wallet.Open(WithUnlockByPassphrase(samplePassPhrase), WithUnlockExpiry(500*time.Millisecond))
+	require.NoError(t, err)
+	require.NotEmpty(t, token)
+
+	fulfillmentVP, err := verifiable.ParsePresentation(testdata.CredentialFulfillmentWithMultipleVCs,
+		verifiable.WithPresDisabledProofCheck(),
+		verifiable.WithPresJSONLDDocumentLoader(mockctx.JSONLDDocumentLoader()))
+	require.NoError(t, err)
+
+	vc, err := verifiable.ParseCredential(testdata.SampleUDCVC,
+		verifiable.WithJSONLDDocumentLoader(mockctx.JSONLDDocumentLoader()))
+	require.NoError(t, err)
+
+	t.Run("Test Resolving credential manifests", func(t *testing.T) {
+		testTable := map[string]struct {
+			manifest    []byte
+			resolve     ResolveManifestOption
+			resultCount int
+			error       string
+		}{
+			"testing resolve by raw credential fulfillment": {
+				manifest:    testdata.CredentialManifestMultipleVCs,
+				resolve:     ResolveRawFulfillment(testdata.CredentialFulfillmentWithMultipleVCs),
+				resultCount: 2,
+			},
+			"testing resolve by credential fulfillment": {
+				manifest:    testdata.CredentialManifestMultipleVCs,
+				resolve:     ResolveFulfillment(fulfillmentVP),
+				resultCount: 2,
+			},
+			"testing resolve by raw credential": {
+				manifest:    testdata.CredentialManifestMultipleVCs,
+				resolve:     ResolveRawCredential("udc_output", testdata.SampleUDCVC),
+				resultCount: 1,
+			},
+			"testing resolve by credential": {
+				manifest:    testdata.CredentialManifestMultipleVCs,
+				resolve:     ResolveCredential("udc_output", vc),
+				resultCount: 1,
+			},
+			"testing failure - resolve by empty resolve option": {
+				manifest:    testdata.CredentialManifestMultipleVCs,
+				resolve:     ResolveCredential("udc_output", nil),
+				resultCount: 0,
+				error:       "invalid option",
+			},
+			"testing failure - resolve by invalid raw fulfillment": {
+				manifest:    testdata.CredentialManifestMultipleVCs,
+				resolve:     ResolveRawFulfillment([]byte("{}")),
+				resultCount: 0,
+				error:       "verifiable presentation is not valid",
+			},
+			"testing failure - resolve by invalid raw credential": {
+				manifest:    testdata.CredentialManifestMultipleVCs,
+				resolve:     ResolveRawCredential("", []byte("{}")),
+				resultCount: 0,
+				error:       "credential type of unknown structure",
+			},
+			"testing failure - invalid credential manifest": {
+				manifest:    []byte("{}"),
+				resolve:     ResolveFulfillment(fulfillmentVP),
+				resultCount: 0,
+				error:       "invalid credential manifest",
+			},
+			"testing failure  - resolve raw credential by invalid descriptor ID": {
+				manifest:    testdata.CredentialManifestMultipleVCs,
+				resolve:     ResolveRawCredential("invalid", testdata.SampleUDCVC),
+				resultCount: 0,
+				error:       "unable to find matching descriptor",
+			},
+			"testing failure  - resolve credential by invalid descriptor ID": {
+				manifest:    testdata.CredentialManifestMultipleVCs,
+				resolve:     ResolveCredential("invalid", vc),
+				resultCount: 0,
+				error:       "unable to find matching descriptor",
+			},
+		}
+
+		t.Parallel()
+
+		for testName, testData := range testTable {
+			t.Run(testName, func(t *testing.T) {
+				resolved, err := wallet.ResolveCredentialManifest(token, testData.manifest, testData.resolve)
+
+				if testData.error != "" {
+					require.Error(t, err)
+					require.Contains(t, err.Error(), testData.error)
+					require.Len(t, resolved, testData.resultCount)
+
+					return
+				}
+
+				require.NoError(t, err)
+				require.NotEmpty(t, resolved)
+				require.Len(t, resolved, testData.resultCount)
+
+				for _, result := range resolved {
+					require.NotEmpty(t, result.DescriptorID)
+					require.NotEmpty(t, result.Title)
+					require.NotEmpty(t, result.Properties)
+				}
+			})
+		}
 	})
 }
 

@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/internal/testdata"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
@@ -276,7 +277,7 @@ func TestQuery_PerformQuery(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, pdJSON)
 
-	udcVC := []byte(sampleUDCVC)
+	udcVC := testdata.SampleUDCVC
 	vcForQuery := []byte(fmt.Sprintf(sampleVCFmt, verifiable.ContextURI))
 	vcForDerive := []byte(sampleBBSVC)
 

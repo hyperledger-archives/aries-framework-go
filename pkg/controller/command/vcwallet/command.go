@@ -95,6 +95,9 @@ const (
 
 	// RequestCredentialErrorCode for errors while request credential from wallet for issue credential protocol.
 	RequestCredentialErrorCode
+
+	// ResolveCredentialManifestErrorCode for errors while resolving credential manifest from wallet.
+	ResolveCredentialManifestErrorCode
 )
 
 // All command operations.
@@ -102,26 +105,27 @@ const (
 	CommandName = "vcwallet"
 
 	// command methods.
-	CreateProfileMethod       = "CreateProfile"
-	UpdateProfileMethod       = "UpdateProfile"
-	ProfileExistsMethod       = "ProfileExists"
-	OpenMethod                = "Open"
-	CloseMethod               = "Close"
-	AddMethod                 = "Add"
-	RemoveMethod              = "Remove"
-	GetMethod                 = "Get"
-	GetAllMethod              = "GetAll"
-	QueryMethod               = "Query"
-	IssueMethod               = "Issue"
-	ProveMethod               = "Prove"
-	VerifyMethod              = "Verify"
-	DeriveMethod              = "Derive"
-	CreateKeyPairMethod       = "CreateKeyPair"
-	ConnectMethod             = "Connect"
-	ProposePresentationMethod = "ProposePresentation"
-	PresentProofMethod        = "PresentProof"
-	ProposeCredentialMethod   = "ProposeCredential"
-	RequestCredentialMethod   = "RequestCredential"
+	CreateProfileMethod             = "CreateProfile"
+	UpdateProfileMethod             = "UpdateProfile"
+	ProfileExistsMethod             = "ProfileExists"
+	OpenMethod                      = "Open"
+	CloseMethod                     = "Close"
+	AddMethod                       = "Add"
+	RemoveMethod                    = "Remove"
+	GetMethod                       = "Get"
+	GetAllMethod                    = "GetAll"
+	QueryMethod                     = "Query"
+	IssueMethod                     = "Issue"
+	ProveMethod                     = "Prove"
+	VerifyMethod                    = "Verify"
+	DeriveMethod                    = "Derive"
+	CreateKeyPairMethod             = "CreateKeyPair"
+	ConnectMethod                   = "Connect"
+	ProposePresentationMethod       = "ProposePresentation"
+	PresentProofMethod              = "PresentProof"
+	ProposeCredentialMethod         = "ProposeCredential"
+	RequestCredentialMethod         = "RequestCredential"
+	ResolveCredentialManifestMethod = "ResolveCredentialManifest"
 )
 
 // miscellaneous constants for the vc wallet command controller.
@@ -237,6 +241,7 @@ func (o *Command) GetHandlers() []command.Handler {
 		cmdutil.NewCommandHandler(CommandName, PresentProofMethod, o.PresentProof),
 		cmdutil.NewCommandHandler(CommandName, ProposeCredentialMethod, o.ProposeCredential),
 		cmdutil.NewCommandHandler(CommandName, RequestCredentialMethod, o.RequestCredential),
+		cmdutil.NewCommandHandler(CommandName, ResolveCredentialManifestMethod, o.ResolveCredentialManifest),
 	}
 }
 
@@ -934,6 +939,44 @@ func (o *Command) RequestCredential(rw io.Writer, req io.Reader) command.Error {
 	return nil
 }
 
+// ResolveCredentialManifest resolves given credential manifest by credential fulfillment or credential.
+// Supports: https://identity.foundation/credential-manifest/
+//
+// Writes list of resolved descriptors to writer or returns error if operation fails.
+//
+func (o *Command) ResolveCredentialManifest(rw io.Writer, req io.Reader) command.Error {
+	request := &ResolveCredentialManifestRequest{}
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, ResolveCredentialManifestMethod, err.Error())
+
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	vcWallet, err := wallet.New(request.UserID, o.ctx)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, ResolveCredentialManifestMethod, err.Error())
+
+		return command.NewExecuteError(ResolveCredentialManifestErrorCode, err)
+	}
+
+	resolved, err := vcWallet.ResolveCredentialManifest(request.Auth, request.Manifest,
+		prepareResolveManifestOption(request))
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, ResolveCredentialManifestMethod, err.Error())
+
+		return command.NewExecuteError(ResolveCredentialManifestErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, &ResolveCredentialManifestResponse{Resolved: resolved}, logger)
+
+	logutil.LogDebug(logger, CommandName, ResolveCredentialManifestMethod, logSuccess,
+		logutil.CreateKeyValueString(logUserIDKey, request.UserID))
+
+	return nil
+}
+
 // prepareProfileOptions prepares options for creating wallet profile.
 func prepareProfileOptions(rqst *CreateOrUpdateProfileRequest) []wallet.ProfileOptions {
 	var options []wallet.ProfileOptions
@@ -1092,4 +1135,16 @@ func prepareConcludeInteractionOpts(waitForDone bool, timeout time.Duration, pre
 	}
 
 	return append(options, wallet.FromRawPresentation(presentation))
+}
+
+func prepareResolveManifestOption(rqst *ResolveCredentialManifestRequest) wallet.ResolveManifestOption {
+	if len(rqst.Fulfillment) > emptyRawLength {
+		return wallet.ResolveRawFulfillment(rqst.Fulfillment)
+	}
+
+	if len(rqst.Credential) > emptyRawLength {
+		return wallet.ResolveRawCredential(rqst.DescriptorID, rqst.Credential)
+	}
+
+	return nil
 }

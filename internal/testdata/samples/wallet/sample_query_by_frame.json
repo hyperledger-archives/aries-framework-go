@@ -1,0 +1,27 @@
+{
+  "reason": "Please provide your Passport details.",
+  "frame": {
+    "@context": [
+      "https://www.w3.org/2018/credentials/v1",
+      "https://w3id.org/citizenship/v1",
+      "https://w3id.org/security/bbs/v1"
+    ],
+    "type": ["VerifiableCredential", "PermanentResidentCard"],
+    "@explicit": true,
+    "identifier": {},
+    "issuer": {},
+    "issuanceDate": {},
+    "credentialSubject": {
+      "@explicit": true,
+      "name": {},
+      "spouse": {}
+    }
+  },
+  "trustedIssuer": [
+    {
+      "issuer": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+      "required": true
+    }
+  ],
+  "required": true
+}

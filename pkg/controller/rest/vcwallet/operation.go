@@ -28,26 +28,27 @@ const (
 	OperationID = "/vcwallet"
 
 	// command Paths.
-	CreateProfilePath       = OperationID + "/create-profile"
-	UpdateProfilePath       = OperationID + "/update-profile"
-	ProfileExistsPath       = OperationID + "/profile/{id}"
-	OpenPath                = OperationID + "/open"
-	ClosePath               = OperationID + "/close"
-	AddPath                 = OperationID + "/add"
-	RemovePath              = OperationID + "/remove"
-	GetPath                 = OperationID + "/get"
-	GetAllPath              = OperationID + "/getall"
-	QueryPath               = OperationID + "/query"
-	IssuePath               = OperationID + "/issue"
-	ProvePath               = OperationID + "/prove"
-	VerifyPath              = OperationID + "/verify"
-	DerivePath              = OperationID + "/derive"
-	CreateKeyPairPath       = OperationID + "/create-key-pair"
-	ConnectPath             = OperationID + "/connect"
-	ProposePresentationPath = OperationID + "/propose-presentation"
-	PresentProofPath        = OperationID + "/present-proof"
-	ProposeCredentialPath   = OperationID + "/propose-credential"
-	RequestCredentialPath   = OperationID + "/request-credential"
+	CreateProfilePath             = OperationID + "/create-profile"
+	UpdateProfilePath             = OperationID + "/update-profile"
+	ProfileExistsPath             = OperationID + "/profile/{id}"
+	OpenPath                      = OperationID + "/open"
+	ClosePath                     = OperationID + "/close"
+	AddPath                       = OperationID + "/add"
+	RemovePath                    = OperationID + "/remove"
+	GetPath                       = OperationID + "/get"
+	GetAllPath                    = OperationID + "/getall"
+	QueryPath                     = OperationID + "/query"
+	IssuePath                     = OperationID + "/issue"
+	ProvePath                     = OperationID + "/prove"
+	VerifyPath                    = OperationID + "/verify"
+	DerivePath                    = OperationID + "/derive"
+	CreateKeyPairPath             = OperationID + "/create-key-pair"
+	ConnectPath                   = OperationID + "/connect"
+	ProposePresentationPath       = OperationID + "/propose-presentation"
+	PresentProofPath              = OperationID + "/present-proof"
+	ProposeCredentialPath         = OperationID + "/propose-credential"
+	RequestCredentialPath         = OperationID + "/request-credential"
+	ResolveCredentialManifestPath = OperationID + "/resolve-credential-manifest"
 )
 
 // provider contains dependencies for the verifiable credential wallet command controller
@@ -118,6 +119,7 @@ func (o *Operation) registerHandler() {
 		cmdutil.NewHTTPHandler(PresentProofPath, http.MethodPost, o.PresentProof),
 		cmdutil.NewHTTPHandler(ProposeCredentialPath, http.MethodPost, o.ProposeCredential),
 		cmdutil.NewHTTPHandler(RequestCredentialPath, http.MethodPost, o.RequestCredential),
+		cmdutil.NewHTTPHandler(ResolveCredentialManifestPath, http.MethodPost, o.ResolveCredentialManifest),
 	}
 }
 
@@ -416,6 +418,18 @@ func (o *Operation) ProposeCredential(rw http.ResponseWriter, req *http.Request)
 //        200: requestCredRes
 func (o *Operation) RequestCredential(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(o.command.RequestCredential, rw, req.Body)
+}
+
+// ResolveCredentialManifest swagger:route POST /vcwallet/resolve-credential-manifest vcwallet resolveCredManifest
+//
+// Resolves given credential manifest by credential fulfillment or credential.
+// Supports: https://identity.foundation/credential-manifest/
+//
+// Responses:
+//    default: genericError
+//        200: resolveCredManifest
+func (o *Operation) ResolveCredentialManifest(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(o.command.ResolveCredentialManifest, rw, req.Body)
 }
 
 // getIDFromRequest returns ID from request.

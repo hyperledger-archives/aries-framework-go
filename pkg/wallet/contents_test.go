@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/component/storage/edv"
+	"github.com/hyperledger/aries-framework-go/internal/testdata"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
@@ -307,7 +308,7 @@ func TestContentStores(t *testing.T) {
 		require.True(t, errors.Is(err, ErrInvalidAuthToken))
 
 		err = contentStore.Save(sampleFakeTkn,
-			Credential, []byte(sampleUDCVC), AddByCollection("test"))
+			Credential, testdata.SampleUDCVC, AddByCollection("test"))
 		require.True(t, errors.Is(err, ErrInvalidAuthToken))
 	})
 
@@ -715,7 +716,7 @@ func TestContentDIDResolver(t *testing.T) {
 		require.NoError(t, contentStore.Open(token, &unlockOpts{}))
 
 		// save custom DID
-		err := contentStore.Save(token, DIDResolutionResponse, []byte(sampleDocResolutionResponse))
+		err := contentStore.Save(token, DIDResolutionResponse, testdata.SampleDocResolutionResponse)
 		require.NoError(t, err)
 
 		contentVDR := newContentBasedVDR(token, &vdr.MockVDRegistry{}, contentStore)

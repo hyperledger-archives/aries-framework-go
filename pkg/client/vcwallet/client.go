@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/cm"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -465,4 +466,25 @@ func (c *Client) RequestCredential(thID string, options ...wallet.ConcludeIntera
 	}
 
 	return c.wallet.RequestCredential(auth, thID, options...)
+}
+
+// ResolveCredentialManifest resolves given credential manifest by credential fulfillment or credential.
+// Supports: https://identity.foundation/credential-manifest/
+//
+// Args:
+// 		- authToken: authorization for performing operation.
+// 		- manifest: Credential manifest data model in raw format.
+// 		- resolve: options to provide credential fulfillment or credential to resolve.
+//
+// Returns:
+// 		- list of resolved descriptors.
+// 		- error if operation fails.
+//
+func (c *Client) ResolveCredentialManifest(manifest json.RawMessage, resolve wallet.ResolveManifestOption) ([]*cm.ResolvedDescriptor, error) { // nolint: lll
+	auth, err := c.auth()
+	if err != nil {
+		return nil, err
+	}
+
+	return c.wallet.ResolveCredentialManifest(auth, manifest, resolve)
 }
