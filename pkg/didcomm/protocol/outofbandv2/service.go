@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
@@ -72,6 +73,7 @@ type Service struct {
 	keyAgreementType       kms.KeyType
 	msgTypeServicesTargets map[string]string
 	allServices            []dispatcher.ProtocolService
+	routeSvc               mediator.ProtocolService
 	initialized            bool
 }
 
@@ -108,7 +110,7 @@ func New(p Provider) (*Service, error) {
 }
 
 // Initialize initializes the Service. If Initialize succeeds, any further call is a no-op.
-func (s *Service) Initialize(prov interface{}) error {
+func (s *Service) Initialize(prov interface{}) error { // nolint:funlen
 	if s.initialized {
 		return nil
 	}
@@ -140,6 +142,16 @@ func (s *Service) Initialize(prov interface{}) error {
 		return fmt.Errorf("failed to initialize connection recorder: %w", err)
 	}
 
+	routeSvcBase, err := p.Service(mediator.Coordination)
+	if err != nil {
+		return err
+	}
+
+	routeSvc, ok := routeSvcBase.(mediator.ProtocolService)
+	if !ok {
+		return errors.New("cast service to Route Service failed")
+	}
+
 	s.callbackChannel = make(chan *callback, callbackChannelSize)
 	s.transientStore = store
 	s.vdrRegistry = p.VDRegistry()
@@ -153,6 +165,7 @@ func (s *Service) Initialize(prov interface{}) error {
 	s.keyAgreementType = p.KeyAgreementType()
 	s.allServices = p.AllServices()
 	s.listenerFunc = listener(s.callbackChannel, s.handleCallback)
+	s.routeSvc = routeSvc
 
 	go s.listenerFunc()
 
@@ -192,9 +205,29 @@ func (s *Service) HandleOutbound(_ service.DIDCommMsg, _, _ string) (string, err
 	return "", errors.New("oob/2.0 not implemented")
 }
 
+type acceptOpts struct {
+	routerConnections []string
+}
+
+// AcceptOption boilerplate adds configured parameter to Service.AcceptInvitation.
+type AcceptOption func(opts *acceptOpts)
+
+// WithRouterConnections option sets router connections for the connection created with this Invitation acceptance.
+func WithRouterConnections(routerConnections []string) AcceptOption {
+	return func(opts *acceptOpts) {
+		opts.routerConnections = routerConnections
+	}
+}
+
 // AcceptInvitation from another agent.
 //nolint:funlen,gocyclo
-func (s *Service) AcceptInvitation(i *Invitation) (string, error) {
+func (s *Service) AcceptInvitation(i *Invitation, opts ...AcceptOption) (string, error) {
+	options := &acceptOpts{}
+
+	for _, opt := range opts {
+		opt(options)
+	}
+
 	msg := service.NewDIDCommMsgMap(i)
 
 	err := validateInvitationAcceptance(msg, s.myMediaTypeProfiles)
@@ -215,15 +248,42 @@ func (s *Service) AcceptInvitation(i *Invitation) (string, error) {
 		return "", fmt.Errorf("oob/2.0 failed to accept invitation : %w", err)
 	}
 
-	newDID := &did.Doc{Service: []did.Service{{Type: vdrapi.DIDCommV2ServiceType}}}
+	newDID := &did.Doc{}
 
 	err = s.createNewKeyAndVM(newDID)
 	if err != nil {
 		return "", fmt.Errorf("oob/2.0 AcceptInvitation: creating new keys and VMS for DID document failed: %w", err)
 	}
 
-	// set KeyAgreement.ID as RecipientKeys as part of DIDComm V2 service
-	newDID.Service[0].RecipientKeys = []string{newDID.KeyAgreement[0].VerificationMethod.ID}
+	recKey := newDID.KeyAgreement[0].VerificationMethod.ID
+
+	services := []did.Service{}
+
+	for _, connID := range options.routerConnections {
+		// get the route configs (pass empty service endpoint, as default service endpoint added in VDR)
+		serviceEndpoint, routingKeys, e := mediator.GetRouterConfig(s.routeSvc, connID, "")
+		if e != nil {
+			return "", fmt.Errorf("did doc - fetch router config: %w", e)
+		}
+
+		services = append(services, did.Service{
+			ServiceEndpoint: serviceEndpoint,
+			RecipientKeys:   []string{recKey},
+			RoutingKeys:     routingKeys,
+			Type:            vdrapi.DIDCommV2ServiceType,
+		})
+	}
+
+	if len(services) == 0 {
+		services = []did.Service{
+			{
+				RecipientKeys: []string{recKey},
+				Type:          vdrapi.DIDCommV2ServiceType,
+			},
+		}
+	}
+
+	newDID.Service = services
 
 	if i.Body != nil && i.Body.GoalCode != "" {
 		serviceURL := s.msgTypeServicesTargets[i.Body.GoalCode]
@@ -254,6 +314,13 @@ func (s *Service) AcceptInvitation(i *Invitation) (string, error) {
 	myDID, err := s.vdrRegistry.Create(peer.DIDMethod, newDID)
 	if err != nil {
 		return "", fmt.Errorf("oob/2.0 creating new DID via VDR failed: %w", err)
+	}
+
+	if len(options.routerConnections) != 0 {
+		err = s.addRouterKeys(myDID.DIDDocument, options.routerConnections)
+		if err != nil {
+			return "", err
+		}
 	}
 
 	destination, err := service.CreateDestination(senderDoc.DIDDocument)
@@ -290,6 +357,26 @@ func (s *Service) AcceptInvitation(i *Invitation) (string, error) {
 	}
 
 	return connRecord.ConnectionID, nil
+}
+
+// TODO refactor: mostly copied from didexchange svc.
+func (s *Service) addRouterKeys(doc *did.Doc, routerConnections []string) error {
+	// use KeyAgreement.ID as recKey for DIDComm V2
+	for _, ka := range doc.KeyAgreement {
+		kaID := ka.VerificationMethod.ID
+		if strings.HasPrefix(kaID, "#") {
+			kaID = doc.ID + kaID
+		}
+
+		for _, connID := range routerConnections {
+			// TODO https://github.com/hyperledger/aries-framework-go/issues/1105 add multiple keys at once.
+			if err := mediator.AddKeyToRouter(s.routeSvc, connID, kaID); err != nil {
+				return fmt.Errorf("did doc - add key to the router: %w", err)
+			}
+		}
+	}
+
+	return nil
 }
 
 // SaveInvitation saves OOB v2 Invitation.

@@ -29,6 +29,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	didexchangeSvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	issuecredentialsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
+	outofbandv2svc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofbandv2"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/cm"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
@@ -729,7 +730,16 @@ func (c *Wallet) ProposePresentation(authToken string, invitation *GenericInvita
 			return nil, fmt.Errorf("failed to perform did connection : %w", err)
 		}
 	case service.V2:
-		connID, err = c.oobV2Client.AcceptInvitation(invitation.AsV2())
+		connOpts := &connectOpts{}
+
+		for _, opt := range opts.connectOpts {
+			opt(connOpts)
+		}
+
+		connID, err = c.oobV2Client.AcceptInvitation(
+			invitation.AsV2(),
+			outofbandv2svc.WithRouterConnections(connOpts.Connections),
+		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to accept OOB v2 invitation : %w", err)
 		}
@@ -854,7 +864,16 @@ func (c *Wallet) ProposeCredential(authToken string, invitation *GenericInvitati
 			return nil, fmt.Errorf("failed to perform did connection : %w", err)
 		}
 	case service.V2:
-		connID, err = c.oobV2Client.AcceptInvitation(invitation.AsV2())
+		connOpts := &connectOpts{}
+
+		for _, opt := range opts.connectOpts {
+			opt(connOpts)
+		}
+
+		connID, err = c.oobV2Client.AcceptInvitation(
+			invitation.AsV2(),
+			outofbandv2svc.WithRouterConnections(connOpts.Connections),
+		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to accept OOB v2 invitation : %w", err)
 		}

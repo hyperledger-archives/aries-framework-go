@@ -16,7 +16,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofbandv2"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
@@ -43,6 +42,7 @@ const (
 	newDID     = "did:test:new"
 	myDID      = "did:test:mine"
 	theirDID   = "did:test:theirs"
+	oobV2Type  = "https://didcomm.org/out-of-band/2.0/invitation"
 )
 
 func TestNew(t *testing.T) {
@@ -351,13 +351,8 @@ func TestHandleInboundAccept(t *testing.T) {
 	t.Run("skip: connection already exists between invitation DID and invitee DID", func(t *testing.T) {
 		h := createBlankDIDRotator(t)
 
-		err := h.connStore.SaveOOBv2Invitation(myDID, outofbandv2.Invitation{
-			ID:       "oobv2-invitation-123",
-			Type:     outofbandv2.InvitationMsgType,
-			Label:    "from me",
-			From:     myDID,
-			Body:     nil,
-			Requests: nil,
+		err := h.connStore.SaveOOBv2Invitation(myDID, invitationStub{
+			Type: oobV2Type,
 		})
 		require.NoError(t, err)
 
@@ -388,13 +383,8 @@ func TestHandleInboundAccept(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = h.connStore.SaveOOBv2Invitation(myDID, outofbandv2.Invitation{
-			ID:       "oobv2-invitation-123",
-			Type:     outofbandv2.InvitationMsgType,
-			Label:    "from me",
-			From:     myDID,
-			Body:     nil,
-			Requests: nil,
+		err = h.connStore.SaveOOBv2Invitation(myDID, invitationStub{
+			Type: oobV2Type,
 		})
 		require.NoError(t, err)
 
@@ -417,13 +407,8 @@ func TestHandleInboundAccept(t *testing.T) {
 	t.Run("fail: error creating connection record for new connection", func(t *testing.T) {
 		h := createBlankDIDRotator(t)
 
-		err := h.connStore.SaveOOBv2Invitation(myDID, outofbandv2.Invitation{
-			ID:       "oobv2-invitation-123",
-			Type:     outofbandv2.InvitationMsgType,
-			Label:    "from me",
-			From:     myDID,
-			Body:     nil,
-			Requests: nil,
+		err := h.connStore.SaveOOBv2Invitation(myDID, invitationStub{
+			Type: oobV2Type,
 		})
 		require.NoError(t, err)
 

@@ -222,7 +222,7 @@ func (s *stubOOBService) SaveInvitation(i *oobv2.Invitation) error {
 	return s.saveInvErr
 }
 
-func (s *stubOOBService) AcceptInvitation(i *oobv2.Invitation) (string, error) {
+func (s *stubOOBService) AcceptInvitation(i *oobv2.Invitation, opts ...oobv2.AcceptOption) (string, error) {
 	if s.acceptInvFunc != nil {
 		return s.connID, s.acceptInvFunc(i)
 	}

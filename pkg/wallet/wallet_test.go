@@ -2738,7 +2738,7 @@ func TestWallet_ProposePresentation(t *testing.T) {
 		defer ctrl.Finish()
 
 		oobv2Svc := mockoutofbandv2.NewMockOobService(ctrl)
-		oobv2Svc.EXPECT().AcceptInvitation(gomock.Any()).Return(sampleConnID, nil).AnyTimes()
+		oobv2Svc.EXPECT().AcceptInvitation(gomock.Any(), gomock.Any()).Return(sampleConnID, nil).AnyTimes()
 
 		mockctx.ServiceMap[oobv2.Name] = oobv2Svc
 
@@ -3049,55 +3049,15 @@ func TestWallet_ProposePresentation(t *testing.T) {
 	})
 
 	t.Run("test propose presentation failure - oob v2 accept error", func(t *testing.T) {
-		sampleConnID := uuid.New().String()
-
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
 		expectErr := fmt.Errorf("expected error")
 
 		oobv2Svc := mockoutofbandv2.NewMockOobService(ctrl)
-		oobv2Svc.EXPECT().AcceptInvitation(gomock.Any()).Return("", expectErr).AnyTimes()
+		oobv2Svc.EXPECT().AcceptInvitation(gomock.Any(), gomock.Any()).Return("", expectErr).AnyTimes()
 
 		mockctx.ServiceMap[oobv2.Name] = oobv2Svc
-
-		thID := uuid.New().String()
-
-		ppSvc := &mockpresentproof.MockPresentProofSvc{
-			ActionsFunc: func() ([]presentproofSvc.Action, error) {
-				return []presentproofSvc.Action{
-					{
-						PIID: thID,
-						Msg: service.NewDIDCommMsgMap(&presentproofSvc.RequestPresentationV3{
-							Body: presentproofSvc.RequestPresentationV3Body{
-								Comment: "mock msg",
-							},
-						}),
-						MyDID:    myDID,
-						TheirDID: theirDID,
-					},
-				}, nil
-			},
-			HandleFunc: func(service.DIDCommMsg) (string, error) {
-				return thID, nil
-			},
-		}
-
-		mockctx.ServiceMap[presentproofSvc.Name] = ppSvc
-
-		connRec, err := connection.NewRecorder(mockctx)
-		require.NoError(t, err)
-
-		record := &connection.Record{
-			ConnectionID:   sampleConnID,
-			MyDID:          myDID,
-			TheirDID:       theirDID,
-			DIDCommVersion: service.V2,
-			State:          connection.StateNameCompleted,
-		}
-
-		err = connRec.SaveConnectionRecord(record)
-		require.NoError(t, err)
 
 		wallet, err := New(sampleDIDCommUser, mockctx)
 		require.NoError(t, err)
@@ -3510,6 +3470,41 @@ func TestWallet_ProposeCredential(t *testing.T) {
 		require.Contains(t, err.Error(), sampleWalletErr)
 		require.Contains(t, err.Error(), "failed to perform did connection")
 		require.Empty(t, msg)
+	})
+
+	t.Run("test propose credential failure - oobv2 accept error", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		expectErr := fmt.Errorf("expected error")
+
+		oobv2Svc := mockoutofbandv2.NewMockOobService(ctrl)
+		oobv2Svc.EXPECT().AcceptInvitation(gomock.Any(), gomock.Any()).Return("", expectErr).AnyTimes()
+
+		mockctx.ServiceMap[oobv2.Name] = oobv2Svc
+
+		wallet, err := New(sampleDIDCommUser, mockctx)
+		require.NoError(t, err)
+		require.NotEmpty(t, wallet)
+
+		token, err := wallet.Open(WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+		require.NotEmpty(t, token)
+
+		defer wallet.Close()
+
+		invitation := GenericInvitation{}
+		err = json.Unmarshal([]byte(`{
+			"id": "abc123",
+			"type": "https://didcomm.org/out-of-band/2.0/invitation"
+		}`), &invitation)
+		require.NoError(t, err)
+
+		_, err = wallet.ProposeCredential(token, &invitation,
+			WithConnectOptions(WithConnectTimeout(1*time.Millisecond)))
+		require.Error(t, err)
+		require.ErrorIs(t, err, expectErr)
+		require.Contains(t, err.Error(), "failed to accept OOB v2 invitation")
 	})
 
 	t.Run("test propose credential failure - no connection found", func(t *testing.T) {
