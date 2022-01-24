@@ -370,3 +370,23 @@ type requestCredentialResponse struct {
 //
 // swagger:response emptyRes
 type emptyRes struct{} // nolint: unused,deadcode
+
+// resolveCredentialManifestRequest is request model for resolving credential manifests from wallet.
+//
+// swagger:parameters resolveCredManifest
+type resolveCredentialManifestRequest struct { // nolint: unused,deadcode
+	// Params for resolving credential manifests from wallet.
+	//
+	// in: body
+	Params *vcwallet.ResolveCredentialManifestRequest
+}
+
+// resolveCredentialManifestResponse is response model for resolving credential manifests from wallet.
+//
+// swagger:response resolveCredManifest
+type resolveCredentialManifestResponse struct {
+	// Response containing resolve credential manifest descriptors.
+	//
+	// in: body
+	Response *vcwallet.ResolveCredentialManifestResponse `json:"response"`
+}

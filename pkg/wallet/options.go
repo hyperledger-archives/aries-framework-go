@@ -440,3 +440,45 @@ func WaitForDone(timeout time.Duration) ConcludeInteractionOptions {
 		}
 	}
 }
+
+// resolveManifestOpts contains option to resolve credential manifest.
+type resolveManifestOpts struct {
+	fulfillment    *verifiable.Presentation
+	rawFulfillment json.RawMessage
+	descriptorID   string
+	credential     *verifiable.Credential
+	rawCredential  json.RawMessage
+}
+
+// ResolveManifestOption is option to resolve credential manifests.
+type ResolveManifestOption func(opts *resolveManifestOpts)
+
+// ResolveFulfillment options for resolving credential fulfillment presentation.
+func ResolveFulfillment(fulfillment *verifiable.Presentation) ResolveManifestOption {
+	return func(opts *resolveManifestOpts) {
+		opts.fulfillment = fulfillment
+	}
+}
+
+// ResolveRawFulfillment options for resolving raw bytes of credential fulfillment presentation.
+func ResolveRawFulfillment(fulfillment json.RawMessage) ResolveManifestOption {
+	return func(opts *resolveManifestOpts) {
+		opts.rawFulfillment = fulfillment
+	}
+}
+
+// ResolveCredential options for resolving credential by given descriptor ID.
+func ResolveCredential(descriptorID string, credential *verifiable.Credential) ResolveManifestOption {
+	return func(opts *resolveManifestOpts) {
+		opts.descriptorID = descriptorID
+		opts.credential = credential
+	}
+}
+
+// ResolveRawCredential options for resolving raw bytes of credential by given descriptor ID.
+func ResolveRawCredential(descriptorID string, rawCredential json.RawMessage) ResolveManifestOption {
+	return func(opts *resolveManifestOpts) {
+		opts.descriptorID = descriptorID
+		opts.rawCredential = rawCredential
+	}
+}

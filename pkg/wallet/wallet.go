@@ -29,6 +29,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	didexchangeSvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	issuecredentialsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/cm"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
@@ -952,6 +953,63 @@ func (c *Wallet) RequestCredential(authToken, thID string, options ...ConcludeIn
 	}
 
 	return &CredentialInteractionStatus{Status: model.AckStatusPENDING}, nil
+}
+
+// ResolveCredentialManifest resolves given credential manifest by credential fulfillment or credential.
+// Supports: https://identity.foundation/credential-manifest/
+//
+// Args:
+// 		- authToken: authorization for performing operation.
+// 		- manifest: Credential manifest data model in raw format.
+// 		- resolve: options to provide credential fulfillment or credential to resolve.
+//
+// Returns:
+// 		- list of resolved descriptors.
+// 		- error if operation fails.
+//
+func (c *Wallet) ResolveCredentialManifest(authToken string, manifest json.RawMessage, resolve ResolveManifestOption) ([]*cm.ResolvedDescriptor, error) { //nolint: lll
+	credentialManifest := &cm.CredentialManifest{}
+
+	err := credentialManifest.UnmarshalJSON(manifest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read credential manifest: %w", err)
+	}
+
+	opts := &resolveManifestOpts{}
+
+	if resolve != nil {
+		resolve(opts)
+	}
+
+	switch {
+	case len(opts.rawFulfillment) > 0:
+		opts.fulfillment, err = verifiable.ParsePresentation(opts.rawFulfillment, verifiable.WithPresDisabledProofCheck(),
+			verifiable.WithPresJSONLDDocumentLoader(c.jsonldDocumentLoader))
+		if err != nil {
+			return nil, err
+		}
+
+		fallthrough
+	case opts.fulfillment != nil:
+		return credentialManifest.ResolveFulfillment(opts.fulfillment)
+	case len(opts.rawCredential) > 0:
+		opts.credential, err = verifiable.ParseCredential(opts.rawCredential, verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(c.jsonldDocumentLoader))
+		if err != nil {
+			return nil, err
+		}
+
+		fallthrough
+	case opts.credential != nil:
+		resolved, err := credentialManifest.ResolveCredential(opts.descriptorID, opts.credential)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve given credential by descriptor ID '%s' : %w", opts.descriptorID, err)
+		}
+
+		return []*cm.ResolvedDescriptor{resolved}, nil
+	default:
+		return nil, errors.New("failed to resolve credential manifest, invalid option")
+	}
 }
 
 //nolint: funlen,gocyclo

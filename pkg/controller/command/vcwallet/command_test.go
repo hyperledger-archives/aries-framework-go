@@ -20,6 +20,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/internal/testdata"
 	outofbandClient "github.com/hyperledger/aries-framework-go/pkg/client/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
@@ -50,7 +51,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
-// nolint: lll
 const (
 	sampleUserID           = "sample-user01"
 	samplePassPhrase       = "fakepassphrase"
@@ -63,195 +63,9 @@ const (
 	sampleFakeTkn          = "sample-fake-token-01"
 	sampleFakeCapability   = "sample-fake-capability-01"
 	sampleDIDKey           = "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
-	sampleUDCVC            = `{
-      "@context": [
-        "https://www.w3.org/2018/credentials/v1",
-        "https://www.w3.org/2018/credentials/examples/v1"
-      ],
-     "credentialSchema": [],
-      "credentialSubject": {
-        "degree": {
-          "type": "BachelorDegree",
-          "university": "MIT"
-        },
-        "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-        "name": "Jayden Doe",
-        "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
-      },
-      "expirationDate": "2020-01-01T19:23:24Z",
-      "id": "http://example.edu/credentials/1877",
-      "issuanceDate": "2010-01-01T19:23:24Z",
-      "issuer": {
-        "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
-        "name": "Example University"
-      },
-      "referenceNumber": 83294847,
-      "type": [
-        "VerifiableCredential",
-        "UniversityDegreeCredential"
-      ]
-    }`
-	sampleMetadata = `{
-        "@context": ["https://w3id.org/wallet/v1"],
-        "id": "urn:uuid:2905324a-9524-11ea-bb37-0242ac130002",
-        "type": "Metadata",
-        "name": "Ropsten Testnet HD Accounts",
-        "image": "https://via.placeholder.com/150",
-        "description": "My Ethereum TestNet Accounts",
-        "tags": ["professional", "organization"],
-        "correlation": ["urn:uuid:4058a72a-9523-11ea-bb37-0242ac130002"],
-        "hdPath": "m’/44’/60’/0’",
-        "target": ["urn:uuid:c410e44a-9525-11ea-bb37-0242ac130002"]
-    }`
-	sampleBBSVC = `{
-            "@context": ["https://www.w3.org/2018/credentials/v1", "https://www.w3.org/2018/credentials/examples/v1", "https://w3id.org/security/bbs/v1"],
-            "credentialSubject": {
-                "degree": {"type": "BachelorDegree", "university": "MIT"},
-                "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-                "name": "Jayden Doe",
-                "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
-            },
-            "expirationDate": "2020-01-01T19:23:24Z",
-            "id": "http://example.edu/credentials/1872",
-            "issuanceDate": "2010-01-01T19:23:24Z",
-            "issuer": {"id": "did:example:76e12ec712ebc6f1c221ebfeb1f", "name": "Example University"},
-            "proof": {
-                "created": "2021-03-29T13:27:36.483097-04:00",
-                "proofPurpose": "assertionMethod",
-                "proofValue": "rw7FeV6K1wimnYogF9qd-N0zmq5QlaIoszg64HciTca-mK_WU4E1jIusKTT6EnN2GZz04NVPBIw4yhc0kTwIZ07etMvfWUlHt_KMoy2CfTw8FBhrf66q4h7Qcqxh_Kxp6yCHyB4A-MmURlKKb8o-4w",
-                "type": "BbsBlsSignature2020",
-                "verificationMethod": "did:key:zUC72c7u4BYVmfYinDceXkNAwzPEyuEE23kUmJDjLy8495KH3pjLwFhae1Fww9qxxRdLnS2VNNwni6W3KbYZKsicDtiNNEp76fYWR6HCD8jAz6ihwmLRjcHH6kB294Xfg1SL1qQ#zUC72c7u4BYVmfYinDceXkNAwzPEyuEE23kUmJDjLy8495KH3pjLwFhae1Fww9qxxRdLnS2VNNwni6W3KbYZKsicDtiNNEp76fYWR6HCD8jAz6ihwmLRjcHH6kB294Xfg1SL1qQ"
-            },
-            "referenceNumber": 83294847,
-            "type": ["VerifiableCredential", "UniversityDegreeCredential"]
-        }`
-	sampleQueryByExample = `{
-                        "reason": "Please present your identity document.",
-                        "example": {
-                            "@context": [
-								"https://www.w3.org/2018/credentials/v1",
-								"https://www.w3.org/2018/credentials/examples/v1"
-                            ],
-                            "type": ["UniversityDegreeCredential"],
-							"trustedIssuer": [
-              					{
-                					"issuer": "urn:some:required:issuer"
-              					},
-								{
-                					"required": true,
-                					"issuer": "did:example:76e12ec712ebc6f1c221ebfeb1f"
-              					}
-							],
-							"credentialSubject": {
-								"id": "did:example:ebfeb1f712ebc6f1c276e12ec21"	
-							}
-                        }
-                	}`
-	sampleQueryByFrame = `{
-                    "reason": "Please provide your Passport details.",
-                    "frame": {
-                        "@context": [
-                            "https://www.w3.org/2018/credentials/v1",
-                            "https://w3id.org/citizenship/v1",
-                            "https://w3id.org/security/bbs/v1"
-                        ],
-                        "type": ["VerifiableCredential", "PermanentResidentCard"],
-                        "@explicit": true,
-                        "identifier": {},
-                        "issuer": {},
-                        "issuanceDate": {},
-                        "credentialSubject": {
-                            "@explicit": true,
-                            "name": {},
-                            "spouse": {}
-                        }
-                    },
-                    "trustedIssuer": [
-                        {
-                            "issuer": "did:example:76e12ec712ebc6f1c221ebfeb1f",
-                            "required": true
-                        }
-                    ],
-                    "required": true
-                }`
-	sampleFrame = `
-		{
-			"@context": [
-				"https://www.w3.org/2018/credentials/v1",
-				"https://www.w3.org/2018/credentials/examples/v1",
-				"https://w3id.org/security/bbs/v1"
-			],
-  			"type": ["VerifiableCredential", "UniversityDegreeCredential"],
-  			"@explicit": true,
-  			"identifier": {},
-  			"issuer": {},
-  			"issuanceDate": {},
-  			"credentialSubject": {
-    			"@explicit": true,
-    			"degree": {},
-    			"name": {}
-  			}
-		}
-	`
-	sampleKeyContentBase58 = `{
-  			"@context": ["https://w3id.org/wallet/v1"],
-  		  	"id": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
-  		  	"controller": "did:example:123456789abcdefghi",
-			"type": "Ed25519VerificationKey2018",
-			"privateKeyBase58":"2MP5gWCnf67jvW3E4Lz8PpVrDWAXMYY1sDxjnkEnKhkkbKD7yP2mkVeyVpu5nAtr3TeDgMNjBPirk2XcQacs3dvZ"
-  		}`
-	sampleDIDResolutionResponse = `{
-        "@context": [
-            "https://w3id.org/wallet/v1",
-            "https://w3id.org/did-resolution/v1"
-        ],
-        "id": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
-        "type": ["DIDResolutionResponse"],
-        "name": "Farming Sensor DID Document",
-        "image": "https://via.placeholder.com/150",
-        "description": "An IoT device in the middle of a corn field.",
-        "tags": ["professional"],
-        "correlation": ["4058a72a-9523-11ea-bb37-0242ac130002"],
-        "created": "2017-06-18T21:19:10Z",
-        "expires": "2026-06-18T21:19:10Z",
-        "didDocument": {
-            "@context": [
-                "https://w3id.org/did/v0.11"
-            ],
-            "id": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
-            "publicKey": [
-                {
-                    "id": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
-                    "type": "Ed25519VerificationKey2018",
-                    "controller": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
-                    "publicKeyBase58": "8jkuMBqmu1TRA6is7TT5tKBksTZamrLhaXrg9NAczqeh"
-                }
-            ],
-            "authentication": [
-                "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
-            ],
-            "assertionMethod": [
-                "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
-            ],
-            "capabilityDelegation": [
-                "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
-            ],
-            "capabilityInvocation": [
-                "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
-            ],
-            "keyAgreement": [
-                {
-                    "id": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6LSmjNfS5FC9W59JtPZq7fHgrjThxsidjEhZeMxCarbR998",
-                    "type": "X25519KeyAgreementKey2019",
-                    "controller": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
-                    "publicKeyBase58": "B4CVumSL43MQDW1oJU9LNGWyrpLbw84YgfeGi8D4hmNN"
-                }
-            ]
-        }
-    }`
-	webRedirectStatusKey = "status"
-	webRedirectURLKey    = "url"
-	exampleWebRedirect   = "http://example.com/sample"
+	webRedirectStatusKey   = "status"
+	webRedirectURLKey      = "url"
+	exampleWebRedirect     = "http://example.com/sample"
 )
 
 func TestNew(t *testing.T) {
@@ -259,7 +73,7 @@ func TestNew(t *testing.T) {
 		cmd := New(newMockProvider(t), &Config{})
 		require.NotNil(t, cmd)
 
-		require.Len(t, cmd.GetHandlers(), 20)
+		require.Len(t, cmd.GetHandlers(), 21)
 	})
 }
 
@@ -895,7 +709,7 @@ func TestCommand_AddRemoveGetGetAll(t *testing.T) {
 		var b bytes.Buffer
 
 		cmdErr := cmd.Add(&b, getReader(t, &AddContentRequest{
-			Content:     []byte(sampleUDCVC),
+			Content:     testdata.SampleUDCVC,
 			ContentType: "credential",
 			WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token1},
 		}))
@@ -908,7 +722,7 @@ func TestCommand_AddRemoveGetGetAll(t *testing.T) {
 		var b bytes.Buffer
 
 		cmdErr := cmd.Add(&b, getReader(t, &AddContentRequest{
-			Content:     []byte(sampleMetadata),
+			Content:     testdata.SampleWalletContentMetadata,
 			ContentType: "metadata",
 			WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token1},
 		}))
@@ -921,7 +735,7 @@ func TestCommand_AddRemoveGetGetAll(t *testing.T) {
 		var b bytes.Buffer
 
 		cmdErr := cmd.Get(&b, getReader(t, &GetContentRequest{
-			ContentID:   "http://example.edu/credentials/1877",
+			ContentID:   "http://example.edu/credentials/1872",
 			ContentType: "credential",
 			WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token1},
 		}))
@@ -941,7 +755,7 @@ func TestCommand_AddRemoveGetGetAll(t *testing.T) {
 		for i := 1; i < count; i++ {
 			var b bytes.Buffer
 			cmdErr := cmd.Add(&b, getReader(t, &AddContentRequest{
-				Content: []byte(strings.ReplaceAll(sampleUDCVC, `"http://example.edu/credentials/1877"`,
+				Content: []byte(strings.ReplaceAll(string(testdata.SampleUDCVC), `"http://example.edu/credentials/1872"`,
 					fmt.Sprintf(`"http://example.edu/credentials/1872%d"`, i))),
 				ContentType: "credential",
 				WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token1},
@@ -1001,7 +815,7 @@ func TestCommand_AddRemoveGetGetAll(t *testing.T) {
 
 			var vcb bytes.Buffer
 			cErr := cmd.Add(&vcb, getReader(t, &AddContentRequest{
-				Content: []byte(strings.ReplaceAll(sampleUDCVC, `"http://example.edu/credentials/1877"`,
+				Content: []byte(strings.ReplaceAll(string(testdata.SampleUDCVC), `"http://example.edu/credentials/1872"`,
 					fmt.Sprintf(`"http://example.edu/credentials/18722%d"`, i))),
 				ContentType:  "credential",
 				CollectionID: cid,
@@ -1061,7 +875,7 @@ func TestCommand_AddRemoveGetGetAll(t *testing.T) {
 		const expectedErr = "invalid auth token"
 
 		cmdErr := cmd.Add(&b, getReader(t, &AddContentRequest{
-			Content:     []byte(sampleUDCVC),
+			Content:     testdata.SampleUDCVC,
 			ContentType: "credential",
 			WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: sampleFakeTkn},
 		}))
@@ -1095,7 +909,7 @@ func TestCommand_AddRemoveGetGetAll(t *testing.T) {
 		var b bytes.Buffer
 
 		cmdErr := cmd.Add(&b, getReader(t, &AddContentRequest{
-			Content:     []byte(sampleUDCVC),
+			Content:     testdata.SampleUDCVC,
 			ContentType: "mango",
 			WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token1},
 		}))
@@ -1136,7 +950,7 @@ func TestCommand_AddRemoveGetGetAll(t *testing.T) {
 		const expectedErr = "profile does not exist"
 
 		cmdErr := cmd.Add(&b, getReader(t, &AddContentRequest{
-			Content:     []byte(sampleUDCVC),
+			Content:     testdata.SampleUDCVC,
 			ContentType: "credential",
 			WalletAuth:  WalletAuth{UserID: sampleUser3, Auth: sampleFakeTkn},
 		}))
@@ -1187,7 +1001,7 @@ func TestCommand_AddRemoveGetGetAll(t *testing.T) {
 }
 
 func TestCommand_Query(t *testing.T) {
-	const sampleUser1 = "sample-user-01"
+	const sampleUser1 = "sample-user-q01"
 
 	mockctx := newMockProvider(t)
 	mockctx.VDRegistryValue = getMockDIDKeyVDR()
@@ -1204,14 +1018,17 @@ func TestCommand_Query(t *testing.T) {
 
 	defer lock()
 
+	sampleNewUDCVc := strings.ReplaceAll(string(testdata.SampleUDCVC),
+		"http://example.edu/credentials/1872", "http://example.edu/credentials/18722")
+
 	addContent(t, mockctx, &AddContentRequest{
-		Content:     []byte(sampleUDCVC),
+		Content:     []byte(sampleNewUDCVc),
 		ContentType: "credential",
 		WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token},
 	})
 
 	addContent(t, mockctx, &AddContentRequest{
-		Content:     []byte(sampleBBSVC),
+		Content:     testdata.SampleUDCVCWithProofBBS,
 		ContentType: "credential",
 		WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token},
 	})
@@ -1225,11 +1042,11 @@ func TestCommand_Query(t *testing.T) {
 			Query: []*wallet.QueryParams{
 				{
 					Type:  "QueryByExample",
-					Query: []json.RawMessage{[]byte(sampleQueryByExample)},
+					Query: []json.RawMessage{testdata.SampleWalletQueryByExample},
 				},
 				{
 					Type:  "QueryByFrame",
-					Query: []json.RawMessage{[]byte(sampleQueryByFrame)},
+					Query: []json.RawMessage{testdata.SampleWalletQueryByFrame},
 				},
 			},
 			WalletAuth: WalletAuth{UserID: sampleUser1, Auth: token},
@@ -1251,7 +1068,7 @@ func TestCommand_Query(t *testing.T) {
 			Query: []*wallet.QueryParams{
 				{
 					Type:  "QueryByFrame",
-					Query: []json.RawMessage{[]byte(sampleQueryByFrame)},
+					Query: []json.RawMessage{testdata.SampleWalletQueryByFrame},
 				},
 			},
 			WalletAuth: WalletAuth{UserID: sampleUser1, Auth: sampleFakeTkn},
@@ -1268,7 +1085,7 @@ func TestCommand_Query(t *testing.T) {
 			Query: []*wallet.QueryParams{
 				{
 					Type:  "QueryByFrame",
-					Query: []json.RawMessage{[]byte(sampleQueryByFrame)},
+					Query: []json.RawMessage{testdata.SampleWalletQueryByFrame},
 				},
 			},
 			WalletAuth: WalletAuth{UserID: sampleUserID, Auth: sampleFakeTkn},
@@ -1285,7 +1102,7 @@ func TestCommand_Query(t *testing.T) {
 			Query: []*wallet.QueryParams{
 				{
 					Type:  "QueryByOrange",
-					Query: []json.RawMessage{[]byte(sampleQueryByFrame)},
+					Query: []json.RawMessage{testdata.SampleWalletQueryByFrame},
 				},
 			},
 			WalletAuth: WalletAuth{UserID: sampleUser1, Auth: token},
@@ -1327,12 +1144,12 @@ func TestCommand_IssueProveVerify(t *testing.T) {
 	defer lock()
 
 	addContent(t, mockctx, &AddContentRequest{
-		Content:     []byte(sampleKeyContentBase58),
+		Content:     testdata.SampleWalletContentKeyBase58,
 		ContentType: wallet.Key,
 		WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token},
 	})
 	addContent(t, mockctx, &AddContentRequest{
-		Content:     []byte(sampleDIDResolutionResponse),
+		Content:     testdata.SampleDocResolutionResponse,
 		ContentType: wallet.DIDResolutionResponse,
 		WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token},
 	})
@@ -1346,7 +1163,7 @@ func TestCommand_IssueProveVerify(t *testing.T) {
 
 		cmdErr := cmd.Issue(&b, getReader(t, &IssueRequest{
 			WalletAuth: WalletAuth{UserID: sampleUser1, Auth: token},
-			Credential: []byte(sampleUDCVC),
+			Credential: testdata.SampleUDCVC,
 			ProofOptions: &wallet.ProofOptions{
 				Controller: sampleDIDKey,
 			},
@@ -1375,7 +1192,7 @@ func TestCommand_IssueProveVerify(t *testing.T) {
 
 		cmdErr := cmd.Verify(&b, getReader(t, &VerifyRequest{
 			WalletAuth:         WalletAuth{UserID: sampleUser1, Auth: token},
-			StoredCredentialID: "http://example.edu/credentials/1877",
+			StoredCredentialID: "http://example.edu/credentials/1872",
 		}))
 		require.NoError(t, cmdErr)
 
@@ -1434,7 +1251,7 @@ func TestCommand_IssueProveVerify(t *testing.T) {
 		cmdErr := cmd.Prove(&b, getReader(t, &ProveRequest{
 			WalletAuth:        WalletAuth{UserID: sampleUser1, Auth: token},
 			RawCredentials:    []json.RawMessage{rawCredentialToVerify},
-			StoredCredentials: []string{"http://example.edu/credentials/1877"},
+			StoredCredentials: []string{"http://example.edu/credentials/1872"},
 			ProofOptions: &wallet.ProofOptions{
 				Controller: sampleDIDKey,
 			},
@@ -1453,7 +1270,7 @@ func TestCommand_IssueProveVerify(t *testing.T) {
 
 		cmdErr = cmd.Prove(&b, getReader(t, &ProveRequest{
 			WalletAuth:        WalletAuth{UserID: sampleUser1, Auth: token},
-			StoredCredentials: []string{"http://example.edu/credentials/1877"},
+			StoredCredentials: []string{"http://example.edu/credentials/1872"},
 			Presentation:      rawPresentation,
 			ProofOptions: &wallet.ProofOptions{
 				Controller: sampleDIDKey,
@@ -1510,7 +1327,7 @@ func TestCommand_IssueProveVerify(t *testing.T) {
 
 		cmdErr := cmd.Issue(&b, getReader(t, &IssueRequest{
 			WalletAuth: WalletAuth{UserID: sampleUser1, Auth: token},
-			Credential: []byte(sampleUDCVC),
+			Credential: testdata.SampleUDCVC,
 			ProofOptions: &wallet.ProofOptions{
 				Controller: "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv464",
 			},
@@ -1526,7 +1343,7 @@ func TestCommand_IssueProveVerify(t *testing.T) {
 		cmdErr := cmd.Prove(&b, getReader(t, &ProveRequest{
 			WalletAuth:        WalletAuth{UserID: sampleUser1, Auth: token},
 			RawCredentials:    []json.RawMessage{rawCredentialToVerify},
-			StoredCredentials: []string{"http://example.edu/credentials/1877"},
+			StoredCredentials: []string{"http://example.edu/credentials/1872"},
 			ProofOptions: &wallet.ProofOptions{
 				Controller: "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv464",
 			},
@@ -1560,7 +1377,7 @@ func TestCommand_IssueProveVerify(t *testing.T) {
 
 		cmdErr = cmd.Issue(&b, getReader(t, &IssueRequest{
 			WalletAuth: WalletAuth{UserID: sampleUserID, Auth: token},
-			Credential: []byte(sampleUDCVC),
+			Credential: testdata.SampleUDCVC,
 			ProofOptions: &wallet.ProofOptions{
 				Controller: sampleDIDKey,
 			},
@@ -1588,7 +1405,7 @@ func TestCommand_IssueProveVerify(t *testing.T) {
 
 		cmdErr = cmd.Issue(&b, getReader(t, &IssueRequest{
 			WalletAuth: WalletAuth{UserID: sampleUser1, Auth: sampleFakeTkn},
-			Credential: []byte(sampleUDCVC),
+			Credential: testdata.SampleUDCVC,
 			ProofOptions: &wallet.ProofOptions{
 				Controller: sampleDIDKey,
 			},
@@ -1643,7 +1460,7 @@ func TestCommand_Derive(t *testing.T) {
 	defer lock()
 
 	addContent(t, mockctx, &AddContentRequest{
-		Content:     []byte(sampleBBSVC),
+		Content:     testdata.SampleUDCVCWithProofBBS,
 		ContentType: "credential",
 		WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token},
 	})
@@ -1651,7 +1468,7 @@ func TestCommand_Derive(t *testing.T) {
 	// prepare frame
 	var frameDoc map[string]interface{}
 
-	require.NoError(t, json.Unmarshal([]byte(sampleFrame), &frameDoc))
+	require.NoError(t, json.Unmarshal(testdata.SampleFrame, &frameDoc))
 
 	t.Run("derive a credential from stored credential", func(t *testing.T) {
 		cmd := New(mockctx, &Config{})
@@ -1681,7 +1498,7 @@ func TestCommand_Derive(t *testing.T) {
 
 		cmdErr := cmd.Derive(&b, getReader(t, &DeriveRequest{
 			WalletAuth:    WalletAuth{UserID: sampleUser1, Auth: token},
-			RawCredential: []byte(sampleBBSVC),
+			RawCredential: testdata.SampleUDCVCWithProofBBS,
 			DeriveOptions: &wallet.DeriveOptions{
 				Frame: frameDoc,
 				Nonce: uuid.New().String(),
@@ -2514,6 +2331,106 @@ func TestCommand_RequestCredential(t *testing.T) {
 
 		validateError(t, cmdErr, command.ExecuteError, RequestCredentialErrorCode, "failed to get VC wallet profile")
 		require.Empty(t, b.Bytes())
+	})
+}
+
+func TestCommand_ResolveCredentialManifest(t *testing.T) {
+	const sampleUser1 = "sample-user-r01"
+
+	mockctx := newMockProvider(t)
+	mockctx.VDRegistryValue = getMockDIDKeyVDR()
+
+	createSampleUserProfile(t, mockctx, &CreateOrUpdateProfileRequest{
+		UserID:             sampleUser1,
+		LocalKMSPassphrase: samplePassPhrase,
+	})
+
+	token, lock := unlockWallet(t, mockctx, &UnlockWalletRequest{
+		UserID:             sampleUser1,
+		LocalKMSPassphrase: samplePassPhrase,
+	})
+
+	defer lock()
+
+	t.Run("successfully resolve credential fulfillment", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		request := &ResolveCredentialManifestRequest{
+			WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token},
+			Manifest:    testdata.CredentialManifestMultipleVCs,
+			Fulfillment: testdata.CredentialFulfillmentWithMultipleVCs,
+		}
+
+		var b bytes.Buffer
+		cmdErr := cmd.ResolveCredentialManifest(&b, getReader(t, request))
+		require.NoError(t, cmdErr)
+
+		var response ResolveCredentialManifestResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&response))
+		require.NotEmpty(t, response)
+		require.Len(t, response.Resolved, 2)
+	})
+
+	t.Run("successfully resolve credential", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		request := &ResolveCredentialManifestRequest{
+			WalletAuth:   WalletAuth{UserID: sampleUser1, Auth: token},
+			Manifest:     testdata.CredentialManifestMultipleVCs,
+			Credential:   testdata.SampleUDCVC,
+			DescriptorID: "udc_output",
+		}
+
+		var b bytes.Buffer
+		cmdErr := cmd.ResolveCredentialManifest(&b, getReader(t, &request))
+		require.NoError(t, cmdErr)
+
+		var response ResolveCredentialManifestResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&response))
+		require.NotEmpty(t, response)
+		require.Len(t, response.Resolved, 1)
+	})
+
+	t.Run("failed to resolve - invalid requests", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		// missing manifest
+		request := &ResolveCredentialManifestRequest{
+			WalletAuth:   WalletAuth{UserID: sampleUser1, Auth: token},
+			Credential:   testdata.SampleUDCVC,
+			DescriptorID: "udc_output",
+		}
+
+		var b bytes.Buffer
+		cmdErr := cmd.ResolveCredentialManifest(&b, getReader(t, &request))
+		validateError(t, cmdErr, command.ExecuteError, ResolveCredentialManifestErrorCode,
+			"failed to read credential manifest")
+
+		// missing descriptor ID
+		request = &ResolveCredentialManifestRequest{
+			WalletAuth: WalletAuth{UserID: sampleUser1, Auth: token},
+			Manifest:   testdata.CredentialManifestMultipleVCs,
+			Credential: testdata.SampleUDCVC,
+		}
+
+		b.Reset()
+		cmdErr = cmd.ResolveCredentialManifest(&b, getReader(t, &request))
+		validateError(t, cmdErr, command.ExecuteError, ResolveCredentialManifestErrorCode,
+			"unable to find matching descriptor")
+
+		// missing resolve option
+		request = &ResolveCredentialManifestRequest{
+			WalletAuth: WalletAuth{UserID: sampleUser1, Auth: token},
+			Manifest:   testdata.CredentialManifestMultipleVCs,
+		}
+
+		b.Reset()
+		cmdErr = cmd.ResolveCredentialManifest(&b, getReader(t, &request))
+		validateError(t, cmdErr, command.ExecuteError, ResolveCredentialManifestErrorCode, "invalid option")
+
+		b.Reset()
+		cmdErr = cmd.ResolveCredentialManifest(&b, bytes.NewBufferString("=="))
+		validateError(t, cmdErr, command.ValidationError, InvalidRequestErrorCode, "invalid character")
 	})
 }
 

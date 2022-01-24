@@ -1,0 +1,27 @@
+{
+  "reason": "Please present your identity document.",
+  "example": {
+    "@context": [
+      "https://www.w3.org/2018/credentials/v1",
+      "https://www.w3.org/2018/credentials/examples/v1",
+      "https://w3id.org/security/bbs/v1"
+    ],
+    "type": ["UniversityDegreeCredential"],
+    "trustedIssuer": [
+      {
+        "issuer": "urn:some:required:issuer"
+      },
+      {
+        "required": true,
+        "issuer": "did:example:76e12ec712ebc6f1c221ebfeb1f"
+      }
+    ],
+    "credentialSubject": {
+      "id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
+    },
+    "credentialSchema": {
+      "id": "did:example:abcd",
+      "type": "JsonSchemaValidator2018"
+    }
+  }
+}

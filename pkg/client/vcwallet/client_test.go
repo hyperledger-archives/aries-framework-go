@@ -19,6 +19,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/internal/testdata"
 	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
@@ -54,303 +55,20 @@ import (
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
-// nolint: lll
 const (
-	samplePassPhrase    = "fakepassphrase"
-	sampleRemoteKMSAuth = "sample-auth-token"
-	sampleKeyServerURL  = "sample/keyserver/test"
-	sampleUserID        = "sample-user01"
-	toBeImplementedErr  = "to be implemented"
-	sampleClientErr     = "sample client err"
-	sampleDIDKey        = "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
-	sampleDIDKey2       = "did:key:z6MkwFKUCsf8wvn6eSSu1WFAKatN1yexiDM7bf7pZLSFjdz6"
-	sampleContentValid  = `{
-  			"@context": ["https://w3id.org/wallet/v1"],
-  		  	"id": "did:example:123456789abcdefghi",
-    		"type": "Person",
-    		"name": "John Smith",
-    		"image": "https://via.placeholder.com/150",
-    		"description" : "Professional software developer for Acme Corp.",
-    		"tags": ["professional", "person"],
-    		"correlation": ["4058a72a-9523-11ea-bb37-0242ac130002"]
-  		}`
-	sampleUDCVC = `{
-      "@context": [
-        "https://www.w3.org/2018/credentials/v1",
-        "https://www.w3.org/2018/credentials/examples/v1",
-		"https://w3id.org/security/bbs/v1"
-      ],
-      "credentialSchema": [],
-      "credentialSubject": {
-        "degree": {
-          "type": "BachelorDegree",
-          "university": "MIT"
-        },
-        "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-        "name": "Jayden Doe",
-        "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
-      },
-      "expirationDate": "2020-01-01T19:23:24Z",
-      "id": "http://example.edu/credentials/1872",
-      "issuanceDate": "2010-01-01T19:23:24Z",
-      "issuer": {
-        "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
-        "name": "Example University"
-      },
-      "referenceNumber": 83294847,
-      "type": [
-        "VerifiableCredential",
-        "UniversityDegreeCredential"
-      ]
-    }`
-
-	sampleUDCVCWithProof = `{
-    "@context": ["https://www.w3.org/2018/credentials/v1", "https://www.w3.org/2018/credentials/examples/v1", "https://w3id.org/security/bbs/v1"],
-    "credentialSubject": {
-        "degree": {"type": "BachelorDegree", "university": "MIT"},
-        "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-        "name": "Jayden Doe",
-        "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
-    },
-    "expirationDate": "2020-01-01T19:23:24Z",
-    "id": "http://example.edu/credentials/1872",
-    "issuanceDate": "2010-01-01T19:23:24Z",
-    "issuer": {"id": "did:example:76e12ec712ebc6f1c221ebfeb1f", "name": "Example University"},
-    "proof": {
-        "created": "2021-03-26T11:25:14.170037-04:00",
-        "jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..5iUqLMjUbPy2Sp5RvtoKW4kWlSfpX35VyoC6rGkxNW5r3a3M7I7qBK5hpJGi2H4cf2TZizQnJXCJs6EH6ijSDw",
-        "proofPurpose": "assertionMethod",
-        "type": "Ed25519Signature2018",
-        "verificationMethod": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
-    },
-    "referenceNumber": 83294847,
-    "type": ["VerifiableCredential", "UniversityDegreeCredential"]
-}`
-	sampleVP = `{
-    "@context": ["https://www.w3.org/2018/credentials/v1"],
-    "holder": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
-    "proof": {
-        "created": "2021-03-26T14:08:21.15597-04:00",
-        "jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..GUbI3psCXXhCjDJ2yBTwteuKSUHJuEK840yJzxWuPPxYyAuza1uwK1v75Az2jO63ILHEsLmxwcEhBlKcTw7ODA",
-        "proofPurpose": "authentication",
-        "type": "Ed25519Signature2018",
-        "verificationMethod": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
-    },
-    "type": "VerifiablePresentation",
-    "verifiableCredential": [{
-        "@context": ["https://www.w3.org/2018/credentials/v1", "https://www.w3.org/2018/credentials/examples/v1", "https://w3id.org/security/bbs/v1"],
-        "credentialSubject": {
-            "degree": {"type": "BachelorDegree", "university": "MIT"},
-            "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-            "name": "Jayden Doe",
-            "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
-        },
-        "expirationDate": "2020-01-01T19:23:24Z",
-        "id": "http://example.edu/credentials/1872",
-        "issuanceDate": "2010-01-01T19:23:24Z",
-        "issuer": {"id": "did:example:76e12ec712ebc6f1c221ebfeb1f", "name": "Example University"},
-        "proof": {
-            "created": "2021-03-26T14:08:20.898673-04:00",
-            "jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..PeIllfXnUh7zD4mH24NCnfFFeKf0Fys8XWt8nVE2Z-fgSvE6-3Rbc-LgSIpyKPF20CtFzEdownwOiMavy2_tAQ",
-            "proofPurpose": "assertionMethod",
-            "type": "Ed25519Signature2018",
-            "verificationMethod": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
-        },
-        "referenceNumber": 83294847,
-        "type": ["VerifiableCredential", "UniversityDegreeCredential"]
-    }]
-}`
-	sampleBBSVC = `{
-            "@context": ["https://www.w3.org/2018/credentials/v1", "https://www.w3.org/2018/credentials/examples/v1", "https://w3id.org/security/bbs/v1"],
-            "credentialSubject": {
-                "degree": {"type": "BachelorDegree", "university": "MIT"},
-                "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-                "name": "Jayden Doe",
-                "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
-            },
-            "expirationDate": "2020-01-01T19:23:24Z",
-            "id": "http://example.edu/credentials/1872",
-            "issuanceDate": "2010-01-01T19:23:24Z",
-            "issuer": {"id": "did:example:76e12ec712ebc6f1c221ebfeb1f", "name": "Example University"},
-            "proof": {
-                "created": "2021-03-29T13:27:36.483097-04:00",
-                "proofPurpose": "assertionMethod",
-                "proofValue": "rw7FeV6K1wimnYogF9qd-N0zmq5QlaIoszg64HciTca-mK_WU4E1jIusKTT6EnN2GZz04NVPBIw4yhc0kTwIZ07etMvfWUlHt_KMoy2CfTw8FBhrf66q4h7Qcqxh_Kxp6yCHyB4A-MmURlKKb8o-4w",
-                "type": "BbsBlsSignature2020",
-                "verificationMethod": "did:key:zUC72c7u4BYVmfYinDceXkNAwzPEyuEE23kUmJDjLy8495KH3pjLwFhae1Fww9qxxRdLnS2VNNwni6W3KbYZKsicDtiNNEp76fYWR6HCD8jAz6ihwmLRjcHH6kB294Xfg1SL1qQ#zUC72c7u4BYVmfYinDceXkNAwzPEyuEE23kUmJDjLy8495KH3pjLwFhae1Fww9qxxRdLnS2VNNwni6W3KbYZKsicDtiNNEp76fYWR6HCD8jAz6ihwmLRjcHH6kB294Xfg1SL1qQ"
-            },
-            "referenceNumber": 83294847,
-            "type": ["VerifiableCredential", "UniversityDegreeCredential"]
-        }`
-
-	sampleFrame = `
-		{
-			"@context": [
-				"https://www.w3.org/2018/credentials/v1",
-				"https://www.w3.org/2018/credentials/examples/v1",
-				"https://w3id.org/security/bbs/v1"
-			],
-  			"type": ["VerifiableCredential", "UniversityDegreeCredential"],
-  			"@explicit": true,
-  			"identifier": {},
-  			"issuer": {},
-  			"issuanceDate": {},
-  			"credentialSubject": {
-    			"@explicit": true,
-    			"degree": {},
-    			"name": {}
-  			}
-		}
-	`
-	sampleInvalidDIDContent = `{
-    	"@context": ["https://w3id.org/did/v1"],
-    	"id": "did:example:sampleInvalidDIDContent"
-		}`
-
-	sampleKeyContentBase58 = `{
-  			"@context": ["https://w3id.org/wallet/v1"],
-  		  	"id": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
-  		  	"controller": "did:example:123456789abcdefghi",
-			"type": "Ed25519VerificationKey2018",
-			"privateKeyBase58":"2MP5gWCnf67jvW3E4Lz8PpVrDWAXMYY1sDxjnkEnKhkkbKD7yP2mkVeyVpu5nAtr3TeDgMNjBPirk2XcQacs3dvZ"
-  		}`
-
-	sampleDIDResolutionResponse = `{
-    "@context": [
-        "https://w3id.org/wallet/v1",
-        "https://w3id.org/did-resolution/v1"
-    ],
-    "id": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
-    "type": ["DIDResolutionResponse"],
-    "name": "Farming Sensor DID Document",
-    "image": "https://via.placeholder.com/150",
-    "description": "An IoT device in the middle of a corn field.",
-    "tags": ["professional"],
-    "correlation": ["4058a72a-9523-11ea-bb37-0242ac130002"],
-    "created": "2017-06-18T21:19:10Z",
-    "expires": "2026-06-18T21:19:10Z",
-    "didDocument": {
-        "@context": [
-            "https://w3id.org/did/v0.11"
-        ],
-        "id": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
-        "publicKey": [
-            {
-                "id": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
-                "type": "Ed25519VerificationKey2018",
-                "controller": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
-                "publicKeyBase58": "8jkuMBqmu1TRA6is7TT5tKBksTZamrLhaXrg9NAczqeh"
-            }
-        ],
-        "authentication": [
-            "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
-        ],
-        "assertionMethod": [
-            "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
-        ],
-        "capabilityDelegation": [
-            "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
-        ],
-        "capabilityInvocation": [
-            "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
-        ],
-        "keyAgreement": [
-            {
-                "id": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5#z6LSmjNfS5FC9W59JtPZq7fHgrjThxsidjEhZeMxCarbR998",
-                "type": "X25519KeyAgreementKey2019",
-                "controller": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5",
-                "publicKeyBase58": "B4CVumSL43MQDW1oJU9LNGWyrpLbw84YgfeGi8D4hmNN"
-            }
-        ]
-    }
-}`
-	sampleVCFmt = `{
-      "@context": [
-        "https://www.w3.org/2018/credentials/v1",
-        "https://www.w3.org/2018/credentials/examples/v1",
-		"https://w3id.org/security/bbs/v1"
-      ],
-     "credentialSchema": [{"id": "%s", "type": "JsonSchemaValidator2018"}],
-      "credentialSubject": {
-        "degree": {
-          "type": "BachelorDegree",
-          "university": "MIT"
-        },
-        "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-        "name": "Jayden Doe",
-        "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
-      },
-      "expirationDate": "2020-01-01T19:23:24Z",
-      "id": "http://example.edu/credentials/1872",
-      "issuanceDate": "2010-01-01T19:23:24Z",
-      "issuer": {
-        "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
-        "name": "Example University"
-      },
-      "referenceNumber": 83294847,
-      "type": [
-        "VerifiableCredential",
-        "UniversityDegreeCredential"
-      ]
-    }`
-	sampleQueryByExFmt = `{
-                        "reason": "Please present your identity document.",
-                        "example": {
-                            "@context": [
-								"https://www.w3.org/2018/credentials/v1",
-								"https://www.w3.org/2018/credentials/examples/v1",
-								"https://w3id.org/security/bbs/v1"
-                            ],
-                            "type": ["UniversityDegreeCredential"],
-							"trustedIssuer": [
-              					{
-                					"issuer": "urn:some:required:issuer"
-              					},
-								{
-                					"required": true,
-                					"issuer": "did:example:76e12ec712ebc6f1c221ebfeb1f"
-              					}
-							],
-							"credentialSubject": {
-								"id": "did:example:ebfeb1f712ebc6f1c276e12ec21"	
-							},
-							"credentialSchema": {
-								"id": "%s",
-								"type": "JsonSchemaValidator2018"
-							}
-                        }
-                	}`
-	sampleQueryByFrame = `{
-                    "reason": "Please provide your Passport details.",
-                    "frame": {
-                        "@context": [
-                            "https://www.w3.org/2018/credentials/v1",
-                            "https://w3id.org/citizenship/v1",
-                            "https://w3id.org/security/bbs/v1"
-                        ],
-                        "type": ["VerifiableCredential", "PermanentResidentCard"],
-                        "@explicit": true,
-                        "identifier": {},
-                        "issuer": {},
-                        "issuanceDate": {},
-                        "credentialSubject": {
-                            "@explicit": true,
-                            "name": {},
-                            "spouse": {}
-                        }
-                    },
-                    "trustedIssuer": [
-                        {
-                            "issuer": "did:example:76e12ec712ebc6f1c221ebfeb1f",
-                            "required": true
-                        }
-                    ],
-                    "required": true
-                }`
-	webRedirectStatusKey = "status"
-	webRedirectURLKey    = "url"
-	exampleWebRedirect   = "http://example.com/sample"
-	sampleMsgComment     = "sample mock msg"
+	samplePassPhrase        = "fakepassphrase"
+	sampleRemoteKMSAuth     = "sample-auth-token"
+	sampleKeyServerURL      = "sample/keyserver/test"
+	sampleUserID            = "sample-user01"
+	toBeImplementedErr      = "to be implemented"
+	sampleClientErr         = "sample client err"
+	sampleDIDKey            = "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
+	sampleDIDKey2           = "did:key:z6MkwFKUCsf8wvn6eSSu1WFAKatN1yexiDM7bf7pZLSFjdz6"
+	sampleInvalidDIDContent = `{"@context": ["https://w3id.org/did/v1"],"id": "did:example:sampleInvalidDIDContent"}`
+	webRedirectStatusKey    = "status"
+	webRedirectURLKey       = "url"
+	exampleWebRedirect      = "http://example.com/sample"
+	sampleMsgComment        = "sample mock msg"
 )
 
 func TestCreateProfile(t *testing.T) {
@@ -774,7 +492,7 @@ func TestClient_Add(t *testing.T) {
 	require.NotEmpty(t, vcWalletClient)
 	require.NoError(t, err)
 
-	err = vcWalletClient.Add(wallet.Metadata, []byte(sampleContentValid))
+	err = vcWalletClient.Add(wallet.Metadata, testdata.SampleWalletContentMetadata)
 	require.NoError(t, err)
 
 	// try locked wallet
@@ -782,7 +500,7 @@ func TestClient_Add(t *testing.T) {
 	require.NotEmpty(t, vcWalletClient)
 	require.NoError(t, err)
 
-	err = vcWalletClient.Add(wallet.Metadata, []byte(sampleContentValid))
+	err = vcWalletClient.Add(wallet.Metadata, testdata.SampleWalletContentMetadata)
 	require.Contains(t, err.Error(), "wallet locked")
 }
 
@@ -795,13 +513,13 @@ func TestClient_Get(t *testing.T) {
 	require.NotEmpty(t, vcWalletClient)
 	require.NoError(t, err)
 
-	err = vcWalletClient.Add(wallet.Metadata, []byte(sampleContentValid))
+	err = vcWalletClient.Add(wallet.Metadata, testdata.SampleWalletContentMetadata)
 	require.NoError(t, err)
 
 	content, err := vcWalletClient.Get(wallet.Metadata, "did:example:123456789abcdefghi")
 	require.NoError(t, err)
 	require.NotEmpty(t, content)
-	require.Equal(t, sampleContentValid, string(content))
+	require.Equal(t, string(testdata.SampleWalletContentMetadata), string(content))
 
 	// try locked wallet
 	require.True(t, vcWalletClient.Close())
@@ -889,7 +607,7 @@ func TestClient_Remove(t *testing.T) {
 	require.NotEmpty(t, vcWalletClient)
 	require.NoError(t, err)
 
-	err = vcWalletClient.Add(wallet.Metadata, []byte(sampleContentValid))
+	err = vcWalletClient.Add(wallet.Metadata, testdata.SampleWalletContentMetadata)
 	require.NoError(t, err)
 
 	content, err := vcWalletClient.Get(wallet.Metadata, "did:example:123456789abcdefghi")
@@ -949,10 +667,11 @@ func TestClient_Query(t *testing.T) {
 	}).MarshalJSON()
 	require.NoError(t, err)
 
-	sampleVC := fmt.Sprintf(sampleVCFmt, verifiable.ContextURI)
+	sampleVC := strings.ReplaceAll(string(testdata.SampleUDCVCWithCredentialSchema),
+		"https://example.com/schema", verifiable.ContextURI)
 	vcForQuery := []byte(strings.ReplaceAll(sampleVC,
 		"http://example.edu/credentials/1872", "http://example.edu/credentials/1879"))
-	vcForDerive := []byte(sampleBBSVC)
+	vcForDerive := testdata.SampleUDCVCWithProofBBS
 
 	err = CreateProfile(sampleUserID, mockctx, wallet.WithPassphrase(samplePassPhrase))
 	require.NoError(t, err)
@@ -986,9 +705,10 @@ func TestClient_Query(t *testing.T) {
 	require.NotEmpty(t, pdJSON)
 
 	// query by example
-	queryByExample := []byte(fmt.Sprintf(sampleQueryByExFmt, verifiable.ContextURI))
+	queryByExample := []byte(strings.ReplaceAll(string(testdata.SampleWalletQueryByExample),
+		"did:example:abcd", verifiable.ContextURI))
 	// query by frame
-	queryByFrame := []byte(sampleQueryByFrame)
+	queryByFrame := testdata.SampleWalletQueryByFrame
 
 	t.Run("test wallet queries", func(t *testing.T) {
 		tests := []struct {
@@ -1122,10 +842,10 @@ func TestClient_Issue(t *testing.T) {
 		defer vcWalletClient.Close()
 
 		// save a DID & corresponding key
-		require.NoError(t, vcWalletClient.Add(wallet.Key, []byte(sampleKeyContentBase58)))
-		require.NoError(t, vcWalletClient.Add(wallet.DIDResolutionResponse, []byte(sampleDIDResolutionResponse)))
+		require.NoError(t, vcWalletClient.Add(wallet.Key, testdata.SampleWalletContentKeyBase58))
+		require.NoError(t, vcWalletClient.Add(wallet.DIDResolutionResponse, testdata.SampleDocResolutionResponse))
 
-		result, err := vcWalletClient.Issue([]byte(sampleUDCVC), &wallet.ProofOptions{
+		result, err := vcWalletClient.Issue(testdata.SampleUDCVC, &wallet.ProofOptions{
 			Controller: sampleDIDKey,
 		})
 
@@ -1142,7 +862,7 @@ func TestClient_Issue(t *testing.T) {
 		defer vcWalletClient.Close()
 
 		// sign with just controller
-		result, err := vcWalletClient.Issue([]byte(sampleUDCVC), &wallet.ProofOptions{
+		result, err := vcWalletClient.Issue(testdata.SampleUDCVC, &wallet.ProofOptions{
 			Controller: sampleDIDKey2,
 		})
 		require.Error(t, err)
@@ -1158,7 +878,7 @@ func TestClient_Issue(t *testing.T) {
 		defer vcWalletClient.Close()
 
 		// sign with just controller
-		result, err := vcWalletClient.Issue([]byte(sampleUDCVC), &wallet.ProofOptions{
+		result, err := vcWalletClient.Issue(testdata.SampleUDCVC, &wallet.ProofOptions{
 			Controller: sampleDIDKey,
 		})
 		require.Error(t, err)
@@ -1200,13 +920,13 @@ func TestClient_Prove(t *testing.T) {
 		defer vcWalletClient.Close()
 
 		// save a credential, DID & key
-		require.NoError(t, vcWalletClient.Add(wallet.Credential, []byte(sampleUDCVC)))
-		require.NoError(t, vcWalletClient.Add(wallet.Key, []byte(sampleKeyContentBase58)))
-		require.NoError(t, vcWalletClient.Add(wallet.DIDResolutionResponse, []byte(sampleDIDResolutionResponse)))
+		require.NoError(t, vcWalletClient.Add(wallet.Credential, testdata.SampleUDCVC))
+		require.NoError(t, vcWalletClient.Add(wallet.Key, testdata.SampleWalletContentKeyBase58))
+		require.NoError(t, vcWalletClient.Add(wallet.DIDResolutionResponse, testdata.SampleDocResolutionResponse))
 
 		result, err := vcWalletClient.Prove(&wallet.ProofOptions{Controller: sampleDIDKey},
 			wallet.WithStoredCredentialsToProve("http://example.edu/credentials/1872"),
-			wallet.WithRawCredentialsToProve([]byte(sampleUDCVC)),
+			wallet.WithRawCredentialsToProve(testdata.SampleUDCVC),
 		)
 		require.NoError(t, err)
 		require.NotEmpty(t, result)
@@ -1221,11 +941,11 @@ func TestClient_Prove(t *testing.T) {
 		defer vcWalletClient.Close()
 
 		require.NoError(t, vcWalletClient.Remove(wallet.Credential, "http://example.edu/credentials/1872"))
-		require.NoError(t, vcWalletClient.Add(wallet.Credential, []byte(sampleUDCVC)))
+		require.NoError(t, vcWalletClient.Add(wallet.Credential, testdata.SampleUDCVC))
 
 		result, err := vcWalletClient.Prove(&wallet.ProofOptions{Controller: sampleDIDKey2},
 			wallet.WithStoredCredentialsToProve("http://example.edu/credentials/1872"),
-			wallet.WithRawCredentialsToProve([]byte(sampleUDCVC)),
+			wallet.WithRawCredentialsToProve(testdata.SampleUDCVC),
 		)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to read json keyset from reader")
@@ -1240,13 +960,13 @@ func TestClient_Prove(t *testing.T) {
 		defer vcWalletClient.Close()
 
 		require.NoError(t, vcWalletClient.Remove(wallet.Credential, "http://example.edu/credentials/1872"))
-		require.NoError(t, vcWalletClient.Add(wallet.Credential, []byte(sampleUDCVC)))
+		require.NoError(t, vcWalletClient.Add(wallet.Credential, testdata.SampleUDCVC))
 
 		vcWalletClient.Close()
 
 		result, err := vcWalletClient.Prove(&wallet.ProofOptions{Controller: sampleDIDKey},
 			wallet.WithStoredCredentialsToProve("http://example.edu/credentials/1872"),
-			wallet.WithRawCredentialsToProve([]byte(sampleUDCVC)),
+			wallet.WithRawCredentialsToProve(testdata.SampleUDCVC),
 		)
 		require.Error(t, err)
 		require.True(t, errors.Is(err, ErrWalletLocked))
@@ -1287,7 +1007,7 @@ func TestClient_Verify(t *testing.T) {
 		defer vcWalletClient.Close()
 
 		// store credential in wallet
-		require.NoError(t, vcWalletClient.Add(wallet.Credential, []byte(sampleUDCVCWithProof)))
+		require.NoError(t, vcWalletClient.Add(wallet.Credential, testdata.SampleUDCVCWithProof))
 
 		// verify stored VC
 		ok, err := vcWalletClient.Verify(wallet.WithStoredCredentialToVerify("http://example.edu/credentials/1872"))
@@ -1295,7 +1015,7 @@ func TestClient_Verify(t *testing.T) {
 		require.True(t, ok)
 
 		// verify raw VC
-		ok, err = vcWalletClient.Verify(wallet.WithRawCredentialToVerify([]byte(sampleUDCVCWithProof)))
+		ok, err = vcWalletClient.Verify(wallet.WithRawCredentialToVerify(testdata.SampleUDCVCWithProof))
 		require.NoError(t, err)
 		require.True(t, ok)
 	})
@@ -1308,7 +1028,8 @@ func TestClient_Verify(t *testing.T) {
 		defer vcWalletClient.Close()
 
 		// store tampered credential in wallet
-		tamperedVC := strings.ReplaceAll(sampleUDCVCWithProof, `"name": "Example University"`, `"name": "Fake University"`)
+		tamperedVC := strings.ReplaceAll(string(testdata.SampleUDCVCWithProof),
+			`"name": "Example University"`, `"name": "Fake University"`)
 		require.NoError(t, vcWalletClient.Remove(wallet.Credential, "http://example.edu/credentials/1872"))
 		require.NoError(t, vcWalletClient.Add(wallet.Credential, []byte(tamperedVC)))
 
@@ -1331,7 +1052,7 @@ func TestClient_Verify(t *testing.T) {
 		defer vcWalletClient.Close()
 
 		// verify raw VC
-		ok, err := vcWalletClient.Verify(wallet.WithRawPresentationToVerify([]byte(sampleVP)))
+		ok, err := vcWalletClient.Verify(wallet.WithRawPresentationToVerify(testdata.SampleUDCPresentation))
 		require.NoError(t, err)
 		require.True(t, ok)
 	})
@@ -1343,7 +1064,8 @@ func TestClient_Verify(t *testing.T) {
 
 		defer vcWalletClient.Close()
 
-		tamperedVP := strings.ReplaceAll(sampleVP, `"holder": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"`,
+		tamperedVP := strings.ReplaceAll(string(testdata.SampleUDCPresentation),
+			`"holder": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"`,
 			`"holder": "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv464"`)
 
 		ok, err := vcWalletClient.Verify(wallet.WithRawPresentationToVerify([]byte(tamperedVP)))
@@ -1357,7 +1079,7 @@ func TestClient_Verify(t *testing.T) {
 		require.NotEmpty(t, vcWalletClient)
 		require.NoError(t, err)
 
-		ok, err := vcWalletClient.Verify(wallet.WithRawPresentationToVerify([]byte(sampleVP)))
+		ok, err := vcWalletClient.Verify(wallet.WithRawPresentationToVerify(testdata.SampleUDCPresentation))
 		require.True(t, errors.Is(err, ErrWalletLocked))
 		require.False(t, ok)
 	})
@@ -1396,7 +1118,7 @@ func TestWallet_Derive(t *testing.T) {
 	// prepare frame
 	var frameDoc map[string]interface{}
 
-	require.NoError(t, json.Unmarshal([]byte(sampleFrame), &frameDoc))
+	require.NoError(t, json.Unmarshal(testdata.SampleFrame, &frameDoc))
 
 	t.Run("Test derive a credential from wallet - success", func(t *testing.T) {
 		walletInstance, err := New(sampleUserID, mockctx, wallet.WithUnlockByPassphrase(samplePassPhrase))
@@ -1404,7 +1126,7 @@ func TestWallet_Derive(t *testing.T) {
 		require.NotEmpty(t, walletInstance)
 
 		// save BBS VC in store
-		require.NoError(t, walletInstance.Add(wallet.Credential, []byte(sampleBBSVC)))
+		require.NoError(t, walletInstance.Add(wallet.Credential, testdata.SampleUDCVCWithProofBBS))
 
 		sampleNonce := uuid.New().String()
 
@@ -1428,7 +1150,7 @@ func TestWallet_Derive(t *testing.T) {
 		verifyBBSProof(vc.Proofs)
 
 		// derive raw credential
-		vc, err = walletInstance.Derive(wallet.FromRawCredential([]byte(sampleBBSVC)), &wallet.DeriveOptions{
+		vc, err = walletInstance.Derive(wallet.FromRawCredential(testdata.SampleUDCVCWithProofBBS), &wallet.DeriveOptions{
 			Nonce: sampleNonce,
 			Frame: frameDoc,
 		})
@@ -1444,7 +1166,7 @@ func TestWallet_Derive(t *testing.T) {
 		loader, err := ldtestutil.DocumentLoader()
 		require.NoError(t, err)
 
-		credential, err := verifiable.ParseCredential([]byte(sampleBBSVC), pkFetcher,
+		credential, err := verifiable.ParseCredential(testdata.SampleUDCVCWithProofBBS, pkFetcher,
 			verifiable.WithJSONLDDocumentLoader(loader))
 		require.NoError(t, err)
 		vc, err = walletInstance.Derive(wallet.FromCredential(credential), &wallet.DeriveOptions{
@@ -1489,7 +1211,7 @@ func TestWallet_Derive(t *testing.T) {
 		require.Contains(t, err.Error(), "credential type of unknown structure")
 
 		// try deriving wrong proof type - no BbsBlsSignature2020 proof present
-		vc, err = walletInstance.Derive(wallet.FromRawCredential([]byte(sampleUDCVCWithProof)), &wallet.DeriveOptions{
+		vc, err = walletInstance.Derive(wallet.FromRawCredential(testdata.SampleUDCVCWithProof), &wallet.DeriveOptions{
 			Frame: frameDoc,
 		})
 		require.Empty(t, vc)
@@ -1502,7 +1224,7 @@ func TestWallet_Derive(t *testing.T) {
 		require.NotEmpty(t, vcWalletClient)
 		require.NoError(t, err)
 
-		result, err := vcWalletClient.Derive(wallet.FromRawCredential([]byte(sampleUDCVCWithProof)), &wallet.DeriveOptions{
+		result, err := vcWalletClient.Derive(wallet.FromRawCredential(testdata.SampleUDCVCWithProof), &wallet.DeriveOptions{
 			Frame: frameDoc,
 		})
 		require.True(t, errors.Is(err, ErrWalletLocked))
@@ -1995,6 +1717,44 @@ func TestClient_RequestCredential(t *testing.T) {
 		response, err := vcWallet.RequestCredential(uuid.New().String(), wallet.FromPresentation(&verifiable.Presentation{}))
 		require.True(t, errors.Is(err, ErrWalletLocked))
 		require.Empty(t, response)
+	})
+}
+
+func TestClient_ResolveCredentialManifest(t *testing.T) {
+	sampleUser := uuid.New().String()
+	mockctx := newMockProvider(t)
+
+	err := CreateProfile(sampleUser, mockctx, wallet.WithPassphrase(samplePassPhrase))
+	require.NoError(t, err)
+
+	vcWallet, err := New(sampleUser, mockctx)
+	require.NoError(t, err)
+	require.NotEmpty(t, vcWallet)
+
+	err = vcWallet.Open(wallet.WithUnlockByPassphrase(samplePassPhrase))
+	require.NoError(t, err)
+
+	t.Run("test resolving credential fulfillment", func(t *testing.T) {
+		resolved, err := vcWallet.ResolveCredentialManifest(testdata.CredentialManifestMultipleVCs,
+			wallet.ResolveRawFulfillment(testdata.CredentialFulfillmentWithMultipleVCs))
+		require.NoError(t, err)
+		require.Len(t, resolved, 2)
+	})
+
+	t.Run("test resolving credential by descriptor ID", func(t *testing.T) {
+		resolved, err := vcWallet.ResolveCredentialManifest(testdata.CredentialManifestMultipleVCs,
+			wallet.ResolveRawCredential("udc_output", testdata.SampleUDCVC))
+		require.NoError(t, err)
+		require.Len(t, resolved, 1)
+	})
+
+	t.Run("test failure while resolving (closed wallet)", func(t *testing.T) {
+		require.True(t, vcWallet.Close())
+
+		resolved, err := vcWallet.ResolveCredentialManifest(testdata.CredentialManifestMultipleVCs,
+			wallet.ResolveRawCredential("udc_output", testdata.SampleUDCVC))
+		require.True(t, errors.Is(err, ErrWalletLocked))
+		require.Empty(t, resolved)
 	})
 }
 

@@ -1,0 +1,10 @@
+{
+  "@context": ["https://w3id.org/wallet/v1"],
+  "id": "did:example:123456789abcdefghi",
+  "type": "Person",
+  "name": "John Smith",
+  "image": "https://via.placeholder.com/150",
+  "description" : "Professional software developer for Acme Corp.",
+  "tags": ["professional", "person"],
+  "correlation": ["4058a72a-9523-11ea-bb37-0242ac130002"]
+}
