@@ -22,6 +22,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
 
+// CredentialManifestAttachmentFormat defines the format type of Credential Manifest when used as an attachment in the
+// WACI issuance flow. Refer to https://identity.foundation/waci-presentation-exchange/#issuance-2 for more info.
+const CredentialManifestAttachmentFormat = "dif/credential-manifest/manifest@v1.0"
+
 // CredentialManifest represents a Credential Manifest object as defined in
 // https://identity.foundation/credential-manifest/#credential-manifest-2.
 type CredentialManifest struct {

@@ -18,7 +18,14 @@ import (
 )
 
 const (
-	credentialApplicationPresentationContext = "https://identity.foundation/credential-manifest/application/v1"
+	// CredentialApplicationAttachmentFormat defines the format type of Credential Application when used as an
+	// attachment in the WACI issuance flow.
+	// Refer to https://identity.foundation/waci-presentation-exchange/#issuance-2 for more info.
+	CredentialApplicationAttachmentFormat = "dif/credential-manifest/application@v1.0"
+	// CredentialApplicationPresentationContext defines the context type of Credential Application when used as part of
+	// a presentation attachment in the WACI issuance flow.
+	// Refer to https://identity.foundation/waci-presentation-exchange/#issuance-2 for more info.
+	CredentialApplicationPresentationContext = "https://identity.foundation/credential-manifest/application/v1"
 	credentialApplicationPresentationType    = "CredentialApplication"
 )
 
@@ -253,7 +260,7 @@ func setCredentialApplicationContext(presentation *verifiable.Presentation) {
 
 	for i := range presentation.Context {
 		if presentation.Context[i] == presexch.PresentationSubmissionJSONLDContextIRI {
-			presentation.Context[i] = credentialApplicationPresentationContext
+			presentation.Context[i] = CredentialApplicationPresentationContext
 			newContextSet = true
 
 			break
@@ -261,7 +268,7 @@ func setCredentialApplicationContext(presentation *verifiable.Presentation) {
 	}
 
 	if !newContextSet {
-		presentation.Context = append(presentation.Context, credentialApplicationPresentationContext)
+		presentation.Context = append(presentation.Context, CredentialApplicationPresentationContext)
 	}
 }
 

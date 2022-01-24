@@ -18,6 +18,17 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
 
+const (
+	// CredentialFulfillmentAttachmentFormat defines the format type of Credential Fulfillment when used as an
+	// attachment in the WACI issuance flow.
+	// Refer to https://identity.foundation/waci-presentation-exchange/#issuance-2 for more info.
+	CredentialFulfillmentAttachmentFormat = "dif/credential-manifest/fulfillment@v1.0"
+	// CredentialFulfillmentPresentationContext defines the context type of Credential Fulfillment when used as part of
+	// a presentation attachment in the WACI issuance flow.
+	// Refer to https://identity.foundation/waci-presentation-exchange/#issuance-2 for more info.
+	CredentialFulfillmentPresentationContext = "https://identity.foundation/credential-manifest/fulfillment/v1"
+)
+
 // CredentialFulfillment represents a Credential Fulfillment object as defined in
 // https://identity.foundation/credential-manifest/#credential-fulfillment.
 type CredentialFulfillment struct {

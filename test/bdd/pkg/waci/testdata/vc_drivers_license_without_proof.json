@@ -1,0 +1,14 @@
+{
+  "@context":"https://www.w3.org/2018/credentials/v1",
+  "id":"https://eu.com/claims/DriversLicense",
+  "type":"VerifiableCredential",
+  "issuer":"did:foo:123",
+  "issuanceDate":"2010-01-01T19:53:24Z",
+  "credentialSubject":{
+    "id":"did:example:ebfeb1f712ebc6f1c276e12ec21",
+    "license":{
+      "number":"34DGE352",
+      "dob":"07/13/80"
+    }
+  }
+}
