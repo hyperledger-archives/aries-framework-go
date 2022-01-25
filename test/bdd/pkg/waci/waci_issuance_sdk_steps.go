@@ -26,18 +26,28 @@ import (
 	oobv2 "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofbandv2"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/cm"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	ldstore "github.com/hyperledger/aries-framework-go/pkg/store/ld"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
+	bddldcontext "github.com/hyperledger/aries-framework-go/test/bdd/pkg/ldcontext"
 )
 
 var (
-	//go:embed offer_credential_attachments.json
-	offerCredentialAttachments []byte //nolint:gochecknoglobals
-	//go:embed request_credential_attachments.json
-	requestCredentialAttachments []byte //nolint:gochecknoglobals
-	//go:embed issue_credential_attachments.json
-	issueCredentialAttachments []byte //nolint:gochecknoglobals
+	//go:embed testdata/credential_manifest_drivers_license.json
+	credentialManifestDriversLicense []byte //nolint:gochecknoglobals
+	//go:embed testdata/credential_fulfillment_drivers_license.json
+	credentialFulfillmentDriversLicense []byte //nolint:gochecknoglobals
+	//go:embed testdata/vc_drivers_license_without_proof.json
+	vcDriversLicenseWithoutProof []byte //nolint:gochecknoglobals
+	//go:embed testdata/vc_drivers_license.json
+	vcDriversLicense []byte //nolint:gochecknoglobals
+	//go:embed testdata/vc_prc.json
+	vcPRC []byte //nolint:gochecknoglobals
+	//go:embed testdata/credential_application_drivers_license.json
+	credentialApplicationDriversLicense []byte //nolint:gochecknoglobals
+	//go:embed testdata/presentation_submission_prc.json
+	presentationSubmissionPRC []byte //nolint:gochecknoglobals
 )
 
 const (
@@ -48,11 +58,12 @@ const (
 
 // IssuanceSDKSteps contains steps for WACI issuance tests using the SDK binding.
 type IssuanceSDKSteps struct {
-	context                       *context.BDDContext
-	oobV2InviteFromIssuerToHolder *oobv2.Invitation
-	issueCredentialClients        map[string]*issuecredentialclient.Client
-	actions                       map[string]chan service.DIDCommAction
-	holderEvent                   chan service.StateMsg
+	context                            *context.BDDContext
+	oobV2InviteFromIssuerToHolder      *oobv2.Invitation
+	issueCredentialClients             map[string]*issuecredentialclient.Client
+	actions                            map[string]chan service.DIDCommAction
+	holderEvent                        chan service.StateMsg
+	credentialManifestReceivedByHolder *cm.CredentialManifest
 }
 
 // NewIssuanceSDKSteps returns the WACI issuance's BDD steps using the SDK binding.
@@ -70,6 +81,7 @@ func (i *IssuanceSDKSteps) SetContext(ctx *context.BDDContext) {
 }
 
 // RegisterSteps registers the BDD test steps on the suite.
+// Note that VC proofs are not checked in this test suite.
 func (i *IssuanceSDKSteps) RegisterSteps(suite *godog.Suite) {
 	suite.Step(`^"([^"]*)" creates an out-of-band-v2 invitation with streamlined-vc goal-code$`,
 		i.createOOBV2WithStreamlinedVCGoalCode)
@@ -178,20 +190,12 @@ func (i *IssuanceSDKSteps) acceptProposalV3(issuerName string) error {
 			"(%s) but got %s instead", i.oobV2InviteFromIssuerToHolder.ID, parentThreadID)
 	}
 
-	var attachments []decorator.GenericAttachment
-
-	err = json.Unmarshal(offerCredentialAttachments, &attachments)
+	offerCredential, err := generateOfferCredentialMsg()
 	if err != nil {
 		return err
 	}
 
-	offerCredential := issuecredentialclient.OfferCredential{
-		Type:        issuecredential.OfferCredentialMsgTypeV3,
-		ID:          uuid.New().String(),
-		Attachments: attachments,
-	}
-
-	err = i.issueCredentialClients[issuerName].AcceptProposal(piid, &offerCredential)
+	err = i.issueCredentialClients[issuerName].AcceptProposal(piid, offerCredential)
 	if err != nil {
 		return err
 	}
@@ -210,20 +214,12 @@ func (i *IssuanceSDKSteps) acceptOffer(holderName string) error {
 		return err
 	}
 
-	var attachments []decorator.GenericAttachment
-
-	err = json.Unmarshal(requestCredentialAttachments, &attachments)
+	requestCredential, err := generateRequestCredentialMsg(i.credentialManifestReceivedByHolder)
 	if err != nil {
 		return err
 	}
 
-	requestCredential := issuecredentialclient.RequestCredential{
-		Type:        issuecredential.RequestCredentialMsgTypeV3,
-		ID:          uuid.New().String(),
-		Attachments: attachments,
-	}
-
-	err = i.issueCredentialClients[holderName].AcceptOffer(piid, &requestCredential)
+	err = i.issueCredentialClients[holderName].AcceptOffer(piid, requestCredential)
 	if err != nil {
 		return err
 	}
@@ -237,12 +233,13 @@ func (i *IssuanceSDKSteps) acceptCredentialApplication(issuerName string) error 
 		return err
 	}
 
+	// In a real flow, the issuer would want to check the proofs in the VC sent from the Holder.
 	credentialApplicationBytes, err := getCredentialApplicationFromAttachment(&attachmentsFromApplicationMsg[0])
 	if err != nil {
 		return err
 	}
 
-	credentialManifest, err := getExampleCredentialManifest()
+	credentialManifest, err := generateCredentialManifest()
 	if err != nil {
 		return err
 	}
@@ -252,20 +249,12 @@ func (i *IssuanceSDKSteps) acceptCredentialApplication(issuerName string) error 
 		return err
 	}
 
-	var attachments []decorator.GenericAttachment
-
-	err = json.Unmarshal(issueCredentialAttachments, &attachments)
+	issueCredentialMsg, err := generateIssueCredentialMsg()
 	if err != nil {
 		return err
 	}
 
-	issueCredential := issuecredentialclient.IssueCredential{
-		Type:        issuecredential.RequestCredentialMsgTypeV3,
-		ID:          uuid.New().String(),
-		Attachments: attachments,
-	}
-
-	err = i.issueCredentialClients[issuerName].AcceptRequest(piid, &issueCredential)
+	err = i.issueCredentialClients[issuerName].AcceptRequest(piid, issueCredentialMsg)
 	if err != nil {
 		return err
 	}
@@ -408,6 +397,8 @@ func (i *IssuanceSDKSteps) checkAttachments(attachmentsFromOfferMsg []decorator.
 		return err
 	}
 
+	i.credentialManifestReceivedByHolder = credentialManifest
+
 	expectedCredentialManifestID := "dcc75a16-19f5-4273-84ce-4da69ee2b7fe"
 
 	if credentialManifest.ID != expectedCredentialManifestID {
@@ -528,22 +519,6 @@ func getCredentialApplicationFromAttachment(attachment *decorator.GenericAttachm
 	return credentialApplicationBytes, nil
 }
 
-func getExampleCredentialManifest() (*cm.CredentialManifest, error) {
-	var attachments []decorator.GenericAttachment
-
-	err := json.Unmarshal(offerCredentialAttachments, &attachments)
-	if err != nil {
-		return nil, err
-	}
-
-	credentialManifest, err := getCredentialManifestFromAttachment(&attachments[0])
-	if err != nil {
-		return nil, err
-	}
-
-	return credentialManifest, nil
-}
-
 func getVCFromCredentialFulfillmentAttachment(credentialFulfillmentAttachment *decorator.GenericAttachment) (
 	verifiable.Credential, error) {
 	attachmentRaw := credentialFulfillmentAttachment.Data.JSON
@@ -617,7 +592,7 @@ func createDocumentLoader() (*ld.DocumentLoader, error) {
 		RemoteProviderStore: remoteProviderStore,
 	}
 
-	loader, err := ld.NewDocumentLoader(p)
+	loader, err := ld.NewDocumentLoader(p, ld.WithExtraContexts(bddldcontext.Extra()...))
 	if err != nil {
 		return nil, err
 	}
@@ -697,6 +672,275 @@ func (i *IssuanceSDKSteps) GetConnection(from, to string) (*didexClient.Connecti
 type prop interface {
 	MyDID() string
 	TheirDID() string
+}
+
+func generateOfferCredentialMsg() (*issuecredentialclient.OfferCredential, error) {
+	credentialManifestAttachment, err := generateCredentialManifestAttachment()
+	if err != nil {
+		return nil, err
+	}
+
+	// A Credential Fulfillment attachment is sent here as a preview of the VC so the Holder can see what
+	// the credential will look like.
+	credentialFulfillmentAttachment, err := generateCredentialFulfillmentAttachmentWithoutProof()
+	if err != nil {
+		return nil, err
+	}
+
+	attachments := []decorator.GenericAttachment{*credentialManifestAttachment, *credentialFulfillmentAttachment}
+
+	offerCredential := issuecredentialclient.OfferCredential{
+		Type:        issuecredential.OfferCredentialMsgTypeV3,
+		ID:          uuid.New().String(),
+		Attachments: attachments,
+	}
+
+	return &offerCredential, nil
+}
+
+func generateRequestCredentialMsg(credentialManifest *cm.CredentialManifest) (*issuecredentialclient.RequestCredential,
+	error) {
+	credentialApplicationAttachment, err := generateCredentialApplicationAttachment(credentialManifest)
+	if err != nil {
+		return nil, err
+	}
+
+	attachments := []decorator.GenericAttachment{*credentialApplicationAttachment}
+
+	requestCredential := issuecredentialclient.RequestCredential{
+		Type:        issuecredential.RequestCredentialMsgTypeV3,
+		ID:          uuid.New().String(),
+		Attachments: attachments,
+	}
+
+	return &requestCredential, nil
+}
+
+func generateIssueCredentialMsg() (*issuecredentialclient.IssueCredential, error) {
+	cxt := []string{
+		"https://www.w3.org/2018/credentials/v1",
+		cm.CredentialFulfillmentPresentationContext,
+	}
+
+	types := []string{
+		"VerifiablePresentation",
+		"CredentialFulfillment",
+	}
+
+	var credentialFulfillment cm.CredentialFulfillment
+
+	err := json.Unmarshal(credentialFulfillmentDriversLicense, &credentialFulfillment)
+	if err != nil {
+		return nil, err
+	}
+
+	documentLoader, err := createDocumentLoader()
+	if err != nil {
+		return nil, err
+	}
+
+	verifiableCredential, err := verifiable.ParseCredential(vcDriversLicense,
+		verifiable.WithJSONLDDocumentLoader(documentLoader), verifiable.WithDisabledProofCheck())
+	if err != nil {
+		return nil, err
+	}
+
+	verifiableCredentials := []*verifiable.Credential{verifiableCredential}
+
+	proof := generateCredentialFulfillmentProof()
+
+	attachmentData := map[string]interface{}{
+		"@context":               cxt,
+		"type":                   types,
+		"credential_fulfillment": credentialFulfillment,
+		"verifiableCredential":   verifiableCredentials,
+		"proof":                  proof,
+	}
+
+	issueCredentialAttachment := decorator.GenericAttachment{
+		ID:        uuid.New().String(),
+		MediaType: "application/json",
+		Format:    cm.CredentialFulfillmentAttachmentFormat,
+		Data:      decorator.AttachmentData{JSON: attachmentData},
+	}
+
+	attachments := []decorator.GenericAttachment{issueCredentialAttachment}
+
+	issueCredentialMsg := issuecredentialclient.IssueCredential{
+		Type:        issuecredential.IssueCredentialMsgTypeV3,
+		ID:          uuid.New().String(),
+		Attachments: attachments,
+	}
+
+	return &issueCredentialMsg, nil
+}
+
+func generateCredentialManifestAttachment() (*decorator.GenericAttachment, error) {
+	credentialManifest, err := generateCredentialManifest()
+	if err != nil {
+		return nil, err
+	}
+
+	options := map[string]string{
+		"challenge": "508adef4-b8e0-4edf-a53d-a260371c1423",
+		"domain":    "9rf25a28rs96",
+	}
+
+	attachmentData := map[string]interface{}{
+		"options":             options,
+		"credential_manifest": credentialManifest,
+	}
+
+	credentialManifestAttachment := decorator.GenericAttachment{
+		ID:        uuid.New().String(),
+		MediaType: "application/json",
+		Format:    cm.CredentialManifestAttachmentFormat,
+		Data:      decorator.AttachmentData{JSON: attachmentData},
+	}
+
+	return &credentialManifestAttachment, nil
+}
+
+func generateCredentialApplicationAttachment(credentialManifest *cm.CredentialManifest) (*decorator.GenericAttachment,
+	error) {
+	cxt := []string{
+		"https://www.w3.org/2018/credentials/v1",
+		cm.CredentialApplicationPresentationContext,
+	}
+
+	types := []string{
+		"VerifiablePresentation",
+		"CredentialApplication",
+	}
+
+	credentialApplication, err :=
+		cm.UnmarshalAndValidateAgainstCredentialManifest(credentialApplicationDriversLicense, credentialManifest)
+	if err != nil {
+		return nil, err
+	}
+
+	var presentationSubmission presexch.PresentationSubmission
+
+	err = json.Unmarshal(presentationSubmissionPRC, &presentationSubmission)
+	if err != nil {
+		return nil, err
+	}
+
+	documentLoader, err := createDocumentLoader()
+	if err != nil {
+		return nil, err
+	}
+
+	verifiableCredential, err := verifiable.ParseCredential(vcPRC,
+		verifiable.WithJSONLDDocumentLoader(documentLoader), verifiable.WithDisabledProofCheck())
+	if err != nil {
+		return nil, err
+	}
+
+	verifiableCredentials := []*verifiable.Credential{verifiableCredential}
+
+	proof := generateCredentialApplicationProof()
+
+	attachmentData := map[string]interface{}{
+		"@context":                cxt,
+		"type":                    types,
+		"credential_application":  credentialApplication,
+		"presentation_submission": presentationSubmission,
+		"verifiableCredential":    verifiableCredentials,
+		"proof":                   proof,
+	}
+
+	credentialApplicationAttachment := decorator.GenericAttachment{
+		ID:        uuid.New().String(),
+		MediaType: "application/json",
+		Format:    cm.CredentialApplicationAttachmentFormat,
+		Data:      decorator.AttachmentData{JSON: attachmentData},
+	}
+
+	return &credentialApplicationAttachment, nil
+}
+
+func generateCredentialManifest() (*cm.CredentialManifest, error) {
+	var credentialManifest cm.CredentialManifest
+
+	err := json.Unmarshal(credentialManifestDriversLicense, &credentialManifest)
+	if err != nil {
+		return nil, err
+	}
+
+	return &credentialManifest, nil
+}
+
+func generateCredentialFulfillmentAttachmentWithoutProof() (*decorator.GenericAttachment, error) {
+	var credentialFulfillment cm.CredentialFulfillment
+
+	err := json.Unmarshal(credentialFulfillmentDriversLicense, &credentialFulfillment)
+	if err != nil {
+		return nil, err
+	}
+
+	cxt := []string{
+		"https://www.w3.org/2018/credentials/v1",
+		cm.CredentialFulfillmentPresentationContext,
+	}
+
+	types := []string{
+		"VerifiablePresentation",
+		"CredentialFulfillment",
+	}
+
+	documentLoader, err := createDocumentLoader()
+	if err != nil {
+		return nil, err
+	}
+
+	vcPreview, err := verifiable.ParseCredential(vcDriversLicenseWithoutProof,
+		verifiable.WithJSONLDDocumentLoader(documentLoader))
+	if err != nil {
+		return nil, err
+	}
+
+	verifiableCredentials := []*verifiable.Credential{vcPreview}
+
+	attachmentData := map[string]interface{}{
+		"@context":               cxt,
+		"type":                   types,
+		"credential_fulfillment": credentialFulfillment,
+		"verifiableCredential":   verifiableCredentials,
+	}
+
+	credentialFulfillmentAttachment := decorator.GenericAttachment{
+		ID:        uuid.New().String(),
+		MediaType: "application/json",
+		Format:    cm.CredentialFulfillmentAttachmentFormat,
+		Data:      decorator.AttachmentData{JSON: attachmentData},
+	}
+
+	return &credentialFulfillmentAttachment, nil
+}
+
+func generateCredentialFulfillmentProof() map[string]string {
+	return map[string]string{
+		"type": "Ed25519Signature2018",
+		"verificationMethod": "did:orb:EiA3Xmv8A8vUH5lRRZeKakd-cjAxGC2A4aoPDjLysjghow#tMIstfHSzXfBUF" +
+			"7O0m2FiBEfTb93_j_4ron47IXPgEo",
+		"created":      "2021-06-07T20:02:44.730614315Z",
+		"proofPurpose": "authentication",
+		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19.." +
+			"NVum9BeYkhzwslZXm2cDOveQB9njlrCRSrdMZgwV3zZfLRXmZQ1AXdKLLmo4ClTYXFX_TWNyB8aFt9cN6sSvCg",
+	}
+}
+
+func generateCredentialApplicationProof() map[string]string {
+	return map[string]string{
+		"type":               "Ed25519Signature2018",
+		"verificationMethod": "did:example:123#key-0",
+		"created":            "2021-05-14T20:16:29.565377",
+		"proofPurpose":       "authentication",
+		"challenge":          "3fa85f64-5717-4562-b3fc-2c963f66afa7",
+		"jws": "eyJhbGciOiAiRWREU0EiLCAiYjY0IjogZmFsc2UsICJjcml0IjogWyJiNjQiXX0..7M9LwdJR1_SQayHIWVHF5eSSRhbVsr" +
+			"jQHKUrfRhRRrlbuKlggm8mm_4EI_kTPeBpalQWiGiyCb_0OWFPtn2wAQ",
+	}
 }
 
 func checkProperties(action service.DIDCommAction) error {

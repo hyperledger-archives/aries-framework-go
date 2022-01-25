@@ -1,0 +1,11 @@
+{
+  "id":"2e161b2c-606b-416f-b04f-7f06edac55a1",
+  "definition_id":"8246867e-fdce-48de-a825-9d84ec16c6c9",
+  "descriptor_map":[
+    {
+      "id":"prc_input",
+      "format":"ldp_vp",
+      "path":"$.verifiableCredential[0]"
+    }
+  ]
+}
