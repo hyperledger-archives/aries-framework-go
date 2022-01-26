@@ -457,6 +457,9 @@ type ResolveCredentialManifestRequest struct {
 	// Credential to be be resolved, to be provided along with 'DescriptorID' to be used for resolving.
 	Credential json.RawMessage `json:"credential,omitempty"`
 
+	// ID of the Credential from wallet content to be be resolved, to be provided along with 'DescriptorID'.
+	CredentialID string `json:"credentialID,omitempty"`
+
 	// ID of the output descriptor to be used for resolving given credential.
 	DescriptorID string `json:"descriptorID,omitempty"`
 }

@@ -1146,5 +1146,9 @@ func prepareResolveManifestOption(rqst *ResolveCredentialManifestRequest) wallet
 		return wallet.ResolveRawCredential(rqst.DescriptorID, rqst.Credential)
 	}
 
+	if rqst.CredentialID != "" {
+		return wallet.ResolveCredentialID(rqst.DescriptorID, rqst.CredentialID)
+	}
+
 	return nil
 }

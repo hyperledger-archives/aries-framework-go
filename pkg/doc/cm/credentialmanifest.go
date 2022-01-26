@@ -135,6 +135,29 @@ type staticDisplayMappingObjects struct {
 	description string
 }
 
+// resolveCredOpts contains option to provide credential to resolve manifest.
+type resolveCredOpts struct {
+	credential    *verifiable.Credential
+	rawCredential json.RawMessage
+}
+
+// CredentialToResolveOption is option to provide credential to resolve manifest.
+type CredentialToResolveOption func(opts *resolveCredOpts)
+
+// CredentialToResolve to provide verifiable credential instance to resolve.
+func CredentialToResolve(credential *verifiable.Credential) CredentialToResolveOption {
+	return func(opts *resolveCredOpts) {
+		opts.credential = credential
+	}
+}
+
+// RawCredentialToResolve to provide raw JSON bytes of verifiable credential to resolve.
+func RawCredentialToResolve(raw json.RawMessage) CredentialToResolveOption {
+	return func(opts *resolveCredOpts) {
+		opts.rawCredential = raw
+	}
+}
+
 // UnmarshalJSON is the custom unmarshal function gets called automatically when the standard json.Unmarshal is called.
 // It also ensures that the given data is a valid CredentialManifest object per the specification.
 func (cm *CredentialManifest) UnmarshalJSON(data []byte) error {
@@ -252,17 +275,32 @@ func (cm *CredentialManifest) ResolveFulfillment(fulfillment *verifiable.Present
 }
 
 // ResolveCredential resolved given credential and returns results.
-func (cm *CredentialManifest) ResolveCredential(descriptorID string, credential *verifiable.Credential) (*ResolvedDescriptor, error) { //nolint:lll
-	credBytes, err := credential.MarshalJSON()
-	if err != nil {
-		return nil, err
+func (cm *CredentialManifest) ResolveCredential(descriptorID string, credential CredentialToResolveOption) (*ResolvedDescriptor, error) { //nolint:lll
+	opts := &resolveCredOpts{}
+
+	if credential != nil {
+		credential(opts)
 	}
+
+	var err error
 
 	var vcmap map[string]interface{}
 
-	err = json.Unmarshal(credBytes, &vcmap)
-	if err != nil {
-		return nil, err
+	switch {
+	case opts.credential != nil:
+		opts.rawCredential, err = opts.credential.MarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+
+		fallthrough
+	case len(opts.rawCredential) > 0:
+		err = json.Unmarshal(opts.rawCredential, &vcmap)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		return nil, errors.New("credential to resolve is not provided")
 	}
 
 	// find matching descriptor and resolve.

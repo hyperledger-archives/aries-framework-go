@@ -446,6 +446,7 @@ type resolveManifestOpts struct {
 	fulfillment    *verifiable.Presentation
 	rawFulfillment json.RawMessage
 	descriptorID   string
+	credentialID   string
 	credential     *verifiable.Credential
 	rawCredential  json.RawMessage
 }
@@ -480,5 +481,13 @@ func ResolveRawCredential(descriptorID string, rawCredential json.RawMessage) Re
 	return func(opts *resolveManifestOpts) {
 		opts.descriptorID = descriptorID
 		opts.rawCredential = rawCredential
+	}
+}
+
+// ResolveCredentialID options for resolving credential from wallet content store by given descriptor ID.
+func ResolveCredentialID(descriptorID, credentialID string) ResolveManifestOption {
+	return func(opts *resolveManifestOpts) {
+		opts.descriptorID = descriptorID
+		opts.credentialID = credentialID
 	}
 }
