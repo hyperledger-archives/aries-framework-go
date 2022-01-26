@@ -56,6 +56,7 @@ func New(p Provider) *Creator {
 
 // CreatePeerDIDV2 create a peer DID suitable for use in DIDComm V2.
 func (s *Creator) CreatePeerDIDV2() (*did.Doc, error) {
+	// TODO: add routing keys so edge agents can rotate (currently only cloud agents do)
 	newDID := &did.Doc{Service: []did.Service{{Type: vdrapi.DIDCommV2ServiceType}}}
 
 	err := s.createNewKeyAndVM(newDID)

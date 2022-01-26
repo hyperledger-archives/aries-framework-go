@@ -17,7 +17,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	didcomm "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofbandv2"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/jwkkid"
@@ -169,6 +168,10 @@ func (h *DIDCommMessageMiddleware) HandleOutboundMessage(msg didcomm.DIDCommMsgM
 	return msg
 }
 
+type invitationStub struct {
+	Type string `json:"type"`
+}
+
 func (h *DIDCommMessageMiddleware) handleInboundInvitationAcceptance(senderDID, recipientDID string,
 ) (*connection.Record, error) {
 	didParsed, err := did.Parse(recipientDID)
@@ -181,7 +184,7 @@ func (h *DIDCommMessageMiddleware) handleInboundInvitationAcceptance(senderDID, 
 		return nil, nil
 	}
 
-	inv := &outofbandv2.Invitation{}
+	inv := &invitationStub{}
 
 	err = h.connStore.GetOOBv2Invitation(recipientDID, inv)
 	if errors.Is(err, storage.ErrDataNotFound) {

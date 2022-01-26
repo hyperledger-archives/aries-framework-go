@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
+	outofbandv2svc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofbandv2"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 )
 
@@ -118,7 +119,10 @@ func (c *Command) AcceptInvitation(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyMyLabel))
 	}
 
-	connID, err := c.client.AcceptInvitation(args.Invitation)
+	connID, err := c.client.AcceptInvitation(
+		args.Invitation,
+		outofbandv2svc.WithRouterConnections(args.RouterConnections),
+	)
 	if err != nil {
 		logutil.LogError(logger, CommandName, AcceptInvitation, err.Error())
 		return command.NewExecuteError(AcceptInvitationErrorCode, err)

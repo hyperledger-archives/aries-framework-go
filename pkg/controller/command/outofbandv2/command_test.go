@@ -189,7 +189,7 @@ func TestCommand_AcceptInvitation(t *testing.T) {
 
 	t.Run("AcceptInvitation (error)", func(t *testing.T) {
 		service := mocks.NewMockOobService(ctrl)
-		service.EXPECT().AcceptInvitation(gomock.Any()).Return("", errors.New("error message"))
+		service.EXPECT().AcceptInvitation(gomock.Any(), gomock.Any()).Return("", errors.New("error message"))
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
@@ -211,7 +211,7 @@ func TestCommand_AcceptInvitation(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		service := mocks.NewMockOobService(ctrl)
 		connID := "123"
-		service.EXPECT().AcceptInvitation(gomock.Any()).Return(connID, nil)
+		service.EXPECT().AcceptInvitation(gomock.Any(), gomock.Any()).Return(connID, nil)
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)

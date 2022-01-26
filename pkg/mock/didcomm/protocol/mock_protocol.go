@@ -46,6 +46,12 @@ type MockProvider struct {
 	mediaTypeProfilesValue       []string
 	MsgTypeServicesTargets       []dispatcher.MessageTypeTarget
 	AllProtocolServices          []dispatcher.ProtocolService
+	RouterEndpointValue          string
+}
+
+// RouterEndpoint returns mock router endpoint.
+func (p *MockProvider) RouterEndpoint() string {
+	return p.RouterEndpointValue
 }
 
 // OutboundDispatcher is mock outbound dispatcher for DID exchange service.

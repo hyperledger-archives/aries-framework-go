@@ -24,6 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/messagepickup"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
@@ -33,6 +34,7 @@ import (
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
+	mockmediator "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
 	mocksvc "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/service"
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
@@ -233,6 +235,119 @@ func TestAcceptInvitation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, connID)
 	})
+
+	t.Run("invitation success with mediator connections", func(t *testing.T) {
+		provider := testProvider(t)
+		ed25519RawKey, p384KeyMarshalled := createAuthenticationAndAgreementKeys(t, provider)
+
+		provider.CustomKMS.(*mockkms.MockKeyManager).EXPECT().
+			CreateAndExportPubKeyBytes(provider.KeyTypeValue).Return("", ed25519RawKey, nil)
+		provider.CustomKMS.(*mockkms.MockKeyManager).EXPECT().
+			CreateAndExportPubKeyBytes(provider.KeyAgreementTypeValue).Return("", p384KeyMarshalled, nil)
+
+		testKey := "did:test:foo#key"
+
+		provider.ServiceMap[mediator.Coordination] = &mockmediator.MockMediatorSvc{
+			RouterEndpoint: "mock.endpoint",
+			RoutingKeys:    []string{testKey},
+			ConfigErr:      nil,
+		}
+
+		s := newAutoService(t, provider)
+		inv := newInvitation()
+		inv.Body.Accept = []string{transport.MediaTypeDIDCommV2Profile}
+
+		var createdDoc *did.Doc
+
+		s.vdrRegistry = &mockvdr.MockVDRegistry{
+			CreateFunc: func(s string, doc *did.Doc, option ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+				createdDoc = doc
+
+				return &did.DocResolution{DIDDocument: doc}, nil
+			},
+			ResolveFunc: func(id string, _ ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+				return &did.DocResolution{
+					DIDDocument: mockdiddoc.GetMockDIDDoc(t),
+				}, nil
+			},
+		}
+
+		connID, err := s.AcceptInvitation(inv, WithRouterConnections([]string{"foo"}))
+		require.NoError(t, err)
+		require.NotEmpty(t, connID)
+
+		require.NotNil(t, createdDoc)
+		docSvc, ok := did.LookupService(createdDoc, vdrapi.DIDCommV2ServiceType)
+		require.True(t, ok)
+
+		require.Len(t, docSvc.RoutingKeys, 1)
+		require.Equal(t, testKey, docSvc.RoutingKeys[0])
+	})
+
+	t.Run("error fetching mediator config", func(t *testing.T) {
+		provider := testProvider(t)
+		ed25519RawKey, p384KeyMarshalled := createAuthenticationAndAgreementKeys(t, provider)
+
+		provider.CustomKMS.(*mockkms.MockKeyManager).EXPECT().
+			CreateAndExportPubKeyBytes(provider.KeyTypeValue).Return("", ed25519RawKey, nil)
+		provider.CustomKMS.(*mockkms.MockKeyManager).EXPECT().
+			CreateAndExportPubKeyBytes(provider.KeyAgreementTypeValue).Return("", p384KeyMarshalled, nil)
+
+		expectedErr := fmt.Errorf("expected error")
+
+		provider.ServiceMap[mediator.Coordination] = &mockmediator.MockMediatorSvc{
+			ConfigErr: expectedErr,
+		}
+
+		s := newAutoService(t, provider)
+		inv := newInvitation()
+		inv.Body.Accept = []string{transport.MediaTypeDIDCommV2Profile}
+
+		_, err := s.AcceptInvitation(inv, WithRouterConnections([]string{"foo"}))
+		require.ErrorIs(t, err, expectedErr)
+		require.Contains(t, err.Error(), "fetch router config")
+	})
+
+	t.Run("fail to add new keys from peer DID to router", func(t *testing.T) {
+		provider := testProvider(t)
+		ed25519RawKey, p384KeyMarshalled := createAuthenticationAndAgreementKeys(t, provider)
+
+		provider.CustomKMS.(*mockkms.MockKeyManager).EXPECT().
+			CreateAndExportPubKeyBytes(provider.KeyTypeValue).Return("", ed25519RawKey, nil)
+		provider.CustomKMS.(*mockkms.MockKeyManager).EXPECT().
+			CreateAndExportPubKeyBytes(provider.KeyAgreementTypeValue).Return("", p384KeyMarshalled, nil)
+
+		testKey := "did:test:foo#key"
+
+		expectedErr := fmt.Errorf("expected error")
+
+		provider.ServiceMap[mediator.Coordination] = &mockmediator.MockMediatorSvc{
+			RouterEndpoint: "mock.endpoint",
+			RoutingKeys:    []string{testKey},
+			ConfigErr:      nil,
+			AddKeyErr:      expectedErr,
+		}
+
+		s := newAutoService(t, provider)
+		inv := newInvitation()
+		inv.Body.Accept = []string{transport.MediaTypeDIDCommV2Profile}
+
+		s.vdrRegistry = &mockvdr.MockVDRegistry{
+			CreateFunc: func(s string, doc *did.Doc, option ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+				return &did.DocResolution{DIDDocument: doc}, nil
+			},
+			ResolveFunc: func(id string, _ ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+				return &did.DocResolution{
+					DIDDocument: mockdiddoc.GetMockDIDDoc(t),
+				}, nil
+			},
+		}
+
+		_, err := s.AcceptInvitation(inv, WithRouterConnections([]string{"foo"}))
+		require.ErrorIs(t, err, expectedErr)
+		require.Contains(t, err.Error(), "add key to the router")
+	})
+
 	t.Run("invitation accept values with a valid presentproof V3 target code", func(t *testing.T) {
 		msg := service.NewDIDCommMsgMap(presentproof.PresentationV3{
 			Type: presentproof.RequestPresentationMsgTypeV3,
@@ -368,6 +483,13 @@ func testProvider(t *testing.T) *protocol.MockProvider {
 	messagePickupService, err := messagepickup.New(p)
 	require.NoError(t, err)
 
+	p.ServiceMap = map[string]interface{}{
+		messagepickup.MessagePickup: messagePickupService,
+	}
+
+	mediatorSvc, err := mediator.New(p)
+	require.NoError(t, err)
+
 	// auto service for message pickup
 	events = make(chan service.DIDCommAction)
 	require.NoError(t, messagePickupService.RegisterActionEvent(events))
@@ -425,6 +547,12 @@ func testProvider(t *testing.T) *protocol.MockProvider {
 		AllProtocolServices: []dispatcher.ProtocolService{
 			ppf,
 			messagePickupService,
+			mediatorSvc,
+		},
+		ServiceMap: map[string]interface{}{
+			messagepickup.MessagePickup: messagePickupService,
+			presentproof.Name:           ppf,
+			mediator.Coordination:       mediatorSvc,
 		},
 	}
 }
