@@ -967,7 +967,7 @@ func (c *Wallet) RequestCredential(authToken, thID string, options ...ConcludeIn
 // 		- list of resolved descriptors.
 // 		- error if operation fails.
 //
-func (c *Wallet) ResolveCredentialManifest(authToken string, manifest json.RawMessage, resolve ResolveManifestOption) ([]*cm.ResolvedDescriptor, error) { //nolint: lll
+func (c *Wallet) ResolveCredentialManifest(authToken string, manifest json.RawMessage, resolve ResolveManifestOption) ([]*cm.ResolvedDescriptor, error) { //nolint: lll,gocyclo
 	credentialManifest := &cm.CredentialManifest{}
 
 	err := credentialManifest.UnmarshalJSON(manifest)
@@ -983,7 +983,8 @@ func (c *Wallet) ResolveCredentialManifest(authToken string, manifest json.RawMe
 
 	switch {
 	case len(opts.rawFulfillment) > 0:
-		opts.fulfillment, err = verifiable.ParsePresentation(opts.rawFulfillment, verifiable.WithPresDisabledProofCheck(),
+		opts.fulfillment, err = verifiable.ParsePresentation(opts.rawFulfillment,
+			verifiable.WithPresDisabledProofCheck(),
 			verifiable.WithPresJSONLDDocumentLoader(c.jsonldDocumentLoader))
 		if err != nil {
 			return nil, err
@@ -992,6 +993,13 @@ func (c *Wallet) ResolveCredentialManifest(authToken string, manifest json.RawMe
 		fallthrough
 	case opts.fulfillment != nil:
 		return credentialManifest.ResolveFulfillment(opts.fulfillment)
+	case opts.credentialID != "":
+		opts.rawCredential, err = c.Get(authToken, Credential, opts.credentialID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get credential to resolve from wallet: %w", err)
+		}
+
+		fallthrough
 	case len(opts.rawCredential) > 0:
 		opts.credential, err = verifiable.ParseCredential(opts.rawCredential, verifiable.WithDisabledProofCheck(),
 			verifiable.WithJSONLDDocumentLoader(c.jsonldDocumentLoader))
@@ -999,11 +1007,20 @@ func (c *Wallet) ResolveCredentialManifest(authToken string, manifest json.RawMe
 			return nil, err
 		}
 
-		fallthrough
-	case opts.credential != nil:
-		resolved, err := credentialManifest.ResolveCredential(opts.descriptorID, opts.credential)
+		resolved, err := credentialManifest.ResolveCredential(opts.descriptorID,
+			cm.RawCredentialToResolve(opts.rawCredential))
 		if err != nil {
-			return nil, fmt.Errorf("failed to resolve given credential by descriptor ID '%s' : %w", opts.descriptorID, err)
+			return nil, fmt.Errorf("failed to resolve raw credential by descriptor ID '%s':  %w",
+				opts.descriptorID, err)
+		}
+
+		return []*cm.ResolvedDescriptor{resolved}, nil
+	case opts.credential != nil:
+		resolved, err := credentialManifest.ResolveCredential(opts.descriptorID,
+			cm.CredentialToResolve(opts.credential))
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve given credential by descriptor ID '%s' : %w",
+				opts.descriptorID, err)
 		}
 
 		return []*cm.ResolvedDescriptor{resolved}, nil

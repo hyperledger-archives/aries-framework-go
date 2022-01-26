@@ -4034,6 +4034,8 @@ func TestWallet_ResolveCredentialManifest(t *testing.T) {
 		verifiable.WithJSONLDDocumentLoader(mockctx.JSONLDDocumentLoader()))
 	require.NoError(t, err)
 
+	require.NoError(t, wallet.Add(token, Credential, testdata.SampleUDCVC))
+
 	t.Run("Test Resolving credential manifests", func(t *testing.T) {
 		testTable := map[string]struct {
 			manifest    []byte
@@ -4059,6 +4061,11 @@ func TestWallet_ResolveCredentialManifest(t *testing.T) {
 			"testing resolve by credential": {
 				manifest:    testdata.CredentialManifestMultipleVCs,
 				resolve:     ResolveCredential("udc_output", vc),
+				resultCount: 1,
+			},
+			"testing resolve by credential ID": {
+				manifest:    testdata.CredentialManifestMultipleVCs,
+				resolve:     ResolveCredentialID("udc_output", vc.ID),
 				resultCount: 1,
 			},
 			"testing failure - resolve by empty resolve option": {
@@ -4096,6 +4103,12 @@ func TestWallet_ResolveCredentialManifest(t *testing.T) {
 				resolve:     ResolveCredential("invalid", vc),
 				resultCount: 0,
 				error:       "unable to find matching descriptor",
+			},
+			"testing failure  - resolve credential by invalid credential ID": {
+				manifest:    testdata.CredentialManifestMultipleVCs,
+				resolve:     ResolveCredentialID("udc_output", "incorrect"),
+				resultCount: 0,
+				error:       "failed to get credential to resolve from wallet",
 			},
 		}
 

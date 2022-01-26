@@ -1445,6 +1445,19 @@ const Aries = function (opts) {
             requestCredential: async function (req) {
                 return invoke(aw, pending, this.pkgname, "RequestCredential", req, "timeout while performing request credential from wallet")
             },
+
+            /**
+             *
+             * ResolveCredentialManifest resolves given credential manifest by credential fulfillment or credential.
+             * Supports: https://identity.foundation/credential-manifest/
+             *
+             *  Returns resolved descriptors.
+             *
+             * @returns {Promise<Object>}
+             */
+            resolveCredentialManifest: async function (req) {
+                return invoke(aw, pending, this.pkgname, "ResolveCredentialManifest", req, "timeout while resolving credential manifest from wallet")
+            },
         },
         /**
          * JSON-LD management API.

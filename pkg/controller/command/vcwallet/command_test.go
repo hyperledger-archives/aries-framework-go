@@ -2352,6 +2352,12 @@ func TestCommand_ResolveCredentialManifest(t *testing.T) {
 
 	defer lock()
 
+	addContent(t, mockctx, &AddContentRequest{
+		Content:     testdata.SampleUDCVC,
+		ContentType: "credential",
+		WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token},
+	})
+
 	t.Run("successfully resolve credential fulfillment", func(t *testing.T) {
 		cmd := New(mockctx, &Config{})
 
@@ -2378,6 +2384,26 @@ func TestCommand_ResolveCredentialManifest(t *testing.T) {
 			WalletAuth:   WalletAuth{UserID: sampleUser1, Auth: token},
 			Manifest:     testdata.CredentialManifestMultipleVCs,
 			Credential:   testdata.SampleUDCVC,
+			DescriptorID: "udc_output",
+		}
+
+		var b bytes.Buffer
+		cmdErr := cmd.ResolveCredentialManifest(&b, getReader(t, &request))
+		require.NoError(t, cmdErr)
+
+		var response ResolveCredentialManifestResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&response))
+		require.NotEmpty(t, response)
+		require.Len(t, response.Resolved, 1)
+	})
+
+	t.Run("successfully resolve credential ID", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		request := &ResolveCredentialManifestRequest{
+			WalletAuth:   WalletAuth{UserID: sampleUser1, Auth: token},
+			Manifest:     testdata.CredentialManifestMultipleVCs,
+			CredentialID: "http://example.edu/credentials/1872",
 			DescriptorID: "udc_output",
 		}
 

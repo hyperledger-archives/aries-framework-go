@@ -481,13 +481,47 @@ func TestResolveFulfillment(t *testing.T) {
 }
 
 func TestResolveCredential(t *testing.T) {
-	t.Run("Successes", func(t *testing.T) {
+	t.Run("Successes - resolve credential instance", func(t *testing.T) {
 		manifest := &cm.CredentialManifest{}
 		require.NoError(t, manifest.UnmarshalJSON(credentialManifestUniversityDegree))
 
 		vc := parseTestCredential(t, validVC)
 
-		result, err := manifest.ResolveCredential("bachelors_degree", vc)
+		result, err := manifest.ResolveCredential("bachelors_degree", cm.CredentialToResolve(vc))
+		require.NoError(t, err)
+		require.NotEmpty(t, result)
+		require.Equal(t, result.Title, "Bachelor of Applied Science")
+		require.Equal(t, result.Subtitle, "Electrical Systems Specialty")
+
+		expected := map[string]*cm.ResolvedProperty{
+			"With distinction": {
+				Label: "With distinction",
+				Value: true,
+				Schema: cm.Schema{
+					Type: "boolean",
+				},
+			},
+			"Years studied": {
+				Label: "Years studied",
+				Value: float64(4),
+				Schema: cm.Schema{
+					Type: "number",
+				},
+			},
+		}
+
+		for _, property := range result.Properties {
+			expectedVal, ok := expected[property.Label]
+			require.True(t, ok, "unexpected label '%s' in resolved properties", property.Label)
+			require.EqualValues(t, expectedVal, property)
+		}
+	})
+
+	t.Run("Successes - resolve raw Credential", func(t *testing.T) {
+		manifest := &cm.CredentialManifest{}
+		require.NoError(t, manifest.UnmarshalJSON(credentialManifestUniversityDegree))
+
+		result, err := manifest.ResolveCredential("bachelors_degree", cm.RawCredentialToResolve(validVC))
 		require.NoError(t, err)
 		require.NotEmpty(t, result)
 		require.Equal(t, result.Title, "Bachelor of Applied Science")
@@ -521,10 +555,22 @@ func TestResolveCredential(t *testing.T) {
 		manifest := &cm.CredentialManifest{}
 		require.NoError(t, manifest.UnmarshalJSON(credentialManifestUniversityDegree))
 
+		// invalid credential to resolve
+		result, err := manifest.ResolveCredential("bachelors_degree", nil)
+		require.Empty(t, result)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "credential to resolve is not provided")
+
+		// invalid raw credential to resolve
+		result, err = manifest.ResolveCredential("bachelors_degree", cm.RawCredentialToResolve([]byte("---")))
+		require.Empty(t, result)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid character")
+
 		vc := parseTestCredential(t, validVC)
 
 		// descriptor not found
-		result, err := manifest.ResolveCredential("bachelors_degree_incorrect", vc)
+		result, err = manifest.ResolveCredential("bachelors_degree_incorrect", cm.CredentialToResolve(vc))
 		require.Empty(t, result)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unable to find matching descriptor")
@@ -532,7 +578,7 @@ func TestResolveCredential(t *testing.T) {
 		// credential marshal error
 		vc.CustomFields["invalid"] = make(chan int)
 
-		result, err = manifest.ResolveCredential("bachelors_degree", vc)
+		result, err = manifest.ResolveCredential("bachelors_degree", cm.CredentialToResolve(vc))
 		require.Empty(t, result)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "JSON marshalling of verifiable credential")

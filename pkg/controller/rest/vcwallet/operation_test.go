@@ -1804,7 +1804,7 @@ func TestOperation_ResolveCredentialManifest(t *testing.T) {
 		cmd := New(mockctx, &vcwallet.Config{})
 		cmd.ResolveCredentialManifest(rw, rq)
 		require.Equal(t, rw.Code, http.StatusInternalServerError)
-		require.Contains(t, rw.Body.String(), "failed to resolve given credential by descriptor ID")
+		require.Contains(t, rw.Body.String(), "failed to resolve raw credential by descriptor ID")
 	})
 }
 
