@@ -36,7 +36,7 @@ import (
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/ws"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
+	aries "github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
@@ -65,11 +65,40 @@ type SDKSteps struct {
 	newKeyType           kms.KeyType
 	newKeyAgreementType  kms.KeyType
 	newMediaTypeProfiles []string
+	agentOpts            map[string][]createAgentOption
 }
 
 // NewSDKSteps returns new agent from client SDK.
 func NewSDKSteps() *SDKSteps {
-	return &SDKSteps{}
+	return &SDKSteps{
+		agentOpts: map[string][]createAgentOption{},
+	}
+}
+
+type agentInitParams struct {
+	opts        []aries.Option
+	autoTrigger bool
+}
+
+func (a *agentInitParams) append(opts ...aries.Option) {
+	a.opts = append(a.opts, opts...)
+}
+
+func (a *SDKSteps) getAgentParams(agent string) (*agentInitParams, error) {
+	params := &agentInitParams{}
+
+	for _, opt := range a.agentOpts[agent] {
+		err := opt(agent, params)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return params, nil
+}
+
+func (a *SDKSteps) addAriesOption(agent string, opts ...createAgentOption) {
+	a.agentOpts[agent] = append(a.agentOpts[agent], opts...)
 }
 
 func (a *SDKSteps) scenario(keyType, keyAgreementType, mediaTypeProfile string) error {
@@ -88,12 +117,12 @@ func (a *SDKSteps) useMediaTypeProfiles(mediaTypeProfiles string) error {
 
 // CreateAgent with the given parameters.
 func (a *SDKSteps) CreateAgent(agentID, inboundHost, inboundPort, scheme string) error {
-	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, false)
+	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme)
 }
 
 // createAgentByDIDCommV2 with the given parameters.
 func (a *SDKSteps) createAgentByDIDCommV2(agentID, inboundHost, inboundPort, scheme string) error {
-	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, false, withDIDCommV2())
+	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, withDIDCommV2())
 }
 
 func (a *SDKSteps) createConnectionV2(agent1, agent2 string) error {
@@ -140,8 +169,7 @@ func (a *SDKSteps) createConnectionV2(agent1, agent2 string) error {
 // CreateAgentWithRemoteKMS with the given parameters with a remote kms.
 func (a *SDKSteps) CreateAgentWithRemoteKMS(agentID, inboundHost, inboundPort, scheme,
 	kmsURL, controller string) error {
-	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, false,
-		withRemoteKMSCrypto(kmsURL, controller))
+	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, withRemoteKMSCrypto(kmsURL, controller))
 }
 
 func loadCertPool() (*x509.CertPool, error) {
@@ -164,44 +192,34 @@ func loadCertPool() (*x509.CertPool, error) {
 }
 
 func (a *SDKSteps) createAgentWithRegistrar(agentID, inboundHost, inboundPort, scheme string) error {
-	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, false, withRegistrar())
+	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, a.withRegistrar())
 }
 
 func (a *SDKSteps) createAgentWithRegistrarAndHTTPDIDResolver(agentID, inboundHost, inboundPort,
 	scheme, endpointURL, acceptDidMethod string) error {
-	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, false,
-		withRegistrar(), withHTTPResolver(endpointURL, acceptDidMethod))
+	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, a.withRegistrar(), a.withHTTPResolver(endpointURL, acceptDidMethod))
 }
 
 // CreateAgentWithHTTPDIDResolver creates one or more agents with HTTP DID resolver.
 func (a *SDKSteps) CreateAgentWithHTTPDIDResolver(
 	agents, inboundHost, inboundPort, endpointURL, acceptDidMethod string) error {
-	return a.createAgentWithHTTPDIDResolverAndServiceTriggering(agents, inboundHost, inboundPort, endpointURL,
-		acceptDidMethod, false)
+	return a.createAgentWithOptions(agents, inboundHost, inboundPort, "http",
+		a.withHTTPResolver(endpointURL, acceptDidMethod),
+		a.withDynamicEnvelopeParams(),
+		withServiceMsgTypeTargets(),
+	)
 }
 
 // CreateAgentWithHTTPDIDResolverAndOOBv2 creates one or more agents with HTTP DID resolver and services with auto event
 // registration.
 func (a *SDKSteps) CreateAgentWithHTTPDIDResolverAndOOBv2(
-	agents, inboundHost, inboundPort, endpointURL, acceptDidMethod string) error {
-	return a.createAgentWithHTTPDIDResolverAndServiceTriggering(agents, inboundHost, inboundPort, endpointURL,
-		acceptDidMethod, true)
-}
-
-func (a *SDKSteps) createAgentWithHTTPDIDResolverAndServiceTriggering(
-	agents, inboundHost, inboundPort, endpointURL, acceptDidMethod string, autoTrigger bool) error {
-	for _, agentID := range strings.Split(agents, ",") {
-		err := a.createAgentWithOptions(agentID, inboundHost, inboundPort, "http", autoTrigger,
-			withHTTPResolver(endpointURL, acceptDidMethod),
-			withDynamicEnvelopeParams(),
-			withServiceMsgTypeTargets(),
-		)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	agent, inboundHost, inboundPort, endpointURL, acceptDidMethod string) error {
+	return a.createAgentWithOptions(agent, inboundHost, inboundPort, "http",
+		a.withHTTPResolver(endpointURL, acceptDidMethod),
+		a.withDynamicEnvelopeParams(),
+		withServiceMsgTypeTargets(),
+		withAutoTrigger(),
+	)
 }
 
 // CreateAgentWithFlags takes a set of comma-separated flags or key-value pairs:
@@ -229,24 +247,40 @@ func (a *SDKSteps) CreateAgentWithFlags(agentID, inboundHost, inboundPort, schem
 	}
 
 	if endpointURL, ok := flagMap["sidetree"]; ok {
-		opts = append(opts, withHTTPResolver(endpointURL, "sidetree"))
+		opts = append(opts, a.withHTTPResolver(endpointURL, "sidetree"))
 	}
 
 	if _, ok := flagMap["UseRegistrar"]; ok {
-		opts = append(opts, withRegistrar())
+		opts = append(opts, a.withRegistrar())
 	}
 
 	if _, ok := flagMap["DIDCommV2"]; ok {
 		opts = append(opts, withDIDCommV2())
 	}
 
-	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, false, opts...)
+	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, opts...)
 }
 
-type createAgentOption func(steps *SDKSteps, agentID string) ([]aries.Option, error)
+type createAgentOption func(agentID string, params *agentInitParams) error
 
-func (a *SDKSteps) createAgentWithOptions(agentID, inboundHost, inboundPort,
-	scheme string, autoTrigger bool, opts ...createAgentOption) error {
+func withAutoTrigger() createAgentOption {
+	return func(_ string, params *agentInitParams) error {
+		params.autoTrigger = true
+
+		return nil
+	}
+}
+
+func (a *SDKSteps) createAgentWithOptions(agentID, inboundHost, inboundPort, scheme string, opts ...createAgentOption) error {
+	params := &agentInitParams{}
+
+	for _, opt := range opts {
+		err := opt(agentID, params)
+		if err != nil {
+			return fmt.Errorf("agent sdk option: %w", err)
+		}
+	}
+
 	storeProv := a.getStoreProvider(agentID)
 
 	loader, err := createJSONLDDocumentLoader(storeProv)
@@ -254,23 +288,27 @@ func (a *SDKSteps) createAgentWithOptions(agentID, inboundHost, inboundPort,
 		return fmt.Errorf("create document loader: %w", err)
 	}
 
-	ariesOpts := []aries.Option{aries.WithStoreProvider(storeProv), aries.WithJSONLDDocumentLoader(loader)}
+	params.append(
+		aries.WithStoreProvider(storeProv),
+		aries.WithJSONLDDocumentLoader(loader),
+	)
 
-	for _, opt := range opts {
-		newOpts, err := opt(a, agentID)
-		if err != nil {
-			return fmt.Errorf("agent sdk option: %w", err)
-		}
-
-		ariesOpts = append(ariesOpts, newOpts...)
+	schemeAddrMap, err := a.cloudAgentTransports(params, inboundHost, inboundPort, scheme)
+	if err != nil {
+		return fmt.Errorf("initializing transports: %w", err)
 	}
 
-	return a.create(agentID, inboundHost, inboundPort, scheme, autoTrigger, ariesOpts...)
+	err = a.createFramework(agentID, params)
+	if err != nil {
+		return fmt.Errorf("failed to create new agent: %w", err)
+	}
+
+	return a.checkAgentListening(agentID, schemeAddrMap)
 }
 
-func withHTTPResolver(endpointURL, acceptDidMethod string) createAgentOption {
-	return func(steps *SDKSteps, _ string) ([]aries.Option, error) {
-		url := steps.bddContext.Args[endpointURL]
+func (a *SDKSteps) withHTTPResolver(endpointURL, acceptDidMethod string) createAgentOption {
+	return func(_ string, params *agentInitParams) error {
+		url := a.bddContext.Args[endpointURL]
 
 		if endpointURL == sideTreeURL {
 			url += "identifiers"
@@ -279,18 +317,20 @@ func withHTTPResolver(endpointURL, acceptDidMethod string) createAgentOption {
 		httpVDR, err := httpbinding.New(url,
 			httpbinding.WithAccept(func(method string) bool { return method == acceptDidMethod }))
 		if err != nil {
-			return nil, fmt.Errorf("failed from httpbinding new ")
+			return fmt.Errorf("failed from httpbinding new ")
 		}
 
-		return []aries.Option{aries.WithVDR(httpVDR)}, nil
+		params.append(aries.WithVDR(httpVDR))
+
+		return nil
 	}
 }
 
 func withRemoteKMSCrypto(kmsURL, controller string) createAgentOption {
-	return func(a *SDKSteps, agentID string) ([]aries.Option, error) {
+	return func(agentID string, params *agentInitParams) error {
 		cp, err := loadCertPool()
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		httpClient := &http.Client{
@@ -301,7 +341,7 @@ func withRemoteKMSCrypto(kmsURL, controller string) createAgentOption {
 
 		keyStoreURL, _, err := webkms.CreateKeyStore(httpClient, kmsURL, controller, "", nil)
 		if err != nil {
-			return nil, fmt.Errorf("error calling CreateKeystore: %w", err)
+			return fmt.Errorf("error calling CreateKeystore: %w", err)
 		}
 
 		rKMS := webkms.New(keyStoreURL, httpClient)
@@ -314,16 +354,20 @@ func withRemoteKMSCrypto(kmsURL, controller string) createAgentOption {
 			aries.WithCrypto(rCrypto),
 		}
 
-		return opts, nil
+		params.append(opts...)
+
+		return nil
 	}
 }
 
-func withRegistrar() createAgentOption {
-	return func(steps *SDKSteps, agentID string) ([]aries.Option, error) {
+func (a *SDKSteps) withRegistrar() createAgentOption {
+	return func(agentID string, params *agentInitParams) error {
 		msgRegistrar := msghandler.NewRegistrar()
-		steps.bddContext.MessageRegistrar[agentID] = msgRegistrar
+		a.bddContext.MessageRegistrar[agentID] = msgRegistrar
 
-		return []aries.Option{aries.WithMessageServiceProvider(msgRegistrar)}, nil
+		params.append(aries.WithMessageServiceProvider(msgRegistrar))
+
+		return nil
 	}
 }
 
@@ -339,45 +383,51 @@ func withServiceMsgTypeTargets() createAgentOption {
 		},
 	}
 
-	return func(steps *SDKSteps, agentID string) ([]aries.Option, error) {
-		return []aries.Option{aries.WithServiceMsgTypeTargets(msgTypeTargets...)}, nil
+	return func(agentID string, params *agentInitParams) error {
+		params.append(aries.WithServiceMsgTypeTargets(msgTypeTargets...))
+
+		return nil
 	}
 }
 
 func withDIDCommV2() createAgentOption {
-	return func(steps *SDKSteps, agentID string) ([]aries.Option, error) {
-		return []aries.Option{aries.WithMediaTypeProfiles([]string{transport.MediaTypeDIDCommV2Profile})}, nil
+	return func(agentID string, params *agentInitParams) error {
+		params.append(aries.WithMediaTypeProfiles([]string{transport.MediaTypeDIDCommV2Profile}))
+
+		return nil
 	}
 }
 
-func withDynamicEnvelopeParams() createAgentOption {
-	return func(steps *SDKSteps, agentID string) ([]aries.Option, error) {
+func (a *SDKSteps) withDynamicEnvelopeParams() createAgentOption {
+	return func(agentID string, params *agentInitParams) error {
 		var opts []aries.Option
 
 		//nolint:nestif
-		if g, ok := steps.bddContext.Agents[agentID]; ok {
+		if g, ok := a.bddContext.Agents[agentID]; ok {
 			ctx, err := g.Context()
 			if err != nil {
-				return nil, fmt.Errorf("get agentID context: %w", err)
+				return fmt.Errorf("get agentID context: %w", err)
 			}
 
 			opts = append(opts, aries.WithKeyType(ctx.KeyType()), aries.WithKeyAgreementType(ctx.KeyAgreementType()),
 				aries.WithMediaTypeProfiles(ctx.MediaTypeProfiles()))
 		} else {
-			if string(steps.newKeyType) != "" {
-				opts = append(opts, aries.WithKeyType(steps.newKeyType))
+			if string(a.newKeyType) != "" {
+				opts = append(opts, aries.WithKeyType(a.newKeyType))
 			}
 
-			if string(steps.newKeyAgreementType) != "" {
-				opts = append(opts, aries.WithKeyAgreementType(steps.newKeyAgreementType))
+			if string(a.newKeyAgreementType) != "" {
+				opts = append(opts, aries.WithKeyAgreementType(a.newKeyAgreementType))
 			}
 
-			if len(steps.newMediaTypeProfiles) > 0 {
-				opts = append(opts, aries.WithMediaTypeProfiles(steps.newMediaTypeProfiles))
+			if len(a.newMediaTypeProfiles) > 0 {
+				opts = append(opts, aries.WithMediaTypeProfiles(a.newMediaTypeProfiles))
 			}
 		}
 
-		return opts, nil
+		params.append(opts...)
+
+		return nil
 	}
 }
 
@@ -387,72 +437,78 @@ func (a *SDKSteps) getStoreProvider(agentID string) storage.Provider {
 }
 
 func (a *SDKSteps) createEdgeAgent(agentID, scheme, routeOpt string) error {
-	return a.createEdgeAgentByDIDCommVer(agentID, scheme, routeOpt, false)
+	return a.createEdgeAgentByDIDCommVer(agentID, scheme, routeOpt)
 }
 
 func (a *SDKSteps) createEdgeAgentByDIDCommV2(agentID, scheme, routeOpt string) error {
-	return a.createEdgeAgentByDIDCommVer(agentID, scheme, routeOpt, true)
+	return a.createEdgeAgentByDIDCommVer(agentID, scheme, routeOpt, withDIDCommV2())
 }
 
-func (a *SDKSteps) createEdgeAgentByDIDCommVer(agentID, scheme, routeOpt string, useDIDCommV2 bool) error {
-	var opts []aries.Option
+func (a *SDKSteps) createEdgeAgentByDIDCommVer(agentID, scheme, routeOpt string, opts ...createAgentOption) error {
+	params := &agentInitParams{}
+
+	for _, opt := range opts {
+		err := opt(agentID, params)
+		if err != nil {
+			return err
+		}
+	}
 
 	storeProv := a.getStoreProvider(agentID)
-
-	if routeOpt != decorator.TransportReturnRouteAll {
-		return errors.New("only 'all' transport route return option is supported")
-	}
 
 	loader, err := createJSONLDDocumentLoader(storeProv)
 	if err != nil {
 		return fmt.Errorf("create document loader: %w", err)
 	}
 
-	resolverOpts, err := withHTTPResolver(sideTreeURL, "sidetree")(a, agentID)
+	params.append(
+		aries.WithStoreProvider(storeProv),
+		aries.WithJSONLDDocumentLoader(loader),
+	)
+
+	err = a.withHTTPResolver(sideTreeURL, "sidetree")(agentID, params)
 	if err != nil {
 		return fmt.Errorf("create http resolver: %w", err)
 	}
 
-	opts = append(opts,
-		aries.WithStoreProvider(storeProv),
-		aries.WithTransportReturnRoute(routeOpt),
-		aries.WithJSONLDDocumentLoader(loader),
-	)
-
-	opts = append(opts, resolverOpts...)
-
-	if useDIDCommV2 {
-		opts = append(opts, aries.WithMediaTypeProfiles([]string{transport.MediaTypeDIDCommV2Profile}))
+	err = a.edgeAgentTransports(params, scheme, routeOpt)
+	if err != nil {
+		return err
 	}
+
+	return a.createFramework(agentID, params)
+}
+
+func (a *SDKSteps) edgeAgentTransports(params *agentInitParams, scheme, routeOpt string) error {
+	if routeOpt != decorator.TransportReturnRouteAll {
+		return errors.New("only 'all' transport route return option is supported")
+	}
+
+	params.append(aries.WithTransportReturnRoute(routeOpt))
 
 	sch := strings.Split(scheme, ",")
 
 	for _, s := range sch {
 		switch s {
 		case webSocketTransportProvider:
-			opts = append(opts, aries.WithOutboundTransports(ws.NewOutbound()))
+			params.append(aries.WithOutboundTransports(ws.NewOutbound()))
 		case httpTransportProvider:
 			out, err := arieshttp.NewOutbound(arieshttp.WithOutboundHTTPClient(&http.Client{}))
 			if err != nil {
 				return fmt.Errorf("failed to create http outbound: %w", err)
 			}
 
-			opts = append(opts, aries.WithOutboundTransports(ws.NewOutbound(), out))
+			params.append(aries.WithOutboundTransports(ws.NewOutbound(), out))
 		default:
 			return fmt.Errorf("invalid transport provider type : %s (only websocket/http is supported)", scheme)
 		}
 	}
 
-	return a.createFramework(agentID, false, opts...)
+	return nil
 }
 
-//nolint: gocyclo
-func (a *SDKSteps) create(agentID, inboundHosts, inboundPorts, schemes string, autoTrigger bool,
-	opts ...aries.Option) error {
-	const (
-		portAttempts  = 5
-		listenTimeout = 2 * time.Second
-	)
+func (a *SDKSteps) cloudAgentTransports(params *agentInitParams, inboundHosts, inboundPorts, schemes string) (map[string]string, error) {
+	const portAttempts = 5
 
 	scheme := strings.Split(schemes, ",")
 	hosts := strings.Split(inboundHosts, ",")
@@ -475,28 +531,29 @@ func (a *SDKSteps) create(agentID, inboundHosts, inboundPorts, schemes string, a
 		case webSocketTransportProvider:
 			inbound, err := ws.NewInbound(schemeAddrMap[s], "ws://"+schemeAddrMap[s], "", "")
 			if err != nil {
-				return fmt.Errorf("failed to create websocket: %w", err)
+				return nil, fmt.Errorf("failed to create websocket: %w", err)
 			}
 
-			opts = append(opts, aries.WithInboundTransport(inbound), aries.WithOutboundTransports(ws.NewOutbound()))
+			params.append(aries.WithInboundTransport(inbound), aries.WithOutboundTransports(ws.NewOutbound()))
 		case httpTransportProvider:
-			opts = append(opts, defaults.WithInboundHTTPAddr(schemeAddrMap[s], "http://"+schemeAddrMap[s], "", ""))
+			params.append(defaults.WithInboundHTTPAddr(schemeAddrMap[s], "http://"+schemeAddrMap[s], "", ""))
 
 			out, err := arieshttp.NewOutbound(arieshttp.WithOutboundHTTPClient(&http.Client{}))
 			if err != nil {
-				return fmt.Errorf("failed to create http outbound: %w", err)
+				return nil, fmt.Errorf("failed to create http outbound: %w", err)
 			}
 
-			opts = append(opts, aries.WithOutboundTransports(ws.NewOutbound(), out))
+			params.append(aries.WithOutboundTransports(ws.NewOutbound(), out))
 		default:
-			return fmt.Errorf("invalid transport provider type : %s (only websocket/http is supported)", scheme)
+			return nil, fmt.Errorf("invalid transport provider type : %s (only websocket/http is supported)", scheme)
 		}
 	}
 
-	err := a.createFramework(agentID, autoTrigger, opts...)
-	if err != nil {
-		return fmt.Errorf("failed to create new agent: %w", err)
-	}
+	return schemeAddrMap, nil
+}
+
+func (a *SDKSteps) checkAgentListening(agentID string, schemeAddrMap map[string]string) error {
+	const listenTimeout = 2 * time.Second
 
 	for _, inboundAddr := range schemeAddrMap {
 		if err := listenFor(inboundAddr, listenTimeout); err != nil {
@@ -509,8 +566,8 @@ func (a *SDKSteps) create(agentID, inboundHosts, inboundPorts, schemes string, a
 	return nil
 }
 
-func (a *SDKSteps) createFramework(agentID string, autoTrigger bool, opts ...aries.Option) error {
-	agent, err := aries.New(opts...)
+func (a *SDKSteps) createFramework(agentID string, params *agentInitParams) error {
+	agent, err := aries.New(params.opts...)
 	if err != nil {
 		return fmt.Errorf("failed to create new agent: %w", err)
 	}
@@ -524,8 +581,8 @@ func (a *SDKSteps) createFramework(agentID string, autoTrigger bool, opts ...ari
 	a.bddContext.AgentCtx[agentID] = ctx
 	a.bddContext.Messengers[agentID] = agent.Messenger()
 
-	if autoTrigger {
-		err = autoServiceTriggering(ctx.AllServices())
+	if params.autoTrigger {
+		err = autoServiceTriggering(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to auto trigger services: %w", err)
 		}
@@ -534,29 +591,30 @@ func (a *SDKSteps) createFramework(agentID string, autoTrigger bool, opts ...ari
 	return nil
 }
 
-func autoServiceTriggering(services []dispatcher.ProtocolService) error {
-	// auto service for OOBV2 target services
-	for _, srvc := range services {
-		// for now, only PresentProof service is a possible OOBv2 target service, add other services as needed.
-		if srvc.Name() != presentproof.Name {
-			continue
-		}
+type svcProvider interface {
+	Service(id string) (interface{}, error)
+}
 
-		ppSvc, ok := srvc.(*presentproof.Service)
-		if !ok {
-			return fmt.Errorf("present proof service is not of type %T", &presentproof.Service{})
-		}
-
-		// auto service for presentproof
-		events := make(chan service.DIDCommAction)
-
-		err := ppSvc.RegisterActionEvent(events)
-		if err != nil {
-			return err
-		}
-
-		go service.AutoExecuteActionEvent(events)
+func autoServiceTriggering(ctx svcProvider) error {
+	srvc, err := ctx.Service(presentproof.Name)
+	if err != nil {
+		return err
 	}
+
+	ppSvc, ok := srvc.(*presentproof.Service)
+	if !ok {
+		return fmt.Errorf("present proof service is not of type %T", &presentproof.Service{})
+	}
+
+	// auto service for presentproof
+	events := make(chan service.DIDCommAction)
+
+	err = ppSvc.RegisterActionEvent(events)
+	if err != nil {
+		return err
+	}
+
+	go service.AutoExecuteActionEvent(events)
 
 	return nil
 }
@@ -600,6 +658,9 @@ func createJSONLDDocumentLoader(storageProvider storage.Provider) (jsonld.Docume
 
 // SetContext is called before every scenario is run with a fresh new context.
 func (a *SDKSteps) SetContext(ctx *context.BDDContext) {
+	// clear agentOpts when resetting steps context.
+	a.agentOpts = map[string][]createAgentOption{}
+
 	a.bddContext = ctx
 
 	a.didExchangeSDKS = didexchangebdd.NewDIDExchangeSDKSteps()

@@ -25,7 +25,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	protocol "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
-	"github.com/hyperledger/aries-framework-go/test/bdd/agent"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/agent"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	didexchangebdd "github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/didresolver"

@@ -34,7 +34,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	ldstore "github.com/hyperledger/aries-framework-go/pkg/store/ld"
-	bddagent "github.com/hyperledger/aries-framework-go/test/bdd/agent"
+	bddagent "github.com/hyperledger/aries-framework-go/test/bdd/pkg/agent"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	bddDIDExchange "github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/didresolver"

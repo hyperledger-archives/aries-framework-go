@@ -18,8 +18,8 @@ import (
 	"github.com/cucumber/godog"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	"github.com/hyperledger/aries-framework-go/test/bdd/agent"
 	"github.com/hyperledger/aries-framework-go/test/bdd/dockerutil"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/agent"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/connection"
 	bddctx "github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"

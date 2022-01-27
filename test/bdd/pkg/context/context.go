@@ -47,7 +47,7 @@ type BDDContext struct {
 	MessageRegistrar   map[string]*msghandler.Registrar
 	Messengers         map[string]service.Messenger
 	Args               map[string]string
-	ConnectionIDs      map[string]map[string]string
+	connectionIDs      map[string]map[string]string
 	controllerURLs     map[string]string
 	webhookURLs        map[string]string
 	webSocketConns     map[string]*websocket.Conn
@@ -73,7 +73,7 @@ func NewBDDContext() *BDDContext {
 		MessageRegistrar:   make(map[string]*msghandler.Registrar),
 		Messengers:         make(map[string]service.Messenger),
 		Args:               make(map[string]string),
-		ConnectionIDs:      make(map[string]map[string]string),
+		connectionIDs:      make(map[string]map[string]string),
 		controllerURLs:     make(map[string]string),
 		webhookURLs:        make(map[string]string),
 		webSocketConns:     make(map[string]*websocket.Conn),
@@ -174,7 +174,7 @@ func (b *BDDContext) RegisterWebSocketConn(agentID string, conn *websocket.Conn)
 
 // GetConnectionID gets the connection ID for agent's connection to target, or the empty string if there is none.
 func (b *BDDContext) GetConnectionID(agent, target string) string {
-	idMap, ok := b.ConnectionIDs[agent]
+	idMap, ok := b.connectionIDs[agent]
 	if !ok {
 		return ""
 	}
@@ -184,11 +184,11 @@ func (b *BDDContext) GetConnectionID(agent, target string) string {
 
 // SaveConnectionID sets the connection ID for agent's connection to target.
 func (b *BDDContext) SaveConnectionID(agent, target, connID string) {
-	if _, ok := b.ConnectionIDs[agent]; !ok {
-		b.ConnectionIDs[agent] = make(map[string]string)
+	if _, ok := b.connectionIDs[agent]; !ok {
+		b.connectionIDs[agent] = make(map[string]string)
 	}
 
-	b.ConnectionIDs[agent][target] = connID
+	b.connectionIDs[agent][target] = connID
 }
 
 // OwnerOfDID helper function for finding an agent name that has a given DID within the bdd context.
