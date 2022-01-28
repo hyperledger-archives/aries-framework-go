@@ -13,8 +13,16 @@ Feature: Out-Of-Band V2 protocol (Go API)
 
   Background:
     Given all agents are using Media Type Profiles "didcomm/aip1,didcomm/aip2;env=rfc19,didcomm/aip2;env=rfc587,didcomm/v2"
-    Given "Alice" agent is running on "localhost" port "random" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree" and auto triggered services
-      And "Bob" agent is running on "localhost" port "random" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree" and auto triggered services
+
+    Given "Alice" uses http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+      And "Alice" uses configured encryption parameters
+      And "Alice" auto-accepts present-proof messages
+      And "Alice" is started with a "http" DIDComm endpoint
+
+    Given "Bob" uses http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+      And "Bob" uses configured encryption parameters
+      And "Bob" auto-accepts present-proof messages
+      And "Bob" is started with a "http" DIDComm endpoint
 
   Scenario: The Verifier begins with a request of oob v2 invitation wrapping a proof presentation v3 request as target goal
     Given "Alice" creates public DID for did method "sidetree"

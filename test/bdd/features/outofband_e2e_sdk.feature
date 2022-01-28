@@ -13,8 +13,14 @@ Feature: Out-Of-Band protocol (Go API)
 
   Background:
     Given all agents are using Media Type Profiles "didcomm/aip1,didcomm/aip2;env=rfc19,didcomm/aip2;env=rfc587,didcomm/v2"
-    Given "Alice" agent is running on "localhost" port "random" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
-      And "Bob" agent is running on "localhost" port "random" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+
+    Given "Alice" uses http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+      And "Alice" uses configured encryption parameters
+      And "Alice" is started with a "http" DIDComm endpoint
+
+    Given "Bob" uses http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+      And "Bob" uses configured encryption parameters
+      And "Bob" is started with a "http" DIDComm endpoint
 
   Scenario Outline: handshake_protocols: yes | requests~attach: no | existing_conn: no
     Given options "<accept>"

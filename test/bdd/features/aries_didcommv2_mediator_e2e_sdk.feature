@@ -12,12 +12,16 @@ Feature: DIDComm v2 Transport between two Agents through DIDComm v2 Routers [SDK
   Scenario Outline: Decentralized Identifier(DID) Exchange between two Edge Agents(without Inbound, DIDComm v2 is one way only) through Routers
     # DID Exchange between Alice and her Router
     Given options "<keyType>" "<keyAgreementType>" "<mediaTypeProfile>"
-      And "Alice-Router" agent is running on "localhost" port "random" with "websocket" using DIDCommV2 as the transport provider
+    # TODO note: original agent initialization ignores the above options. This refactor keeps that behaviour.
+    #  Followup should add '"agent" uses configured encryption parameters' step, and validate that it passes.
+    Given "Alice-Router" uses DIDComm v2
+      And "Alice-Router" is started with a "websocket" DIDComm endpoint
       And "Alice-Router" creates a route exchange client
       And   "Alice-Router" creates did exchange client
       And   "Alice-Router" registers to receive notification for post state event "completed"
 
-    Given "Alice" edge agent is running with "websocket" as the outbound transport provider and "all" using DIDCommV2 as the transport return route option
+    Given "Alice" uses DIDComm v2
+      And "Alice" is started as an edge agent
       And   "Alice" creates did exchange client
       And   "Alice" registers to receive notification for post state event "completed"
 
@@ -32,10 +36,12 @@ Feature: DIDComm v2 Transport between two Agents through DIDComm v2 Routers [SDK
       And   "Alice" saves connectionID to variable "Alice-router-connID"
 
      # DID Exchange between Bob and his Router
-    Given "Bob" edge agent is running with "websocket" as the outbound transport provider and "all" using DIDCommV2 as the transport return route option
-      And   "Bob" creates did exchange client
+    Given "Bob" uses DIDComm v2
+      And "Bob" is started as an edge agent
+      And "Bob" creates did exchange client
 
-    Given "Bob-Router" agent is running on "localhost" port "random" with "websocket" using DIDCommV2 as the transport provider
+    Given "Bob-Router" uses DIDComm v2
+      And "Bob-Router" is started with a "websocket" DIDComm endpoint
       And "Bob-Router" creates a route exchange client
       And   "Bob-Router" creates did exchange client
       And   "Bob-Router" registers to receive notification for post state event "completed"
@@ -81,14 +87,18 @@ Feature: DIDComm v2 Transport between two Agents through DIDComm v2 Routers [SDK
     Given options "<keyType>" "<keyAgreementType>" "<mediaTypeProfile>"
 
     # DIDComm v2 connection between Alice and her Router
-    Given "Alice-Router" agent is running on "localhost" port "random" with "websocket" as the transport provider and "sidetree=${SIDETREE_URL},DIDCommV2" flags
+    Given "Alice-Router" uses http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+      And "Alice-Router" uses DIDComm v2
+      And "Alice-Router" is started with a "websocket" DIDComm endpoint
+
       And "Alice-Router" creates a route exchange client
       And "Alice-Router" creates public DID for did method "sidetree"
       And "Alice-Router" waits for public did to become available in sidetree for up to 10 seconds
 
-    Given "Alice" edge agent is running with "websocket" as the outbound transport provider and "all" using DIDCommV2 as the transport return route option
-      And   "Alice" creates did exchange client
-      And   "Alice" registers to receive notification for post state event "completed"
+    Given "Alice" uses DIDComm v2
+      And "Alice" is started as an edge agent
+      And "Alice" creates did exchange client
+      And "Alice" registers to receive notification for post state event "completed"
 
     When   "Alice-Router" creates an out-of-band-v2 invitation
       And   "Alice-Router" sends the request to "Alice", which accepts it
@@ -97,12 +107,17 @@ Feature: DIDComm v2 Transport between two Agents through DIDComm v2 Routers [SDK
       And   "Alice" saves connectionID to variable "Alice-router-connID"
 
      # DIDComm v2 connection between Bob and his Router
-    Given "Bob-Router" agent is running on "localhost" port "random" with "websocket" as the transport provider and "sidetree=${SIDETREE_URL},DIDCommV2" flags
+    Given "Bob-Router" uses http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+      And "Bob-Router" uses DIDComm v2
+      And "Bob-Router" is started with a "websocket" DIDComm endpoint
+
       And "Bob-Router" creates a route exchange client
       And "Bob-Router" creates public DID for did method "sidetree"
       And "Bob-Router" waits for public did to become available in sidetree for up to 10 seconds
 
-    Given "Bob" edge agent is running with "websocket" as the outbound transport provider and "all" using DIDCommV2 as the transport return route option
+    Given "Bob" uses DIDComm v2
+      And "Bob" is started as an edge agent
+
       And   "Bob" creates did exchange client
       And   "Bob" registers to receive notification for post state event "completed"
 

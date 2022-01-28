@@ -10,8 +10,13 @@ Feature: WACI Issuance (Go API)
 
   Background:
     Given all agents are using Media Type Profiles "didcomm/aip1,didcomm/aip2;env=rfc19,didcomm/aip2;env=rfc587,didcomm/v2"
-    Given "Issuer" agent is running on "localhost" port "random" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
-    And "Holder" agent is running on "localhost" port "random" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+    Given "Issuer" uses http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+      And "Issuer" uses configured encryption parameters
+      And "Issuer" is started with a "http" DIDComm endpoint
+
+    Given "Holder" uses http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+      And "Holder" uses configured encryption parameters
+      And "Holder" is started with a "http" DIDComm endpoint
 
   Scenario: Issuer issues a credential to the holder using the WACI Issuance flow
     Given "Issuer" creates public DID for did method "sidetree"

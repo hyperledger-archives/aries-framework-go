@@ -14,8 +14,10 @@ Feature: Out-Of-Band V2 protocol (REST API)
 
   Background:
     Given "Alice" agent is running on "localhost" port "8081" with controller "https://localhost:8082"
+    # bug note: we create an "Alice" REST agent and a separate "Alice" SDK agent
     And "Alice" agent is running on "localhost" port "random" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
     And "Bob" agent is running on "localhost" port "9081" with controller "https://localhost:9082"
+    # bug note: we create a "Bob" REST agent and a separate "Bob" SDK agent
     And "Bob" agent is running on "localhost" port "random" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
 
   Scenario: The Verifier begins with a request an oob v2 invitation with presentation v3 as target service

@@ -189,8 +189,14 @@ Feature: Present Proof protocol
     Then "Gracia" receives present proof event "abandoned" with status "FAIL" and redirect "http://example.com/error"
   @ppv3_no_didex
   Scenario: The Verifier begins with a request presentation v3 without didexchange
-    Given "Clarence" agent is running on "localhost" port "random" with "http" as the transport provider and "sidetree=${SIDETREE_URL},DIDCommV2" flags
-     And "Florence" agent is running on "localhost" port "random" with "http" as the transport provider and "sidetree=${SIDETREE_URL},DIDCommV2" flags
+   Given "Clarence" uses http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+     And "Clarence" uses DIDComm v2
+     And "Clarence" is started with a "http" DIDComm endpoint
+
+    Given "Florence" uses http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+      And "Florence" uses DIDComm v2
+      And "Florence" is started with a "http" DIDComm endpoint
+
     Given "Clarence" creates public DID for did method "sidetree"
      And "Florence" creates public DID for did method "sidetree"
     Then "Clarence" waits for public did to become available in sidetree for up to 10 seconds

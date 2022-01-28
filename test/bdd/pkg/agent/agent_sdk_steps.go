@@ -75,26 +75,133 @@ func NewSDKSteps() *SDKSteps {
 	}
 }
 
+// RegisterSteps registers agent steps.
+func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
+	s.Step(`^options ""([^"]*)"" ""([^"]*)"" ""([^"]*)""$`, a.scenario)
+	s.Step(`^all agents are using Media Type Profiles "([^"]*)"$`, a.useMediaTypeProfiles)
+	s.Step(`^"([^"]*)" exchange DIDs V2 with "([^"]*)"$`, a.createConnectionV2)
+
+	// leave these? replacing doesn't simplify.
+	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" `+
+		`with http-binding did resolver url "([^"]*)" which accepts did method "([^"]*)"$`, a.CreateAgentWithHTTPDIDResolver)
+	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with "([^"]*)" as the transport provider$`,
+		a.CreateAgent)
+	s.Step(`^"([^"]*)" edge agent is running with "([^"]*)" as the outbound transport provider `+
+		`and "([^"]*)" as the transport return route option`, a.createEdgeAgentDIDCommV1)
+
+	// new-style steps: set parameters, then initialize either an 'edge' or 'cloud' agent
+
+	s.Step(`^"([^"]*)" is started with a "([^"]*)" DIDComm endpoint$`,
+		a.initializeCloudAgent)
+	s.Step(`^"([^"]*)" is started as an edge agent`,
+		a.initializeEdgeAgent)
+
+	s.Step(`^"([^"]*)" has a DIDComm endpoint at "([^"]*)" port "([^"]*)"$`,
+		a.agentUsesInboundTransport) // omit this step to default to localhost random.
+	s.Step(`^"([^"]*)" uses outbound transport "([^"]*)" and transport return route option "([^"]*)"$`,
+		a.agentUsesEdgeTransport) // omit this step to default to websocket all.
+
+	s.Step(`^"([^"]*)" auto-accepts present-proof messages$`,
+		a.agentUsesAutoTrigger)
+	s.Step(`^"([^"]*)" uses http-binding did resolver url "([^"]*)" which accepts did method "([^"]*)"$`,
+		a.agentUsesHTTPResolver)
+	s.Step(`^"([^"]*)" uses webkms with key server at "([^"]*)", using "([^"]*)" controller$`,
+		a.agentUsesRemoteKMS)
+	s.Step(`^"([^"]*)" uses a message registrar$`,
+		a.agentUsesMessageRegistrar)
+	s.Step(`^"([^"]*)" uses DIDComm v2$`,
+		a.agentUsesDIDCommV2)
+	s.Step(`^"([^"]*)" uses configured encryption parameters$`,
+		a.agentUsesDynamicEnvParams)
+}
+
+func (a *SDKSteps) declareAgent(agentID string) error {
+	a.agentOpts[agentID] = []createAgentOption{}
+
+	return nil
+}
+
+func (a *SDKSteps) initializeCloudAgent(agentID, scheme string) error {
+	return a.createAgentWithOptions(agentID, scheme, a.agentOpts[agentID]...)
+}
+
+func (a *SDKSteps) initializeEdgeAgent(agentID string) error {
+	return a.createEdgeAgent(agentID, a.agentOpts[agentID]...)
+}
+
+func (a *SDKSteps) agentUsesInboundTransport(agent, host, port string) error {
+	a.addAriesOption(agent, withHostPort(host, port))
+
+	return nil
+}
+
+func (a *SDKSteps) agentUsesEdgeTransport(agent, transportType, returnRoute string) error {
+	a.addAriesOption(agent, withEdgeTransport(transportType, returnRoute))
+
+	return nil
+}
+
+func (a *SDKSteps) agentUsesAutoTrigger(agent string) error {
+	a.addAriesOption(agent, withAutoTrigger(), withServiceMsgTypeTargets())
+
+	return nil
+}
+
+func (a *SDKSteps) agentUsesHTTPResolver(agent string, endpointURL, acceptDidMethod string) error {
+	a.addAriesOption(agent, a.withHTTPResolver(endpointURL, acceptDidMethod))
+
+	return nil
+}
+
+func (a *SDKSteps) agentUsesRemoteKMS(agent string, kmsURL, controller string) error {
+	a.addAriesOption(agent, withRemoteKMSCrypto(kmsURL, controller))
+
+	return nil
+}
+
+func (a *SDKSteps) agentUsesMessageRegistrar(agent string) error {
+	a.addAriesOption(agent, a.withRegistrar())
+
+	return nil
+}
+
+func (a *SDKSteps) agentUsesServiceTypeTargets(agent string) error {
+	a.addAriesOption(agent, withServiceMsgTypeTargets())
+
+	return nil
+}
+
+func (a *SDKSteps) agentUsesDIDCommV2(agent string) error {
+	a.addAriesOption(agent, withDIDCommV2())
+
+	return nil
+}
+
+func (a *SDKSteps) agentUsesDynamicEnvParams(agent string) error {
+	a.addAriesOption(agent, a.withDynamicEnvelopeParams())
+
+	return nil
+}
+
+type edgeAgentParams struct {
+	outboundTransport string // default: websocket
+	returnRoute       string // default: all
+}
+
+type cloudAgentParams struct {
+	host string
+	port string
+}
+
 type agentInitParams struct {
 	opts        []aries.Option
 	autoTrigger bool
+	edgeAgent   edgeAgentParams
+	cloudAgent  cloudAgentParams
 }
 
 func (a *agentInitParams) append(opts ...aries.Option) {
 	a.opts = append(a.opts, opts...)
-}
-
-func (a *SDKSteps) getAgentParams(agent string) (*agentInitParams, error) {
-	params := &agentInitParams{}
-
-	for _, opt := range a.agentOpts[agent] {
-		err := opt(agent, params)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return params, nil
 }
 
 func (a *SDKSteps) addAriesOption(agent string, opts ...createAgentOption) {
@@ -117,12 +224,11 @@ func (a *SDKSteps) useMediaTypeProfiles(mediaTypeProfiles string) error {
 
 // CreateAgent with the given parameters.
 func (a *SDKSteps) CreateAgent(agentID, inboundHost, inboundPort, scheme string) error {
-	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme)
+	return a.createAgentWithOptions(agentID, scheme, withHostPort(inboundHost, inboundPort))
 }
 
-// createAgentByDIDCommV2 with the given parameters.
 func (a *SDKSteps) createAgentByDIDCommV2(agentID, inboundHost, inboundPort, scheme string) error {
-	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, withDIDCommV2())
+	return a.createAgentWithOptions(agentID, scheme, withHostPort(inboundHost, inboundPort), withDIDCommV2())
 }
 
 func (a *SDKSteps) createConnectionV2(agent1, agent2 string) error {
@@ -166,12 +272,6 @@ func (a *SDKSteps) createConnectionV2(agent1, agent2 string) error {
 	return a.didExchangeSDKS.WaitForPostEvent(strings.Join([]string{agent1, agent2}, ","), "completed")
 }
 
-// CreateAgentWithRemoteKMS with the given parameters with a remote kms.
-func (a *SDKSteps) CreateAgentWithRemoteKMS(agentID, inboundHost, inboundPort, scheme,
-	kmsURL, controller string) error {
-	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, withRemoteKMSCrypto(kmsURL, controller))
-}
-
 func loadCertPool() (*x509.CertPool, error) {
 	cp := x509.NewCertPool()
 	certPrefix := "fixtures/keys/tls/"
@@ -191,87 +291,32 @@ func loadCertPool() (*x509.CertPool, error) {
 	return cp, nil
 }
 
-func (a *SDKSteps) createAgentWithRegistrar(agentID, inboundHost, inboundPort, scheme string) error {
-	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, a.withRegistrar())
-}
-
-func (a *SDKSteps) createAgentWithRegistrarAndHTTPDIDResolver(agentID, inboundHost, inboundPort,
-	scheme, endpointURL, acceptDidMethod string) error {
-	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, a.withRegistrar(), a.withHTTPResolver(endpointURL, acceptDidMethod))
-}
-
 // CreateAgentWithHTTPDIDResolver creates one or more agents with HTTP DID resolver.
 func (a *SDKSteps) CreateAgentWithHTTPDIDResolver(
 	agents, inboundHost, inboundPort, endpointURL, acceptDidMethod string) error {
-	return a.createAgentWithOptions(agents, inboundHost, inboundPort, "http",
+	return a.createAgents(agents, inboundHost, inboundPort, "http",
 		a.withHTTPResolver(endpointURL, acceptDidMethod),
 		a.withDynamicEnvelopeParams(),
 		withServiceMsgTypeTargets(),
 	)
-}
-
-// CreateAgentWithHTTPDIDResolverAndOOBv2 creates one or more agents with HTTP DID resolver and services with auto event
-// registration.
-func (a *SDKSteps) CreateAgentWithHTTPDIDResolverAndOOBv2(
-	agent, inboundHost, inboundPort, endpointURL, acceptDidMethod string) error {
-	return a.createAgentWithOptions(agent, inboundHost, inboundPort, "http",
-		a.withHTTPResolver(endpointURL, acceptDidMethod),
-		a.withDynamicEnvelopeParams(),
-		withServiceMsgTypeTargets(),
-		withAutoTrigger(),
-	)
-}
-
-// CreateAgentWithFlags takes a set of comma-separated flags or key-value pairs:
-//  - sidetree=[endpoint url]: use http binding VDR accepting sidetree DID method, with the given http binding url.
-//  - DIDCommV2: use DIDComm V2 only.
-//  - UseRegistrar: use message registrar.
-func (a *SDKSteps) CreateAgentWithFlags(agentID, inboundHost, inboundPort, scheme, flags string) error {
-	var opts []createAgentOption
-
-	flagList := strings.Split(flags, ",")
-
-	flagMap := make(map[string]string)
-
-	for _, flag := range flagList {
-		flagSplit := strings.Split(flag, "=")
-
-		switch len(flagSplit) {
-		case 1:
-			flagMap[flagSplit[0]] = ""
-		case 2: // nolint:gomnd // 2 parts means a flag with value
-			flagMap[flagSplit[0]] = flagSplit[1]
-		default:
-			return fmt.Errorf("failed to parse flag: %s", flag)
-		}
-	}
-
-	if endpointURL, ok := flagMap["sidetree"]; ok {
-		opts = append(opts, a.withHTTPResolver(endpointURL, "sidetree"))
-	}
-
-	if _, ok := flagMap["UseRegistrar"]; ok {
-		opts = append(opts, a.withRegistrar())
-	}
-
-	if _, ok := flagMap["DIDCommV2"]; ok {
-		opts = append(opts, withDIDCommV2())
-	}
-
-	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, opts...)
 }
 
 type createAgentOption func(agentID string, params *agentInitParams) error
 
-func withAutoTrigger() createAgentOption {
-	return func(_ string, params *agentInitParams) error {
-		params.autoTrigger = true
+func (a *SDKSteps) createAgents(agents, inboundHost, inboundPort, scheme string, opts ...createAgentOption) error {
+	opts = append(opts, withHostPort(inboundHost, inboundPort))
 
-		return nil
+	for _, agentID := range strings.Split(agents, ",") {
+		err := a.createAgentWithOptions(agentID, scheme, opts...)
+		if err != nil {
+			return err
+		}
 	}
+
+	return nil
 }
 
-func (a *SDKSteps) createAgentWithOptions(agentID, inboundHost, inboundPort, scheme string, opts ...createAgentOption) error {
+func (a *SDKSteps) createAgentWithOptions(agentID, scheme string, opts ...createAgentOption) error {
 	params := &agentInitParams{}
 
 	for _, opt := range opts {
@@ -279,6 +324,16 @@ func (a *SDKSteps) createAgentWithOptions(agentID, inboundHost, inboundPort, sch
 		if err != nil {
 			return fmt.Errorf("agent sdk option: %w", err)
 		}
+	}
+
+	inboundHost := params.cloudAgent.host
+	if inboundHost == "" {
+		inboundHost = "localhost"
+	}
+
+	inboundPort := params.cloudAgent.port
+	if inboundPort == "" {
+		inboundPort = "random"
 	}
 
 	storeProv := a.getStoreProvider(agentID)
@@ -304,6 +359,36 @@ func (a *SDKSteps) createAgentWithOptions(agentID, inboundHost, inboundPort, sch
 	}
 
 	return a.checkAgentListening(agentID, schemeAddrMap)
+}
+
+func withAutoTrigger() createAgentOption {
+	return func(_ string, params *agentInitParams) error {
+		params.autoTrigger = true
+
+		return nil
+	}
+}
+
+func withHostPort(host, port string) createAgentOption {
+	return func(_ string, params *agentInitParams) error {
+		params.cloudAgent = cloudAgentParams{
+			host: host,
+			port: port,
+		}
+
+		return nil
+	}
+}
+
+func withEdgeTransport(transportType, returnRoute string) createAgentOption {
+	return func(_ string, params *agentInitParams) error {
+		params.edgeAgent = edgeAgentParams{
+			outboundTransport: transportType,
+			returnRoute:       returnRoute,
+		}
+
+		return nil
+	}
 }
 
 func (a *SDKSteps) withHTTPResolver(endpointURL, acceptDidMethod string) createAgentOption {
@@ -436,15 +521,11 @@ func (a *SDKSteps) getStoreProvider(agentID string) storage.Provider {
 	return storeProv
 }
 
-func (a *SDKSteps) createEdgeAgent(agentID, scheme, routeOpt string) error {
-	return a.createEdgeAgentByDIDCommVer(agentID, scheme, routeOpt)
+func (a *SDKSteps) createEdgeAgentDIDCommV1(agentID, scheme, routeOpt string) error {
+	return a.createEdgeAgent(agentID, withEdgeTransport(scheme, routeOpt))
 }
 
-func (a *SDKSteps) createEdgeAgentByDIDCommV2(agentID, scheme, routeOpt string) error {
-	return a.createEdgeAgentByDIDCommVer(agentID, scheme, routeOpt, withDIDCommV2())
-}
-
-func (a *SDKSteps) createEdgeAgentByDIDCommVer(agentID, scheme, routeOpt string, opts ...createAgentOption) error {
+func (a *SDKSteps) createEdgeAgent(agentID string, opts ...createAgentOption) error {
 	params := &agentInitParams{}
 
 	for _, opt := range opts {
@@ -452,6 +533,16 @@ func (a *SDKSteps) createEdgeAgentByDIDCommVer(agentID, scheme, routeOpt string,
 		if err != nil {
 			return err
 		}
+	}
+
+	scheme := params.edgeAgent.outboundTransport
+	if scheme == "" {
+		scheme = "websocket"
+	}
+
+	routeOpt := params.edgeAgent.returnRoute
+	if routeOpt == "" {
+		routeOpt = "all"
 	}
 
 	storeProv := a.getStoreProvider(agentID)
@@ -665,36 +756,6 @@ func (a *SDKSteps) SetContext(ctx *context.BDDContext) {
 
 	a.didExchangeSDKS = didexchangebdd.NewDIDExchangeSDKSteps()
 	a.didExchangeSDKS.SetContext(ctx)
-}
-
-// RegisterSteps registers agent steps.
-func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
-	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with "([^"]*)" as the transport provider$`,
-		a.CreateAgent)
-	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with "([^"]*)" using DIDCommV2 as `+
-		`the transport provider$`,
-		a.createAgentByDIDCommV2)
-	s.Step(`^"([^"]*)" exchange DIDs V2 with "([^"]*)"$`, a.createConnectionV2)
-	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with "([^"]*)" as the transport provider `+
-		`using webkms with key server at "([^"]*)" URL, using "([^"]*)" controller`, a.CreateAgentWithRemoteKMS)
-	s.Step(`^"([^"]*)" edge agent is running with "([^"]*)" as the outbound transport provider `+
-		`and "([^"]*)" as the transport return route option`, a.createEdgeAgent)
-	s.Step(`^"([^"]*)" edge agent is running with "([^"]*)" as the outbound transport provider `+
-		`and "([^"]*)" using DIDCommV2 as the transport return route option`, a.createEdgeAgentByDIDCommV2)
-	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" `+
-		`with http-binding did resolver url "([^"]*)" which accepts did method "([^"]*)"$`, a.CreateAgentWithHTTPDIDResolver)
-	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" `+
-		`with http-binding did resolver url "([^"]*)" which accepts did method "([^"]*)" and auto triggered services$`,
-		a.CreateAgentWithHTTPDIDResolverAndOOBv2)
-	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with "([^"]*)" as the transport provider `+
-		`and "([^"]*)" flags$`, a.CreateAgentWithFlags)
-	s.Step(`^"([^"]*)" agent with message registrar is running on "([^"]*)" port "([^"]*)" `+
-		`with "([^"]*)" as the transport provider$`, a.createAgentWithRegistrar)
-	s.Step(`^"([^"]*)" agent with message registrar is running on "([^"]*)" port "([^"]*)" with "([^"]*)" `+
-		`as the transport provider and http-binding did resolver url "([^"]*)" which accepts did method "([^"]*)"$`,
-		a.createAgentWithRegistrarAndHTTPDIDResolver)
-	s.Step(`^options ""([^"]*)"" ""([^"]*)"" ""([^"]*)""$`, a.scenario)
-	s.Step(`^all agents are using Media Type Profiles "([^"]*)"$`, a.useMediaTypeProfiles)
 }
 
 func mustGetRandomPort(n int) int {

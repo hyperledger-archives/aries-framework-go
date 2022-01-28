@@ -9,11 +9,11 @@
 Feature: DIDComm between Edge Agent(without Inbound) and Router/Mediator
 
   Scenario: Decentralized Identifier(DID) between Edge Agent and Router/Mediator using Transport Return Route option [SDK Binding]
-    Given "Alice" agent is running on "localhost" port "random" with "websocket" as the transport provider
+    Given "Alice" is started with a "websocket" DIDComm endpoint
     Then   "Alice" creates did exchange client
     And   "Alice" registers to receive notification for post state event "completed"
 
-    Given "Bob" edge agent is running with "websocket" as the outbound transport provider and "all" as the transport return route option
+    Given "Bob" is started as an edge agent
     Then  "Bob" creates did exchange client
     And   "Bob" registers to receive notification for post state event "completed"
 

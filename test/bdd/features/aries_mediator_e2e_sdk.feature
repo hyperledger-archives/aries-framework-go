@@ -12,12 +12,12 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
   Scenario Outline: Decentralized Identifier(DID) Exchange between two Edge Agents(without Inbound) through Routers
     # DID Exchange between Alice and her Router
     Given options "<keyType>" "<keyAgreementType>" "<mediaTypeProfile>"
-      And "Alice-Router" agent is running on "localhost" port "random" with "websocket" as the transport provider
+      And "Alice-Router" is started with a "websocket" DIDComm endpoint
       And "Alice-Router" creates a route exchange client
       And   "Alice-Router" creates did exchange client
       And   "Alice-Router" registers to receive notification for post state event "completed"
 
-    Given "Alice" edge agent is running with "websocket" as the outbound transport provider and "all" as the transport return route option
+    Given "Alice" is started as an edge agent
       And   "Alice" creates did exchange client
       And   "Alice" registers to receive notification for post state event "completed"
 
@@ -32,10 +32,10 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
       And   "Alice" saves connectionID to variable "alice-router-connID"
 
      # DID Exchange between Bob and his Router
-    Given "Bob" edge agent is running with "websocket" as the outbound transport provider and "all" as the transport return route option
+    Given "Bob" is started as an edge agent
       And   "Bob" creates did exchange client
 
-    Given "Bob-Router" agent is running on "localhost" port "random" with "websocket" as the transport provider
+    Given "Bob-Router" is started with a "websocket" DIDComm endpoint
       And "Bob-Router" creates a route exchange client
       And   "Bob-Router" creates did exchange client
       And   "Bob-Router" registers to receive notification for post state event "completed"
@@ -80,12 +80,12 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
   Scenario Outline: Decentralized Identifier(DID) Exchange between two Edge Agents through Routers
     # DID Exchange between Alice and her Router
     Given options "<keyType>" "<keyAgreementType>" "<mediaTypeProfile>"
-      And "Alice-Router" agent is running on "localhost" port "random" with "http" as the transport provider
+      And "Alice-Router" is started with a "http" DIDComm endpoint
       And "Alice-Router" creates a route exchange client
       And   "Alice-Router" creates did exchange client
       And   "Alice-Router" registers to receive notification for post state event "completed"
 
-    Given "Alice" agent is running on "localhost" port "random" with "http" as the transport provider
+    Given "Alice" is started with a "http" DIDComm endpoint
       And   "Alice" creates did exchange client
       And   "Alice" registers to receive notification for post state event "completed"
 
@@ -100,10 +100,10 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
       And   "Alice" saves connectionID to variable "alice-router-connID"
 
      # DID Exchange between Bob and his Router
-    Given "Bob" agent is running on "localhost" port "random" with "http" as the transport provider
+    Given "Bob" is started with a "http" DIDComm endpoint
       And   "Bob" creates did exchange client
 
-    Given "Bob-Router" agent is running on "localhost" port "random" with "http" as the transport provider
+    Given "Bob-Router" is started with a "http" DIDComm endpoint
       And "Bob-Router" creates a route exchange client
       And   "Bob-Router" creates did exchange client
       And   "Bob-Router" registers to receive notification for post state event "completed"
@@ -146,6 +146,7 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
       | "ED25519"  | "NISTP384ECDHKW"   | "didcomm/v2"              |
 
   # https://wiki.hyperledger.org/display/ARIES/DIDComm+MediatorRouter
+  @didex_edge_router_http_ws
   Scenario Outline: Decentralized Identifier(DID) Exchange between two Edge Agents(without Inbound) through Routers(HTTP/WS)
     # DID Exchange between Alice and her Router
     Given options "<keyType>" "<keyAgreementType>" "<mediaTypeProfile>"
@@ -154,7 +155,8 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
       And   "Alice-Router" creates did exchange client
       And   "Alice-Router" registers to receive notification for post state event "completed"
 
-    Given "Alice" edge agent is running with "http,websocket" as the outbound transport provider and "all" as the transport return route option
+    Given "Alice" uses outbound transport "http,websocket" and transport return route option "all"
+      And "Alice" is started as an edge agent
       And   "Alice" creates did exchange client
       And   "Alice" registers to receive notification for post state event "completed"
 
@@ -184,7 +186,8 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
     And   "Alice" saves connectionID to variable "alice-second-router-connID"
 
      # DID Exchange between Bob and his Router
-    Given "Bob" edge agent is running with "http,websocket" as the outbound transport provider and "all" as the transport return route option
+    Given   "Bob" uses outbound transport "http,websocket" and transport return route option "all"
+      And   "Bob" is started as an edge agent
       And   "Bob" creates did exchange client
 
     Given "Bob-Router" agent is running on "localhost,localhost" port "random,random" with "http,websocket" as the transport provider
