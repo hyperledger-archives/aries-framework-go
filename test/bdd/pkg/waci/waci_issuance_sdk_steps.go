@@ -80,6 +80,13 @@ func (i *IssuanceSDKSteps) SetContext(ctx *context.BDDContext) {
 	i.context = ctx
 }
 
+// ResetAgentData clears all agent data stored in this IssuanceSDKSteps instance.
+func (i *IssuanceSDKSteps) ResetAgentData() {
+	i.issueCredentialClients = make(map[string]*issuecredentialclient.Client)
+	i.actions = make(map[string]chan service.DIDCommAction)
+	i.holderEvent = make(chan service.StateMsg, stateMsgChanSize)
+}
+
 // RegisterSteps registers the BDD test steps on the suite.
 // Note that VC proofs are not checked in this test suite.
 func (i *IssuanceSDKSteps) RegisterSteps(suite *godog.Suite) {

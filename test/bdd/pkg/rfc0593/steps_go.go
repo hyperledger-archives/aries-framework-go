@@ -60,6 +60,13 @@ func (s *GoSDKSteps) SetContext(ctx *bddcontext.BDDContext) {
 	s.context = ctx
 }
 
+// ResetAgentData clears all agent data stored in this SDKSteps instance.
+func (s *GoSDKSteps) ResetAgentData() {
+	s.agents = make(map[string]*context.Provider)
+	s.clients = make(map[string]*issuecredential.Client)
+	s.dids = make(map[string]string)
+}
+
 // RegisterSteps for this BDD test.
 func (s *GoSDKSteps) RegisterSteps(g *godog.Suite) {
 	g.Step(`^"([^"]*)" is running and has enabled auto-execution of RFC0593$`, s.setupAgent)

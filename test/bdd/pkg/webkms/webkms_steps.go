@@ -64,6 +64,19 @@ func (c *SDKSteps) SetContext(s *context.BDDContext) {
 	c.bddContext = s
 }
 
+// ResetAgentData clears all agent data stored in this SDKSteps instance.
+func (c *SDKSteps) ResetAgentData() {
+	c.keyIDs = map[string]string{}
+	c.pubKeyBytes = map[string][]byte{}
+	c.signatures = map[string][]byte{}
+	c.ciphertexts = map[string][]byte{}
+	c.nonces = map[string][]byte{}
+	c.plaintexts = map[string][]byte{}
+	c.macs = map[string][]byte{}
+	c.cekKeys = map[string][]byte{}
+	c.wrappedKeys = map[string]*crypto.RecipientWrappedKey{}
+}
+
 // RegisterSteps registers Crypto steps.
 func (c *SDKSteps) RegisterSteps(s *godog.Suite) {
 	// create/export/import key steps

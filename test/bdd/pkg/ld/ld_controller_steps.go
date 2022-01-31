@@ -46,6 +46,9 @@ func (a *ControllerSteps) SetContext(ctx *context.BDDContext) {
 	a.bddContext = ctx
 }
 
+// ResetAgentData noop.
+func (a *ControllerSteps) ResetAgentData() {}
+
 // RegisterSteps registers agent steps.
 func (a *ControllerSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" adds a new remote provider with endpoint "([^"]*)" through controller$`, a.addRemoteProvider)

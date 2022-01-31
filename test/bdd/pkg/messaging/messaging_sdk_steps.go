@@ -46,6 +46,13 @@ func NewMessagingSDKSteps() *SDKSteps {
 	}
 }
 
+// ResetAgentData clears all agent data stored in this SDKSteps instance.
+func (d *SDKSteps) ResetAgentData() {
+	d.genericMessages = make(map[string]*msgService)
+	d.basicMessages = make(map[string]basic.Message)
+	d.msgIDsBySender = make(map[string]string)
+}
+
 func (d *SDKSteps) registerGenericMsgService(agentID, name, msgType, purpose string) error {
 	msgSvc := newMessageService(name, msgType, strings.Split(purpose, ","))
 	d.genericMessages[agentID] = msgSvc

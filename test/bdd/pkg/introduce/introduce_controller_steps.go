@@ -55,6 +55,12 @@ func (s *ControllerSteps) SetContext(ctx *context.BDDContext) {
 	s.outofband.SetContext(s.bddContext)
 }
 
+// ResetAgentData clears all agent data stored in this ControllerSteps instance.
+func (s *ControllerSteps) ResetAgentData() {
+	s.invitationID = ""
+	s.outofband.ResetAgentData()
+}
+
 // RegisterSteps registers agent steps
 // nolint:lll
 func (s *ControllerSteps) RegisterSteps(gs *godog.Suite) {

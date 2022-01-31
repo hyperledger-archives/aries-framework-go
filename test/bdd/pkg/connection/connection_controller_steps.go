@@ -44,6 +44,9 @@ func (s *ControllerSteps) SetContext(ctx *bddctx.BDDContext) {
 	s.bddContext = ctx
 }
 
+// ResetAgentData noop.
+func (s *ControllerSteps) ResetAgentData() {}
+
 // RegisterSteps registers the BDD steps on the suite.
 func (s *ControllerSteps) RegisterSteps(suite *godog.Suite) {
 	suite.Step(`^"([^"]*)" and "([^"]*)" have a DIDComm v2 connection using controller$`, s.HasDIDCommV2Connection)

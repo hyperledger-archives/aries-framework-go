@@ -54,6 +54,8 @@ type feature interface {
 	SetContext(*bddctx.BDDContext)
 	// invoked once to register the steps on the suite
 	RegisterSteps(*godog.Suite)
+	// ResetAgentData is called before every scenario to clear state between scenarios.
+	ResetAgentData()
 }
 
 func TestMain(m *testing.M) {
@@ -177,6 +179,7 @@ func FeatureContext(s *godog.Suite) {
 		bddContext.Args[SideTreeURL] = "http://localhost:48326/sidetree/v1/"
 
 		for _, f := range features {
+			f.ResetAgentData()
 			f.SetContext(bddContext)
 		}
 	})

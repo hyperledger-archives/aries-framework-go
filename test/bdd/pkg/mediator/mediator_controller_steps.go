@@ -36,6 +36,9 @@ func NewRouteRESTSteps() *RESTSteps {
 	return &RESTSteps{}
 }
 
+// ResetAgentData clears all agent data stored in this ControllerSteps instance.
+func (d *RESTSteps) ResetAgentData() {}
+
 // RegisterRoute registers the router for the agent.
 func (d *RESTSteps) RegisterRoute(agentID, varNames string) error {
 	destination, ok := d.bddContext.GetControllerURL(agentID)

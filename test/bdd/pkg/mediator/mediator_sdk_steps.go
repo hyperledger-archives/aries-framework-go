@@ -36,6 +36,11 @@ func NewRouteSDKSteps() *SDKSteps {
 	}
 }
 
+// ResetAgentData clears all agent data stored in this SDKSteps instance.
+func (d *SDKSteps) ResetAgentData() {
+	d.eventsReceived = make(map[string]service.DIDCommAction)
+}
+
 // CreateRouteClient creates route client.
 func (d *SDKSteps) CreateRouteClient(agentID string) error {
 	// create new route client

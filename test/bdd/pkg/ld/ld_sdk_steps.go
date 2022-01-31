@@ -35,6 +35,11 @@ func (s *SDKSteps) SetContext(ctx *context.BDDContext) {
 	s.bddContext = ctx
 }
 
+// ResetAgentData clears all agent data stored in this SDKSteps instance.
+func (s *SDKSteps) ResetAgentData() {
+	s.agent = nil
+}
+
 // RegisterSteps registers the BDD steps on the suite.
 func (s *SDKSteps) RegisterSteps(suite *godog.Suite) {
 	suite.Step(`^"([^"]*)" adds a new remote provider with endpoint "([^"]*)" using client$`, s.addRemoteProvider)

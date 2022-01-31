@@ -70,6 +70,18 @@ func (s *ControllerSteps) SetContext(ctx *context.BDDContext) {
 	s.didexchange.SetContext(s.bddContext)
 }
 
+// ResetAgentData clears all agent data stored in this ControllerSteps instance.
+func (s *ControllerSteps) ResetAgentData() {
+	if s.didexchange != nil {
+		s.didexchange.ResetAgentData()
+	}
+
+	s.accept = ""
+	s.pendingInvitations = make(map[string]*outofband.Invitation)
+	s.pendingV2Invites = make(map[string]*oobv2.Invitation)
+	s.connections = make(map[string]string)
+}
+
 // RegisterSteps registers agent steps.
 func (s *ControllerSteps) RegisterSteps(suite *godog.Suite) {
 	suite.Step(`^accept option ""([^"]*)""$`, s.scenario)

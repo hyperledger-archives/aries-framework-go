@@ -47,6 +47,16 @@ func (s *RestSDKSteps) SetContext(ctx *bddcontext.BDDContext) {
 	s.issueCredSteps.SetContext(ctx)
 }
 
+// ResetAgentData clears all agent data stored in this RestSDKSteps instance.
+func (s *RestSDKSteps) ResetAgentData() {
+	if s.issueCredSteps != nil {
+		s.issueCredSteps.ResetAgentData()
+	}
+
+	s.dids = make(map[string]string)
+	s.spec = nil
+}
+
 // RegisterSteps for this BDD test.
 func (s *RestSDKSteps) RegisterSteps(g *godog.Suite) {
 	g.Step(`^"([^"]*)" and "([^"]*)" are connected via the controller API$`, s.connectAgents)

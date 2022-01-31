@@ -68,6 +68,12 @@ func (s *SDKSteps) SetContext(ctx *context.BDDContext) {
 	s.bddContext = ctx
 }
 
+// ResetAgentData clears all agent data stored in this SDKSteps instance.
+func (s *SDKSteps) ResetAgentData() {
+	s.issuedVCBytes = nil
+	s.secp256k1PrivKey = nil
+}
+
 // RegisterSteps registers Verifiable Credential steps.
 func (s *SDKSteps) RegisterSteps(gs *godog.Suite) {
 	gs.Step(`^"([^"]*)" issues credential at "([^"]*)" regarding "([^"]*)" to "([^"]*)" with "([^"]*)" proof$`, s.issueCredential) //nolint:lll

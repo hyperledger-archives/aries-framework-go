@@ -47,6 +47,9 @@ func (d *Steps) SetContext(ctx *bddctx.BDDContext) {
 	d.bddContext = ctx
 }
 
+// ResetAgentData noop.
+func (d *Steps) ResetAgentData() {}
+
 func (d *Steps) createDIDDocument(agents, method string) error {
 	return createDIDDocument(d.bddContext, agents, "")
 }

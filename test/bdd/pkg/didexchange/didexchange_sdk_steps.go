@@ -25,21 +25,35 @@ import (
 
 // SDKSteps is steps for didexchange using client SDK.
 type SDKSteps struct {
-	bddContext     *context.BDDContext
-	nextAction     map[string]chan struct{ connections []string }
-	connectionID   map[string]string
-	invitations    map[string]*didexchange.Invitation
-	postStatesFlag map[string]map[string]chan bool
+	bddContext   *context.BDDContext
+	nextAction   map[string]chan struct{ connections []string }
+	connectionID map[string]string
+	invitations  map[string]*didexchange.Invitation
+	msgHandler   *stateMsgHandler
+	stopCh       chan struct{}
 }
 
 // NewDIDExchangeSDKSteps return new steps for didexchange using client SDK.
 func NewDIDExchangeSDKSteps() *SDKSteps {
 	return &SDKSteps{
-		nextAction:     make(map[string]chan struct{ connections []string }),
-		connectionID:   make(map[string]string),
-		invitations:    make(map[string]*didexchange.Invitation),
-		postStatesFlag: make(map[string]map[string]chan bool),
+		nextAction:   make(map[string]chan struct{ connections []string }),
+		connectionID: make(map[string]string),
+		invitations:  make(map[string]*didexchange.Invitation),
+		msgHandler: &stateMsgHandler{
+			postStatesFlag: make(map[string]map[string]chan bool),
+		},
+		stopCh: make(chan struct{}),
 	}
+}
+
+// ResetAgentData clears all agent data stored in this SDKSteps instance.
+func (d *SDKSteps) ResetAgentData() {
+	close(d.stopCh)
+	d.nextAction = make(map[string]chan struct{ connections []string })
+	d.connectionID = make(map[string]string)
+	d.invitations = make(map[string]*didexchange.Invitation)
+	d.msgHandler = &stateMsgHandler{postStatesFlag: make(map[string]map[string]chan bool)}
+	d.stopCh = make(chan struct{})
 }
 
 func (d *SDKSteps) createInvitationWithRouter(inviterAgentID, router string) error {
@@ -173,7 +187,7 @@ func (d *SDKSteps) WaitForPostEvent(agents, statesValue string) error {
 	for _, agentID := range strings.Split(agents, ",") {
 		for _, state := range strings.Split(statesValue, ",") {
 			select {
-			case <-d.postStatesFlag[agentID][state]:
+			case <-d.msgHandler.postStatesFlag[agentID][state]:
 			case <-time.After(timeout):
 				return fmt.Errorf("timeout waiting for %s's post state event '%s'", agentID, state)
 			}
@@ -361,7 +375,7 @@ func (d *SDKSteps) RegisterPostMsgEvent(agents, statesValue string) error {
 		states := strings.Split(statesValue, ",")
 		d.initializeStates(agentID, states)
 
-		go d.eventListener(statusCh, agentID, states)
+		go d.msgHandler.eventListener(statusCh, d.stopCh, agentID, states)
 	}
 
 	return nil
@@ -439,30 +453,39 @@ func (d *SDKSteps) checkThread(invitee, inviter string) error {
 }
 
 func (d *SDKSteps) initializeStates(agentID string, states []string) {
-	d.postStatesFlag[agentID] = make(map[string]chan bool)
+	d.msgHandler.postStatesFlag[agentID] = make(map[string]chan bool)
 	for _, state := range states {
-		d.postStatesFlag[agentID][state] = make(chan bool)
+		d.msgHandler.postStatesFlag[agentID][state] = make(chan bool)
 	}
 }
 
-func (d *SDKSteps) eventListener(statusCh chan service.StateMsg, agentID string, states []string) {
-	for e := range statusCh {
-		err, ok := e.Properties.(error)
-		if ok {
-			panic(fmt.Sprintf("Service processing failed: %s : %s", agentID, err))
-		}
+type stateMsgHandler struct {
+	postStatesFlag map[string]map[string]chan bool
+}
 
-		if e.Type == service.PostState {
-			logger.Debugf("%s has received state event: %+v", agentID, e)
-
-			if e.StateID != "invited" {
-				logger.Debugf("Agent %s done processing %s message \n%s\n*****", agentID, e.Msg.Type(), e.Msg)
+func (d *stateMsgHandler) eventListener(statusCh chan service.StateMsg, stopCh chan struct{}, agentID string, states []string) {
+	for {
+		select {
+		case <-stopCh:
+			return
+		case e := <-statusCh:
+			err, ok := e.Properties.(error)
+			if ok {
+				panic(fmt.Sprintf("Service processing failed: %s : %s", agentID, err))
 			}
 
-			for _, state := range states {
-				// receive the events
-				if e.StateID == state {
-					d.postStatesFlag[agentID][state] <- true
+			if e.Type == service.PostState {
+				logger.Debugf("%s has received state event: %+v", agentID, e)
+
+				if e.StateID != "invited" {
+					logger.Debugf("Agent %s done processing %s message \n%s\n*****", agentID, e.Msg.Type(), e.Msg)
+				}
+
+				for _, state := range states {
+					// receive the events
+					if e.StateID == state {
+						d.postStatesFlag[agentID][state] <- true
+					}
 				}
 			}
 		}

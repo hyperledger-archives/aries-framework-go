@@ -71,6 +71,25 @@ func (a *SDKSteps) SetContext(ctx *context.BDDContext) {
 	a.events = make(map[string]chan service.StateMsg)
 }
 
+// ResetAgentData clears all agent data stored in this SDKSteps instance.
+func (a *SDKSteps) ResetAgentData() {
+	if a.didExchangeSDKS != nil {
+		a.didExchangeSDKS.ResetAgentData()
+	}
+
+	if a.outofbandSDKS != nil {
+		a.outofbandSDKS.ResetAgentData()
+	}
+
+	if a.issueCredSDKS != nil {
+		a.issueCredSDKS.ResetAgentData()
+	}
+
+	a.clients = make(map[string]*introduce.Client)
+	a.actions = make(map[string]chan service.DIDCommAction)
+	a.events = make(map[string]chan service.StateMsg)
+}
+
 // RegisterSteps registers agent steps.
 func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" sends introduce proposal to the "([^"]*)" and "([^"]*)"$`, a.sendProposal)

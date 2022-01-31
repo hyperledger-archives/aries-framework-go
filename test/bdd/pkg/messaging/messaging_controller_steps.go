@@ -60,6 +60,11 @@ func NewMessagingControllerSteps() *ControllerSteps {
 	}
 }
 
+// ResetAgentData clears all agent data stored in this ControllerSteps instance.
+func (d *ControllerSteps) ResetAgentData() {
+	d.msgIDsBySender = make(map[string]string)
+}
+
 func (d *ControllerSteps) registerMsgService(agentID, name, msgType, purpose string) error {
 	destination, ok := d.bddContext.GetControllerURL(agentID)
 	if !ok {

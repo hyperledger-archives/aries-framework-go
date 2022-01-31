@@ -38,6 +38,9 @@ func (a *ControllerSteps) SetContext(ctx *bddcontext.BDDContext) {
 	a.bddContext = ctx
 }
 
+// ResetAgentData noop for this ControllerSteps.
+func (a *ControllerSteps) ResetAgentData() {}
+
 // RegisterSteps registers agent steps.
 func (a *ControllerSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with controller "([^"]*)"$`,

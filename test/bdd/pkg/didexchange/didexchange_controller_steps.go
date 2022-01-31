@@ -72,6 +72,12 @@ func (a *ControllerSteps) SetContext(ctx *context.BDDContext) {
 	a.bddContext = ctx
 }
 
+// ResetAgentData clears all agent data stored in this ControllerSteps instance.
+func (a *ControllerSteps) ResetAgentData() {
+	a.invitations = make(map[string]*didexchange.Invitation)
+	a.connectionIDs = make(map[string]string)
+}
+
 // RegisterSteps registers agent steps.
 func (a *ControllerSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" creates invitation through controller with label "([^"]*)"$`, a.createInvitation)

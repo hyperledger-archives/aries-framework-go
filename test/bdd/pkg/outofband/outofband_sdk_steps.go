@@ -65,6 +65,17 @@ func (sdk *SDKSteps) SetContext(ctx *context.BDDContext) {
 	sdk.bddIssueCredSDK.SetContext(ctx)
 }
 
+// ResetAgentData clears all agent data stored in this SDKSteps instance.
+func (sdk *SDKSteps) ResetAgentData() {
+	if sdk.bddDIDExchSDK != nil {
+		sdk.bddDIDExchSDK.ResetAgentData()
+	}
+
+	if sdk.bddIssueCredSDK != nil {
+		sdk.bddIssueCredSDK.ResetAgentData()
+	}
+}
+
 func (sdk *SDKSteps) scenario(accept string) error {
 	sdk.accept = accept
 

@@ -75,6 +75,18 @@ func NewSDKSteps() *SDKSteps {
 	}
 }
 
+// ResetAgentData clears all agent data stored in this SDKSteps instance.
+func (a *SDKSteps) ResetAgentData() {
+	if a.didExchangeSDKS != nil {
+		a.didExchangeSDKS.ResetAgentData()
+	}
+
+	a.newKeyType = ""
+	a.newKeyAgreementType = ""
+	a.newMediaTypeProfiles = nil
+	a.agentOpts = map[string][]createAgentOption{}
+}
+
 // RegisterSteps registers agent steps.
 func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^options ""([^"]*)"" ""([^"]*)"" ""([^"]*)""$`, a.scenario)
