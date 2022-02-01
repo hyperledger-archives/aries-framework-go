@@ -213,6 +213,7 @@ func features() []feature {
 		connection.NewSDKSteps(),
 		connection.NewControllerSteps(),
 		webkms.NewCryptoSDKSteps(),
-		waci.NewIssuanceSDKSteps(),
+		waci.NewIssuanceDIDCommV1SDKSteps(),
+		waci.NewIssuanceDIDCommV2SDKSteps(),
 	}
 }
