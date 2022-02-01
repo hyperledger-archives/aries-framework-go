@@ -56,8 +56,8 @@ const (
 	timeoutDuration      = time.Second * 5
 )
 
-// IssuanceSDKSteps contains steps for WACI issuance tests using the SDK binding.
-type IssuanceSDKSteps struct {
+// IssuanceSDKDIDCommV2Steps contains steps for WACI issuance tests using the SDK binding with DIDComm V2.
+type IssuanceSDKDIDCommV2Steps struct {
 	context                            *context.BDDContext
 	oobV2InviteFromIssuerToHolder      *oobv2.Invitation
 	issueCredentialClients             map[string]*issuecredentialclient.Client
@@ -66,9 +66,9 @@ type IssuanceSDKSteps struct {
 	credentialManifestReceivedByHolder *cm.CredentialManifest
 }
 
-// NewIssuanceSDKSteps returns the WACI issuance's BDD steps using the SDK binding.
-func NewIssuanceSDKSteps() *IssuanceSDKSteps {
-	return &IssuanceSDKSteps{
+// NewIssuanceDIDCommV2SDKSteps returns the WACI issuance's BDD steps using the SDK binding with DIDComm V2.
+func NewIssuanceDIDCommV2SDKSteps() *IssuanceSDKDIDCommV2Steps {
+	return &IssuanceSDKDIDCommV2Steps{
 		issueCredentialClients: make(map[string]*issuecredentialclient.Client),
 		actions:                make(map[string]chan service.DIDCommAction),
 		holderEvent:            make(chan service.StateMsg, stateMsgChanSize),
@@ -76,13 +76,13 @@ func NewIssuanceSDKSteps() *IssuanceSDKSteps {
 }
 
 // SetContext is called before every scenario is run with a fresh context.
-func (i *IssuanceSDKSteps) SetContext(ctx *context.BDDContext) {
+func (i *IssuanceSDKDIDCommV2Steps) SetContext(ctx *context.BDDContext) {
 	i.context = ctx
 }
 
 // RegisterSteps registers the BDD test steps on the suite.
 // Note that VC proofs are not checked in this test suite.
-func (i *IssuanceSDKSteps) RegisterSteps(suite *godog.Suite) {
+func (i *IssuanceSDKDIDCommV2Steps) RegisterSteps(suite *godog.Suite) {
 	suite.Step(`^"([^"]*)" creates an out-of-band-v2 invitation with streamlined-vc goal-code$`,
 		i.createOOBV2WithStreamlinedVCGoalCode)
 	suite.Step(`^"([^"]*)" sends the request to "([^"]*)" and they accept it$`, i.acceptOOBV2Invitation)
@@ -96,7 +96,7 @@ func (i *IssuanceSDKSteps) RegisterSteps(suite *godog.Suite) {
 		`Fulfillment attachment$`, i.checkCredential)
 }
 
-func (i *IssuanceSDKSteps) createOOBV2WithStreamlinedVCGoalCode(issuerName string) error {
+func (i *IssuanceSDKDIDCommV2Steps) createOOBV2WithStreamlinedVCGoalCode(issuerName string) error {
 	issuerOOBV2Client, err := outofbandv2.New(i.context.AgentCtx[issuerName])
 	if err != nil {
 		return fmt.Errorf("failed to create an OOB V2 client for %s: %w", issuerName, err)
@@ -124,7 +124,7 @@ func (i *IssuanceSDKSteps) createOOBV2WithStreamlinedVCGoalCode(issuerName strin
 	return nil
 }
 
-func (i *IssuanceSDKSteps) acceptOOBV2Invitation(issuerName, holderName string) error {
+func (i *IssuanceSDKDIDCommV2Steps) acceptOOBV2Invitation(issuerName, holderName string) error {
 	holderOOBV2Client, err := outofbandv2.New(i.context.AgentCtx[holderName])
 	if err != nil {
 		return fmt.Errorf("failed to create an OOB V2 client for %s: %w", issuerName, err)
@@ -138,7 +138,7 @@ func (i *IssuanceSDKSteps) acceptOOBV2Invitation(issuerName, holderName string) 
 	return nil
 }
 
-func (i *IssuanceSDKSteps) sendsProposalV3(holderName, issuerName string) error {
+func (i *IssuanceSDKDIDCommV2Steps) sendsProposalV3(holderName, issuerName string) error {
 	err := i.createIssueCredentialClients(holderName, issuerName)
 	if err != nil {
 		return err
@@ -179,7 +179,7 @@ func (i *IssuanceSDKSteps) sendsProposalV3(holderName, issuerName string) error 
 	return nil
 }
 
-func (i *IssuanceSDKSteps) acceptProposalV3(issuerName string) error {
+func (i *IssuanceSDKDIDCommV2Steps) acceptProposalV3(issuerName string) error {
 	piid, parentThreadID, err := i.getActionIDAndParentThreadID(issuerName)
 	if err != nil {
 		return err
@@ -203,7 +203,7 @@ func (i *IssuanceSDKSteps) acceptProposalV3(issuerName string) error {
 	return nil
 }
 
-func (i *IssuanceSDKSteps) acceptOffer(holderName string) error {
+func (i *IssuanceSDKDIDCommV2Steps) acceptOffer(holderName string) error {
 	piid, attachmentsFromOfferMsg, err := i.getActionIDAndAttachments(holderName)
 	if err != nil {
 		return err
@@ -227,7 +227,7 @@ func (i *IssuanceSDKSteps) acceptOffer(holderName string) error {
 	return nil
 }
 
-func (i *IssuanceSDKSteps) acceptCredentialApplication(issuerName string) error {
+func (i *IssuanceSDKDIDCommV2Steps) acceptCredentialApplication(issuerName string) error {
 	piid, attachmentsFromApplicationMsg, err := i.getActionIDAndAttachments(issuerName)
 	if err != nil {
 		return err
@@ -262,7 +262,7 @@ func (i *IssuanceSDKSteps) acceptCredentialApplication(issuerName string) error 
 	return nil
 }
 
-func (i *IssuanceSDKSteps) acceptCredential(holderName string) error {
+func (i *IssuanceSDKDIDCommV2Steps) acceptCredential(holderName string) error {
 	piid, err := i.getActionID(holderName)
 	if err != nil {
 		return err
@@ -276,7 +276,7 @@ func (i *IssuanceSDKSteps) acceptCredential(holderName string) error {
 	return nil
 }
 
-func (i *IssuanceSDKSteps) checkCredential() error {
+func (i *IssuanceSDKDIDCommV2Steps) checkCredential() error {
 	credentialFulfillmentAttachment, err := i.getCredentialFulfillmentAttachment()
 	if err != nil {
 		return err
@@ -287,16 +287,19 @@ func (i *IssuanceSDKSteps) checkCredential() error {
 		return err
 	}
 
-	expectedVCID := "https://eu.com/claims/DriversLicense"
-
 	if vc.ID != expectedVCID {
 		return fmt.Errorf("expected VC ID to be %s but got %s instead", expectedVCID, vc.ID)
 	}
 
+	// TODO #3144 - Remove this time.Sleep call once the listener handler error issue is resolved.
+	loggerDIDCommV2Tests.Infof("Waiting one second for Aries agents to finish internal operations. " +
+		"(TODO #3144 - remove the need for this delay)")
+	time.Sleep(time.Second)
+
 	return nil
 }
 
-func (i *IssuanceSDKSteps) createIssueCredentialClients(holderName, issuerName string) error {
+func (i *IssuanceSDKDIDCommV2Steps) createIssueCredentialClients(holderName, issuerName string) error {
 	issueCredentialClientHolder, err := issuecredentialclient.New(i.context.AgentCtx[holderName])
 	if err != nil {
 		return err
@@ -313,12 +316,12 @@ func (i *IssuanceSDKSteps) createIssueCredentialClients(holderName, issuerName s
 	return nil
 }
 
-func (i *IssuanceSDKSteps) createActions(holderName, issuerName string) {
+func (i *IssuanceSDKDIDCommV2Steps) createActions(holderName, issuerName string) {
 	i.actions[issuerName] = make(chan service.DIDCommAction, 1)
 	i.actions[holderName] = make(chan service.DIDCommAction, 1)
 }
 
-func (i *IssuanceSDKSteps) registerActionsAndEvents(holderName, issuerName string) error {
+func (i *IssuanceSDKDIDCommV2Steps) registerActionsAndEvents(holderName, issuerName string) error {
 	err := i.issueCredentialClients[holderName].RegisterActionEvent(i.actions[holderName])
 	if err != nil {
 		return err
@@ -337,7 +340,7 @@ func (i *IssuanceSDKSteps) registerActionsAndEvents(holderName, issuerName strin
 	return err
 }
 
-func (i *IssuanceSDKSteps) getActionID(agent string) (string, error) {
+func (i *IssuanceSDKDIDCommV2Steps) getActionID(agent string) (string, error) {
 	select {
 	case action := <-i.actions[agent]:
 		err := checkProperties(action)
@@ -351,7 +354,7 @@ func (i *IssuanceSDKSteps) getActionID(agent string) (string, error) {
 	}
 }
 
-func (i *IssuanceSDKSteps) getActionIDAndParentThreadID(agent string) (string, string, error) {
+func (i *IssuanceSDKDIDCommV2Steps) getActionIDAndParentThreadID(agent string) (string, string, error) {
 	select {
 	case action := <-i.actions[agent]:
 		err := checkProperties(action)
@@ -370,7 +373,8 @@ func (i *IssuanceSDKSteps) getActionIDAndParentThreadID(agent string) (string, s
 	}
 }
 
-func (i *IssuanceSDKSteps) getActionIDAndAttachments(agent string) (string, []decorator.GenericAttachment, error) {
+func (i *IssuanceSDKDIDCommV2Steps) getActionIDAndAttachments(agent string) (string,
+	[]decorator.GenericAttachment, error) {
 	select {
 	case action := <-i.actions[agent]:
 		err := checkProperties(action)
@@ -391,7 +395,7 @@ func (i *IssuanceSDKSteps) getActionIDAndAttachments(agent string) (string, []de
 	}
 }
 
-func (i *IssuanceSDKSteps) checkAttachments(attachmentsFromOfferMsg []decorator.GenericAttachment) error {
+func (i *IssuanceSDKDIDCommV2Steps) checkAttachments(attachmentsFromOfferMsg []decorator.GenericAttachment) error {
 	credentialManifest, err := getCredentialManifestFromAttachment(&attachmentsFromOfferMsg[0])
 	if err != nil {
 		return err
@@ -433,8 +437,6 @@ func (i *IssuanceSDKSteps) checkAttachments(attachmentsFromOfferMsg []decorator.
 	if len(vcs) != 1 {
 		return fmt.Errorf("received %d VCs, but expected only one", len(vcs))
 	}
-
-	expectedVCID := "https://eu.com/claims/DriversLicense"
 
 	if vcs[0].ID != expectedVCID {
 		return fmt.Errorf("expected VC ID to be %s but got %s instead", expectedVCID, vcs[0].ID)
@@ -600,7 +602,7 @@ func createDocumentLoader() (*ld.DocumentLoader, error) {
 	return loader, nil
 }
 
-func (i *IssuanceSDKSteps) getCredentialFulfillmentAttachment() (decorator.GenericAttachment, error) {
+func (i *IssuanceSDKDIDCommV2Steps) getCredentialFulfillmentAttachment() (decorator.GenericAttachment, error) {
 	for {
 		select {
 		case msg := <-i.holderEvent:
@@ -654,7 +656,7 @@ func getAttachmentFromDIDCommMsg(didCommMsg service.DIDCommMsg) (decorator.Gener
 }
 
 // GetConnection return the connection between agents.
-func (i *IssuanceSDKSteps) GetConnection(from, to string) (*didexClient.Connection, error) {
+func (i *IssuanceSDKDIDCommV2Steps) GetConnection(from, to string) (*didexClient.Connection, error) {
 	connections, err := i.context.DIDExchangeClients[from].QueryConnections(&didexClient.QueryConnectionsParams{})
 	if err != nil {
 		return nil, fmt.Errorf("%s failed to fetch their connections : %w", from, err)
