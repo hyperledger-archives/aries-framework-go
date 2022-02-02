@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package waci
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -29,8 +28,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	bddDIDExchange "github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
 )
-
-// TODO (#3143) Refactor these tests to reduce code duplication between the V1 and V2 tests.
 
 var (
 	//nolint: gochecknoglobals // logger
@@ -199,7 +196,7 @@ func (i *IssuanceSDKDIDCommV1Steps) acceptProposalV2(issuerName string) error {
 			"original invitation ID (%s) but got %s instead", i.pendingInvitations[issuerName].ID, invitationID)
 	}
 
-	offerCredential, err := generateOfferCredentialV2Msg()
+	offerCredential, err := generateOfferCredentialMsgV2()
 	if err != nil {
 		return err
 	}
@@ -272,7 +269,7 @@ func (i *IssuanceSDKDIDCommV1Steps) acceptCredentialApplication(issuerName strin
 }
 
 func (i *IssuanceSDKDIDCommV1Steps) acceptCredential(holderName string) error {
-	piid, err := i.getActionID(holderName)
+	piid, err := getActionID(i.issueCredentialActions[holderName])
 	if err != nil {
 		return err
 	}
@@ -313,7 +310,7 @@ func (i *IssuanceSDKDIDCommV1Steps) getCredentialFulfillmentAttachment() (decora
 		select {
 		case msg := <-i.issueCredentialEvents["Holder"]:
 			if msg.StateID == "done" {
-				attachment, err := getAttachmentFromDIDCommMsgV2(msg.Msg)
+				attachment, err := getAttachmentFromDIDCommMsgV1(msg.Msg)
 				if err != nil {
 					return decorator.GenericAttachment{}, err
 				}
@@ -323,20 +320,6 @@ func (i *IssuanceSDKDIDCommV1Steps) getCredentialFulfillmentAttachment() (decora
 		case <-time.After(timeoutDuration):
 			return decorator.GenericAttachment{}, errors.New("timeout")
 		}
-	}
-}
-
-func (i *IssuanceSDKDIDCommV1Steps) getActionID(agent string) (string, error) {
-	select {
-	case action := <-i.issueCredentialActions[agent]:
-		err := checkProperties(action)
-		if err != nil {
-			return "", fmt.Errorf("check properties: %w", err)
-		}
-
-		return action.Properties.All()["piid"].(string), nil
-	case <-time.After(timeoutDuration):
-		return "", errors.New("timeout")
 	}
 }
 
@@ -401,7 +384,7 @@ func (i *IssuanceSDKDIDCommV1Steps) getActionIDAndAttachments(agent,
 
 		var attachments []decorator.GenericAttachment
 
-		attachments, err = getAttachmentsV2(action, fieldName)
+		attachments, err = getAttachments(action, fieldName)
 		if err != nil {
 			return "", nil, err
 		}
@@ -586,173 +569,21 @@ func (i *IssuanceSDKDIDCommV1Steps) autoExecuteActionEvent(agentID string, ch <-
 	}
 }
 
-func getAttachmentFromDIDCommMsgV2(didCommMsg service.DIDCommMsg) (decorator.GenericAttachment, error) {
-	var didCommMsgAsMap map[string]interface{}
-
-	err := didCommMsg.Decode(&didCommMsgAsMap)
-	if err != nil {
-		return decorator.GenericAttachment{}, err
-	}
-
-	attachmentsRaw, ok := didCommMsgAsMap["credentials~attach"]
-	if !ok {
-		return decorator.GenericAttachment{}, errors.New("missing attachments from DIDComm message map")
-	}
-
-	attachments, ok := attachmentsRaw.([]interface{})
-	if !ok {
-		return decorator.GenericAttachment{}, errors.New("attachments were not an array of interfaces as expected")
-	}
-
-	attachmentRaw := attachments[0]
-
-	attachmentBytes, err := json.Marshal(attachmentRaw)
-	if err != nil {
-		return decorator.GenericAttachment{}, err
-	}
-
-	var attachment decorator.GenericAttachment
-
-	err = json.Unmarshal(attachmentBytes, &attachment)
-	if err != nil {
-		return decorator.GenericAttachment{}, err
-	}
-
-	return attachment, nil
+func getAttachmentFromDIDCommMsgV1(didCommMsg service.DIDCommMsg) (decorator.GenericAttachment, error) {
+	return getAttachmentFromDIDCommMsg(didCommMsg, "credentials~attach")
 }
 
 func generateIssueCredentialMsgV2() (*issuecredentialclient.IssueCredential, error) {
-	cxt := []string{
-		"https://www.w3.org/2018/credentials/v1",
-		cm.CredentialFulfillmentPresentationContext,
-	}
-
-	types := []string{
-		"VerifiablePresentation",
-		"CredentialFulfillment",
-	}
-
-	var credentialFulfillment cm.CredentialFulfillment
-
-	err := json.Unmarshal(credentialFulfillmentDriversLicense, &credentialFulfillment)
-	if err != nil {
-		return nil, err
-	}
-
-	documentLoader, err := createDocumentLoader()
-	if err != nil {
-		return nil, err
-	}
-
-	verifiableCredential, err := verifiable.ParseCredential(vcDriversLicense,
-		verifiable.WithJSONLDDocumentLoader(documentLoader), verifiable.WithDisabledProofCheck())
-	if err != nil {
-		return nil, err
-	}
-
-	verifiableCredentials := []*verifiable.Credential{verifiableCredential}
-
-	proof := generateCredentialFulfillmentProof()
-
-	attachmentData := map[string]interface{}{
-		"@context":               cxt,
-		"type":                   types,
-		"credential_fulfillment": credentialFulfillment,
-		"verifiableCredential":   verifiableCredentials,
-		"proof":                  proof,
-	}
-
-	issueCredentialAttachment := decorator.GenericAttachment{
-		ID:        uuid.New().String(),
-		MediaType: "application/json",
-		Format:    cm.CredentialFulfillmentAttachmentFormat,
-		Data:      decorator.AttachmentData{JSON: attachmentData},
-	}
-
-	attachments := []decorator.GenericAttachment{issueCredentialAttachment}
-
-	issueCredentialMsg := issuecredentialclient.IssueCredential{
-		Type:        issuecredential.IssueCredentialMsgTypeV2,
-		ID:          uuid.New().String(),
-		Attachments: attachments,
-	}
-
-	return &issueCredentialMsg, nil
+	return generateIssueCredentialMsg(issuecredential.IssueCredentialMsgTypeV2)
 }
 
 func generateRequestCredentialMsgV2(credentialManifest *cm.CredentialManifest) (
 	*issuecredentialclient.RequestCredential, error) {
-	credentialApplicationAttachment, err := generateCredentialApplicationAttachment(credentialManifest)
-	if err != nil {
-		return nil, err
-	}
-
-	attachments := []decorator.GenericAttachment{*credentialApplicationAttachment}
-
-	requestCredential := issuecredentialclient.RequestCredential{
-		Type:        issuecredential.RequestCredentialMsgTypeV2,
-		ID:          uuid.New().String(),
-		Attachments: attachments,
-	}
-
-	return &requestCredential, nil
+	return generateRequestCredentialMsg(credentialManifest, issuecredential.RequestCredentialMsgTypeV2)
 }
 
-func getAttachmentsV2(action service.DIDCommAction, fieldName string) ([]decorator.GenericAttachment, error) {
-	var didCommMsgAsMap map[string]interface{}
-
-	err := action.Message.Decode(&didCommMsgAsMap)
-	if err != nil {
-		return nil, err
-	}
-
-	attachmentsRaw, ok := didCommMsgAsMap[fieldName]
-	if !ok {
-		return nil, errors.New("missing attachments from DIDComm message map")
-	}
-
-	attachmentsAsArrayOfInterfaces, ok := attachmentsRaw.([]interface{})
-	if !ok {
-		return nil, errors.New("attachments were not an array of interfaces as expected")
-	}
-
-	attachmentsBytes, err := json.Marshal(attachmentsAsArrayOfInterfaces)
-	if err != nil {
-		return nil, err
-	}
-
-	var attachments []decorator.GenericAttachment
-
-	err = json.Unmarshal(attachmentsBytes, &attachments)
-	if err != nil {
-		return nil, err
-	}
-
-	return attachments, nil
-}
-
-func generateOfferCredentialV2Msg() (*issuecredentialclient.OfferCredential, error) {
-	credentialManifestAttachment, err := generateCredentialManifestAttachment()
-	if err != nil {
-		return nil, err
-	}
-
-	// A Credential Fulfillment attachment is sent here as a preview of the VC so the Holder can see what
-	// the credential will look like.
-	credentialFulfillmentAttachment, err := generateCredentialFulfillmentAttachmentWithoutProof()
-	if err != nil {
-		return nil, err
-	}
-
-	attachments := []decorator.GenericAttachment{*credentialManifestAttachment, *credentialFulfillmentAttachment}
-
-	offerCredential := issuecredentialclient.OfferCredential{
-		Type:        issuecredential.OfferCredentialMsgTypeV2,
-		ID:          uuid.New().String(),
-		Attachments: attachments,
-	}
-
-	return &offerCredential, nil
+func generateOfferCredentialMsgV2() (*issuecredentialclient.OfferCredential, error) {
+	return generateOfferCredentialMsg(issuecredential.OfferCredentialMsgTypeV2)
 }
 
 func getInvitationID(action service.DIDCommAction) (string, error) {
