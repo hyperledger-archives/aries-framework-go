@@ -266,7 +266,7 @@ func (cs *contentStore) mapCollection(auth, key, collectionID string, ct Content
 	}
 
 	// collection IDs can contain ':' characters which can not be supported by tags.
-	return store.Put(getCollectionMappingKeyPrefix(key), []byte(ct.Name()),
+	return store.Put(getCollectionMappingKeyPrefix(ct, key), []byte(ct.Name()),
 		storage.Tag{Name: base64.StdEncoding.EncodeToString([]byte(collectionID))})
 }
 
@@ -299,7 +299,7 @@ func (cs *contentStore) Remove(auth, key string, ct ContentType) error {
 	}
 
 	// delete mapping
-	err = store.Delete(getCollectionMappingKeyPrefix(key))
+	err = store.Delete(getCollectionMappingKeyPrefix(ct, key))
 	if err != nil {
 		return err
 	}
@@ -409,7 +409,7 @@ func (cs *contentStore) GetAllByCollection(auth,
 			continue
 		}
 
-		contentKey := removeKeyPrefix(collectionMappingKeyPrefix, key)
+		contentKey := removeCollectionMappingKeyPrefix(ct, key)
 
 		contentVal, err := store.Get(getContentKeyPrefix(ct, contentKey))
 		if err != nil {
@@ -444,8 +444,13 @@ func getContentKeyPrefix(ct ContentType, key string) string {
 }
 
 // getCollectionMappingKeyPrefix returns key prefix by wallet collection ID and storage key.
-func getCollectionMappingKeyPrefix(key string) string {
-	return fmt.Sprintf("%s_%s", collectionMappingKeyPrefix, key)
+func getCollectionMappingKeyPrefix(ct ContentType, key string) string {
+	return fmt.Sprintf("%s_%s_%s", collectionMappingKeyPrefix, ct, key)
+}
+
+// removeCollectionMappingKeyPrefix removes collection mapping key prefix.
+func removeCollectionMappingKeyPrefix(ct ContentType, key string) string {
+	return strings.Replace(key, fmt.Sprintf("%s_%s_", collectionMappingKeyPrefix, ct), "", 1)
 }
 
 // removeContentKeyPrefix removes content key prefix.

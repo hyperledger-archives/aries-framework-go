@@ -467,5 +467,5 @@ type ResolveCredentialManifestRequest struct {
 // ResolveCredentialManifestResponse is response model from wallet credential manifest resolve operation.
 type ResolveCredentialManifestResponse struct {
 	// List of Resolved Descriptor results.
-	Resolved []*cm.ResolvedDescriptor
+	Resolved []*cm.ResolvedDescriptor `json:"resolved,omitempty"`
 }
