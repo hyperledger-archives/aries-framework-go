@@ -9,6 +9,7 @@ package issuecredential
 import (
 	"encoding/json"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 )
 
@@ -61,9 +62,10 @@ func (p *ProposeCredentialParams) FromV2(v2 *ProposeCredentialV2) {
 
 	p.CredentialProposal = v2.CredentialProposal
 	p.Formats = v2.Formats
+	p.InvitationID = v2.InvitationID
 
 	p.GoalCode = ""
-	p.CredentialPreview = ""
+	p.CredentialPreview = nil
 }
 
 // FromV3 initializes this credential proposal from an issue credential 3.0 proposal.
@@ -78,6 +80,7 @@ func (p *ProposeCredentialParams) FromV3(v3 *ProposeCredentialV3) {
 
 	p.GoalCode = v3.Body.GoalCode
 	p.CredentialPreview = v3.Body.CredentialPreview
+	p.InvitationID = v3.InvitationID
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
@@ -93,6 +96,32 @@ func (p *ProposeCredentialParams) UnmarshalJSON(b []byte) error {
 		p.FromV3(&raw.ProposeCredentialV3)
 	} else {
 		p.FromV2(&raw.ProposeCredentialV2)
+	}
+
+	return nil
+}
+
+// FromDIDCommMsgMap implements service.MsgMapDecoder.
+func (p *ProposeCredentialParams) FromDIDCommMsgMap(msgMap service.DIDCommMsgMap) error {
+	isV2, _ := service.IsDIDCommV2(&msgMap) // nolint:errcheck
+	if isV2 {
+		proposeV3 := &ProposeCredentialV3{}
+
+		err := msgMap.Decode(proposeV3)
+		if err != nil {
+			return err
+		}
+
+		p.FromV3(proposeV3)
+	} else {
+		proposeV2 := &ProposeCredentialV2{}
+
+		err := msgMap.Decode(proposeV2)
+		if err != nil {
+			return err
+		}
+
+		p.FromV2(proposeV2)
 	}
 
 	return nil
@@ -217,6 +246,32 @@ func (p *OfferCredentialParams) UnmarshalJSON(b []byte) error {
 		p.FromV3(&raw.OfferCredentialV3)
 	} else {
 		p.FromV2(&raw.OfferCredentialV2)
+	}
+
+	return nil
+}
+
+// FromDIDCommMsgMap implements service.MsgMapDecoder.
+func (p *OfferCredentialParams) FromDIDCommMsgMap(msgMap service.DIDCommMsgMap) error {
+	isV2, _ := service.IsDIDCommV2(&msgMap) // nolint:errcheck
+	if isV2 {
+		msgV3 := &OfferCredentialV3{}
+
+		err := msgMap.Decode(msgV3)
+		if err != nil {
+			return err
+		}
+
+		p.FromV3(msgV3)
+	} else {
+		msgV2 := &OfferCredentialV2{}
+
+		err := msgMap.Decode(msgV2)
+		if err != nil {
+			return err
+		}
+
+		p.FromV2(msgV2)
 	}
 
 	return nil
@@ -361,6 +416,32 @@ func (p *RequestCredentialParams) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+// FromDIDCommMsgMap implements service.MsgMapDecoder.
+func (p *RequestCredentialParams) FromDIDCommMsgMap(msgMap service.DIDCommMsgMap) error {
+	isV2, _ := service.IsDIDCommV2(&msgMap) // nolint:errcheck
+	if isV2 {
+		msgV3 := &RequestCredentialV3{}
+
+		err := msgMap.Decode(msgV3)
+		if err != nil {
+			return err
+		}
+
+		p.FromV3(msgV3)
+	} else {
+		msgV2 := &RequestCredentialV2{}
+
+		err := msgMap.Decode(msgV2)
+		if err != nil {
+			return err
+		}
+
+		p.FromV2(msgV2)
+	}
+
+	return nil
+}
+
 // IssueCredentialParams holds parameters for a credential issuance message.
 type IssueCredentialParams struct { // nolint: golint
 	Type          string
@@ -469,6 +550,32 @@ func (p *IssueCredentialParams) UnmarshalJSON(b []byte) error {
 		p.FromV3(&raw.IssueCredentialV3)
 	} else {
 		p.FromV2(&raw.IssueCredentialV2)
+	}
+
+	return nil
+}
+
+// FromDIDCommMsgMap implements service.MsgMapDecoder.
+func (p *IssueCredentialParams) FromDIDCommMsgMap(msgMap service.DIDCommMsgMap) error {
+	isV2, _ := service.IsDIDCommV2(&msgMap) // nolint:errcheck
+	if isV2 {
+		msgV3 := &IssueCredentialV3{}
+
+		err := msgMap.Decode(msgV3)
+		if err != nil {
+			return err
+		}
+
+		p.FromV3(msgV3)
+	} else {
+		msgV2 := &IssueCredentialV2{}
+
+		err := msgMap.Decode(msgV2)
+		if err != nil {
+			return err
+		}
+
+		p.FromV2(msgV2)
 	}
 
 	return nil

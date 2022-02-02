@@ -14,35 +14,28 @@ import (
 )
 
 type rawPropose struct {
-	IDV2      string                    `json:"@id,omitempty"`
-	TypeV2    string                    `json:"@type,omitempty"`
-	CommentV2 string                    `json:"comment,omitempty"`
-	FormatsV2 []Format                  `json:"formats,omitempty"`
-	AttachV2  []decorator.Attachment    `json:"proposals~attach,omitempty"`
-	IDV3      string                    `json:"id,omitempty"`
-	TypeV3    string                    `json:"type,omitempty"`
-	BodyV3    ProposePresentationV3Body `json:"body,omitempty"`
-	AttachV3  []decorator.AttachmentV2  `json:"attachments,omitempty"`
+	ProposePresentationV2
+	ProposePresentationV3
 }
 
-func (r *rawPropose) version() version { // nolint: gocyclo
-	if r.IDV2 != "" ||
-		r.TypeV2 != "" ||
-		r.CommentV2 != "" ||
-		len(r.FormatsV2) != 0 ||
-		len(r.AttachV2) != 0 {
-		return version2
+func (r *rawPropose) isV3() bool {
+	if r.ProposePresentationV2.notEmpty() {
+		return false
 	}
 
-	if r.IDV3 != "" ||
-		r.TypeV3 != "" ||
-		len(r.AttachV3) != 0 ||
-		r.BodyV3.GoalCode != "" ||
-		r.BodyV3.Comment != "" {
-		return version3
+	if r.ProposePresentationV3.notEmpty() {
+		return true
 	}
 
-	return version2
+	return false
+}
+
+func (p *ProposePresentationV2) notEmpty() bool {
+	return p.ID != "" || p.Type != "" || p.Comment != "" || len(p.Formats) != 0 || len(p.ProposalsAttach) != 0
+}
+
+func (p *ProposePresentationV3) notEmpty() bool {
+	return p.ID != "" || p.Type != "" || p.Body.Comment != "" || p.Body.GoalCode != "" || len(p.Attachments) != 0
 }
 
 // ProposePresentationParams holds the parameters for proposing a presentation.
@@ -68,73 +61,110 @@ func (p *ProposePresentationParams) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
-	p.fromRaw(&raw)
+	if raw.isV3() {
+		p.FromV3(&raw.ProposePresentationV3)
+	} else {
+		p.FromV2(&raw.ProposePresentationV2)
+	}
 
 	return nil
 }
 
 // FromDIDCommMsgMap implements service.MsgMapDecoder.
 func (p *ProposePresentationParams) FromDIDCommMsgMap(msgMap service.DIDCommMsgMap) error {
-	raw := rawPropose{}
+	isV2, _ := service.IsDIDCommV2(&msgMap) // nolint:errcheck
+	if isV2 {
+		msgV3 := &ProposePresentationV3{}
 
-	err := msgMap.Decode(&raw)
-	if err != nil {
-		return err
+		err := msgMap.Decode(msgV3)
+		if err != nil {
+			return err
+		}
+
+		p.FromV3(msgV3)
+	} else {
+		msgV2 := &ProposePresentationV2{}
+
+		err := msgMap.Decode(msgV2)
+		if err != nil {
+			return err
+		}
+
+		p.FromV2(msgV2)
 	}
-
-	p.fromRaw(&raw)
 
 	return nil
 }
 
-func (p *ProposePresentationParams) fromRaw(raw *rawPropose) {
-	switch raw.version() {
-	default:
-		fallthrough
-	case version2:
-		p.Comment = raw.CommentV2
-		p.Formats = raw.FormatsV2
-		p.GoalCode = ""
-		p.Attachments = decorator.V1AttachmentsToGeneric(raw.AttachV2)
-	case version3:
-		p.Comment = raw.BodyV3.Comment
-		p.Formats = nil
-		p.GoalCode = raw.BodyV3.GoalCode
-		p.Attachments = decorator.V2AttachmentsToGeneric(raw.AttachV3)
+// AsV2 translates this presentation proposal into a present-proof 2.0 proposal message.
+func (p *ProposePresentationParams) AsV2() *ProposePresentationV2 {
+	return &ProposePresentationV2{
+		Type:            ProposePresentationMsgTypeV2,
+		Comment:         p.Comment,
+		Formats:         p.Formats,
+		ProposalsAttach: decorator.GenericAttachmentsToV1(p.Attachments),
 	}
+}
+
+// AsV3 translates this presentation proposal into a present-proof 3.0 proposal message.
+func (p *ProposePresentationParams) AsV3() *ProposePresentationV3 {
+	return &ProposePresentationV3{
+		Type: ProposePresentationMsgTypeV3,
+		Body: ProposePresentationV3Body{
+			GoalCode: p.GoalCode,
+			Comment:  p.Comment,
+		},
+		Attachments: decorator.GenericAttachmentsToV2(p.Attachments),
+	}
+}
+
+// FromV2 initializes this presentation proposal from a present-proof 2.0 proposal message.
+func (p *ProposePresentationParams) FromV2(v2 *ProposePresentationV2) {
+	p.Comment = v2.Comment
+	p.Formats = v2.Formats
+	p.GoalCode = ""
+	p.Attachments = decorator.V1AttachmentsToGeneric(v2.ProposalsAttach)
+}
+
+// FromV3 initializes this presentation proposal from a present-proof 3.0 proposal message.
+func (p *ProposePresentationParams) FromV3(v3 *ProposePresentationV3) {
+	p.Comment = v3.Body.Comment
+	p.Formats = nil
+	p.GoalCode = v3.Body.GoalCode
+	p.Attachments = decorator.V2AttachmentsToGeneric(v3.Attachments)
 }
 
 type rawRequest struct {
-	IDV2          string                    `json:"@id,omitempty"`
-	TypeV2        string                    `json:"@type,omitempty"`
-	CommentV2     string                    `json:"comment,omitempty"`
-	WillConfirmV2 bool                      `json:"will_confirm,omitempty"`
-	FormatsV2     []Format                  `json:"formats,omitempty"`
-	AttachV2      []decorator.Attachment    `json:"request_presentations~attach,omitempty"`
-	IDV3          string                    `json:"id,omitempty"`
-	TypeV3        string                    `json:"type,omitempty"`
-	BodyV3        RequestPresentationV3Body `json:"body,omitempty"`
-	AttachV3      []decorator.AttachmentV2  `json:"attachments,omitempty"`
+	RequestPresentationV2
+	RequestPresentationV3
 }
 
-func (r *rawRequest) version() version { // nolint: gocyclo
-	if r.IDV2 != "" ||
-		r.TypeV2 != "" ||
-		r.CommentV2 != "" ||
-		len(r.FormatsV2) != 0 ||
-		len(r.AttachV2) != 0 {
-		return version2
+func (r *RequestPresentationV2) notEmpty() bool {
+	return r.ID != "" ||
+		r.Type != "" ||
+		r.Comment != "" ||
+		len(r.Formats) != 0 ||
+		len(r.RequestPresentationsAttach) != 0
+}
+
+func (r *RequestPresentationV3) notEmpty() bool {
+	return r.ID != "" ||
+		r.Type != "" ||
+		len(r.Attachments) != 0 ||
+		r.Body.GoalCode != "" ||
+		r.Body.Comment != ""
+}
+
+func (r *rawRequest) isV3() bool {
+	if r.RequestPresentationV2.notEmpty() {
+		return false
 	}
 
-	if r.IDV3 != "" ||
-		r.TypeV3 != "" ||
-		len(r.AttachV3) != 0 ||
-		r.BodyV3.GoalCode != "" ||
-		r.BodyV3.Comment != "" {
-		return version3
+	if r.RequestPresentationV3.notEmpty() {
+		return true
 	}
 
-	return version2
+	return false
 }
 
 // RequestPresentationParams holds the parameters for requesting a presentation.
@@ -163,72 +193,113 @@ func (p *RequestPresentationParams) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
-	p.fromRaw(&raw)
+	if raw.isV3() {
+		p.FromV3(&raw.RequestPresentationV3)
+	} else {
+		p.FromV2(&raw.RequestPresentationV2)
+	}
 
 	return nil
 }
 
 // FromDIDCommMsgMap implements service.MsgMapDecoder.
 func (p *RequestPresentationParams) FromDIDCommMsgMap(msgMap service.DIDCommMsgMap) error {
-	raw := rawRequest{}
+	isV2, _ := service.IsDIDCommV2(&msgMap) // nolint:errcheck
+	if isV2 {
+		msgV3 := &RequestPresentationV3{}
 
-	err := msgMap.Decode(&raw)
-	if err != nil {
-		return err
+		err := msgMap.Decode(msgV3)
+		if err != nil {
+			return err
+		}
+
+		p.FromV3(msgV3)
+	} else {
+		msgV2 := &RequestPresentationV2{}
+
+		err := msgMap.Decode(msgV2)
+		if err != nil {
+			return err
+		}
+
+		p.FromV2(msgV2)
 	}
-
-	p.fromRaw(&raw)
 
 	return nil
 }
 
-func (p *RequestPresentationParams) fromRaw(raw *rawRequest) {
-	switch raw.version() {
-	default:
-		fallthrough
-	case version2:
-		p.Comment = raw.CommentV2
-		p.WillConfirm = raw.WillConfirmV2
-		p.Formats = raw.FormatsV2
-		p.Attachments = decorator.V1AttachmentsToGeneric(raw.AttachV2)
-		p.GoalCode = ""
-	case version3:
-		p.Comment = raw.BodyV3.Comment
-		p.WillConfirm = raw.BodyV3.WillConfirm
-		p.Formats = nil
-		p.Attachments = decorator.V2AttachmentsToGeneric(raw.AttachV3)
-		p.GoalCode = raw.BodyV3.GoalCode
+// AsV2 translates this presentation request into a present-proof 2.0 request message.
+func (p *RequestPresentationParams) AsV2() *RequestPresentationV2 {
+	return &RequestPresentationV2{
+		Type:                       RequestPresentationMsgTypeV2,
+		Comment:                    p.Comment,
+		WillConfirm:                p.WillConfirm,
+		Formats:                    p.Formats,
+		RequestPresentationsAttach: decorator.GenericAttachmentsToV1(p.Attachments),
 	}
+}
+
+// AsV3 translates this presentation request into a present-proof 3.0 request message.
+func (p *RequestPresentationParams) AsV3() *RequestPresentationV3 {
+	return &RequestPresentationV3{
+		Type: RequestPresentationMsgTypeV3,
+		Body: RequestPresentationV3Body{
+			GoalCode:    p.GoalCode,
+			Comment:     p.Comment,
+			WillConfirm: p.WillConfirm,
+		},
+		Attachments: decorator.GenericAttachmentsToV2(p.Attachments),
+	}
+}
+
+// FromV2 initializes this presentation request from a present-proof 2.0 request message.
+func (p *RequestPresentationParams) FromV2(v2 *RequestPresentationV2) {
+	p.Comment = v2.Comment
+	p.WillConfirm = v2.WillConfirm
+	p.Formats = v2.Formats
+	p.Attachments = decorator.V1AttachmentsToGeneric(v2.RequestPresentationsAttach)
+	p.GoalCode = ""
+}
+
+// FromV3 initializes this presentation request from a present-proof 3.0 request message.
+func (p *RequestPresentationParams) FromV3(v3 *RequestPresentationV3) {
+	p.Comment = v3.Body.Comment
+	p.WillConfirm = v3.Body.WillConfirm
+	p.Formats = nil
+	p.Attachments = decorator.V2AttachmentsToGeneric(v3.Attachments)
+	p.GoalCode = v3.Body.GoalCode
 }
 
 type rawPresentation struct {
-	IDV2      string                   `json:"@id,omitempty"`
-	TypeV2    string                   `json:"@type,omitempty"`
-	CommentV2 string                   `json:"comment,omitempty"`
-	FormatsV2 []Format                 `json:"formats,omitempty"`
-	AttachV2  []decorator.Attachment   `json:"presentations~attach,omitempty"`
-	TypeV3    string                   `json:"type,omitempty"`
-	BodyV3    PresentationV3Body       `json:"body,omitempty"`
-	AttachV3  []decorator.AttachmentV2 `json:"attachments,omitempty"`
+	PresentationV2
+	PresentationV3
 }
 
-func (r *rawPresentation) version() version {
-	if r.IDV2 != "" ||
-		r.TypeV2 != "" ||
-		r.CommentV2 != "" ||
-		len(r.FormatsV2) != 0 ||
-		len(r.AttachV2) != 0 {
-		return version2
+func (p *PresentationV2) notEmpty() bool {
+	return p.ID != "" ||
+		p.Type != "" ||
+		p.Comment != "" ||
+		len(p.Formats) != 0 ||
+		len(p.PresentationsAttach) != 0
+}
+
+func (p *PresentationV3) notEmpty() bool {
+	return p.Type != "" ||
+		len(p.Attachments) != 0 ||
+		p.Body.GoalCode != "" ||
+		p.Body.Comment != ""
+}
+
+func (r *rawPresentation) isV3() bool {
+	if r.PresentationV2.notEmpty() {
+		return false
 	}
 
-	if r.TypeV3 != "" ||
-		len(r.AttachV3) != 0 ||
-		r.BodyV3.GoalCode != "" ||
-		r.BodyV3.Comment != "" {
-		return version3
+	if r.PresentationV3.notEmpty() {
+		return true
 	}
 
-	return version2
+	return false
 }
 
 // PresentationParams holds the parameters for providing a presentation.
@@ -254,38 +325,75 @@ func (p *PresentationParams) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
-	p.fromRaw(&raw)
+	if raw.isV3() {
+		p.FromV3(&raw.PresentationV3)
+	} else {
+		p.FromV2(&raw.PresentationV2)
+	}
 
 	return nil
 }
 
 // FromDIDCommMsgMap implements service.MsgMapDecoder.
 func (p *PresentationParams) FromDIDCommMsgMap(msgMap service.DIDCommMsgMap) error {
-	raw := rawPresentation{}
+	isV2, _ := service.IsDIDCommV2(&msgMap) // nolint:errcheck
+	if isV2 {
+		msgV3 := &PresentationV3{}
 
-	err := msgMap.Decode(&raw)
-	if err != nil {
-		return err
+		err := msgMap.Decode(msgV3)
+		if err != nil {
+			return err
+		}
+
+		p.FromV3(msgV3)
+	} else {
+		msgV2 := &PresentationV2{}
+
+		err := msgMap.Decode(msgV2)
+		if err != nil {
+			return err
+		}
+
+		p.FromV2(msgV2)
 	}
-
-	p.fromRaw(&raw)
 
 	return nil
 }
 
-func (p *PresentationParams) fromRaw(raw *rawPresentation) {
-	switch raw.version() {
-	default:
-		fallthrough
-	case version2:
-		p.Comment = raw.CommentV2
-		p.Formats = raw.FormatsV2
-		p.Attachments = decorator.V1AttachmentsToGeneric(raw.AttachV2)
-		p.GoalCode = ""
-	case version3:
-		p.Comment = raw.BodyV3.Comment
-		p.Formats = nil
-		p.Attachments = decorator.V2AttachmentsToGeneric(raw.AttachV3)
-		p.GoalCode = raw.BodyV3.GoalCode
+// AsV2 translates this presentation message into a present-proof 2.0 presentation message.
+func (p *PresentationParams) AsV2() *PresentationV2 {
+	return &PresentationV2{
+		Type:                PresentationMsgTypeV2,
+		Comment:             p.Comment,
+		Formats:             p.Formats,
+		PresentationsAttach: decorator.GenericAttachmentsToV1(p.Attachments),
 	}
+}
+
+// AsV3 translates this presentation message into a present-proof 3.0 presentation message.
+func (p *PresentationParams) AsV3() *PresentationV3 {
+	return &PresentationV3{
+		Type: PresentationMsgTypeV3,
+		Body: PresentationV3Body{
+			GoalCode: p.GoalCode,
+			Comment:  p.Comment,
+		},
+		Attachments: decorator.GenericAttachmentsToV2(p.Attachments),
+	}
+}
+
+// FromV2 initializes this presentation message from a present-proof 2.0 presentation message.
+func (p *PresentationParams) FromV2(v2 *PresentationV2) {
+	p.Comment = v2.Comment
+	p.Formats = v2.Formats
+	p.Attachments = decorator.V1AttachmentsToGeneric(v2.PresentationsAttach)
+	p.GoalCode = ""
+}
+
+// FromV3 initializes this presentation message from a present-proof 3.0 presentation message.
+func (p *PresentationParams) FromV3(v3 *PresentationV3) {
+	p.Comment = v3.Body.Comment
+	p.Formats = nil
+	p.Attachments = decorator.V2AttachmentsToGeneric(v3.Attachments)
+	p.GoalCode = v3.Body.GoalCode
 }

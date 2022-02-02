@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 )
 
@@ -83,7 +84,7 @@ func attachV1List() []decorator.Attachment {
 func attachV2List() []decorator.AttachmentV2 {
 	return []decorator.AttachmentV2{
 		{
-			ID:   "attach-1",
+			ID:   "attachv2-1",
 			Data: decorator.AttachmentData{},
 		},
 	}
@@ -108,6 +109,17 @@ func TestProposeCredentialParams(t *testing.T) {
 		require.NoError(t, err)
 
 		dst := params.AsV2()
+
+		require.Equal(t, &src, dst)
+
+		srcMsg := service.NewDIDCommMsgMap(src)
+
+		params = ProposeCredentialParams{}
+
+		err = srcMsg.Decode(&params)
+		require.NoError(t, err)
+
+		dst = params.AsV2()
 
 		require.Equal(t, &src, dst)
 	})
@@ -135,6 +147,17 @@ func TestProposeCredentialParams(t *testing.T) {
 		dst := params.AsV3()
 
 		require.Equal(t, &src, dst)
+
+		srcMsg := service.NewDIDCommMsgMap(src)
+
+		params = ProposeCredentialParams{}
+
+		err = srcMsg.Decode(&params)
+		require.NoError(t, err)
+
+		dst = params.AsV3()
+
+		require.Equal(t, &src, dst)
 	})
 }
 
@@ -157,6 +180,17 @@ func TestOfferCredentialParams(t *testing.T) {
 		require.NoError(t, err)
 
 		dst := params.AsV2()
+
+		require.Equal(t, &src, dst)
+
+		srcMsg := service.NewDIDCommMsgMap(src)
+
+		params = OfferCredentialParams{}
+
+		err = srcMsg.Decode(&params)
+		require.NoError(t, err)
+
+		dst = params.AsV2()
 
 		require.Equal(t, &src, dst)
 	})
@@ -185,6 +219,17 @@ func TestOfferCredentialParams(t *testing.T) {
 		dst := params.AsV3()
 
 		require.Equal(t, &src, dst)
+
+		srcMsg := service.NewDIDCommMsgMap(src)
+
+		params = OfferCredentialParams{}
+
+		err = srcMsg.Decode(&params)
+		require.NoError(t, err)
+
+		dst = params.AsV3()
+
+		require.Equal(t, &src, dst)
 	})
 }
 
@@ -206,6 +251,17 @@ func TestRequestCredentialParams(t *testing.T) {
 		require.NoError(t, err)
 
 		dst := params.AsV2()
+
+		require.Equal(t, &src, dst)
+
+		srcMsg := service.NewDIDCommMsgMap(src)
+
+		params = RequestCredentialParams{}
+
+		err = srcMsg.Decode(&params)
+		require.NoError(t, err)
+
+		dst = params.AsV2()
 
 		require.Equal(t, &src, dst)
 	})
@@ -232,6 +288,17 @@ func TestRequestCredentialParams(t *testing.T) {
 		dst := params.AsV3()
 
 		require.Equal(t, &src, dst)
+
+		srcMsg := service.NewDIDCommMsgMap(src)
+
+		params = RequestCredentialParams{}
+
+		err = srcMsg.Decode(&params)
+		require.NoError(t, err)
+
+		dst = params.AsV3()
+
+		require.Equal(t, &src, dst)
 	})
 }
 
@@ -253,6 +320,17 @@ func TestIssueCredentialParams(t *testing.T) {
 		require.NoError(t, err)
 
 		dst := params.AsV2()
+
+		require.Equal(t, &src, dst)
+
+		srcMsg := service.NewDIDCommMsgMap(src)
+
+		params = IssueCredentialParams{}
+
+		err = srcMsg.Decode(&params)
+		require.NoError(t, err)
+
+		dst = params.AsV2()
 
 		require.Equal(t, &src, dst)
 	})
@@ -278,6 +356,17 @@ func TestIssueCredentialParams(t *testing.T) {
 		require.NoError(t, err)
 
 		dst := params.AsV3()
+
+		require.Equal(t, &src, dst)
+
+		srcMsg := service.NewDIDCommMsgMap(src)
+
+		params = IssueCredentialParams{}
+
+		err = srcMsg.Decode(&params)
+		require.NoError(t, err)
+
+		dst = params.AsV3()
 
 		require.Equal(t, &src, dst)
 	})
