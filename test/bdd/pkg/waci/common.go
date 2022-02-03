@@ -459,25 +459,6 @@ func getCredentialFulfillmentFromAttachment(attachment *decorator.GenericAttachm
 	return &credentialFulfillment, nil
 }
 
-func getCredentialApplicationFromAttachment(attachment *decorator.GenericAttachment) ([]byte, error) {
-	attachmentAsMap, ok := attachment.Data.JSON.(map[string]interface{})
-	if !ok {
-		return nil, errors.New("couldn't assert attachment as a map")
-	}
-
-	credentialApplicationRaw, ok := attachmentAsMap["credential_application"]
-	if !ok {
-		return nil, errors.New("credential_application object missing from attachment")
-	}
-
-	credentialApplicationBytes, err := json.Marshal(credentialApplicationRaw)
-	if err != nil {
-		return nil, err
-	}
-
-	return credentialApplicationBytes, nil
-}
-
 func getVCFromCredentialFulfillmentAttachment(credentialFulfillmentAttachment *decorator.GenericAttachment) (
 	verifiable.Credential, error) {
 	attachmentRaw := credentialFulfillmentAttachment.Data.JSON

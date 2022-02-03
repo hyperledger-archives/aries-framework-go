@@ -239,18 +239,14 @@ func (i *IssuanceSDKDIDCommV1Steps) acceptCredentialApplication(issuerName strin
 		return err
 	}
 
-	// In a real flow, the issuer would want to check the proofs in the VC sent from the Holder.
-	credentialApplicationBytes, err := getCredentialApplicationFromAttachment(&attachmentsFromApplicationMsg[0])
-	if err != nil {
-		return err
-	}
-
 	credentialManifest, err := generateCredentialManifest()
 	if err != nil {
 		return err
 	}
 
-	_, err = cm.UnmarshalAndValidateAgainstCredentialManifest(credentialApplicationBytes, credentialManifest)
+	// Here, the issuer validates the Credential Application against its Credential Manifest.
+	// In a real flow, the issuer would want to check the proofs as well.
+	err = cm.ValidateCredentialApplicationAttachment(&attachmentsFromApplicationMsg[0], credentialManifest)
 	if err != nil {
 		return err
 	}

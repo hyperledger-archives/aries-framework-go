@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
@@ -66,6 +67,59 @@ func UnmarshalAndValidateAgainstCredentialManifest(credentialApplicationBytes []
 	}
 
 	return credentialApplication, nil
+}
+
+// ValidateCredentialApplicationAttachment validates the given Credential Application attachment against the given
+// Credential Manifest.
+func ValidateCredentialApplicationAttachment(credentialApplicationAttachment *decorator.GenericAttachment,
+	cm *CredentialManifest) error {
+	attachmentAsMap, ok := credentialApplicationAttachment.Data.JSON.(map[string]interface{})
+	if !ok {
+		return errors.New("couldn't assert attachment data as a map")
+	}
+
+	credentialApplicationRaw, ok := attachmentAsMap["credential_application"]
+	if !ok {
+		return errors.New("missing credential_application field")
+	}
+
+	credentialApplicationBytes, err := json.Marshal(credentialApplicationRaw)
+	if err != nil {
+		return fmt.Errorf("failed to marshal credential_application object: %w", err)
+	}
+
+	_, err = UnmarshalAndValidateAgainstCredentialManifest(credentialApplicationBytes, cm)
+	if err != nil {
+		return err
+	}
+
+	if cm.PresentationDefinition != nil {
+		presentationSubmissionRaw, ok := attachmentAsMap["presentation_submission"]
+		if !ok {
+			return errors.New("the Credential Manifest contains a Presentation Definition but the " +
+				"Credential Application attachment is missing a corresponding Presentation Submission")
+		}
+
+		presentationSubmissionBytes, err := json.Marshal(presentationSubmissionRaw)
+		if err != nil {
+			return fmt.Errorf("failed to marshal presentation_submission object")
+		}
+
+		var presentationSubmission presexch.PresentationSubmission
+
+		err = json.Unmarshal(presentationSubmissionBytes, &presentationSubmission)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal Presentation Submission: %w", err)
+		}
+
+		err = validatePresentationSubmissionAgainstPresentationDefinition(presentationSubmission,
+			cm.PresentationDefinition)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // UnmarshalJSON is the custom unmarshal function gets called automatically when the standard json.Unmarshal is called.
@@ -241,6 +295,30 @@ func PresentCredentialApplication(credentialManifest *CredentialManifest,
 	setCustomFields(&presentation, credentialManifest)
 
 	return &presentation, nil
+}
+
+func validatePresentationSubmissionAgainstPresentationDefinition(presentationSubmission presexch.PresentationSubmission,
+	presentationDefinition *presexch.PresentationDefinition) error {
+	if presentationSubmission.DefinitionID != presentationDefinition.ID {
+		return fmt.Errorf("the Definition ID of the Credential Submission (%s) does not match the given "+
+			"Presentation Definition's ID (%s)", presentationSubmission.DefinitionID, presentationDefinition.ID)
+	}
+
+	if len(presentationSubmission.DescriptorMap) != len(presentationDefinition.InputDescriptors) {
+		return fmt.Errorf("the number of descriptors in the Presentation Submission (%d) does "+
+			"not match the number of input descriptors in the Presentation Definition (%d)",
+			len(presentationSubmission.DescriptorMap), len(presentationDefinition.InputDescriptors))
+	}
+
+	for i := 0; i < len(presentationSubmission.DescriptorMap); i++ {
+		if presentationSubmission.DescriptorMap[i].ID != presentationDefinition.InputDescriptors[i].ID {
+			return fmt.Errorf("the descriptor ID at index %d (%s) in the Presentation Submission does not "+
+				"match the input descriptor at index %d (%s) in the Presentation Definition", i,
+				presentationSubmission.DescriptorMap[i].ID, i, presentationDefinition.InputDescriptors[i].ID)
+		}
+	}
+
+	return nil
 }
 
 func getPresentCredentialApplicationOpts(opts []PresentCredentialApplicationOpt) *presentCredentialApplicationOpts {
