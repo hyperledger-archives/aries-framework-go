@@ -8,13 +8,17 @@ package ws
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"nhooyr.io/websocket"
 
+	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/test/transportutil"
 	mockpackager "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/packager"
@@ -163,5 +167,60 @@ func TestInboundDataProcessing(t *testing.T) {
 
 		err = client.Close(websocket.StatusInternalError, "abnormal closure")
 		require.NoError(t, err)
+	})
+
+	t.Run("test inbound transport - custom read limit for a single message", func(t *testing.T) {
+		port := ":" + strconv.Itoa(transportutil.GetRandomPort(5))
+
+		// initiate inbound with a port and a custom read limit
+		inbound, err := NewInbound(port, "", "", "", WithInboundReadLimit(defaultReadLimit+1))
+		require.NoError(t, err)
+		require.NotEmpty(t, inbound)
+
+		trans := &decorator.Transport{
+			ReturnRoute: &decorator.ReturnRoute{
+				Value: decorator.TransportReturnRouteNone,
+			},
+		}
+
+		unpackMsg, err := json.Marshal(trans)
+		require.NoError(t, err)
+
+		fromKey, err := json.Marshal(&cryptoapi.PublicKey{KID: "keyID"})
+		require.NoError(t, err)
+
+		mockPackager := &mockpackager.Packager{
+			UnpackValue: &transport.Envelope{
+				Message: unpackMsg,
+				FromKey: fromKey,
+			},
+		}
+
+		done := make(chan struct{})
+
+		// start server
+		err = inbound.Start(&mockTransportProvider{
+			packagerValue: mockPackager,
+			executeInbound: func(envelope *transport.Envelope) error {
+				done <- struct{}{}
+				return nil
+			},
+		})
+		require.NoError(t, err)
+
+		// create ws client
+		client, cleanup := websocketClient(t, port)
+		defer cleanup()
+
+		msg := make([]byte, defaultReadLimit+1)
+
+		err = client.Write(context.Background(), websocket.MessageText, msg)
+		require.NoError(t, err)
+
+		select {
+		case <-done:
+		case <-time.After(3 * time.Second):
+			require.Fail(t, "inbound message handler was not called within given timeout")
+		}
 	})
 }

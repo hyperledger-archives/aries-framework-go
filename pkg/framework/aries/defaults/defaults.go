@@ -26,10 +26,16 @@ func WithInboundHTTPAddr(internalAddr, externalAddr, certFile, keyFile string) a
 	}
 }
 
-// WithInboundWSAddr return new default ws inbound transport.
-func WithInboundWSAddr(internalAddr, externalAddr, certFile, keyFile string) aries.Option {
+// WithInboundWSAddr return new default ws inbound transport. If readLimit is 0, the default value of 32kB is set.
+func WithInboundWSAddr(internalAddr, externalAddr, certFile, keyFile string, readLimit int64) aries.Option {
 	return func(opts *aries.Aries) error {
-		inbound, err := ws.NewInbound(internalAddr, externalAddr, certFile, keyFile)
+		var inboundOpts []ws.InboundOpt
+
+		if readLimit > 0 {
+			inboundOpts = append(inboundOpts, ws.WithInboundReadLimit(readLimit))
+		}
+
+		inbound, err := ws.NewInbound(internalAddr, externalAddr, certFile, keyFile, inboundOpts...)
 		if err != nil {
 			return fmt.Errorf("ws inbound transport initialization failed : %w", err)
 		}
