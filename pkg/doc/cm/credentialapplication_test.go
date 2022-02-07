@@ -14,7 +14,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/cm"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
 
@@ -60,6 +62,10 @@ var (
 	vpWithPRCardVCUsingPresentationExchangeContext []byte //nolint:gochecknoglobals
 )
 
+// Sample Credential Application attachment.
+//go:embed testdata/credential_application_attachment_drivers_license.json
+var credentialApplicationAttachmentDriversLicense []byte //nolint:gochecknoglobals
+
 func TestUnmarshalAndValidateAgainstCredentialManifest(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		credentialManifest := makeCredentialManifestFromBytes(t, credentialManifestUniversityDegree)
@@ -76,6 +82,100 @@ func TestUnmarshalAndValidateAgainstCredentialManifest(t *testing.T) {
 			credentialApplicationUniversityDegree, &credentialManifest)
 		require.EqualError(t, err, "invalid format for the given Credential Manifest: the Credential "+
 			"Manifest specifies a format but the Credential Application does not")
+	})
+}
+
+func TestValidateCredentialApplicationAttachment(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		credentialManifest := makeCredentialManifestFromBytes(t,
+			credentialManifestDriversLicenseWithPresentationDefinitionAndFormat)
+
+		credentialApplicationAttachment := makeAttachmentFromBytes(t)
+
+		err := cm.ValidateCredentialApplicationAttachment(credentialApplicationAttachment, &credentialManifest)
+		require.NoError(t, err)
+	})
+	t.Run("Missing credential_application field", func(t *testing.T) {
+		credentialManifest := makeCredentialManifestFromBytes(t,
+			credentialManifestDriversLicenseWithPresentationDefinitionAndFormat)
+
+		credentialApplicationAttachment := makeAttachmentWithoutCredentialApplicationField(t)
+
+		err := cm.ValidateCredentialApplicationAttachment(credentialApplicationAttachment, &credentialManifest)
+		require.EqualError(t, err, "missing credential_application field")
+	})
+	t.Run("Fail to assert attachment data as a map", func(t *testing.T) {
+		credentialManifest := makeCredentialManifestFromBytes(t,
+			credentialManifestDriversLicenseWithPresentationDefinitionAndFormat)
+
+		credentialApplicationAttachment := makeAttachmentWithUnexpectedDataJSONType(t)
+
+		err := cm.ValidateCredentialApplicationAttachment(credentialApplicationAttachment, &credentialManifest)
+		require.EqualError(t, err, "couldn't assert attachment data as a map")
+	})
+	t.Run("Fail to marshal Credential Application", func(t *testing.T) {
+		credentialManifest := makeCredentialManifestFromBytes(t,
+			credentialManifestDriversLicenseWithPresentationDefinitionAndFormat)
+
+		credentialApplicationAttachment := makeAttachmentWithUnmarshallableCredentialAttachment(t)
+
+		err := cm.ValidateCredentialApplicationAttachment(credentialApplicationAttachment, &credentialManifest)
+		require.EqualError(t, err, "failed to marshal credential_application object: "+
+			"json: unsupported type: func()")
+	})
+	t.Run("Invalid Credential Application", func(t *testing.T) {
+		credentialManifest := makeCredentialManifestFromBytes(t,
+			credentialManifestDriversLicenseWithPresentationDefinitionAndFormat)
+
+		credentialApplicationAttachment := makeAttachmentWithInvalidCredentialApplication(t)
+
+		err := cm.ValidateCredentialApplicationAttachment(credentialApplicationAttachment, &credentialManifest)
+		require.EqualError(t, err, "the Manifest ID of the Credential Application (SomeUnknownManifestID) "+
+			"does not match the given Credential Manifest's ID (dcc75a16-19f5-4273-84ce-4da69ee2b7fe)")
+	})
+	t.Run("Credential Manifest has a Presentation Definition but the a doesn't have a "+
+		"Presentation Submission", func(t *testing.T) {
+		credentialManifest := makeCredentialManifestFromBytes(t,
+			credentialManifestDriversLicenseWithPresentationDefinitionAndFormat)
+
+		credentialApplicationAttachment := makeAttachmentWithoutPresentationSubmission(t)
+
+		err := cm.ValidateCredentialApplicationAttachment(credentialApplicationAttachment, &credentialManifest)
+		require.EqualError(t, err, "the Credential Manifest contains a Presentation Definition but the "+
+			"Credential Application attachment is missing a corresponding Presentation Submission")
+	})
+	t.Run("Presentation Submission's Definition ID does not match the "+
+		"Presentation Definition's ID", func(t *testing.T) {
+		credentialManifest := makeCredentialManifestFromBytes(t,
+			credentialManifestDriversLicenseWithPresentationDefinitionAndFormat)
+
+		credentialApplicationAttachment := makeAttachmentWithPresentationSubmissionWithIncorrectDefinitionID(t)
+
+		err := cm.ValidateCredentialApplicationAttachment(credentialApplicationAttachment, &credentialManifest)
+		require.EqualError(t, err, "the Definition ID of the Credential Submission (UnknownID) does "+
+			"not match the given Presentation Definition's ID (8246867e-fdce-48de-a825-9d84ec16c6c9)")
+	})
+	t.Run("Number of descriptors in Presentation Submission does not match number of input descriptors in "+
+		"Presentation Definition", func(t *testing.T) {
+		credentialManifest := makeCredentialManifestFromBytes(t,
+			credentialManifestDriversLicenseWithPresentationDefinitionAndFormat)
+
+		credentialApplicationAttachment := makeAttachmentWithPresentationSubmissionWithIncorrectNumberOfDescriptors(t)
+
+		err := cm.ValidateCredentialApplicationAttachment(credentialApplicationAttachment, &credentialManifest)
+		require.EqualError(t, err, "the number of descriptors in the Presentation Submission (2) "+
+			"does not match the number of input descriptors in the Presentation Definition (1)")
+	})
+	t.Run("Descriptor ID in Presentation Submission does not match input descriptor in Presentation Definition "+
+		"Presentation Definition", func(t *testing.T) {
+		credentialManifest := makeCredentialManifestFromBytes(t,
+			credentialManifestDriversLicenseWithPresentationDefinitionAndFormat)
+
+		credentialApplicationAttachment := makeAttachmentWithPresentationSubmissionWithIncorrectDescriptorID(t)
+
+		err := cm.ValidateCredentialApplicationAttachment(credentialApplicationAttachment, &credentialManifest)
+		require.EqualError(t, err, "the descriptor ID at index 0 (WrongID) in the Presentation Submission "+
+			"does not match the input descriptor at index 0 (prc_input) in the Presentation Definition")
 	})
 }
 
@@ -424,4 +524,140 @@ func makeCredentialApplicationWithUnknownManifestID(t *testing.T) cm.CredentialA
 	credentialApplication.ManifestID = "SomeUnknownManifestID"
 
 	return credentialApplication
+}
+
+func makeAttachmentFromBytes(t *testing.T) *decorator.GenericAttachment {
+	var attachment decorator.GenericAttachment
+
+	err := json.Unmarshal(credentialApplicationAttachmentDriversLicense, &attachment)
+	require.NoError(t, err)
+
+	return &attachment
+}
+
+func makeAttachmentWithoutCredentialApplicationField(t *testing.T) *decorator.GenericAttachment {
+	attachment := makeAttachmentFromBytes(t)
+
+	return removeCredentialApplicationFieldFromAttachment(t, attachment)
+}
+
+func removeCredentialApplicationFieldFromAttachment(t *testing.T,
+	credentialApplicationAttachment *decorator.GenericAttachment) *decorator.GenericAttachment {
+	attachmentAsMap, ok := credentialApplicationAttachment.Data.JSON.(map[string]interface{})
+	require.True(t, ok, "couldn't assert attachment data as a map")
+
+	delete(attachmentAsMap, "credential_application")
+
+	return credentialApplicationAttachment
+}
+
+func makeAttachmentWithUnexpectedDataJSONType(t *testing.T) *decorator.GenericAttachment {
+	attachment := makeAttachmentFromBytes(t)
+
+	attachment.Data.JSON = "Not a map"
+
+	return attachment
+}
+
+func makeAttachmentWithInvalidCredentialApplication(t *testing.T) *decorator.GenericAttachment {
+	attachment := makeAttachmentFromBytes(t)
+
+	credentialApplication := makeCredentialApplicationWithUnknownManifestID(t)
+
+	attachmentAsMap, ok := attachment.Data.JSON.(map[string]interface{})
+	require.True(t, ok, "couldn't assert attachment data as a map")
+
+	attachmentAsMap["credential_application"] = credentialApplication
+
+	return attachment
+}
+
+func makeAttachmentWithUnmarshallableCredentialAttachment(t *testing.T) *decorator.GenericAttachment {
+	attachment := makeAttachmentFromBytes(t)
+
+	attachmentAsMap, ok := attachment.Data.JSON.(map[string]interface{})
+	require.True(t, ok, "couldn't assert attachment data as a map")
+
+	attachmentAsMap["credential_application"] = func() {}
+
+	return attachment
+}
+
+func makeAttachmentWithoutPresentationSubmission(t *testing.T) *decorator.GenericAttachment {
+	attachment := makeAttachmentFromBytes(t)
+
+	return removePresentationSubmissionFieldFromAttachment(t, attachment)
+}
+
+func removePresentationSubmissionFieldFromAttachment(t *testing.T,
+	credentialApplicationAttachment *decorator.GenericAttachment) *decorator.GenericAttachment {
+	attachmentAsMap, ok := credentialApplicationAttachment.Data.JSON.(map[string]interface{})
+	require.True(t, ok, "couldn't assert attachment data as a map")
+
+	delete(attachmentAsMap, "presentation_submission")
+
+	return credentialApplicationAttachment
+}
+
+func makeAttachmentWithPresentationSubmissionWithIncorrectDefinitionID(t *testing.T) *decorator.GenericAttachment {
+	attachment := makeAttachmentFromBytes(t)
+
+	attachmentAsMap, ok := attachment.Data.JSON.(map[string]interface{})
+	require.True(t, ok, "couldn't assert attachment data as a map")
+
+	presentationSubmission := getPresentationSubmissionFromAttachmentData(t, attachmentAsMap)
+
+	presentationSubmission.DefinitionID = "UnknownID"
+
+	attachmentAsMap["presentation_submission"] = presentationSubmission
+
+	return attachment
+}
+
+func makeAttachmentWithPresentationSubmissionWithIncorrectNumberOfDescriptors(
+	t *testing.T) *decorator.GenericAttachment {
+	attachment := makeAttachmentFromBytes(t)
+
+	attachmentAsMap, ok := attachment.Data.JSON.(map[string]interface{})
+	require.True(t, ok, "couldn't assert attachment data as a map")
+
+	presentationSubmission := getPresentationSubmissionFromAttachmentData(t, attachmentAsMap)
+
+	presentationSubmission.DescriptorMap = make([]*presexch.InputDescriptorMapping, 2)
+
+	attachmentAsMap["presentation_submission"] = presentationSubmission
+
+	return attachment
+}
+
+func makeAttachmentWithPresentationSubmissionWithIncorrectDescriptorID(
+	t *testing.T) *decorator.GenericAttachment {
+	attachment := makeAttachmentFromBytes(t)
+
+	attachmentAsMap, ok := attachment.Data.JSON.(map[string]interface{})
+	require.True(t, ok, "couldn't assert attachment data as a map")
+
+	presentationSubmission := getPresentationSubmissionFromAttachmentData(t, attachmentAsMap)
+
+	presentationSubmission.DescriptorMap[0].ID = "WrongID"
+
+	attachmentAsMap["presentation_submission"] = presentationSubmission
+
+	return attachment
+}
+
+func getPresentationSubmissionFromAttachmentData(t *testing.T,
+	attachmentAsMap map[string]interface{}) presexch.PresentationSubmission {
+	presentationSubmissionRaw, ok := attachmentAsMap["presentation_submission"]
+	require.True(t, ok, "presentation_submission missing from attachment")
+
+	presentationSubmissionBytes, err := json.Marshal(presentationSubmissionRaw)
+	require.NoError(t, err)
+
+	var presentationSubmission presexch.PresentationSubmission
+
+	err = json.Unmarshal(presentationSubmissionBytes, &presentationSubmission)
+	require.NoError(t, err)
+
+	return presentationSubmission
 }
