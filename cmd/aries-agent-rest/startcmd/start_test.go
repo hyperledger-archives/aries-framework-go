@@ -361,6 +361,33 @@ func TestStartCmdWithoutWebhookURL(t *testing.T) {
 	require.Contains(t, err.Error(), "webhook-url not set")
 }
 
+func TestStartCmdWithInvalidReadLimit(t *testing.T) {
+	startCmd, err := Cmd(&mockServer{})
+	require.NoError(t, err)
+
+	args := []string{
+		"--" + agentHostFlagName,
+		randomURL(),
+		"--" + agentInboundHostFlagName,
+		httpProtocol + "@" + randomURL(),
+		"--" + agentInboundHostExternalFlagName,
+		httpProtocol + "@" + randomURL(),
+		"--" + agentInboundWebSocketReadLimitFlagName,
+		"invalid",
+		"--" + databaseTypeFlagName,
+		databaseTypeMemOption,
+		"--" + agentDefaultLabelFlagName,
+		"agent",
+		"--" + agentWebhookFlagName,
+		"",
+	}
+	startCmd.SetArgs(args)
+
+	err = startCmd.Execute()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to parse inbound websocket read limit")
+}
+
 func TestStartCmdWithLogLevel(t *testing.T) {
 	t.Run("start with log level - success", func(t *testing.T) {
 		startCmd, err := Cmd(&mockServer{})
@@ -465,6 +492,8 @@ func TestStartCmdValidArgs(t *testing.T) {
 		httpProtocol + "@" + randomURL(),
 		"--" + agentInboundHostExternalFlagName,
 		httpProtocol + "@" + randomURL(),
+		"--" + agentInboundWebSocketReadLimitFlagName,
+		"65536",
 		"--" + databaseTypeFlagName,
 		databaseTypeMemOption,
 		"--" + agentDefaultLabelFlagName,
@@ -619,11 +648,12 @@ func TestStartAriesWithInboundTransport(t *testing.T) {
 
 		go func() {
 			parameters := &agentParameters{
-				server:               &HTTPServer{},
-				host:                 testHostURL,
-				inboundHostInternals: []string{websocketProtocol + "@" + testInboundHostURL},
-				dbParam:              &dbParam{dbType: databaseTypeMemOption},
-				defaultLabel:         "x",
+				server:                    &HTTPServer{},
+				host:                      testHostURL,
+				inboundHostInternals:      []string{websocketProtocol + "@" + testInboundHostURL},
+				inboundWebSocketReadLimit: 65536,
+				dbParam:                   &dbParam{dbType: databaseTypeMemOption},
+				defaultLabel:              "x",
 			}
 
 			err := startAgent(parameters)

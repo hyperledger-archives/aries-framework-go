@@ -30,14 +30,20 @@ func TestWithInboundHTTPPort(t *testing.T) {
 
 func TestWithInboundWSPort(t *testing.T) {
 	t.Run("test inbound with ws port - success", func(t *testing.T) {
-		a, err := aries.New(WithInboundWSAddr(":26503", "", "", ""))
+		a, err := aries.New(WithInboundWSAddr(":26503", "", "", "", 0))
 		require.NoError(t, err)
 		require.NoError(t, a.Close())
 	})
 
 	t.Run("test inbound with ws port - empty address", func(t *testing.T) {
-		_, err := aries.New(WithInboundWSAddr("", "", "", ""))
+		_, err := aries.New(WithInboundWSAddr("", "", "", "", 0))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "ws inbound transport initialization failed")
 	})
+}
+
+func TestWithInboundWebSocketReadLimit(t *testing.T) {
+	a, err := aries.New(WithInboundWSAddr(":26503", "", "", "", 65536))
+	require.NoError(t, err)
+	require.NoError(t, a.Close())
 }

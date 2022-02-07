@@ -143,6 +143,13 @@ const (
 		" This flag can be repeated, allowing to configure multiple inbound transports." +
 		" Alternatively, this can be set with the following environment variable: " + agentInboundHostExternalEnvKey
 
+	// inbound websocket read limit flag.
+	agentInboundWebSocketReadLimitFlagName  = "inbound-websocket-read-limit"
+	agentInboundWebSocketReadLimitEnvKey    = "ARIESD_INBOUND_WEBSOCKET_READ_LIMIT"
+	agentInboundWebSocketReadLimitFlagUsage = "Inbound WebSocket read limit sets the custom max number of bytes to" +
+		" read for a single message when WebSocket transport is used. Defaults to 32kB." +
+		" Alternatively, this can be set with the following environment variable: " + agentInboundWebSocketReadLimitEnvKey
+
 	// auto accept flag.
 	agentAutoAcceptFlagName  = "auto-accept"
 	agentAutoAcceptEnvKey    = "ARIESD_AUTO_ACCEPT"
@@ -233,6 +240,7 @@ type agentParameters struct {
 	token, keyType, keyAgreementType               string
 	webhookURLs, httpResolvers, outboundTransports []string
 	inboundHostInternals, inboundHostExternals     []string
+	inboundWebSocketReadLimit                      int64
 	contextProviderURLs, mediaTypeProfiles         []string
 	autoAccept                                     bool
 	msgHandler                                     command.MessageHandler
@@ -319,6 +327,11 @@ func createStartCMD(server server) *cobra.Command { //nolint: funlen,gocyclo,goc
 				return err
 			}
 
+			inboundWebSocketReadLimit, err := getInboundWebSocketReadLimit(cmd)
+			if err != nil {
+				return err
+			}
+
 			dbParam, err := getDBParam(cmd)
 			if err != nil {
 				return err
@@ -392,25 +405,26 @@ func createStartCMD(server server) *cobra.Command { //nolint: funlen,gocyclo,goc
 			}
 
 			parameters := &agentParameters{
-				server:               server,
-				host:                 host,
-				token:                token,
-				inboundHostInternals: inboundHosts,
-				inboundHostExternals: inboundHostExternals,
-				dbParam:              dbParam,
-				defaultLabel:         defaultLabel,
-				webhookURLs:          webhookURLs,
-				httpResolvers:        httpResolvers,
-				outboundTransports:   outboundTransports,
-				autoAccept:           autoAccept,
-				transportReturnRoute: transportReturnRoute,
-				contextProviderURLs:  contextProviderURLs,
-				tlsCertFile:          tlsCertFile,
-				tlsKeyFile:           tlsKeyFile,
-				autoExecuteRFC0593:   autoExecuteRFC0593,
-				keyType:              keyType,
-				keyAgreementType:     keyAgreementType,
-				mediaTypeProfiles:    mediaTypeProfiles,
+				server:                    server,
+				host:                      host,
+				token:                     token,
+				inboundHostInternals:      inboundHosts,
+				inboundHostExternals:      inboundHostExternals,
+				inboundWebSocketReadLimit: inboundWebSocketReadLimit,
+				dbParam:                   dbParam,
+				defaultLabel:              defaultLabel,
+				webhookURLs:               webhookURLs,
+				httpResolvers:             httpResolvers,
+				outboundTransports:        outboundTransports,
+				autoAccept:                autoAccept,
+				transportReturnRoute:      transportReturnRoute,
+				contextProviderURLs:       contextProviderURLs,
+				tlsCertFile:               tlsCertFile,
+				tlsKeyFile:                tlsKeyFile,
+				autoExecuteRFC0593:        autoExecuteRFC0593,
+				keyType:                   keyType,
+				keyAgreementType:          keyAgreementType,
+				mediaTypeProfiles:         mediaTypeProfiles,
 			}
 
 			return startAgent(parameters)
@@ -479,6 +493,25 @@ func getAutoExecuteRFC0593(cmd *cobra.Command) (bool, error) {
 	return strconv.ParseBool(autoExecuteRFC0593Str)
 }
 
+func getInboundWebSocketReadLimit(cmd *cobra.Command) (int64, error) {
+	readLimitVal, err := getUserSetVar(cmd, agentInboundWebSocketReadLimitFlagName,
+		agentInboundWebSocketReadLimitEnvKey, true)
+	if err != nil {
+		return 0, err
+	}
+
+	var readLimit int64
+
+	if readLimitVal != "" {
+		readLimit, err = strconv.ParseInt(readLimitVal, 10, 64)
+		if err != nil {
+			return 0, fmt.Errorf("failed to parse inbound websocket read limit %s: %w", readLimitVal, err)
+		}
+	}
+
+	return readLimit, nil
+}
+
 //nolint:funlen
 func createFlags(startCmd *cobra.Command) {
 	// agent host flag
@@ -494,6 +527,9 @@ func createFlags(startCmd *cobra.Command) {
 	// inbound external host flag
 	startCmd.Flags().StringSliceP(agentInboundHostExternalFlagName, agentInboundHostExternalFlagShorthand,
 		[]string{}, agentInboundHostExternalFlagUsage)
+
+	// inbound websocket read limit flag
+	startCmd.Flags().StringP(agentInboundWebSocketReadLimitFlagName, "", "", agentInboundWebSocketReadLimitFlagUsage)
 
 	// db type
 	startCmd.Flags().StringP(databaseTypeFlagName, databaseTypeFlagShorthand, "", databaseTypeFlagUsage)
@@ -648,7 +684,7 @@ func getOutboundTransportOpts(outboundTransports []string) ([]aries.Option, erro
 }
 
 func getInboundTransportOpts(inboundHostInternals, inboundHostExternals []string, certFile,
-	keyFile string) ([]aries.Option, error) {
+	keyFile string, readLimit int64) ([]aries.Option, error) {
 	internalHost, err := getInboundSchemeToURLMap(inboundHostInternals)
 	if err != nil {
 		return nil, fmt.Errorf("inbound internal host : %w", err)
@@ -666,7 +702,7 @@ func getInboundTransportOpts(inboundHostInternals, inboundHostExternals []string
 		case httpProtocol:
 			opts = append(opts, defaults.WithInboundHTTPAddr(host, externalHost[scheme], certFile, keyFile))
 		case websocketProtocol:
-			opts = append(opts, defaults.WithInboundWSAddr(host, externalHost[scheme], certFile, keyFile))
+			opts = append(opts, defaults.WithInboundWSAddr(host, externalHost[scheme], certFile, keyFile, readLimit))
 		default:
 			return nil, fmt.Errorf("inbound transport [%s] not supported", scheme)
 		}
@@ -799,7 +835,8 @@ func createAriesAgent(parameters *agentParameters) (*context.Provider, error) {
 	}
 
 	inboundTransportOpt, err := getInboundTransportOpts(parameters.inboundHostInternals,
-		parameters.inboundHostExternals, parameters.tlsCertFile, parameters.tlsKeyFile)
+		parameters.inboundHostExternals, parameters.tlsCertFile, parameters.tlsKeyFile,
+		parameters.inboundWebSocketReadLimit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start aries agent rest on port [%s], failed to inbound tranpsort opt : %w",
 			parameters.host, err)
