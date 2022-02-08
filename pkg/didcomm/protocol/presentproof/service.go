@@ -565,7 +565,9 @@ func (s *Service) handle(md *metaData) error {
 }
 
 func getPIID(msg service.DIDCommMsg) (string, error) {
-	if pthID := msg.ParentThreadID(); pthID != "" {
+	// pthid is needed for problem-report message
+	pthID := msg.ParentThreadID()
+	if pthID != "" && (msg.Type() == ProblemReportMsgTypeV2 || msg.Type() == ProblemReportMsgTypeV3) {
 		return pthID, nil
 	}
 
