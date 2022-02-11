@@ -673,6 +673,10 @@ func redirectInfo(msg service.DIDCommMsgMap) map[string]interface{} {
 		return redirectInfo
 	}
 
+	if redirectInfo, ok := msg[webRedirectV2].(map[string]interface{}); ok {
+		return redirectInfo
+	}
+
 	return map[string]interface{}{}
 }
 
