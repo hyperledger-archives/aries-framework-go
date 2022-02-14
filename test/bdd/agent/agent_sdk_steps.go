@@ -232,6 +232,10 @@ func (a *SDKSteps) CreateAgentWithFlags(agentID, inboundHost, inboundPort, schem
 		opts = append(opts, withHTTPResolver(endpointURL, "sidetree"))
 	}
 
+	if webKMSURL, ok := flagMap["kmsURL"]; ok {
+		opts = append(opts, withRemoteKMSCrypto(webKMSURL, "did:key:dummy-sample:sudesh"))
+	}
+
 	if _, ok := flagMap["UseRegistrar"]; ok {
 		opts = append(opts, withRegistrar())
 	}
@@ -241,6 +245,49 @@ func (a *SDKSteps) CreateAgentWithFlags(agentID, inboundHost, inboundPort, schem
 	}
 
 	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, false, opts...)
+}
+
+// CreateAgentWithFlags takes a set of comma-separated flags or key-value pairs:
+//  - sidetree=[endpoint url]: use http binding VDR accepting sidetree DID method, with the given http binding url.
+//  - DIDCommV2: use DIDComm V2 only.
+//  - UseRegistrar: use message registrar.
+func (a *SDKSteps) CreateEdgeAgentWithFlags(agentID, scheme, routeOpt string, flags string) error {
+	var opts []createAgentOption
+
+	flagList := strings.Split(flags, ",")
+
+	flagMap := make(map[string]string)
+
+	for _, flag := range flagList {
+		flagSplit := strings.Split(flag, "=")
+
+		switch len(flagSplit) {
+		case 1:
+			flagMap[flagSplit[0]] = ""
+		case 2: // nolint:gomnd // 2 parts means a flag with value
+			flagMap[flagSplit[0]] = flagSplit[1]
+		default:
+			return fmt.Errorf("failed to parse flag: %s", flag)
+		}
+	}
+
+	if endpointURL, ok := flagMap["sidetree"]; ok {
+		opts = append(opts, withHTTPResolver(endpointURL, "sidetree"))
+	}
+
+	if webKMSURL, ok := flagMap["kmsURL"]; ok {
+		opts = append(opts, withRemoteKMSCrypto(webKMSURL, "did:key:dummy-sample:sudesh"))
+	}
+
+	if _, ok := flagMap["UseRegistrar"]; ok {
+		opts = append(opts, withRegistrar())
+	}
+
+	if _, ok := flagMap["DIDCommV2"]; ok {
+		opts = append(opts, withDIDCommV2())
+	}
+
+	return a.createEdgeAgentWithOptions(agentID, scheme, routeOpt, opts...)
 }
 
 type createAgentOption func(steps *SDKSteps, agentID string) ([]aries.Option, error)
@@ -387,15 +434,15 @@ func (a *SDKSteps) getStoreProvider(agentID string) storage.Provider {
 }
 
 func (a *SDKSteps) createEdgeAgent(agentID, scheme, routeOpt string) error {
-	return a.createEdgeAgentByDIDCommVer(agentID, scheme, routeOpt, false)
+	return a.createEdgeAgentWithOptions(agentID, scheme, routeOpt)
 }
 
 func (a *SDKSteps) createEdgeAgentByDIDCommV2(agentID, scheme, routeOpt string) error {
-	return a.createEdgeAgentByDIDCommVer(agentID, scheme, routeOpt, true)
+	return a.createEdgeAgentWithOptions(agentID, scheme, routeOpt, withDIDCommV2())
 }
 
-func (a *SDKSteps) createEdgeAgentByDIDCommVer(agentID, scheme, routeOpt string, useDIDCommV2 bool) error {
-	var opts []aries.Option
+func (a *SDKSteps) createEdgeAgentWithOptions(agentID, scheme, routeOpt string, opts ...createAgentOption) error {
+	var ariesOpts []aries.Option
 
 	storeProv := a.getStoreProvider(agentID)
 
@@ -413,16 +460,21 @@ func (a *SDKSteps) createEdgeAgentByDIDCommVer(agentID, scheme, routeOpt string,
 		return fmt.Errorf("create http resolver: %w", err)
 	}
 
-	opts = append(opts,
+	ariesOpts = append(ariesOpts,
 		aries.WithStoreProvider(storeProv),
 		aries.WithTransportReturnRoute(routeOpt),
 		aries.WithJSONLDDocumentLoader(loader),
 	)
 
-	opts = append(opts, resolverOpts...)
+	ariesOpts = append(ariesOpts, resolverOpts...)
 
-	if useDIDCommV2 {
-		opts = append(opts, aries.WithMediaTypeProfiles([]string{transport.MediaTypeDIDCommV2Profile}))
+	for _, opt := range opts {
+		newOpts, err := opt(a, agentID)
+		if err != nil {
+			return fmt.Errorf("agent sdk option: %w", err)
+		}
+
+		ariesOpts = append(ariesOpts, newOpts...)
 	}
 
 	sch := strings.Split(scheme, ",")
@@ -430,20 +482,20 @@ func (a *SDKSteps) createEdgeAgentByDIDCommVer(agentID, scheme, routeOpt string,
 	for _, s := range sch {
 		switch s {
 		case webSocketTransportProvider:
-			opts = append(opts, aries.WithOutboundTransports(ws.NewOutbound()))
+			ariesOpts = append(ariesOpts, aries.WithOutboundTransports(ws.NewOutbound()))
 		case httpTransportProvider:
 			out, err := arieshttp.NewOutbound(arieshttp.WithOutboundHTTPClient(&http.Client{}))
 			if err != nil {
 				return fmt.Errorf("failed to create http outbound: %w", err)
 			}
 
-			opts = append(opts, aries.WithOutboundTransports(ws.NewOutbound(), out))
+			ariesOpts = append(ariesOpts, aries.WithOutboundTransports(ws.NewOutbound(), out))
 		default:
 			return fmt.Errorf("invalid transport provider type : %s (only websocket/http is supported)", scheme)
 		}
 	}
 
-	return a.createFramework(agentID, false, opts...)
+	return a.createFramework(agentID, false, ariesOpts...)
 }
 
 //nolint: gocyclo
@@ -627,6 +679,9 @@ func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 		a.CreateAgentWithHTTPDIDResolverAndOOBv2)
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with "([^"]*)" as the transport provider `+
 		`and "([^"]*)" flags$`, a.CreateAgentWithFlags)
+	s.Step(`^"([^"]*)" edge agent is running with "([^"]*)" outbound transport `+
+		`and transport return route "([^"]*)" `+
+		`and "([^"]*)" flags$`, a.CreateEdgeAgentWithFlags)
 	s.Step(`^"([^"]*)" agent with message registrar is running on "([^"]*)" port "([^"]*)" `+
 		`with "([^"]*)" as the transport provider$`, a.createAgentWithRegistrar)
 	s.Step(`^"([^"]*)" agent with message registrar is running on "([^"]*)" port "([^"]*)" with "([^"]*)" `+
