@@ -3,12 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-# Reference : https://github.com/hyperledger/aries-rfcs/tree/master/features/0023-did-exchange
 
-@wallet_debugging
+@didcomm_remote_crypto
 Feature: DIDComm between DIDCommV2 agents using local KMS and web KMS
 
-  @wallet_debug_both_local
   Scenario: Wallet registers with Router using DIDComm V2, both agents using local KMS
     # wallet uses local kms
     Given "Wallet" edge agent is running with "websocket" outbound transport and transport return route "all" and "sidetree=${SIDETREE_URL},DIDCommV2" flags
@@ -33,8 +31,9 @@ Feature: DIDComm between DIDCommV2 agents using local KMS and web KMS
       And "Wallet" sets "Router-connID" as the router and "Router" approves
       And "Wallet" verifies that the router connection id is set to "Router-connID"
 
-  @wallet_debug_wallet_webkms
   Scenario: Wallet registers with Router using DIDComm V2, Wallet using web KMS, Router using local KMS
+    Given options ""ECDSAP256IEEEP1363"" ""NISTP256ECDHKW"" ""didcomm/v2""
+
     # wallet uses web kms
     Given "Wallet" edge agent is running with "websocket" outbound transport and transport return route "all" and "sidetree=${SIDETREE_URL},DIDCommV2,kmsURL=https://localhost:8076" flags
     # router uses local kms
@@ -58,7 +57,6 @@ Feature: DIDComm between DIDCommV2 agents using local KMS and web KMS
       And "Wallet" sets "Router-connID" as the router and "Router" approves
       And "Wallet" verifies that the router connection id is set to "Router-connID"
 
-  @wallet_debug_both_webkms
   Scenario: Wallet registers with Router using DIDComm V2, both agents using web KMS
     # wallet uses web kms
     Given "Wallet" edge agent is running with "websocket" outbound transport and transport return route "all" and "sidetree=${SIDETREE_URL},DIDCommV2,kmsURL=https://localhost:8076" flags

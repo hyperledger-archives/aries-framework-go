@@ -208,6 +208,7 @@ func (a *SDKSteps) createAgentWithHTTPDIDResolverAndServiceTriggering(
 //  - sidetree=[endpoint url]: use http binding VDR accepting sidetree DID method, with the given http binding url.
 //  - DIDCommV2: use DIDComm V2 only.
 //  - UseRegistrar: use message registrar.
+//  - kmsURL=[kms url]: use webkms.
 func (a *SDKSteps) CreateAgentWithFlags(agentID, inboundHost, inboundPort, scheme, flags string) error {
 	var opts []createAgentOption
 
@@ -244,14 +245,17 @@ func (a *SDKSteps) CreateAgentWithFlags(agentID, inboundHost, inboundPort, schem
 		opts = append(opts, withDIDCommV2())
 	}
 
+	opts = append(opts, withDynamicEnvelopeParams())
+
 	return a.createAgentWithOptions(agentID, inboundHost, inboundPort, scheme, false, opts...)
 }
 
-// CreateAgentWithFlags takes a set of comma-separated flags or key-value pairs:
+// CreateEdgeAgentWithFlags takes a set of comma-separated flags or key-value pairs:
 //  - sidetree=[endpoint url]: use http binding VDR accepting sidetree DID method, with the given http binding url.
 //  - DIDCommV2: use DIDComm V2 only.
 //  - UseRegistrar: use message registrar.
-func (a *SDKSteps) CreateEdgeAgentWithFlags(agentID, scheme, routeOpt string, flags string) error {
+//  - kmsURL=[kms url]: use webkms.
+func (a *SDKSteps) CreateEdgeAgentWithFlags(agentID, scheme, routeOpt, flags string) error {
 	var opts []createAgentOption
 
 	flagList := strings.Split(flags, ",")
@@ -286,6 +290,8 @@ func (a *SDKSteps) CreateEdgeAgentWithFlags(agentID, scheme, routeOpt string, fl
 	if _, ok := flagMap["DIDCommV2"]; ok {
 		opts = append(opts, withDIDCommV2())
 	}
+
+	opts = append(opts, withDynamicEnvelopeParams())
 
 	return a.createEdgeAgentWithOptions(agentID, scheme, routeOpt, opts...)
 }
