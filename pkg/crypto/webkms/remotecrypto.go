@@ -496,7 +496,7 @@ func (r *RemoteCrypto) VerifyMAC(mac, data []byte, keyURL interface{}) error {
 // The absence of this option uses ECDH-ES key wrapping (aka Anoncrypt).
 // 		RecipientWrappedKey containing the wrapped cek value
 // 		error in case of errors
-func (r *RemoteCrypto) WrapKey(cek, apu, apv []byte, recPubKey *crypto.PublicKey,
+func (r *RemoteCrypto) WrapKey(cek, apu, apv []byte, recPubKey *crypto.PublicKey, // nolint:funlen
 	opts ...crypto.WrapKeyOpts) (*crypto.RecipientWrappedKey, error) {
 	startWrapKey := time.Now()
 	destination := r.keystoreURL + wrapURI
@@ -513,6 +513,7 @@ func (r *RemoteCrypto) WrapKey(cek, apu, apv []byte, recPubKey *crypto.PublicKey
 		APU:             apu,
 		APV:             apv,
 		RecipientPubKey: recPubKey,
+		Tag:             pOpts.Tag(),
 	}
 
 	if senderURL != nil {
@@ -590,6 +591,7 @@ func (r *RemoteCrypto) UnwrapKey(recWK *crypto.RecipientWrappedKey, keyURL inter
 
 	uReq := unwrapKeyReq{
 		WrappedKey: *recWK,
+		Tag:        pOpts.Tag(),
 	}
 
 	if pOpts.SenderKey() != nil {

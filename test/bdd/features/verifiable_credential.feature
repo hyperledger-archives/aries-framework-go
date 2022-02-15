@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-@all
+
 @verifiable
 Feature: Issue Verifiable Credential
   @issue_vc_ldp_ed25519signature2018
