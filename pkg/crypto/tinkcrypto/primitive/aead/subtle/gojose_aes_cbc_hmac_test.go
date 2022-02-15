@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"testing"
 
-	josecipher "github.com/square/go-jose/v3/cipher"
+	josecipher "github.com/go-jose/go-jose/v3/cipher"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/aead/subtle"
@@ -308,7 +308,7 @@ func RunRoundtrip(t *testing.T, key []byte) {
 
 	t.Run("failure: cipher not short but not large enough to contain an authentication tag", func(t *testing.T) {
 		result, err = aead.Decrypt([]byte("bad cipher with not too short length to cause decryption failure"), aad)
-		require.EqualError(t, err, "aes_cbc_hmac: failed to decrypt: square/go-jose: invalid ciphertext "+
+		require.EqualError(t, err, "aes_cbc_hmac: failed to decrypt: go-jose/go-jose: invalid ciphertext "+
 			"(auth tag mismatch)")
 	})
 }

@@ -8,8 +8,8 @@ go 1.17
 
 require (
 	github.com/google/uuid v1.1.2
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210820153043-8b6f36d10ab9
-	github.com/hyperledger/aries-framework-go/test/component v0.0.0-20210820153043-8b6f36d10ab9
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20220106195936-a9d6794663ed
+	github.com/hyperledger/aries-framework-go/test/component v0.0.0-20220106195936-a9d6794663ed
 	github.com/stretchr/testify v1.7.0
 )
 

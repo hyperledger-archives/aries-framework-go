@@ -26,7 +26,7 @@ import (
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 )
 
-// TODO https://github.com/square/go-jose/issues/263 support ES256K
+// TODO https://github.com/go-jose/go-jose/issues/263 support ES256K
 
 // JWSAlgorithm defines JWT signature algorithms of Verifiable Credential.
 type JWSAlgorithm int

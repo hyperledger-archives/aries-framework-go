@@ -14,8 +14,8 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/square/go-jose/v3/json"
-	"github.com/square/go-jose/v3/jwt"
+	"github.com/go-jose/go-jose/v3/json"
+	"github.com/go-jose/go-jose/v3/jwt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 )
@@ -294,7 +294,7 @@ func toMap(i interface{}) (map[string]interface{}, error) {
 	var m map[string]interface{}
 
 	d := json.NewDecoder(bytes.NewReader(b))
-	d.UseNumber()
+	d.SetNumberType(json.UnmarshalJSONNumber)
 
 	if err := d.Decode(&m); err != nil {
 		return nil, fmt.Errorf("convert to map: %w", err)

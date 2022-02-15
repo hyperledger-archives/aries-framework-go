@@ -12,6 +12,7 @@ require (
 	github.com/btcsuite/btcd v0.22.0-beta
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/cenkalti/backoff/v4 v4.0.2
+	github.com/go-jose/go-jose/v3 v3.0.1-0.20210613005559-6f2534b08aeb
 	github.com/golang/mock v1.4.4
 	github.com/golang/protobuf v1.5.2
 	github.com/google/tink/go v1.6.1-0.20210519071714-58be99b3c4d0

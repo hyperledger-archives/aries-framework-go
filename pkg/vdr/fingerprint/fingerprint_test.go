@@ -16,7 +16,7 @@ import (
 	"testing"
 
 	"github.com/btcsuite/btcutil/base58"
-	"github.com/square/go-jose/v3"
+	"github.com/go-jose/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
@@ -262,7 +262,7 @@ func TestCreateDIDKeyByJwk(t *testing.T) {
 				jwkKey, err = jwksupport.JWKFromKey(&publicKey)
 
 				if tc.name == "test EC with invalid curve" {
-					require.EqualError(t, err, "create JWK: square/go-jose: unsupported/unknown elliptic curve")
+					require.EqualError(t, err, "create JWK: go-jose/go-jose: unsupported/unknown elliptic curve")
 					jwkKey = &jwk.JWK{
 						JSONWebKey: jose.JSONWebKey{},
 						Kty:        "EC",

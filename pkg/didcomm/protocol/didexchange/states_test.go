@@ -1482,7 +1482,7 @@ func TestContext_DIDDocAttachment(t *testing.T) {
 		require.Contains(t, err.Error(), "failed to extract pubKeyBytes")
 	})
 
-	t.Run("fail to create did doc attachment, can't create KID", func(t *testing.T) {
+	t.Run("fail to create did doc attachment, created KID from invalid DIDKey", func(t *testing.T) {
 		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType, transport.MediaTypeRFC0019EncryptedEnvelope)
 		ctx.doACAPyInterop = true
 
@@ -1492,7 +1492,7 @@ func TestContext_DIDDocAttachment(t *testing.T) {
 
 		_, err := ctx.didDocAttachment(doc, didKey)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to generate KID from public key")
+		require.Contains(t, err.Error(), "cannot read data for keysetID")
 	})
 }
 

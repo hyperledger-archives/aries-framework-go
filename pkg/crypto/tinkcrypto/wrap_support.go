@@ -18,8 +18,8 @@ import (
 	"errors"
 	"fmt"
 
+	josecipher "github.com/go-jose/go-jose/v3/cipher"
 	hybrid "github.com/google/tink/go/hybrid/subtle"
-	josecipher "github.com/square/go-jose/v3/cipher"
 	"golang.org/x/crypto/chacha20poly1305"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/aead/subtle"
