@@ -94,7 +94,8 @@ func validateEncAlg(alg jose.EncAlg) error {
 // payload: the payload message that will be protected
 // senderID: the key id of the sender (stored in the KMS)
 // recipientsPubKeys: public keys.
-func (p *Packer) Pack(contentType string, payload, senderID []byte, recipientsPubKeys [][]byte) ([]byte, error) {
+func (p *Packer) Pack( // nolint:gocyclo
+	contentType string, payload, senderID []byte, recipientsPubKeys [][]byte) ([]byte, error) {
 	if len(recipientsPubKeys) == 0 {
 		return nil, fmt.Errorf("authcrypt Pack: empty recipientsPubKeys")
 	}
@@ -117,8 +118,13 @@ func (p *Packer) Pack(contentType string, payload, senderID []byte, recipientsPu
 		return nil, fmt.Errorf("authcrypt Pack: failed to get sender key from KMS: %w", err)
 	}
 
+	sKH, ok := kh.(*keyset.Handle)
+	if !ok {
+		sKH = nil
+	}
+
 	jweEncrypter, err := jose.NewJWEEncrypt(p.encAlg, p.EncodingType(), contentType, skid,
-		kh.(*keyset.Handle), recECKeys, p.cryptoService)
+		sKH, recECKeys, p.cryptoService)
 	if err != nil {
 		return nil, fmt.Errorf("authcrypt Pack: failed to new JWEEncrypt instance: %w", err)
 	}
