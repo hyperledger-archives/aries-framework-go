@@ -114,3 +114,62 @@ Feature: Decentralized Identifier(DID) exchange between the agents using SDK
 
     When  "Andrii" sealOpen ciphertext from "Baha"
     Then  "Andrii" gets plaintext with value "test payload 2"
+
+  @webkms_interop_localkms
+  Scenario: User A with webkms wraps A256GCM key for User B with localkms, User B successfully unwraps it
+    Given "Andrii" agent is running on "localhost" port "random" with "http" as the transport provider using webkms with key server at "https://localhost:8076" URL, using "did:key:dummy-sample:sudesh" controller
+    And   "Andrii" create "NISTP256ECDHKW" key
+
+    Given "Baha" agent is running on "localhost" port "random" with "http" as the transport provider
+    And   "Baha" create "NISTP256ECDHKW" key
+    And   "Baha" export public key
+
+    When  "Andrii" wrap CEK with "Baha" public key
+    Then  "Andrii" gets non-empty wrapped key
+
+    When  "Baha" unwrap wrapped key from "Andrii"
+    Then  "Baha" gets the same CEK as "Andrii"
+
+  @webkms_interop_localkms_2
+  Scenario: User A with localkms wraps A256GCM key for User B with webkms, User B successfully unwraps it
+    Given "Andrii" agent is running on "localhost" port "random" with "http" as the transport provider
+    And   "Andrii" create "NISTP256ECDHKW" key
+
+    Given "Baha" agent is running on "localhost" port "random" with "http" as the transport provider using webkms with key server at "https://localhost:8076" URL, using "did:key:dummy-sample:sudesh" controller
+    And   "Baha" create "NISTP256ECDHKW" key
+    And   "Baha" export public key
+
+    When  "Andrii" wrap CEK with "Baha" public key
+    Then  "Andrii" gets non-empty wrapped key
+
+    When  "Baha" unwrap wrapped key from "Andrii"
+    Then  "Baha" gets the same CEK as "Andrii"
+
+  @webkms_interop_localkms_3
+  Scenario: User A wraps A256GCM key with sender key for User B, User B successfully unwraps it(Anoncrypt)
+    Given "Andrii" agent is running on "localhost" port "random" with "http" as the transport provider using webkms with key server at "https://localhost:8076" URL, using "did:key:dummy-sample:sudesh" controller
+    And   "Andrii" create and export "X25519ECDHKW" key
+
+    Given "Baha" agent is running on "localhost" port "random" with "http" as the transport provider
+    And   "Baha" create and export "X25519ECDHKW" key
+
+    When  "Andrii" wrap CEK with "Baha" public key and with sender key
+    Then  "Andrii" gets non-empty wrapped key
+
+    When  "Baha" unwrap wrapped key from "Andrii" with sender key
+    Then  "Baha" gets the same CEK as "Andrii"
+
+  @webkms_interop_localkms_4
+  Scenario: User A wraps A256GCM key with sender key for User B, User B successfully unwraps it(Anoncrypt)
+    Given "Andrii" agent is running on "localhost" port "random" with "http" as the transport provider
+    And   "Andrii" create "NISTP256ECDHKW" key
+    And   "Andrii" export public key
+
+    Given "Baha" agent is running on "localhost" port "random" with "http" as the transport provider using webkms with key server at "https://localhost:8076" URL, using "did:key:dummy-sample:sudesh" controller
+    And   "Baha" create and export "NISTP256ECDHKW" key
+
+    When  "Andrii" wrap CEK with "Baha" public key and with sender key
+    Then  "Andrii" gets non-empty wrapped key
+
+    When  "Baha" unwrap wrapped key from "Andrii" with sender key
+    Then  "Baha" gets the same CEK as "Andrii"
