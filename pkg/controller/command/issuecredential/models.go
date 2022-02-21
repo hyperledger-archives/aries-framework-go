@@ -55,8 +55,35 @@ type AcceptProposalResponse struct{}
 // This is used for accepting an offer.
 //
 type AcceptOfferArgs struct {
-	// PIID Protocol instance ID
+	// PIID Protocol instance I
 	PIID string `json:"piid"`
+	// RequestCredential is an optional message sent by the potential Holder to the Issuer to request the issuance of a
+	// credential.
+	RequestCredential issuecredential.RequestCredential `json:"request_credential,omitempty"`
+}
+
+// AcceptOfferArgsV2 model
+//
+// This is used for accepting an offer.
+//
+type AcceptOfferArgsV2 struct {
+	// PIID Protocol instance I
+	PIID string `json:"piid"`
+	// RequestCredential is an optional message sent by the potential Holder to the Issuer to request the issuance of a
+	// credential.
+	RequestCredential issuecredential.RequestCredentialV2 `json:"request_credential,omitempty"`
+}
+
+// AcceptOfferArgsV3 model
+//
+// This is used for accepting an offer.
+//
+type AcceptOfferArgsV3 struct {
+	// PIID Protocol instance I
+	PIID string `json:"piid"`
+	// RequestCredential is an optional message sent by the potential Holder to the Issuer to request the issuance of a
+	// credential.
+	RequestCredential issuecredential.RequestCredentialV3 `json:"request_credential,omitempty"`
 }
 
 // AcceptOfferResponse model

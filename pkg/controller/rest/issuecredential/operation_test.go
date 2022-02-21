@@ -8,6 +8,7 @@ package issuecredential
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -35,6 +36,12 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
+
+type failingReader struct{}
+
+func (fw *failingReader) Read([]byte) (int, error) {
+	return 0, errors.New("mock read error")
+}
 
 func provider(ctrl *gomock.Controller, lookup *connection.Lookup) command.Provider {
 	provider := mocks.NewMockProvider(ctrl)
@@ -270,12 +277,43 @@ func TestOperation_AcceptOffer(t *testing.T) {
 
 		_, code, err := sendRequestToHandler(
 			handlerLookup(t, operation, AcceptOffer),
-			nil,
+			bytes.NewBufferString(``),
 			strings.Replace(AcceptOffer, `{piid}`, "1234", 1),
 		)
 
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, code)
+	})
+
+	t.Run("Failed to read request body", func(t *testing.T) {
+		operation, err := New(provider(ctrl, nil), mocknotifier.NewMockNotifier(nil), &mockRFC0593Provider{})
+		require.NoError(t, err)
+
+		response, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, AcceptOffer),
+			&failingReader{},
+			strings.Replace(AcceptOffer, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusInternalServerError, code)
+		require.Equal(t, "failed to read request body: mock read error", response.String())
+	})
+
+	t.Run("Failed to unmarshal request body as an AcceptOfferArgs", func(t *testing.T) {
+		operation, err := New(provider(ctrl, nil), mocknotifier.NewMockNotifier(nil), &mockRFC0593Provider{})
+		require.NoError(t, err)
+
+		response, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, AcceptOffer),
+			bytes.NewBufferString(`NotUnmarshallableIntoAnAcceptOfferArgs`),
+			strings.Replace(AcceptOffer, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, code)
+		require.Equal(t, "failed to unmarshal request body as an AcceptOfferArgs: "+
+			"invalid character 'N' looking for beginning of value", response.String())
 	})
 }
 
