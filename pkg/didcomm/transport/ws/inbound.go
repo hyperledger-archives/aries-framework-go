@@ -18,8 +18,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 )
 
-const defaultReadLimit = 32768
-
 var logger = log.New("aries-framework/ws")
 
 type inboundOpts struct {
@@ -47,9 +45,7 @@ type Inbound struct {
 
 // NewInbound creates a new WebSocket inbound transport instance.
 func NewInbound(internalAddr, externalAddr, certFile, keyFile string, opts ...InboundOpt) (*Inbound, error) {
-	inOpts := &inboundOpts{
-		readLimit: defaultReadLimit,
-	}
+	inOpts := &inboundOpts{}
 
 	for _, opt := range opts {
 		opt(inOpts)
@@ -122,7 +118,9 @@ func (i *Inbound) processRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c.SetReadLimit(i.readLimit)
+	if i.readLimit > 0 {
+		c.SetReadLimit(i.readLimit)
+	}
 
 	i.pool.listener(c, false)
 }

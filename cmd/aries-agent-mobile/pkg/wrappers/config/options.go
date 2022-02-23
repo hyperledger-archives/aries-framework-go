@@ -30,9 +30,10 @@ type Options struct {
 
 	// expected to be ignored by gomobile
 	// not intended to be used by golang code
-	HTTPResolvers     []string
-	OutboundTransport []string
-	WebsocketURL      string
+	HTTPResolvers      []string
+	OutboundTransport  []string
+	WebsocketURL       string
+	WebsocketReadLimit int64
 }
 
 // New returns an instance of Options which can be used to configure an aries controller instance.

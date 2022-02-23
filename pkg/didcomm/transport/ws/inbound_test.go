@@ -24,6 +24,8 @@ import (
 	mockpackager "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/packager"
 )
 
+const defaultReadLimit = 32768
+
 func TestInboundTransport(t *testing.T) {
 	t.Run("test inbound transport - with host/port", func(t *testing.T) {
 		port := ":" + strconv.Itoa(transportutil.GetRandomPort(5))
