@@ -372,7 +372,7 @@ func TestStartCmdWithInvalidReadLimit(t *testing.T) {
 		httpProtocol + "@" + randomURL(),
 		"--" + agentInboundHostExternalFlagName,
 		httpProtocol + "@" + randomURL(),
-		"--" + agentInboundWebSocketReadLimitFlagName,
+		"--" + agentWebSocketReadLimitFlagName,
 		"invalid",
 		"--" + databaseTypeFlagName,
 		databaseTypeMemOption,
@@ -385,7 +385,7 @@ func TestStartCmdWithInvalidReadLimit(t *testing.T) {
 
 	err = startCmd.Execute()
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "failed to parse inbound websocket read limit")
+	require.Contains(t, err.Error(), "failed to parse web socket read limit")
 }
 
 func TestStartCmdWithLogLevel(t *testing.T) {
@@ -492,7 +492,7 @@ func TestStartCmdValidArgs(t *testing.T) {
 		httpProtocol + "@" + randomURL(),
 		"--" + agentInboundHostExternalFlagName,
 		httpProtocol + "@" + randomURL(),
-		"--" + agentInboundWebSocketReadLimitFlagName,
+		"--" + agentWebSocketReadLimitFlagName,
 		"65536",
 		"--" + databaseTypeFlagName,
 		databaseTypeMemOption,
@@ -648,12 +648,12 @@ func TestStartAriesWithInboundTransport(t *testing.T) {
 
 		go func() {
 			parameters := &agentParameters{
-				server:                    &HTTPServer{},
-				host:                      testHostURL,
-				inboundHostInternals:      []string{websocketProtocol + "@" + testInboundHostURL},
-				inboundWebSocketReadLimit: 65536,
-				dbParam:                   &dbParam{dbType: databaseTypeMemOption},
-				defaultLabel:              "x",
+				server:               &HTTPServer{},
+				host:                 testHostURL,
+				inboundHostInternals: []string{websocketProtocol + "@" + testInboundHostURL},
+				websocketReadLimit:   65536,
+				dbParam:              &dbParam{dbType: databaseTypeMemOption},
+				defaultLabel:         "x",
 			}
 
 			err := startAgent(parameters)

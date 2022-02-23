@@ -122,7 +122,7 @@ func prepareFrameworkOptions(opts *config.Options) ([]aries.Option, error) {
 	options = append(options, aries.WithStoreProvider(storageProvider))
 
 	for _, transport := range opts.OutboundTransport {
-		otOpts, err := getOutBoundTransportOpts(transport)
+		otOpts, err := getOutBoundTransportOpts(transport, opts.WebsocketReadLimit)
 		if err != nil {
 			return nil, fmt.Errorf("failed to prepare outbound transport opts : %w", err)
 		}
@@ -153,7 +153,7 @@ func prepareFrameworkOptions(opts *config.Options) ([]aries.Option, error) {
 	return options, nil
 }
 
-func getOutBoundTransportOpts(transport string) ([]aries.Option, error) {
+func getOutBoundTransportOpts(transport string, websocketReadLimit int64) ([]aries.Option, error) {
 	var opts []aries.Option
 
 	switch transport {
@@ -165,7 +165,13 @@ func getOutBoundTransportOpts(transport string) ([]aries.Option, error) {
 
 		opts = append(opts, aries.WithOutboundTransports(outbound))
 	case "ws":
-		opts = append(opts, aries.WithOutboundTransports(ws.NewOutbound()))
+		var outboundOpts []ws.OutboundClientOpt
+
+		if websocketReadLimit > 0 {
+			outboundOpts = append(outboundOpts, ws.WithOutboundReadLimit(websocketReadLimit))
+		}
+
+		opts = append(opts, aries.WithOutboundTransports(ws.NewOutbound(outboundOpts...)))
 	default:
 		return nil, fmt.Errorf("unsupported transport : %s", transport)
 	}

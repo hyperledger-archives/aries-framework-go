@@ -1,3 +1,4 @@
+//go:build js && wasm
 // +build js,wasm
 
 /*
@@ -82,6 +83,7 @@ type ariesStartOpts struct {
 	DBNamespace          string   `json:"db-namespace"`
 	ContextProviderURLs  []string `json:"context-provider-url"`
 	MediaTypeProfiles    []string `json:"media-type-profiles"`
+	WebSocketReadLimit   int64    `json:"web-socket-read-limit"`
 }
 
 // main registers the 'handleMsg' function in the JS context's global scope to receive commands.
@@ -388,7 +390,13 @@ func ariesOpts(opts *ariesStartOpts) ([]aries.Option, error) {
 
 			options = append(options, aries.WithOutboundTransports(outbound))
 		case "ws":
-			options = append(options, aries.WithOutboundTransports(ws.NewOutbound()))
+			var outboundOpts []ws.OutboundClientOpt
+
+			if opts.WebSocketReadLimit > 0 {
+				outboundOpts = append(outboundOpts, ws.WithOutboundReadLimit(opts.WebSocketReadLimit))
+			}
+
+			options = append(options, aries.WithOutboundTransports(ws.NewOutbound(outboundOpts...)))
 		default:
 			return nil, fmt.Errorf("unsupported transport : %s", transport)
 		}
