@@ -532,7 +532,7 @@ func validateSchema(displayMappingObject *DisplayMappingObject) error {
 func schemaFormatIsValid(format string) bool {
 	validFormats := []string{
 		"", "date-time", "time", "date", "email", "idn-email", "hostname", "idn-hostname",
-		"ipv4", "ipv6", "uri", "uri-reference", "iri", "iri-reference",
+		"ipv4", "ipv6", "uri", "uri-reference", "iri", "iri-reference", "image/png",
 	}
 
 	var isValidFormat bool
