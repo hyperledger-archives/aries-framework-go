@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package waci
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -24,15 +25,16 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/cm"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	bddDIDExchange "github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
 )
 
 var (
-	//nolint: gochecknoglobals // logger
+	// nolint: gochecknoglobals // logger
 	loggerDIDCommV1Tests = log.New("aries-framework-go/waci-issuance-didcomm-v1")
-	//nolint: gochecknoglobals // logger
+	// nolint: gochecknoglobals // logger
 	loggerDIDCommV2Tests = log.New("aries-framework-go/waci-issuance-didcomm-v2")
 )
 
@@ -244,9 +246,33 @@ func (i *IssuanceSDKDIDCommV1Steps) acceptCredentialApplication(issuerName strin
 		return err
 	}
 
+	attachmentAsMap, ok := attachmentsFromApplicationMsg[0].Data.JSON.(map[string]interface{})
+	if !ok {
+		return errors.New("couldn't assert attachment data as a map")
+	}
+
+	credentialApplicationBytes, err := json.MarshalIndent(attachmentAsMap, "", "	")
+	if err != nil {
+		return fmt.Errorf("failed to marshal credential_application object: %w", err)
+	}
+
+	documentLoader, err := createDocumentLoader()
+	if err != nil {
+		return err
+	}
+
+	application, err := verifiable.ParsePresentation(credentialApplicationBytes,
+		verifiable.WithPresJSONLDDocumentLoader(documentLoader),
+		verifiable.WithPresDisabledProofCheck())
+	if err != nil {
+		return fmt.Errorf("failed to decode credential application presentation: %w", err)
+	}
+
 	// Here, the issuer validates the Credential Application against its Credential Manifest.
 	// In a real flow, the issuer would want to check the proofs as well.
-	err = cm.ValidateCredentialApplicationAttachment(&attachmentsFromApplicationMsg[0], credentialManifest)
+	_, err = cm.ValidateCredentialApplication(application, credentialManifest, documentLoader,
+		presexch.WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(documentLoader),
+			verifiable.WithDisabledProofCheck()))
 	if err != nil {
 		return err
 	}
