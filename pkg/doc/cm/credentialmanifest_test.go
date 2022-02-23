@@ -263,6 +263,7 @@ func TestResolveFulfillment(t *testing.T) {
 					require.Equal(t, expected.Title, r.Title)
 					require.Equal(t, expected.Subtitle, r.Subtitle)
 					require.Equal(t, expected.Description, r.Description)
+					require.NotEmpty(t, r.Styles.Background)
 					require.Len(t, r.Properties, len(expected.Properties))
 
 					for _, resolvedProperty := range r.Properties {
