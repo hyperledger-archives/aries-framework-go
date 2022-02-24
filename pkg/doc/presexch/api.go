@@ -21,8 +21,13 @@ import (
 const (
 	// PresentationSubmissionJSONLDContextIRI is the JSONLD context of presentation submissions.
 	PresentationSubmissionJSONLDContextIRI = "https://identity.foundation/presentation-exchange/submission/v1"
+	// CredentialApplicationJSONLDContextIRI is the JSONLD context of credential application
+	// which also contains presentation submission details.
+	CredentialApplicationJSONLDContextIRI = "https://identity.foundation/credential-manifest/application/v1"
 	// PresentationSubmissionJSONLDType is the JSONLD type of presentation submissions.
 	PresentationSubmissionJSONLDType = "PresentationSubmission"
+	// CredentialApplicationJSONLDType is the JSONLD type of credential application.
+	CredentialApplicationJSONLDType = "CredentialApplication"
 
 	submissionProperty    = "presentation_submission"
 	descriptorMapProperty = "descriptor_map"
@@ -161,13 +166,16 @@ func (pd *PresentationDefinition) inputDescriptor(id string) *InputDescriptor {
 }
 
 func checkJSONLDContextType(vp *verifiable.Presentation) error {
-	if !stringsContain(vp.Context, PresentationSubmissionJSONLDContextIRI) {
-		return fmt.Errorf(
-			"input verifiable presentation must have json-ld context %s", PresentationSubmissionJSONLDContextIRI)
+	if !stringsContain(vp.Context, PresentationSubmissionJSONLDContextIRI) &&
+		!stringsContain(vp.Context, CredentialApplicationJSONLDContextIRI) {
+		return fmt.Errorf("input verifiable presentation must have json-ld context %s or %s",
+			PresentationSubmissionJSONLDContextIRI, CredentialApplicationJSONLDContextIRI)
 	}
 
-	if !stringsContain(vp.Type, PresentationSubmissionJSONLDType) {
-		return fmt.Errorf("input verifiable presentation must have json-ld type %s", PresentationSubmissionJSONLDType)
+	if !stringsContain(vp.Type, PresentationSubmissionJSONLDType) &&
+		!stringsContain(vp.Type, CredentialApplicationJSONLDType) {
+		return fmt.Errorf("input verifiable presentation must have json-ld type %s or %s",
+			PresentationSubmissionJSONLDType, CredentialApplicationJSONLDType)
 	}
 
 	return nil

@@ -465,7 +465,7 @@ func (c *Command) AcceptOffer(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
-	if err := c.client.AcceptOffer(args.PIID, &issuecredential.RequestCredential{}); err != nil {
+	if err := c.client.AcceptOffer(args.PIID, &args.RequestCredential); err != nil {
 		logutil.LogError(logger, CommandName, AcceptOffer, err.Error())
 		return command.NewExecuteError(AcceptOfferErrorCode, err)
 	}

@@ -39,11 +39,12 @@ import (
 type Aries struct {
 	endpoints map[string]map[string]*endpoint
 
-	URL          string
-	WebsocketURL string
-	Token        string
-	mutex        sync.RWMutex
-	subscribers  map[string]map[string][]api.Handler
+	URL                string
+	WebsocketURL       string
+	WebsocketReadLimit int64
+	Token              string
+	mutex              sync.RWMutex
+	subscribers        map[string]map[string][]api.Handler
 }
 
 // NewAries returns a new Aries instance.
@@ -56,11 +57,12 @@ func NewAries(opts *config.Options) (*Aries, error) {
 	endpoints := getControllerEndpoints()
 
 	a := &Aries{
-		endpoints:    endpoints,
-		URL:          opts.AgentURL,
-		Token:        opts.APIToken,
-		WebsocketURL: opts.WebsocketURL,
-		subscribers:  make(map[string]map[string][]api.Handler),
+		endpoints:          endpoints,
+		URL:                opts.AgentURL,
+		Token:              opts.APIToken,
+		WebsocketURL:       opts.WebsocketURL,
+		WebsocketReadLimit: opts.WebsocketReadLimit,
+		subscribers:        make(map[string]map[string][]api.Handler),
 	}
 
 	go a.startNotificationListener()
@@ -85,6 +87,10 @@ func (ar *Aries) startNotificationListener() {
 		logger.Errorf("notification listener: websocket dial: %v", err)
 
 		return
+	}
+
+	if ar.WebsocketReadLimit > 0 {
+		conn.SetReadLimit(ar.WebsocketReadLimit)
 	}
 
 	defer func() {

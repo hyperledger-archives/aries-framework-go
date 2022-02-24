@@ -126,6 +126,7 @@ type ResolvedDescriptor struct {
 	Title        string              `json:"title,omitempty"`
 	Subtitle     string              `json:"subtitle,omitempty"`
 	Description  string              `json:"description,omitempty"`
+	Styles       Styles              `json:"styles,omitempty"`
 	Properties   []*ResolvedProperty `json:"properties,omitempty"`
 }
 
@@ -363,6 +364,7 @@ func resolveOutputDescriptor(outputDescriptor *OutputDescriptor,
 	resolved.Title = staticDisplayMappings.title
 	resolved.Subtitle = staticDisplayMappings.subtitle
 	resolved.Description = staticDisplayMappings.description
+	resolved.Styles = outputDescriptor.Styles
 
 	resolved.Properties, err =
 		resolveDescriptorProperties(outputDescriptor.Display.Properties, vc)
@@ -532,7 +534,7 @@ func validateSchema(displayMappingObject *DisplayMappingObject) error {
 func schemaFormatIsValid(format string) bool {
 	validFormats := []string{
 		"", "date-time", "time", "date", "email", "idn-email", "hostname", "idn-hostname",
-		"ipv4", "ipv6", "uri", "uri-reference", "iri", "iri-reference",
+		"ipv4", "ipv6", "uri", "uri-reference", "iri", "iri-reference", "image/png",
 	}
 
 	var isValidFormat bool

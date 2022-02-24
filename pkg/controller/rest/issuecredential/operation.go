@@ -12,17 +12,21 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"strings"
 
 	"github.com/gorilla/mux"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/issuecredential/rfc0593"
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 )
+
+var logger = log.New("aries-framework/issuecredential/operation")
 
 // constants for issue credential endpoints.
 const (
@@ -191,9 +195,35 @@ func (c *Operation) DeclineProposal(rw http.ResponseWriter, req *http.Request) {
 //    default: genericError
 //        200: issueCredentialAcceptOfferResponse
 func (c *Operation) AcceptOffer(rw http.ResponseWriter, req *http.Request) {
-	rest.Execute(c.command.AcceptOffer, rw, bytes.NewBufferString(fmt.Sprintf(`{
-		"piid":%q
-	}`, mux.Vars(req)["piid"])))
+	reqBytes, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		writeResponse(rw, http.StatusInternalServerError, "failed to read request body", err.Error())
+
+		return
+	}
+
+	var acceptOfferArgs issuecredential.AcceptOfferArgs
+
+	if len(reqBytes) > 0 {
+		err = json.Unmarshal(reqBytes, &acceptOfferArgs)
+		if err != nil {
+			writeResponse(rw, http.StatusBadRequest,
+				"failed to unmarshal request body as an AcceptOfferArgs", err.Error())
+
+			return
+		}
+	}
+
+	acceptOfferArgs.PIID = mux.Vars(req)["piid"]
+
+	acceptOfferArgsBytes, err := json.Marshal(acceptOfferArgs)
+	if err != nil {
+		writeResponse(rw, http.StatusInternalServerError, "failed to marshal AcceptOfferArgs", err.Error())
+
+		return
+	}
+
+	rest.Execute(c.command.AcceptOffer, rw, bytes.NewBufferString(string(acceptOfferArgsBytes)))
 }
 
 // AcceptProblemReport swagger:route POST /issuecredential/{piid}/accept-problem-report issue-credential issueCredentialAcceptProblemReport
@@ -327,4 +357,14 @@ func isJSONMap(data []byte) bool {
 
 func isJSON(data []byte, v interface{}) bool {
 	return json.Unmarshal(data, &v) == nil
+}
+
+func writeResponse(rw http.ResponseWriter, statusCode int, errDescription, errMsg string) {
+	rw.WriteHeader(statusCode)
+
+	_, errWrite := rw.Write([]byte(fmt.Sprintf("%s: %s", errDescription, errMsg)))
+	if errWrite != nil {
+		logger.Errorf("failed to write HTTP response (error message: %s) after the following error occurred: "+
+			"%s: %s", errWrite.Error(), errDescription, errMsg)
+	}
 }

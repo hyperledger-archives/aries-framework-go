@@ -9,12 +9,13 @@
 @didexchange_e2e_sdk_didcommv2
 Feature: Decentralized Identifier(DID) exchange between the agents using SDK with DIDComm V2 media type profile
   @localkms_didexchange_e2e_sdk_didcommv2
-  Scenario: did exchange e2e flow with DIDComm V2 media type profile
-    Given "Alice" agent is running on "localhost" port "random" with "http" using DIDCommV2 as the transport provider
+  Scenario Outline: did exchange e2e flow with DIDComm V2 media type profile
+    Given options "<keyType>" "<keyAgreementType>" "<mediaTypeProfile>"
+      And "Alice" agent is running on "localhost" port "random" with "http" using scenario media type profile as the transport provider
       And   "Alice" creates did exchange client
       And   "Alice" registers to receive notification for post state event "completed"
 
-    Given "Bob" agent is running on "localhost" port "random" with "http" using DIDCommV2 as the transport provider
+    Given "Bob" agent is running on "localhost" port "random" with "http" using scenario media type profile as the transport provider
       And   "Bob" creates did exchange client
 
     When   "Bob" registers to receive notification for post state event "completed"
@@ -28,12 +29,17 @@ Feature: Decentralized Identifier(DID) exchange between the agents using SDK wit
     Then   "Alice" retrieves connection record and validates that connection state is "completed"
       And   "Bob" retrieves connection record and validates that connection state is "completed"
 
-  Scenario: did exchange e2e flow using WebSocket as the DIDComm transport with DIDComm V2 media type profile
-    Given "Alice" agent is running on "localhost" port "random" with "websocket" using DIDCommV2 as the transport provider
+    Examples:
+      | keyType              | keyAgreementType | mediaTypeProfile |
+      | "ECDSAP256IEEEP1363" | "X25519ECDHKW"   | "didcomm/v2"     |
+
+  Scenario Outline: did exchange e2e flow using WebSocket as the DIDComm transport with DIDComm V2 media type profile
+    Given options "<keyType>" "<keyAgreementType>" "<mediaTypeProfile>"
+      And "Alice" agent is running on "localhost" port "random" with "websocket" using scenario media type profile as the transport provider
       And   "Alice" creates did exchange client
       And   "Alice" registers to receive notification for post state event "completed"
 
-    When "Bob" agent is running on "localhost" port "random" with "websocket" using DIDCommV2 as the transport provider
+    When "Bob" agent is running on "localhost" port "random" with "websocket" using scenario media type profile as the transport provider
       And   "Bob" creates did exchange client
       And   "Bob" registers to receive notification for post state event "completed"
       And   "Alice" creates invitation
@@ -45,3 +51,7 @@ Feature: Decentralized Identifier(DID) exchange between the agents using SDK wit
 
     Then   "Alice" retrieves connection record and validates that connection state is "completed"
       And   "Bob" retrieves connection record and validates that connection state is "completed"
+
+    Examples:
+      | keyType              | keyAgreementType | mediaTypeProfile |
+      | "ECDSAP256IEEEP1363" | "X25519ECDHKW"   | "didcomm/v2"     |

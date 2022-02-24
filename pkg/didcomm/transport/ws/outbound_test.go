@@ -7,12 +7,17 @@ SPDX-License-Identifier: Apache-2.0
 package ws
 
 import (
+	"context"
+	"encoding/json"
 	"net/http"
 	"testing"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"nhooyr.io/websocket"
 
+	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	mockpackager "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/packager"
@@ -161,5 +166,61 @@ func TestClient(t *testing.T) {
 			prepareDestinationWithTransport("ws://"+addr, decorator.TransportReturnRouteNone, nil))
 		require.NoError(t, err)
 		require.Equal(t, "", resp)
+	})
+
+	t.Run("test outbound transport - custom read limit for a single message", func(t *testing.T) {
+		outboundClient := NewOutbound(WithOutboundReadLimit(defaultReadLimit + 1))
+		require.NotNil(t, outboundClient)
+
+		done := make(chan struct{})
+
+		unpackMsg, err := json.Marshal(&decorator.Transport{
+			ReturnRoute: &decorator.ReturnRoute{
+				Value: decorator.TransportReturnRouteAll,
+			},
+		})
+		require.NoError(t, err)
+
+		fromKey, err := json.Marshal(&cryptoapi.PublicKey{KID: "keyID"})
+		require.NoError(t, err)
+
+		transportProvider := &mockTransportProvider{
+			frameworkID: uuid.New().String(),
+			packagerValue: &mockpackager.Packager{
+				UnpackValue: &transport.Envelope{Message: unpackMsg, FromKey: fromKey},
+			},
+			executeInbound: func(envelope *transport.Envelope) error {
+				done <- struct{}{}
+				return nil
+			},
+		}
+
+		addr := startWebSocketServer(t, func(t *testing.T, w http.ResponseWriter, r *http.Request) {
+			c, errAcc := Accept(w, r)
+			require.NoError(t, errAcc)
+
+			defer func() {
+				require.NoError(t, c.Close(websocket.StatusNormalClosure, "closing the connection"))
+			}()
+
+			bigMsg := make([]byte, defaultReadLimit+1)
+
+			errWrite := c.Write(context.Background(), websocket.MessageText, bigMsg)
+			require.NoError(t, errWrite)
+		})
+
+		err = outboundClient.Start(transportProvider)
+		require.NoError(t, err)
+
+		resp, err := outboundClient.Send([]byte("data"),
+			prepareDestinationWithTransport("ws://"+addr, decorator.TransportReturnRouteAll, nil))
+		require.NoError(t, err)
+		require.Equal(t, "", resp)
+
+		select {
+		case <-done:
+		case <-time.After(3 * time.Second):
+			require.Fail(t, "inbound message handler was not called within given timeout")
+		}
 	})
 }
