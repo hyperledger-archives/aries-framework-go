@@ -189,7 +189,7 @@ func (handler *MessageHandler) HandleInboundEnvelope(envelope *transport.Envelop
 
 		if foundMessageService != nil {
 			if !gotDIDs {
-				myDID, theirDID, err = handler.getDIDs(envelope, nil)
+				myDID, theirDID, err = handler.getDIDs(envelope, msg)
 				if err != nil {
 					return fmt.Errorf("inbound message handler: %w", err)
 				}
