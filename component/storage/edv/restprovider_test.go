@@ -213,7 +213,8 @@ func TestRESTStore_Put(t *testing.T) {
 
 func TestRESTStore_Get(t *testing.T) {
 	t.Run("Fail to decrypt encrypted document", func(t *testing.T) {
-		encrypter, _ := createEncrypterAndDecrypter(t)
+		kmsSvc, cryptoSvc := createKMSAndCrypto(t)
+		encrypter, _, _ := createEncrypterAndDecrypter(t, kmsSvc, cryptoSvc)
 
 		failingEncryptedFormatter := edv.NewEncryptedFormatter(encrypter, &failingDecrypter{},
 			createValidMACCrypto(t), edv.WithDeterministicDocumentIDs())
@@ -252,7 +253,8 @@ func TestRESTStore_GetTags(t *testing.T) {
 		require.Nil(t, tags)
 	})
 	t.Run("Fail to decrypt encrypted document", func(t *testing.T) {
-		encrypter, _ := createEncrypterAndDecrypter(t)
+		kmsSvc, cryptoSvc := createKMSAndCrypto(t)
+		encrypter, _, _ := createEncrypterAndDecrypter(t, kmsSvc, cryptoSvc)
 
 		failingEncryptedFormatter := edv.NewEncryptedFormatter(encrypter, &failingDecrypter{},
 			createValidMACCrypto(t))
