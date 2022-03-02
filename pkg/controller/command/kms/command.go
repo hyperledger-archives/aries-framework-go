@@ -136,7 +136,11 @@ func (o *Command) ImportKey(rw io.Writer, req io.Reader) command.Error {
 	case "Ed25519":
 		keyType = kms.ED25519Type
 	case "P-256":
-		keyType = kms.ECDSAP256TypeIEEEP1363
+		if j.Use == "enc" {
+			keyType = kms.NISTP256ECDHKWType
+		} else {
+			keyType = kms.ECDSAP256TypeIEEEP1363
+		}
 	case "BLS12381_G2":
 		keyType = kms.BLS12381G2Type
 	default:
