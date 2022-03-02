@@ -159,6 +159,24 @@ func TestImportKey(t *testing.T) {
 		var getRW bytes.Buffer
 		cmdErr := cmd.ImportKey(&getRW, bytes.NewBuffer(jwkBytes))
 		require.NoError(t, cmdErr)
+
+		p256Key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		require.NoError(t, err)
+
+		j = jwk.JWK{
+			JSONWebKey: jose.JSONWebKey{
+				Key:       p256Key,
+				KeyID:     "kid",
+				Algorithm: "ECDSA",
+				Use:       "enc",
+			},
+		}
+
+		jwkBytes, err = json.Marshal(&j)
+		require.NoError(t, err)
+
+		cmdErr = cmd.ImportKey(&getRW, bytes.NewBuffer(jwkBytes))
+		require.NoError(t, cmdErr)
 	})
 
 	t.Run("test import key - error", func(t *testing.T) {
