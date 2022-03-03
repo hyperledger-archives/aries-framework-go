@@ -205,6 +205,8 @@ type Operations struct {
 
 // DocumentMetadata document metadata.
 type DocumentMetadata struct {
+	// VersionID is version ID key.
+	VersionID string `json:"versionId,omitempty"`
 	// Deactivated is deactivated flag key.
 	Deactivated bool `json:"deactivated,omitempty"`
 	// CanonicalID is canonical ID key.
