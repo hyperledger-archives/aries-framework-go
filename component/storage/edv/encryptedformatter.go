@@ -19,6 +19,8 @@ import (
 	spi "github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
+const edvIDSize = 16
+
 // EncryptedFormatterOption allows for configuration of an EncryptedFormatter.
 type EncryptedFormatterOption func(opts *EncryptedFormatter)
 
@@ -36,11 +38,21 @@ func WithDeterministicDocumentIDs() EncryptedFormatterOption {
 	}
 }
 
+// WithEDVBatchCrypto adds support for executing MAC/JWE encryption and KeyWrapping in 1 batch call on a remote KMS
+// server. If set, then the default Encryption and MACCrypto calls during format() will not be executed locally.
+// BatchCrypto handles these operations instead.
+func WithEDVBatchCrypto(batchCrypto *BatchCrypto) EncryptedFormatterOption {
+	return func(encryptedFormatter *EncryptedFormatter) {
+		encryptedFormatter.edvBatchCrypto = batchCrypto
+	}
+}
+
 // EncryptedFormatter formats data for use with an Encrypted Data Vault.
 type EncryptedFormatter struct {
 	jweEncrypter                jose.Encrypter
 	jweDecrypter                jose.Decrypter
 	macCrypto                   *MACCrypto
+	edvBatchCrypto              *BatchCrypto
 	useDeterministicDocumentIDs bool
 }
 
@@ -72,6 +84,10 @@ func NewEncryptedFormatter(jweEncrypter jose.Encrypter, jweDecrypter jose.Decryp
 // EDV encrypted indexes, and turns key + value + tags into an encrypted document, which is then returned as the
 // formatted value from this function.
 func (e *EncryptedFormatter) Format(key string, value []byte, tags ...spi.Tag) (string, []byte, []spi.Tag, error) {
+	if e.edvBatchCrypto != nil {
+		return e.batchFormat("", key, value, tags...)
+	}
+
 	return e.format("", key, value, tags...)
 }
 
@@ -138,6 +154,36 @@ func (e *EncryptedFormatter) format(keyAndTagPrefix, key string, value []byte, t
 	return documentID, formattedValue, formattedTags, nil
 }
 
+func (e *EncryptedFormatter) batchFormat(tagNamePrefix, key string, value []byte, tags ...spi.Tag) (string,
+	[]byte, []spi.Tag, error) {
+	edvReq := &BatchCryptoPayload{
+		DocID:      tagNamePrefix + key,
+		DocTags:    tags,
+		DocPayload: base64.RawURLEncoding.EncodeToString(value),
+	}
+
+	edvRes, err := e.edvBatchCrypto.ComputeCrypto(edvReq)
+	if err != nil {
+		return "", nil, nil, fmt.Errorf("edv encryption failed to compute mac and encrypt: %w", err)
+	}
+
+	formattedValue, err := base64.RawURLEncoding.DecodeString(edvRes.DocPayload)
+	if err != nil {
+		return "", nil, nil, fmt.Errorf("edv encryption can't decode document: %w", err)
+	}
+
+	docID, err := base64.RawURLEncoding.DecodeString(edvRes.DocID)
+	if err != nil {
+		return "", nil, nil, fmt.Errorf("edv encryption can't decode docID: %w", err)
+	}
+
+	if len(docID) >= edvIDSize {
+		return base58.Encode(docID[0:edvIDSize]), formattedValue, tags, nil
+	}
+
+	return string(docID), formattedValue, tags, nil
+}
+
 func (e *EncryptedFormatter) getStructuredDocFromEncryptedDoc(
 	encryptedDocBytes []byte) (structuredDocument, error) {
 	var encryptedDocument encryptedDocument
@@ -179,11 +225,11 @@ func (e *EncryptedFormatter) generateDeterministicDocumentID(prefix, key string)
 		return "", fmt.Errorf(`failed to compute MAC based on key "%s": %w`, key, err)
 	}
 
-	return base58.Encode(keyHash[0:16]), nil
+	return base58.Encode(keyHash[0:edvIDSize]), nil
 }
 
 func generateRandomDocumentID() (string, error) {
-	randomBytes := make([]byte, 16)
+	randomBytes := make([]byte, edvIDSize)
 
 	_, err := rand.Read(randomBytes)
 	if err != nil {
