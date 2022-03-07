@@ -30,8 +30,8 @@ type saveDIDReq struct { // nolint: unused,deadcode
 //
 // This is used to create the did.
 //
-// swagger:parameters saveDIDReq
-type createIDReq struct { // nolint: unused,deadcode
+// swagger:parameters createDIDRequest
+type createDIDReq struct { // nolint: unused,deadcode
 	// Params for creating the did document
 	//
 	// in: body
