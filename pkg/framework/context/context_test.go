@@ -269,12 +269,12 @@ func TestNewProvider(t *testing.T) {
 
 		inboundHandler := ctx.InboundMessageHandler()
 
-		err = inboundHandler(&transport.Envelope{Message: []byte(`
+		err = inboundHandler(&transport.Envelope{Message: []byte(fmt.Sprintf(`
 		{
 			"@frameworkID": "5678876542345",
 			"@id": "12345",
-			"@type": "valid-message-type"
-		}`), FromKey: []byte("fromKey"), ToKey: []byte("toKey")})
+			"@type": "%s"
+		}`, didexchange.RequestMsgType)), FromKey: []byte("fromKey"), ToKey: []byte("toKey")})
 		require.NoError(t, err)
 	})
 
