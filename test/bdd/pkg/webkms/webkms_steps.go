@@ -126,7 +126,7 @@ func (c *SDKSteps) createKey(agentID, keyType string) error {
 func (c *SDKSteps) exportPubKey(agentID string) error {
 	agent := c.bddContext.AgentCtx[agentID]
 
-	keyBytes, err := agent.KMS().ExportPubKeyBytes(c.keyIDs[agentID])
+	keyBytes, _, err := agent.KMS().ExportPubKeyBytes(c.keyIDs[agentID])
 	if err != nil {
 		return err
 	}

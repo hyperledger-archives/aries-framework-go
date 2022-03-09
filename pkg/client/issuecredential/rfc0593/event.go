@@ -492,7 +492,7 @@ func signatureSuite(p Provider, proofType string) (signer.SignatureSuite, *Signa
 		return nil, nil, "", fmt.Errorf("failed to create a new signing key: %w", err)
 	}
 
-	keyBytes, err := p.KMS().ExportPubKeyBytes(keyID)
+	keyBytes, _, err := p.KMS().ExportPubKeyBytes(keyID)
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("failed to export signing key bytes: %w", err)
 	}

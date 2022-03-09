@@ -23,6 +23,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 	bbspb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/bbs_go_proto"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 const (
@@ -31,14 +32,28 @@ const (
 	nistPECDHKWPublicKeyTypeURL  = "type.hyperledger.org/hyperledger.aries.crypto.tink.NistPEcdhKwPublicKey"
 	x25519ECDHKWPublicKeyTypeURL = "type.hyperledger.org/hyperledger.aries.crypto.tink.X25519EcdhKwPublicKey"
 	bbsVerifierKeyTypeURL        = "type.hyperledger.org/hyperledger.aries.crypto.tink.BBSPublicKey"
+	derPrefix                    = "der-"
+	p13163Prefix                 = "p1363-"
 )
+
+//nolint:gochecknoglobals
+var ecdsaKMSKeyTypes = map[string]kms.KeyType{
+	derPrefix + "NIST_P256":    kms.ECDSAP256TypeDER,
+	derPrefix + "NIST_P384":    kms.ECDSAP384TypeDER,
+	derPrefix + "NIST_P521":    kms.ECDSAP521TypeDER,
+	p13163Prefix + "NIST_P256": kms.ECDSAP256TypeIEEEP1363,
+	p13163Prefix + "NIST_P384": kms.ECDSAP384TypeIEEEP1363,
+	p13163Prefix + "NIST_P521": kms.ECDSAP521TypeIEEEP1363,
+}
 
 // PubKeyWriter will write the raw bytes of a Tink KeySet's primary public key
 // The keyset must be one of the keyURLs defined above
 // Note: Only signing public keys and ecdh key types created in tinkcrypto can be exported through this PubKeyWriter.
 // ECHDES has its own Writer to export its public keys due to cyclic dependency.
 type PubKeyWriter struct {
-	w io.Writer
+	// KeyType is Key Type of the written key. It's needed as Write() is an interface function and can't return it.
+	KeyType kms.KeyType
+	w       io.Writer
 }
 
 // NewWriter creates a new PubKeyWriter instance.
@@ -50,7 +65,14 @@ func NewWriter(w io.Writer) *PubKeyWriter {
 
 // Write writes the public keyset to the underlying w.Writer.
 func (p *PubKeyWriter) Write(keyset *tinkpb.Keyset) error {
-	return write(p.w, keyset)
+	keyType, err := write(p.w, keyset)
+	if err != nil {
+		return err
+	}
+
+	p.KeyType = keyType
+
+	return nil
 }
 
 // WriteEncrypted writes the encrypted keyset to the underlying w.Writer.
@@ -58,32 +80,36 @@ func (p *PubKeyWriter) WriteEncrypted(keyset *tinkpb.EncryptedKeyset) error {
 	return fmt.Errorf("write encrypted function not supported")
 }
 
-func write(w io.Writer, msg *tinkpb.Keyset) error {
+func write(w io.Writer, msg *tinkpb.Keyset) (kms.KeyType, error) {
 	ks := msg.Key
 	primaryKID := msg.PrimaryKeyId
 	created := false
 
-	var err error
+	var (
+		kt  kms.KeyType
+		err error
+	)
 
 	for _, key := range ks {
 		if key.KeyId == primaryKID && key.Status == tinkpb.KeyStatusType_ENABLED {
 			switch key.KeyData.TypeUrl {
 			case ecdsaVerifierTypeURL, ed25519VerifierTypeURL, bbsVerifierKeyTypeURL:
-				created, err = writePubKey(w, key)
+				created, kt, err = writePubKey(w, key)
 				if err != nil {
-					return err
+					return "", err
 				}
 			case nistPECDHKWPublicKeyTypeURL, x25519ECDHKWPublicKeyTypeURL:
 				pkW := keyio.NewWriter(w)
 
 				err = pkW.Write(msg)
 				if err != nil {
-					return err
+					return "", err
 				}
 
+				kt = pkW.KeyType
 				created = true
 			default:
-				return fmt.Errorf("key type not supported for writing raw key bytes: %s", key.KeyData.TypeUrl)
+				return "", fmt.Errorf("key type not supported for writing raw key bytes: %s", key.KeyData.TypeUrl)
 			}
 
 			break
@@ -91,14 +117,17 @@ func write(w io.Writer, msg *tinkpb.Keyset) error {
 	}
 
 	if !created {
-		return fmt.Errorf("key not written")
+		return "", fmt.Errorf("key not written")
 	}
 
-	return nil
+	return kt, nil
 }
 
-func writePubKey(w io.Writer, key *tinkpb.Keyset_Key) (bool, error) {
-	var marshaledRawPubKey []byte
+func writePubKey(w io.Writer, key *tinkpb.Keyset_Key) (bool, kms.KeyType, error) {
+	var (
+		marshaledRawPubKey []byte
+		kt                 kms.KeyType
+	)
 
 	// TODO add other key types than the ones below and other than nistPECDHKWPublicKeyTypeURL and
 	// TODO x25519ECDHKWPublicKeyTypeURL(eg: secp256k1 when introduced in KMS).
@@ -108,56 +137,61 @@ func writePubKey(w io.Writer, key *tinkpb.Keyset_Key) (bool, error) {
 
 		err := proto.Unmarshal(key.KeyData.Value, pubKeyProto)
 		if err != nil {
-			return false, err
+			return false, "", err
 		}
 
-		marshaledRawPubKey, err = getMarshalledECDSAKeyValueFromProto(pubKeyProto)
+		marshaledRawPubKey, kt, err = getMarshalledECDSAKeyValueFromProto(pubKeyProto)
 		if err != nil {
-			return false, err
+			return false, "", err
 		}
 	case ed25519VerifierTypeURL:
 		pubKeyProto := new(ed25519pb.Ed25519PublicKey)
 
 		err := proto.Unmarshal(key.KeyData.Value, pubKeyProto)
 		if err != nil {
-			return false, err
+			return false, "", err
 		}
 
 		marshaledRawPubKey = make([]byte, len(pubKeyProto.KeyValue))
 		copy(marshaledRawPubKey, pubKeyProto.KeyValue)
+
+		kt = kms.ED25519Type
 	case bbsVerifierKeyTypeURL:
 		pubKeyProto := new(bbspb.BBSPublicKey)
 
 		err := proto.Unmarshal(key.KeyData.Value, pubKeyProto)
 		if err != nil {
-			return false, err
+			return false, "", err
 		}
 
 		marshaledRawPubKey = make([]byte, len(pubKeyProto.KeyValue))
 		copy(marshaledRawPubKey, pubKeyProto.KeyValue)
+
+		kt = kms.BLS12381G2Type
 	default:
-		return false, fmt.Errorf("can't export key with keyURL:%s", key.KeyData.TypeUrl)
+		return false, "", fmt.Errorf("can't export key with keyURL:%s", key.KeyData.TypeUrl)
 	}
 
 	n, err := w.Write(marshaledRawPubKey)
 	if err != nil {
-		return false, nil //nolint:nilerr
+		return false, "", nil //nolint:nilerr
 	}
 
-	return n > 0, nil
+	return n > 0, kt, nil
 }
 
-func getMarshalledECDSAKeyValueFromProto(pubKeyProto *ecdsapb.EcdsaPublicKey) ([]byte, error) {
+func getMarshalledECDSAKeyValueFromProto(pubKeyProto *ecdsapb.EcdsaPublicKey) ([]byte, kms.KeyType, error) {
 	var (
 		marshaledRawPubKey []byte
 		err                error
+		kt                 kms.KeyType
 	)
 
 	curveName := commonpb.EllipticCurveType_name[int32(pubKeyProto.Params.Curve)]
 
 	curve := subtle.GetCurve(curveName)
 	if curve == nil {
-		return nil, fmt.Errorf("undefined curve")
+		return nil, "", fmt.Errorf("undefined curve")
 	}
 
 	pubKey := ecdsa.PublicKey{
@@ -173,13 +207,16 @@ func getMarshalledECDSAKeyValueFromProto(pubKeyProto *ecdsapb.EcdsaPublicKey) ([
 	case ecdsapb.EcdsaSignatureEncoding_DER:
 		marshaledRawPubKey, err = x509.MarshalPKIXPublicKey(&pubKey)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
+
+		kt = ecdsaKMSKeyTypes[derPrefix+curveName]
 	case ecdsapb.EcdsaSignatureEncoding_IEEE_P1363:
 		marshaledRawPubKey = elliptic.Marshal(curve, pubKey.X, pubKey.Y)
+		kt = ecdsaKMSKeyTypes[p13163Prefix+curveName]
 	default:
-		return nil, fmt.Errorf("can't export key with bad key encoding: '%s'", pubKeyProto.Params.Encoding)
+		return nil, "", fmt.Errorf("can't export key with bad key encoding: '%s'", pubKeyProto.Params.Encoding)
 	}
 
-	return marshaledRawPubKey, nil
+	return marshaledRawPubKey, kt, nil
 }

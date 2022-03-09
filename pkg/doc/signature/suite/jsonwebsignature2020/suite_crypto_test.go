@@ -45,7 +45,7 @@ func TestNewCryptoSignerAndVerifier(t *testing.T) {
 	docSig, err := ss.Sign(doc)
 	require.NoError(t, err)
 
-	pubKeyBytes, err := lKMS.ExportPubKeyBytes(kid)
+	pubKeyBytes, _, err := lKMS.ExportPubKeyBytes(kid)
 	require.NoError(t, err)
 
 	pubKey := &sigverifier.PublicKey{
