@@ -65,6 +65,7 @@ func TestParseCredential(t *testing.T) {
 			"https://www.w3.org/2018/credentials/examples/v1",
 			"https://w3id.org/security/jws/v1",
 			"https://trustbloc.github.io/context/vc/examples-v1.jsonld",
+			"https://w3id.org/security/suites/ed25519-2020/v1",
 		}, vc.Context)
 
 		// validate id
@@ -927,6 +928,7 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 			"https://www.w3.org/2018/credentials/examples/v1",
 			"https://w3id.org/security/jws/v1",
 			"https://trustbloc.github.io/context/vc/examples-v1.jsonld",
+			"https://w3id.org/security/suites/ed25519-2020/v1",
 		}, []string{
 			"VerifiableCredential",
 			"UniversityDegreeCredential",

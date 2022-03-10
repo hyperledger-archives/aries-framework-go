@@ -27,6 +27,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 )
@@ -42,10 +43,12 @@ FQIDAQAB
 -----END PUBLIC KEY-----`
 
 const (
-	did           = "did:method:abc"
-	creator       = did + "#key-1"
-	keyType       = "Ed25519VerificationKey2018"
-	signatureType = "Ed25519Signature2018"
+	did               = "did:method:abc"
+	creator           = did + "#key-1"
+	keyType           = "Ed25519VerificationKey2018"
+	keyType2020       = "Ed25519VerificationKey2020"
+	signatureType     = "Ed25519Signature2018"
+	signatureType2020 = "Ed25519Signature2020"
 )
 
 const (
@@ -479,10 +482,10 @@ func TestPublicKeys(t *testing.T) {
 
 			if len(raw.PublicKey) != 0 {
 				delete(raw.PublicKey[1], jsonldPublicKeyPem)
-				raw.PublicKey[1]["publicKeyMultibase"] = wrongDataMsg
+				raw.PublicKey[1]["publicKeyMultibase1"] = wrongDataMsg
 			} else {
 				delete(raw.VerificationMethod[1], jsonldPublicKeyPem)
-				raw.VerificationMethod[1]["publicKeyMultibase"] = wrongDataMsg
+				raw.VerificationMethod[1]["publicKeyMultibase1"] = wrongDataMsg
 			}
 
 			bytes, err := json.Marshal(raw)
@@ -1138,6 +1141,46 @@ func TestVerifyProof(t *testing.T) {
 	}
 }
 
+func TestVerifyProofWithEd25519signature2020(t *testing.T) {
+	docs := []string{validDoc}
+	for _, d := range docs {
+		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+		if err != nil {
+			panic(err)
+		}
+
+		signedDoc := createSignedDidDocumentWithEd25519signature2020(t, privKey, pubKey)
+
+		s := ed25519signature2020.New(suite.WithVerifier(ed25519signature2020.NewPublicKeyVerifier()))
+
+		// happy path - valid signed document
+		doc, err := ParseDocument(signedDoc)
+		require.Nil(t, err)
+		require.NotNil(t, doc)
+		err = doc.VerifyProof([]verifier.SignatureSuite{s}, ldtestutil.WithDocumentLoader(t))
+		require.NoError(t, err)
+
+		// error - no suites are passed, verifier is not created
+		err = doc.VerifyProof([]verifier.SignatureSuite{}, ldtestutil.WithDocumentLoader(t))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "create verifier")
+
+		// error - doc with invalid proof value
+		doc.Proof[0].ProofValue = []byte("invalid")
+		err = doc.VerifyProof([]verifier.SignatureSuite{s}, ldtestutil.WithDocumentLoader(t))
+		require.NotNil(t, err)
+		require.Contains(t, err.Error(), "ed25519: invalid signature")
+
+		// error - doc with no proof
+		doc, err = ParseDocument([]byte(d))
+		require.NoError(t, err)
+		require.NotNil(t, doc)
+		err = doc.VerifyProof([]verifier.SignatureSuite{s}, ldtestutil.WithDocumentLoader(t))
+		require.Equal(t, ErrProofNotFound, err)
+		require.Contains(t, err.Error(), "proof not found")
+	}
+}
+
 func TestDidKeyResolver_Resolve(t *testing.T) {
 	// error - key not found
 	keyResolver := didKeyResolver{}
@@ -1661,25 +1704,13 @@ func TestDoc_SerializeInterop(t *testing.T) {
 	require.Equal(t, docJSON, docInteropJSON)
 }
 
-func createDidDocumentWithSigningKey(pubKey []byte) *Doc {
-	const (
-		didContext      = "https://w3id.org/did/v1"
-		securityContext = "https://w3id.org/security/v1"
-	)
-
-	signingKey := VerificationMethod{
-		ID:         creator,
-		Type:       keyType,
-		Controller: did,
-		Value:      pubKey,
-	}
-
+func createDidDocumentWithSigningKey(vm VerificationMethod, context []string) *Doc { //nolint: gocritic
 	createdTime := time.Now()
 
 	didDoc := &Doc{
-		Context:            []string{didContext, securityContext},
+		Context:            context,
 		ID:                 did,
-		VerificationMethod: []VerificationMethod{signingKey},
+		VerificationMethod: []VerificationMethod{vm},
 		Created:            &createdTime,
 	}
 
@@ -1687,7 +1718,19 @@ func createDidDocumentWithSigningKey(pubKey []byte) *Doc {
 }
 
 func createSignedDidDocument(t *testing.T, privKey, pubKey []byte) []byte {
-	didDoc := createDidDocumentWithSigningKey(pubKey)
+	const (
+		didContext      = "https://w3id.org/did/v1"
+		securityContext = "https://w3id.org/security/v1"
+	)
+
+	vm := VerificationMethod{
+		ID:         creator,
+		Type:       keyType,
+		Controller: did,
+		Value:      pubKey,
+	}
+
+	didDoc := createDidDocumentWithSigningKey(vm, []string{didContext, securityContext})
 
 	jsonDoc, err := didDoc.JSONBytes()
 	require.NoError(t, err)
@@ -1698,6 +1741,33 @@ func createSignedDidDocument(t *testing.T, privKey, pubKey []byte) []byte {
 	}
 
 	s := signer.New(ed25519signature2018.New(
+		suite.WithSigner(getSigner(privKey))))
+
+	signedDoc, err := s.Sign(context, jsonDoc, ldtestutil.WithDocumentLoader(t))
+	require.NoError(t, err)
+
+	return signedDoc
+}
+
+func createSignedDidDocumentWithEd25519signature2020(t *testing.T, privKey, pubKey []byte) []byte {
+	const (
+		didContext      = "https://w3id.org/did/v1"
+		securityContext = "https://w3id.org/security/suites/ed25519-2020/v1"
+	)
+
+	vm := NewVerificationMethodFromBytes(creator, keyType2020, did, pubKey)
+
+	didDoc := createDidDocumentWithSigningKey(*vm, []string{didContext, securityContext})
+
+	jsonDoc, err := didDoc.JSONBytes()
+	require.NoError(t, err)
+
+	context := &signer.Context{
+		Creator:       creator,
+		SignatureType: signatureType2020,
+	}
+
+	s := signer.New(ed25519signature2020.New(
 		suite.WithSigner(getSigner(privKey))))
 
 	signedDoc, err := s.Sign(context, jsonDoc, ldtestutil.WithDocumentLoader(t))

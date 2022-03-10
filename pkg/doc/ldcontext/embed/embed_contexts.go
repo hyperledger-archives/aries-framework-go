@@ -46,6 +46,8 @@ var (
 	credentialFulfillment []byte
 	//go:embed third_party/identity.foundation/credential-application.jsonld
 	credentialApplication []byte
+	//go:embed third_party/digitalbazaar.github.io/ed25519-signature-2020-v1.jsonld
+	ed255192020 []byte
 )
 
 // Contexts contains JSON-LD contexts embedded into a Go binary.
@@ -139,5 +141,10 @@ var Contexts = []ldcontext.Document{ //nolint:gochecknoglobals
 		URL:         "https://identity.foundation/credential-manifest/application/v1",
 		DocumentURL: "https://identity.foundation/credential-manifest/application/v1",
 		Content:     credentialApplication,
+	},
+	{
+		URL:         "https://w3id.org/security/suites/ed25519-2020/v1",
+		DocumentURL: "https://digitalbazaar.github.io/ed25519-signature-2020-context/contexts/ed25519-signature-2020-v1.jsonld", //nolint: lll
+		Content:     ed255192020,
 	},
 }
