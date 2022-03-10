@@ -8,9 +8,9 @@ go 1.17
 
 require (
 	github.com/google/uuid v1.1.2
-	github.com/hyperledger/aries-framework-go v0.1.8-0.20220217153004-1622c70e5767
+	github.com/hyperledger/aries-framework-go v0.1.8-0.20220308060532-714cd5c18552
 	github.com/hyperledger/aries-framework-go/component/storage/indexeddb v0.0.0-00010101000000-000000000000
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20220217153004-1622c70e5767
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20220308060532-714cd5c18552
 	github.com/mitchellh/mapstructure v1.3.0
 	github.com/stretchr/testify v1.7.0
 )
@@ -29,8 +29,8 @@ require (
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/google/tink/go v1.6.1-0.20210519071714-58be99b3c4d0 // indirect
 	github.com/gorilla/mux v1.7.3 // indirect
-	github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20210820175050-dcc7a225178d // indirect
-	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220217153004-1622c70e5767 // indirect
+	github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20220308060532-714cd5c18552 // indirect
+	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220308060532-714cd5c18552 // indirect
 	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a // indirect
 	github.com/kawamuray/jsonpath v0.0.0-20201211160320-7483bafabd7e // indirect
 	github.com/kilic/bls12-381 v0.1.1-0.20210503002446-7b7597926c69 // indirect

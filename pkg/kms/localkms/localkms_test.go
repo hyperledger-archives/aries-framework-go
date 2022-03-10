@@ -205,7 +205,7 @@ func TestCreateGetRotateKey_Failure(t *testing.T) {
 		kid, _, err := kmsStorage.Create(kms.AES128GCM)
 		require.NoError(t, err)
 
-		_, err = kmsStorage.ExportPubKeyBytes(kid)
+		_, _, err = kmsStorage.ExportPubKeyBytes(kid)
 		require.EqualError(t, err, "exportPubKeyBytes: failed to export marshalled key: exportPubKeyBytes: "+
 			"failed to get public keyset handle: keyset.Handle: keyset.Handle: keyset contains a non-private key")
 	})
@@ -367,13 +367,15 @@ func TestLocalKMS_Success(t *testing.T) {
 		require.Equal(t, len(readKHPrimitives.Entries), len(rotatedKHPrimitives.Entries))
 
 		if strings.Contains(string(v), "ECDSA") || v == kms.ED25519Type || v == kms.BLS12381G2Type {
-			pubKeyBytes, e := kmsService.ExportPubKeyBytes(keyID)
+			pubKeyBytes, kt, e := kmsService.ExportPubKeyBytes(keyID)
 			require.Errorf(t, e, "KeyID has been rotated. An error must be returned")
 			require.Empty(t, pubKeyBytes)
+			require.Empty(t, kt)
 
-			pubKeyBytes, e = kmsService.ExportPubKeyBytes(newKeyID)
+			pubKeyBytes, kt, e = kmsService.ExportPubKeyBytes(newKeyID)
 			require.NoError(t, e)
 			require.NotEmpty(t, pubKeyBytes)
+			require.Equal(t, v, kt)
 
 			kh, e := kmsService.PubKeyBytesToHandle(pubKeyBytes, v)
 			require.NoError(t, e)
@@ -501,9 +503,10 @@ func TestLocalKMS_ImportPrivateKey(t *testing.T) { // nolint:gocyclo
 				ksID, _, err := kmsService.ImportPrivateKey(privKey, tt.keyType)
 				require.NoError(t, err)
 
-				pubKeyBytes, err := kmsService.ExportPubKeyBytes(ksID)
+				pubKeyBytes, kt, err := kmsService.ExportPubKeyBytes(ksID)
 				require.NoError(t, err)
 				require.EqualValues(t, pubKey, pubKeyBytes)
+				require.Equal(t, tt.keyType, kt)
 				return
 			}
 
@@ -519,8 +522,9 @@ func TestLocalKMS_ImportPrivateKey(t *testing.T) { // nolint:gocyclo
 				ksID, _, err := kmsService.ImportPrivateKey(privKey, tt.keyType)
 				require.NoError(t, err)
 
-				pubKeyBytes, err := kmsService.ExportPubKeyBytes(ksID)
+				pubKeyBytes, kt, err := kmsService.ExportPubKeyBytes(ksID)
 				require.NoError(t, err)
+				require.Equal(t, tt.keyType, kt)
 
 				expectedPubKeyBytes, err := pubKey.Marshal()
 				require.NoError(t, err)
@@ -549,8 +553,9 @@ func TestLocalKMS_ImportPrivateKey(t *testing.T) { // nolint:gocyclo
 			}
 
 			// export marshaled public key to verify it against the original public key (marshalled)
-			actualPubKey, err := kmsService.ExportPubKeyBytes(ksID)
+			actualPubKey, kt, err := kmsService.ExportPubKeyBytes(ksID)
 			require.NoError(t, err)
+			require.Equal(t, tt.keyType, kt)
 
 			var expectedPubKey []byte
 

@@ -52,7 +52,7 @@ func TestRemoteKeyStore(t *testing.T) {
 	marshalledPubKey := elliptic.Marshal(pvKey.PublicKey.Curve, pvKey.PublicKey.X, pvKey.PublicKey.Y)
 
 	hf := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		err = processPOSTRequest(w, r, defaultKeyStoreID, defaultKID, marshalledPubKey)
+		err = processPOSTRequest(w, r, defaultKeyStoreID, defaultKID, marshalledPubKey, kms.ECDSAP256TypeIEEEP1363)
 		w.WriteHeader(http.StatusCreated)
 		require.NoError(t, err)
 	})
@@ -155,7 +155,7 @@ func TestRemoteKeyStore(t *testing.T) {
 	t.Run("New, Create, Get, Export/Import success, all other functions should fail", func(t *testing.T) {
 		remoteKMS := New(defaultKeystoreURL, client)
 
-		kid, keyURL, err := remoteKMS.Create(kms.ED25519Type)
+		kid, keyURL, err := remoteKMS.Create(kms.ECDSAP256TypeIEEEP1363)
 		require.NoError(t, err)
 		require.Equal(t, defaultKID, kid)
 		require.Contains(t, keyURL, fmt.Sprintf("%s/keys/%s", defaultKeystoreURL, defaultKID))
@@ -173,9 +173,10 @@ func TestRemoteKeyStore(t *testing.T) {
 		require.NoError(t, err)
 		require.EqualValues(t, keyURL, kh)
 
-		pubKey, err := remoteKMS.ExportPubKeyBytes(kid)
+		pubKey, kt, err := remoteKMS.ExportPubKeyBytes(kid)
 		require.NoError(t, err)
 		require.EqualValues(t, marshalledPubKey, pubKey)
+		require.Equal(t, kms.ECDSAP256TypeIEEEP1363, kt)
 
 		t.Run("ExportPubKeyBytes API error", func(t *testing.T) {
 			_hf := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -190,7 +191,7 @@ func TestRemoteKeyStore(t *testing.T) {
 
 			tmpKMS := New(_url, _client)
 
-			_, err = tmpKMS.ExportPubKeyBytes("kid")
+			_, _, err = tmpKMS.ExportPubKeyBytes("kid")
 			require.Contains(t, err.Error(), "api error msg")
 		})
 
@@ -204,7 +205,7 @@ func TestRemoteKeyStore(t *testing.T) {
 
 			// switch the marshaller in remoteKMS3 to force an error in ExportPubKeyBytes
 			remoteKMS3.unmarshalFunc = failingUnmarshal
-			_, err = remoteKMS3.ExportPubKeyBytes(kid1)
+			_, _, err = remoteKMS3.ExportPubKeyBytes(kid1)
 			require.Contains(t, err.Error(), "unmarshal failed")
 			require.Contains(t, err.Error(), "failingUnmarshal always fails")
 
@@ -214,7 +215,7 @@ func TestRemoteKeyStore(t *testing.T) {
 
 			// test GET http function failure
 			remoteKMS3.keystoreURL = "``#$%"
-			_, err = remoteKMS3.ExportPubKeyBytes(kid1)
+			_, _, err = remoteKMS3.ExportPubKeyBytes(kid1)
 			require.Contains(t, err.Error(), "posting GET ExportPubKeyBytes key failed")
 			require.Contains(t, err.Error(), "build get request error")
 		})
@@ -227,7 +228,7 @@ func TestRemoteKeyStore(t *testing.T) {
 			blankClient := &http.Client{}
 			remoteKMS2 := New(defaultKeystoreURL, blankClient)
 
-			_, err = remoteKMS2.ExportPubKeyBytes(kid)
+			_, _, err = remoteKMS2.ExportPubKeyBytes(kid)
 			require.Contains(t, err.Error(), "posting GET ExportPubKeyBytes key failed")
 		})
 
@@ -284,7 +285,7 @@ func TestRemoteKeyStoreWithHeadersFunc(t *testing.T) {
 	marshalledPubKey := elliptic.Marshal(pvKey.PublicKey.Curve, pvKey.PublicKey.X, pvKey.PublicKey.Y)
 
 	hf := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		err = processPOSTRequest(w, r, defaultKeyStoreID, defaultKID, marshalledPubKey)
+		err = processPOSTRequest(w, r, defaultKeyStoreID, defaultKID, marshalledPubKey, kms.ECDSAP256TypeIEEEP1363)
 		w.WriteHeader(http.StatusCreated)
 		require.NoError(t, err)
 	})
@@ -401,7 +402,7 @@ func TestCloseResponseBody(t *testing.T) {
 }
 
 func processPOSTRequest(w http.ResponseWriter, r *http.Request, keysetID, kid string,
-	defaultExportPubKey []byte) error {
+	defaultExportPubKey []byte, defaultExportKeyType kms.KeyType) error {
 	xRootCapabilityHeaderValue := []byte("DUMMY")
 
 	if valid := validateHTTPMethod(w, r); !valid {
@@ -417,7 +418,7 @@ func processPOSTRequest(w http.ResponseWriter, r *http.Request, keysetID, kid st
 	}
 
 	if strings.LastIndex(r.URL.Path, "/export") == len(r.URL.Path)-len("/export") {
-		return processExportKeyRequest(w, defaultExportPubKey)
+		return processExportKeyRequest(w, defaultExportPubKey, defaultExportKeyType)
 	}
 
 	resp := &createKeyStoreResp{
@@ -463,9 +464,10 @@ func processCreateKeyRequest(w http.ResponseWriter, r *http.Request, keysetID, k
 	return nil
 }
 
-func processExportKeyRequest(w io.Writer, defaultExportPubKey []byte) error {
+func processExportKeyRequest(w io.Writer, defaultExportPubKey []byte, defaultExportKeyType kms.KeyType) error {
 	resp := &exportKeyResp{
 		PublicKey: defaultExportPubKey,
+		KeyType:   string(defaultExportKeyType),
 	}
 
 	mResp, err := json.Marshal(resp)

@@ -313,18 +313,20 @@ func (l *LocalKMS) getKeySet(id string) (*keyset.Handle, error) {
 // Returns:
 //  - marshalled public key []byte
 //  - error if it fails to export the public key bytes
-func (l *LocalKMS) ExportPubKeyBytes(id string) ([]byte, error) {
+func (l *LocalKMS) ExportPubKeyBytes(id string) ([]byte, kms.KeyType, error) {
 	kh, err := l.getKeySet(id)
 	if err != nil {
-		return nil, fmt.Errorf("exportPubKeyBytes: failed to get keyset handle: %w", err)
+		return nil, "", fmt.Errorf("exportPubKeyBytes: failed to get keyset handle: %w", err)
 	}
 
-	marshalledKey, err := l.exportPubKeyBytes(kh)
+	marshalledKey, kt, err := l.exportPubKeyBytes(kh)
 	if err != nil {
-		return nil, fmt.Errorf("exportPubKeyBytes: failed to export marshalled key: %w", err)
+		return nil, "", fmt.Errorf("exportPubKeyBytes: failed to export marshalled key: %w", err)
 	}
 
-	return setKIDForCompositeKey(marshalledKey, id)
+	mUpdatedKey, err := setKIDForCompositeKey(marshalledKey, id)
+
+	return mUpdatedKey, kt, err
 }
 
 func setKIDForCompositeKey(marshalledKey []byte, kid string) ([]byte, error) {
@@ -340,11 +342,11 @@ func setKIDForCompositeKey(marshalledKey []byte, kid string) ([]byte, error) {
 	return json.Marshal(pubKey)
 }
 
-func (l *LocalKMS) exportPubKeyBytes(kh *keyset.Handle) ([]byte, error) {
+func (l *LocalKMS) exportPubKeyBytes(kh *keyset.Handle) ([]byte, kms.KeyType, error) {
 	// kh must be a private asymmetric key in order to extract its public key
 	pubKH, err := kh.Public()
 	if err != nil {
-		return nil, fmt.Errorf("exportPubKeyBytes: failed to get public keyset handle: %w", err)
+		return nil, "", fmt.Errorf("exportPubKeyBytes: failed to get public keyset handle: %w", err)
 	}
 
 	buf := new(bytes.Buffer)
@@ -352,11 +354,11 @@ func (l *LocalKMS) exportPubKeyBytes(kh *keyset.Handle) ([]byte, error) {
 
 	err = pubKH.WriteWithNoSecrets(pubKeyWriter)
 	if err != nil {
-		return nil, fmt.Errorf("exportPubKeyBytes: failed to create keyset with no secrets (public "+
+		return nil, "", fmt.Errorf("exportPubKeyBytes: failed to create keyset with no secrets (public "+
 			"key material): %w", err)
 	}
 
-	return buf.Bytes(), nil
+	return buf.Bytes(), pubKeyWriter.KeyType, nil
 }
 
 // CreateAndExportPubKeyBytes will create a key of type kt and export its public key in raw bytes and returns it.
@@ -371,7 +373,7 @@ func (l *LocalKMS) CreateAndExportPubKeyBytes(kt kms.KeyType) (string, []byte, e
 		return "", nil, fmt.Errorf("createAndExportPubKeyBytes: failed to create new key: %w", err)
 	}
 
-	pubKeyBytes, err := l.ExportPubKeyBytes(kid)
+	pubKeyBytes, _, err := l.ExportPubKeyBytes(kid)
 	if err != nil {
 		return "", nil, fmt.Errorf("createAndExportPubKeyBytes: failed to export new public key bytes: %w", err)
 	}
@@ -412,7 +414,7 @@ func (l *LocalKMS) ImportPrivateKey(privKey interface{}, kt kms.KeyType,
 }
 
 func (l *LocalKMS) generateKID(kh *keyset.Handle, kt kms.KeyType) (string, error) {
-	keyBytes, err := l.exportPubKeyBytes(kh)
+	keyBytes, _, err := l.exportPubKeyBytes(kh)
 	if err != nil {
 		return "", fmt.Errorf("generateKID: failed to export public key: %w", err)
 	}

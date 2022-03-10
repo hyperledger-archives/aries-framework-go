@@ -68,6 +68,7 @@ type createKeyResp struct {
 
 type exportKeyResp struct {
 	PublicKey []byte `json:"public_key"`
+	KeyType   string `json:"key_type"`
 }
 
 type importKeyReq struct {
@@ -331,7 +332,7 @@ func (r *RemoteKMS) Rotate(kt kms.KeyType, keyID string) (string, interface{}, e
 // Returns:
 //  - marshalled public key []byte
 //  - error if it fails to export the public key bytes
-func (r *RemoteKMS) ExportPubKeyBytes(keyID string) ([]byte, error) {
+func (r *RemoteKMS) ExportPubKeyBytes(keyID string) ([]byte, kms.KeyType, error) {
 	startExport := time.Now()
 	keyURL := r.buildKIDURL(keyID)
 
@@ -339,7 +340,7 @@ func (r *RemoteKMS) ExportPubKeyBytes(keyID string) ([]byte, error) {
 
 	resp, err := r.getHTTPRequest(destination)
 	if err != nil {
-		return nil, fmt.Errorf("posting GET ExportPubKeyBytes key failed [%s, %w]", destination, err)
+		return nil, "", fmt.Errorf("posting GET ExportPubKeyBytes key failed [%s, %w]", destination, err)
 	}
 
 	// handle response
@@ -349,12 +350,12 @@ func (r *RemoteKMS) ExportPubKeyBytes(keyID string) ([]byte, error) {
 
 	err = readResponse(resp, &httpResp, r.unmarshalFunc)
 	if err != nil {
-		return nil, fmt.Errorf("export pub key bytes failed [%s, %w]", destination, err)
+		return nil, "", fmt.Errorf("export pub key bytes failed [%s, %w]", destination, err)
 	}
 
 	logger.Debugf("overall ExportPubKeyBytes duration: %s", time.Since(startExport))
 
-	return httpResp.PublicKey, nil
+	return httpResp.PublicKey, kms.KeyType(httpResp.KeyType), nil
 }
 
 // CreateAndExportPubKeyBytes will remotely create a key of type kt and export its public key in raw bytes and returns

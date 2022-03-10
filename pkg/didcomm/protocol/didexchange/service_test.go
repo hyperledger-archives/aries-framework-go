@@ -2365,8 +2365,9 @@ func signedDocAttach(t *testing.T, doc *did.Doc) *decorator.Attachment {
 	kid, kh, err := kmsInstance.Create(kms.ED25519Type)
 	require.NoError(t, err)
 
-	pub, err := kmsInstance.ExportPubKeyBytes(kid)
+	pub, kt, err := kmsInstance.ExportPubKeyBytes(kid)
 	require.NoError(t, err)
+	require.Equal(t, kms.ED25519Type, kt)
 
 	c := &tinkcrypto.Crypto{}
 

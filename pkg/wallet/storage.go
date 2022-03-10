@@ -128,7 +128,7 @@ func createEDVStorageProvider(auth string, profile *profile, opts *unlockOpts) (
 
 // getJWSEncrypter creates and returns jwe encrypter based on key manager & crypto provided
 func getJWSEncrypter(kid string, keyMgr kms.KeyManager, cryptoImpl crypto.Crypto) (*jose.JWEEncrypt, error) {
-	pubKeyBytes, err := keyMgr.ExportPubKeyBytes(kid)
+	pubKeyBytes, _, err := keyMgr.ExportPubKeyBytes(kid)
 	if err != nil {
 		return nil, err
 	}

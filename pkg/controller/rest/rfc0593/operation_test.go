@@ -196,8 +196,9 @@ func signer(t *testing.T, ctx *context.Provider) (*suite.CryptoSigner, string) {
 	keyID, kh, err := ctx.KMS().Create(kms.ED25519Type)
 	require.NoError(t, err)
 
-	keyBytes, err := ctx.KMS().ExportPubKeyBytes(keyID)
+	keyBytes, kt, err := ctx.KMS().ExportPubKeyBytes(keyID)
 	require.NoError(t, err)
+	require.Equal(t, kms.ED25519Type, kt)
 
 	s := suite.NewCryptoSigner(ctx.Crypto(), kh)
 	_, verMethod := fingerprint.CreateDIDKeyByCode(fingerprint.ED25519PubKeyMultiCodec, keyBytes)
