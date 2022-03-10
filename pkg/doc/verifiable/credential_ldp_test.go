@@ -30,6 +30,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignatureproof2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ecdsasecp256k1signature2019"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
 	sigverifier "github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -48,6 +49,39 @@ func TestParseCredentialFromLinkedDataProof_Ed25519Signature2018(t *testing.T) {
 
 	ldpContext := &LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
+		SignatureRepresentation: SignatureProofValue,
+		Suite:                   sigSuite,
+		VerificationMethod:      "did:example:123456#key1",
+	}
+
+	vc, err := parseTestCredential(t, []byte(validCredential))
+	r.NoError(err)
+
+	err = vc.AddLinkedDataProof(ldpContext, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
+	r.NoError(err)
+
+	vcBytes, err := json.Marshal(vc)
+	r.NoError(err)
+
+	vcWithLdp, err := parseTestCredential(t, vcBytes,
+		WithEmbeddedSignatureSuites(sigSuite),
+		WithPublicKeyFetcher(SingleKey(signer.PublicKeyBytes(), kms.ED25519)))
+	r.NoError(err)
+	r.Equal(vc, vcWithLdp)
+}
+
+func TestParseCredentialFromLinkedDataProof_Ed25519Signature2020(t *testing.T) {
+	r := require.New(t)
+
+	signer, err := newCryptoSigner(kms.ED25519Type)
+	r.NoError(err)
+
+	sigSuite := ed25519signature2020.New(
+		suite.WithSigner(signer),
+		suite.WithVerifier(ed25519signature2020.NewPublicKeyVerifier()))
+
+	ldpContext := &LinkedDataProofContext{
+		SignatureType:           "Ed25519Signature2020",
 		SignatureRepresentation: SignatureProofValue,
 		Suite:                   sigSuite,
 		VerificationMethod:      "did:example:123456#key1",

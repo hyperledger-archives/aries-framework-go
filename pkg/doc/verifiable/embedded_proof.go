@@ -23,6 +23,7 @@ import (
 
 const (
 	ed25519Signature2018        = "Ed25519Signature2018"
+	ed25519Signature2020        = "Ed25519Signature2020"
 	jsonWebSignature2020        = "JsonWebSignature2020"
 	ecdsaSecp256k1Signature2019 = "EcdsaSecp256k1Signature2019"
 	bbsBlsSignature2020         = "BbsBlsSignature2020"
@@ -38,7 +39,7 @@ func getProofType(proofMap map[string]interface{}) (string, error) {
 	proofTypeStr := safeStringValue(proofType)
 	switch proofTypeStr {
 	case ed25519Signature2018, jsonWebSignature2020, ecdsaSecp256k1Signature2019,
-		bbsBlsSignature2020, bbsBlsSignatureProof2020:
+		bbsBlsSignature2020, bbsBlsSignatureProof2020, ed25519Signature2020:
 		return proofTypeStr, nil
 	default:
 		return "", fmt.Errorf("unsupported proof type: %s", proofType)

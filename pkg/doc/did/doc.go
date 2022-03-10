@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/multiformats/go-multibase"
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
@@ -51,10 +52,11 @@ const (
 	jsonldProofPurpose   = "proofPurpose"
 
 	// various public key encodings.
-	jsonldPublicKeyBase58 = "publicKeyBase58"
-	jsonldPublicKeyHex    = "publicKeyHex"
-	jsonldPublicKeyPem    = "publicKeyPem"
-	jsonldPublicKeyjwk    = "publicKeyJwk"
+	jsonldPublicKeyBase58    = "publicKeyBase58"
+	jsonldPublicKeyMultibase = "publicKeyMultibase"
+	jsonldPublicKeyHex       = "publicKeyHex"
+	jsonldPublicKeyPem       = "publicKeyPem"
+	jsonldPublicKeyjwk       = "publicKeyJwk"
 )
 
 var (
@@ -285,8 +287,28 @@ type VerificationMethod struct {
 
 	Value []byte
 
-	jsonWebKey  *jwk.JWK
-	relativeURL bool
+	jsonWebKey        *jwk.JWK
+	relativeURL       bool
+	multibaseEncoding multibase.Encoding
+}
+
+// NewVerificationMethodFromBytesWithMultibase creates a new VerificationMethod based on
+// raw public key bytes with multibase.
+func NewVerificationMethodFromBytesWithMultibase(id, keyType, controller string, value []byte,
+	encoding multibase.Encoding) *VerificationMethod {
+	relativeURL := false
+	if strings.HasPrefix(id, "#") {
+		relativeURL = true
+	}
+
+	return &VerificationMethod{
+		ID:                id,
+		Type:              keyType,
+		Controller:        controller,
+		Value:             value,
+		relativeURL:       relativeURL,
+		multibaseEncoding: encoding,
+	}
 }
 
 // NewVerificationMethodFromBytes creates a new VerificationMethod based on raw public key bytes.
@@ -294,6 +316,10 @@ func NewVerificationMethodFromBytes(id, keyType, controller string, value []byte
 	relativeURL := false
 	if strings.HasPrefix(id, "#") {
 		relativeURL = true
+	}
+
+	if keyType == "Ed25519VerificationKey2020" {
+		return NewVerificationMethodFromBytesWithMultibase(id, keyType, controller, value, multibase.Base58BTC)
 	}
 
 	return &VerificationMethod{
@@ -827,6 +853,18 @@ func decodeVM(vm *VerificationMethod, rawPK map[string]interface{}) error {
 		return nil
 	}
 
+	if stringEntry(rawPK[jsonldPublicKeyMultibase]) != "" {
+		multibaseEncoding, value, err := multibase.Decode(stringEntry(rawPK[jsonldPublicKeyMultibase]))
+		if err != nil {
+			return err
+		}
+
+		vm.Value = value
+		vm.multibaseEncoding = multibaseEncoding
+
+		return nil
+	}
+
 	if stringEntry(rawPK[jsonldPublicKeyHex]) != "" {
 		value, err := hex.DecodeString(stringEntry(rawPK[jsonldPublicKeyHex]))
 		if err != nil {
@@ -1309,13 +1347,20 @@ func populateRawVerificationMethod(context, didID, baseURI string,
 		}
 	}
 
-	if vm.jsonWebKey != nil {
+	if vm.jsonWebKey != nil { //nolint: gocritic
 		jwkBytes, err := json.Marshal(vm.jsonWebKey)
 		if err != nil {
 			return nil, err
 		}
 
 		rawVM[jsonldPublicKeyjwk] = json.RawMessage(jwkBytes)
+	} else if vm.Type == "Ed25519VerificationKey2020" {
+		var err error
+
+		rawVM[jsonldPublicKeyMultibase], err = multibase.Encode(vm.multibaseEncoding, vm.Value)
+		if err != nil {
+			return nil, err
+		}
 	} else if vm.Value != nil {
 		rawVM[jsonldPublicKeyBase58] = base58.Encode(vm.Value)
 	}
