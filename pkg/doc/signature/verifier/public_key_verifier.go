@@ -13,6 +13,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/asn1"
 	"errors"
 	"fmt"
 	"math/big"
@@ -256,7 +257,7 @@ func (sv *ECDSASignatureVerifier) Verify(pubKey *PublicKey, msg, signature []byt
 		return errors.New("ecdsa: invalid public key type")
 	}
 
-	if len(signature) != 2*ec.keySize {
+	if len(signature) < 2*ec.keySize {
 		return errors.New("ecdsa: invalid signature size")
 	}
 
@@ -271,6 +272,19 @@ func (sv *ECDSASignatureVerifier) Verify(pubKey *PublicKey, msg, signature []byt
 
 	r := big.NewInt(0).SetBytes(signature[:ec.keySize])
 	s := big.NewInt(0).SetBytes(signature[ec.keySize:])
+
+	if len(signature) > 2*ec.keySize {
+		var esig struct {
+			R, S *big.Int
+		}
+
+		if _, err := asn1.Unmarshal(signature, &esig); err != nil {
+			return err
+		}
+
+		r = esig.R
+		s = esig.S
+	}
 
 	verified := ecdsa.Verify(ecdsaPubKey, hash, r, s)
 	if !verified {
