@@ -186,7 +186,6 @@ func TestContextStoreImpl_Import(t *testing.T) {
 		err = contextStore.Import(contexts)
 		require.NoError(t, err)
 
-		require.Equal(t, 1, store.BatchSize)
 		assertContextInStore(t, store, sampleContextURL, "updated-context")
 	})
 
@@ -261,14 +260,14 @@ func TestContextStoreImpl_Import(t *testing.T) {
 
 	t.Run("Fail to store batch of context documents", func(t *testing.T) {
 		storageProvider := mockstorage.NewMockStoreProvider()
-		storageProvider.Store.ErrBatch = errors.New("batch error")
+		storageProvider.Store.ErrPut = errors.New("error")
 
 		contextStore, err := ld.NewContextStore(storageProvider)
 		require.NoError(t, err)
 
 		err = contextStore.Import(embed.Contexts)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "store batch of contexts")
+		require.Contains(t, err.Error(), "store context: error")
 	})
 }
 
