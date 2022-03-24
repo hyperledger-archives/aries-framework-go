@@ -11,10 +11,10 @@ require (
 	github.com/cenkalti/backoff/v4 v4.0.2
 	github.com/google/tink/go v1.6.1-0.20210519071714-58be99b3c4d0
 	github.com/google/uuid v1.1.2
-	github.com/hyperledger/aries-framework-go v0.1.8-0.20220217153004-1622c70e5767
-	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220217153004-1622c70e5767
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20220217153004-1622c70e5767
-	github.com/hyperledger/aries-framework-go/test/component v0.0.0-20220217153004-1622c70e5767
+	github.com/hyperledger/aries-framework-go v0.1.8-0.20220322085443-50e8f9bd208b
+	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220322085443-50e8f9bd208b
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20220322085443-50e8f9bd208b
+	github.com/hyperledger/aries-framework-go/test/component v0.0.0-20220322085443-50e8f9bd208b
 	github.com/stretchr/testify v1.7.0
 )
 
@@ -23,6 +23,9 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/kilic/bls12-381 v0.1.1-0.20210503002446-7b7597926c69 // indirect
+	github.com/mr-tron/base58 v1.1.3 // indirect
+	github.com/multiformats/go-base32 v0.0.3 // indirect
+	github.com/multiformats/go-multibase v0.0.1 // indirect
 	github.com/piprate/json-gold v0.4.1-0.20210813112359-33b90c4ca86c // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect
