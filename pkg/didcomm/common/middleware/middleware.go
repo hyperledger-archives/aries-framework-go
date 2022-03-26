@@ -77,6 +77,7 @@ type rotatePayload struct {
 const (
 	fromPriorJSONKey  = "from_prior"
 	fromDIDJSONKey    = "from"
+	bodyJSONKey       = "body"
 	initialStateParam = "initialState"
 )
 
@@ -158,6 +159,16 @@ func (h *DIDCommMessageMiddleware) HandleOutboundMessage(msg didcomm.DIDCommMsgM
 
 	if isV2, err := didcomm.IsDIDCommV2(&msg); !isV2 || err != nil {
 		return msg
+	}
+
+	// if there's no from DID, add a from DID.
+	if _, ok := msg[fromDIDJSONKey]; !ok {
+		msg[fromDIDJSONKey] = rec.MyDID
+	}
+
+	// if there's no body, add a body.
+	if _, ok := msg[bodyJSONKey]; !ok {
+		msg[bodyJSONKey] = map[string]interface{}{}
 	}
 
 	if rec.MyDIDRotation != nil {
