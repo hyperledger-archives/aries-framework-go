@@ -8,6 +8,17 @@ Here are the major specification followed by aries verifiable credential wallet 
 * [Universal Wallet](https://w3c-ccg.github.io/universal-wallet-interop-spec/) - for wallet data models and interfaces.
 * [Verifiable Presentation request Specifications](https://w3c-ccg.github.io/vp-request-spec/) - for credential queries.
 * [Presentation Exchange](https://identity.foundation/presentation-exchange/) - for credential queries.
+* [WACI Presentation Exchange](https://identity.foundation/waci-presentation-exchange/): Wallet and credential interaction standards using DIDComm.
+* [Verifiable Credentials Data Model v1.1](https://www.w3.org/TR/vc-data-model/): For all the verifiable credential data model operations.
+* [JSON-LD v1.1](https://w3c.github.io/json-ld-syntax/): For JSON-based Serialization for Linked Data.
+* [Linked Data Proofs v1.0](https://w3c-ccg.github.io/ld-proofs/): For generating JSON-LD based linked data proofs.
+* [Decentralized Identifiers (DIDs) v1.0](https://w3c.github.io/did-core/): For signing and verifying verifiable credentials and presentations.
+* [WebKMS v0.7](https://w3c-ccg.github.io/webkms/): For implementing cryptographic key management systems for the wallet.
+* [Decentralized Identifier Resolution (DID Resolution) v0.2](https://w3c-ccg.github.io/did-resolution/): Followed for resolving various decentralized identifiers.
+* [Aries RFCS](#aries-rfcs): it follows many aries RFCs features like DIDComm, Out-Of-Band Messaging, Issue Credential Protocol, Present Proof Protocol, Messaging, Mediators etc.
+* [DIDComm V2](https://identity.foundation/didcomm-messaging/spec/): Version 2 of DID Communication protocol for secured communication between wallet and issuer/relying party.
+* [Credential Manifest](https://identity.foundation/credential-manifest/): Credential Manifests are a resource format that defines preconditional requirements, Issuer style preferences, Credential Style preferences and other facets User Agents utilize to help articulate and select the inputs necessary for processing and issuance of a specified credential.
+
 
 ## How it works
 
@@ -45,6 +56,8 @@ and they will be discussed in detail in data models and interfaces sections belo
 The aries verifiable credential wallet provides various verifiable credentials operations based on universal wallet specifications like issue, prove, verify, derive etc.
 Refer data models and interfaces sections below for more details.
 
+#### DIDComm Operations
+The aries verifiable credential wallet provides various DIDComm operations to perform secured exchange of credentials and other metadata between wallet and issuer/relying party.
 
 ## Creating and Updating Wallet Profiles
 * A wallet profile with local KMS can be created by providing passphrase or secret lock service option.
@@ -603,7 +616,7 @@ Returns,
  
  // accept an invitation from wallet, perform DID connect, send propose presentation message, wait and 
  // return request presentation message response from relying party.
- connectionID, err := myWallet.ProposePresentation(oobInvitation, wallet.WithPresentProofTimeout(80 * time.Second), wallet.WithFromDID("did:example:wallet"))
+ connectionID, err := myWallet.ProposePresentation(oobInvitation, wallet.WithInitiateTimeout(80 * time.Second), wallet.WithFromDID("did:example:wallet"))
    
  // close wallet.
  ok = myWallet.Close()
@@ -632,6 +645,97 @@ Returns,
   
   // send presentation to relying party as present proof message attachment for ongoing credential interaction.
   connectionID, err := myWallet.PresenProof(threadID, presentation)
+    
+  // close wallet.
+  ok = myWallet.Close()
+   
+  ``` 
+
+#### [ProposeCredential](https://w3c-ccg.github.io/universal-wallet-interop-spec/#proposecredential)
+Sends propose credential message from wallet to issuer, waits for offer credential message from issuer and returns incoming message.
+
+Params,
+* invitation - out of band invitation from inviter.
+* options - for sending propose presentation message.
+  * FromDID - option to provide customized from DID for sending propose presentation message.
+  * ConnectOptions - customized options for accepting invitation..
+  * Timeout - option to provide timeout duration to wait for offer credential message from issuer.
+
+Returns,
+* DIDCommMsg - offer credential message from issuer.
+* error - if operation fails.
+
+> Aries Go SDK Sample for sending propose credential message from wallet to issuer.
+ ```
+ // creating vcwallet instance.
+ myWallet, err := vcwallet.New(sampleUserID, ctx)
+ 
+ // open wallet.
+ err = myWallet.Open(...)
+ 
+ // accept an invitation from wallet, perform DID connect, send propose credential message, wait and 
+ // return offer credential message response from issuer.
+ connectionID, err := myWallet.ProposeCredential(oobInvitation, wallet.WithInitiateTimeout(80 * time.Second), wallet.WithFromDID("did:example:wallet"))
+   
+ // close wallet.
+ ok = myWallet.Close()
+  
+ ``` 
+
+
+#### [RequestCredential](https://w3c-ccg.github.io/universal-wallet-interop-spec/#requestcredential)
+Sends request credential message from wallet to issuer and optionally waits for credential fulfillment.
+
+Params:
+* thID: thread ID (action ID) of offer credential message previously received.
+* concludeInteractionOptions: options to conclude interaction like presentation to be shared etc.
+  * rawPresentation - requesting credential from raw credential.
+  * presentation presenting proof or requesting credential from verifiable presentation instance. This option takes precedence when provided with other options.
+  * waitForDone - if provided then wallet will wait till it gets acknowledgement or problem report from other party. 
+  * timeout - time duration to wait for status to be done or abanoned.
+
+Returns:
+* Credential interaction status containing status, redirectURL.
+* error if operation fails.
+
+> Aries Go SDK Sample for sending request credential message from wallet to issuer.
+  ```
+  // creating vcwallet instance.
+  myWallet, err := vcwallet.New(sampleUserID, ctx)
+  
+  // open wallet.
+  err = myWallet.Open(...)
+  
+  // send request credential message to issuer for ongoing credential interaction.
+  connectionID, err := myWallet.RequestCredential(threadID, wallet.FromPresentation(application))
+    
+  // close wallet.
+  ok = myWallet.Close()
+   
+  ``` 
+
+#### ResolveCredentialManifest
+Resolves given credential manifest by credential fulfillment or credential.
+Supports: https://identity.foundation/credential-manifest/
+
+Params,
+* manifest: Credential manifest data model in raw format.
+* resolve: to provide credential fulfillment or credential to resolve.
+
+Returns,
+* list of resolved descriptors.
+* error if operation fails.
+
+> Aries Go SDK Sample for resolving credential manifest by fulfillment.
+  ```
+  // creating vcwallet instance.
+  myWallet, err := vcwallet.New(sampleUserID, ctx)
+  
+  // open wallet.
+  err = myWallet.Open(...)
+  
+  // resolve credential manifest by raw credential fulfillment.
+  connectionID, err := myWallet.ResolveCredentialManifest(threadID, wallet.ResolveRawFulfillment(fulfillment))
     
   // close wallet.
   ok = myWallet.Close()
@@ -732,11 +836,16 @@ let requestPresentationMsg = await agent.vcwallet.proposePresentation({userID, a
 // send present proof message from wallet for WACI share flow.
 await agent.vcwallet.presentProof({userID, auth, threadID, presentation})
 
+// accept invitation, send propose credential message and wait for offer presentation.
+let offer = await wallet.proposeCredential(invitation, "did:example:holder", someTimeout)
+
+// send request credential message, wait for ack and return credential fulfillment.
+let fulfilment = await wallet.requestCredential(thID, presentation, waitForAck, someTimeout)
+
 // close wallet
 await agent.vcwallet.close({userID})
   
   ```
-
 
 #### REST
 Refer Aries Open API specifications for ``vcwallet`` operation ID.
