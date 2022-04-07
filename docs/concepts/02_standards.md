@@ -17,7 +17,7 @@ Notable ones are,
 Mainly used in [Present Proof Protocol](00_what_is_hl_aries.md#8-presentproof-protocol) and [Aries Verifiable Credential Wallet](../vc_wallet.md) implementation.
 * [Confidential Storage v0.1](https://identity.foundation/confidential-storage/): For secured storage implementation, also know as Encrypted Data Vault. 
 * [WACI Presentation Exchange](https://identity.foundation/waci-presentation-exchange/): Wallet and credential interaction standards using DIDComm.
-
+* [Credential Manifest](https://identity.foundation/credential-manifest/): Credential Manifests are a resource format that defines preconditional requirements, Issuer style preferences, Credential Style preferences and other facets User Agents utilize to help articulate and select the inputs necessary for processing and issuance of a specified credential.
 
 ### W3C Standards
 
