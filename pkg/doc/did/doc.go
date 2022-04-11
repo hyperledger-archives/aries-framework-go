@@ -180,15 +180,15 @@ type MethodMetadata struct {
 	// AnchorOrigin is anchor origin.
 	AnchorOrigin string `json:"anchorOrigin,omitempty"`
 	// UnpublishedOperations unpublished operations
-	UnpublishedOperations []*Operations `json:"unpublishedOperations,omitempty"`
+	UnpublishedOperations []*ProtocolOperation `json:"unpublishedOperations,omitempty"`
 	// PublishedOperations published operations
-	PublishedOperations []*Operations `json:"publishedOperations,omitempty"`
+	PublishedOperations []*ProtocolOperation `json:"publishedOperations,omitempty"`
 }
 
-// Operations info.
-type Operations struct {
-	// OperationRequest is operation request.
-	OperationRequest string `json:"operationRequest,omitempty"`
+// ProtocolOperation info.
+type ProtocolOperation struct {
+	// Operation is operation request.
+	Operation string `json:"operation,omitempty"`
 	// ProtocolVersion is protocol version.
 	ProtocolVersion int `json:"protocolVersion,omitempty"`
 	// TransactionNumber is transaction number.
