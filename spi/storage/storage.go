@@ -184,6 +184,7 @@ type Store interface {
 	// with data put in and data retrieved, as the marshalled representation may be different - always unmarshal data
 	// first before comparing.
 	// If key is empty or value is nil, then an error will be returned.
+	// A single key-value pair cannot have multiple tags that share the same tag name.
 	Put(key string, value []byte, tags ...Tag) error
 
 	// Get fetches the value associated with the given key.
