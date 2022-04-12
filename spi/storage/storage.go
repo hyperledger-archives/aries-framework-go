@@ -194,6 +194,7 @@ type Store interface {
 	// GetTags fetches all tags associated with the given key.
 	// If key cannot be found, then an error wrapping ErrDataNotFound will be returned.
 	// If key is empty, then an error will be returned.
+	// As of writing, aries-framework-go code does not use this, but it may be useful for custom solutions.
 	GetTags(key string) ([]Tag, error)
 
 	// GetBulk fetches the values associated with the given keys.
@@ -225,6 +226,7 @@ type Store interface {
 	// enabled and a key is used that already exists in the database.
 	// Depending on the implementation, this method may be faster than repeated Put and/or Delete calls.
 	// If any of the given keys are empty, or the operations slice is empty or nil, then an error will be returned.
+	// As of writing, aries-framework-go code does not use this, but it may be useful for custom solutions.
 	Batch(operations []Operation) error
 
 	// Flush forces any queued up Put and/or Delete operations to execute.
