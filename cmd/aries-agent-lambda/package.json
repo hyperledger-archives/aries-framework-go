@@ -1,0 +1,23 @@
+{
+  "name": "aries-sls-rest-api",
+  "version": "1.0.0-72",
+  "license": "UNLICENSED",
+  "scripts": {
+    "prepare": "yarn dynamodb && yarn build",
+    "build": "make build",
+    "debug": "make debug && SLS_DEBUG=* serverless offline start --useDocker --noTimeout",
+    "start": "serverless offline start --useDocker",
+    "deploy": "SLS_DEBUG=* serverless deploy",
+    "dynamodb": "serverless dynamodb install"
+  },
+  "devDependencies": {
+    "serverless": "2.57.0",
+    "serverless-bundle": "^4.4.0",
+    "serverless-dotenv-plugin": "^3.9.0",
+    "serverless-dynamodb-local": "^0.2.40",
+    "serverless-plugin-resource-tagging": "^1.1.1"
+  },
+  "dependencies": {
+    "serverless-offline": "^8.7.0"
+  }
+}
