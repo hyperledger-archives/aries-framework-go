@@ -89,13 +89,13 @@ func build(didDoc *did.Doc, docOpts *vdrapi.DIDMethodOpts) (*did.DocResolution, 
 			didDoc.Service[i].Type = v
 		}
 
-		if didDoc.Service[i].ServiceEndpoint == "" && docOpts.Values[DefaultServiceEndpoint] != nil {
+		if didDoc.Service[i].ServiceEndpoint.URI == "" && docOpts.Values[DefaultServiceEndpoint] != nil {
 			v, ok := docOpts.Values[DefaultServiceEndpoint].(string)
 			if !ok {
 				return nil, fmt.Errorf("defaultServiceEndpoint not string")
 			}
 
-			didDoc.Service[i].ServiceEndpoint = v
+			didDoc.Service[i].ServiceEndpoint.URI = v
 		}
 
 		applyDIDCommKeys(i, didDoc)

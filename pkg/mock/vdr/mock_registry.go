@@ -11,6 +11,7 @@ import (
 	"crypto/rand"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 )
@@ -101,11 +102,13 @@ func createDefaultDID() *did.Doc {
 	}
 
 	service := did.Service{
-		ID:              "did:example:123456789abcdefghi#did-communication",
-		Type:            "did-communication",
-		ServiceEndpoint: "https://agent.example.com/",
-		RecipientKeys:   []string{creator},
-		Priority:        0,
+		ID:   "did:example:123456789abcdefghi#did-communication",
+		Type: "did-communication",
+		ServiceEndpoint: model.Endpoint{
+			URI: "https://agent.example.com/",
+		},
+		RecipientKeys: []string{creator},
+		Priority:      0,
 	}
 
 	signingKey := did.VerificationMethod{

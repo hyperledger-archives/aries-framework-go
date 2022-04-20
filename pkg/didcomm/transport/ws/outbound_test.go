@@ -126,7 +126,7 @@ func TestClient(t *testing.T) {
 		addr := startWebSocketServer(t, echo)
 
 		des := prepareDestinationWithTransport("ws://"+addr, decorator.TransportReturnRouteAll, recKey)
-		des.RoutingKeys = routingKeys
+		des.ServiceEndpoint.RoutingKeys = routingKeys
 
 		data := "didcomm-message"
 		resp, err := outbound.Send([]byte(data), des)

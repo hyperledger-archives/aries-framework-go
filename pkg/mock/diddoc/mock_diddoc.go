@@ -13,6 +13,7 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
@@ -26,11 +27,13 @@ func GetMockDIDDoc(t *testing.T) *did.Doc {
 		ID:      "did:peer:123456789abcdefghi",
 		Service: []did.Service{
 			{
-				ServiceEndpoint: "https://localhost:8090",
-				Type:            "did-communication",
-				Priority:        0,
-				RecipientKeys:   []string{MockDIDKey(t)},
-				RoutingKeys:     []string{MockDIDKey(t)},
+				ServiceEndpoint: model.Endpoint{
+					URI:         "https://localhost:8090",
+					RoutingKeys: []string{MockDIDKey(t)},
+				},
+				Type:          "did-communication",
+				Priority:      0,
+				RecipientKeys: []string{MockDIDKey(t)},
 			},
 		},
 		VerificationMethod: []did.VerificationMethod{
@@ -69,16 +72,20 @@ func GetLegacyInteropMockDIDDoc(t *testing.T, id string, ed25519PubKey []byte) *
 		ID:      peerDID,
 		Service: []did.Service{
 			{
-				ServiceEndpoint: "https://localhost:8090",
-				Type:            "did-communication",
-				Priority:        0,
-				RecipientKeys:   []string{pubKeyBase58},
+				ServiceEndpoint: model.Endpoint{
+					URI: "https://localhost:8090",
+				},
+				Type:          "did-communication",
+				Priority:      0,
+				RecipientKeys: []string{pubKeyBase58},
 			},
 			{
-				ServiceEndpoint: "https://localhost:8090",
-				Type:            "IndyAgent",
-				Priority:        0,
-				RecipientKeys:   []string{pubKeyBase58},
+				ServiceEndpoint: model.Endpoint{
+					URI: "https://localhost:8090",
+				},
+				Type:          "IndyAgent",
+				Priority:      0,
+				RecipientKeys: []string{pubKeyBase58},
 			},
 		},
 		VerificationMethod: []did.VerificationMethod{
@@ -129,11 +136,13 @@ func GetMockDIDDocWithDIDCommV2Bloc(t *testing.T, id string) *did.Doc {
 		ID:      peerDID,
 		Service: []did.Service{
 			{
-				ServiceEndpoint: "https://localhost:8090",
-				Type:            "DIDCommMessaging",
-				Priority:        0,
-				RecipientKeys:   []string{MockDIDKey(t)},
-				RoutingKeys:     []string{MockDIDKey(t)},
+				ServiceEndpoint: model.Endpoint{
+					URI:         "https://localhost:8090",
+					RoutingKeys: []string{MockDIDKey(t)},
+				},
+				Type:          "DIDCommMessaging",
+				Priority:      0,
+				RecipientKeys: []string{MockDIDKey(t)},
 			},
 		},
 		VerificationMethod: []did.VerificationMethod{
@@ -188,11 +197,13 @@ func GetMockIndyDoc(t *testing.T) *did.Doc {
 		},
 		Service: []did.Service{
 			{
-				ID:              "did:sov:AyRHrP7u6rF1dKViGf5shA;indy",
-				Type:            "IndyAgent",
-				Priority:        0,
-				RecipientKeys:   []string{"6SFxbqdqGKtVVmLvXDnq9JP4ziZCG2fJzETpMYHt1VNx"},
-				ServiceEndpoint: "https://localhost:8090",
+				ID:            "did:sov:AyRHrP7u6rF1dKViGf5shA;indy",
+				Type:          "IndyAgent",
+				Priority:      0,
+				RecipientKeys: []string{"6SFxbqdqGKtVVmLvXDnq9JP4ziZCG2fJzETpMYHt1VNx"},
+				ServiceEndpoint: model.Endpoint{
+					URI: "https://localhost:8090",
+				},
 			},
 		},
 		Authentication: []did.Verification{

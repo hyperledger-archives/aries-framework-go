@@ -15,6 +15,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/messaging"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
@@ -187,9 +188,11 @@ func (o *Command) Send(rw io.Writer, req io.Reader) command.Error {
 	var destination *service.Destination
 	if request.ServiceEndpointDestination != nil {
 		destination = &service.Destination{
-			RoutingKeys:     request.ServiceEndpointDestination.RoutingKeys,
-			ServiceEndpoint: request.ServiceEndpointDestination.ServiceEndpoint,
-			RecipientKeys:   request.ServiceEndpointDestination.RecipientKeys,
+			ServiceEndpoint: model.Endpoint{
+				URI:         request.ServiceEndpointDestination.ServiceEndpoint,
+				RoutingKeys: request.ServiceEndpointDestination.RoutingKeys,
+			},
+			RecipientKeys: request.ServiceEndpointDestination.RecipientKeys,
 		}
 	}
 
