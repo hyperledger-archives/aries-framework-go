@@ -909,7 +909,7 @@ func (s *Service) Accept(msgType string) bool {
 func redirectInfo(msg service.DIDCommMsg) map[string]interface{} {
 	var redirectInfo struct {
 		WebRedirectV2 map[string]interface{} `json:"~web-redirect,omitempty"`
-		WebRedirectV3 map[string]interface{} `json:"web-redirect,omitempty"`
+		WebRedirectV3 map[string]interface{} `json:"web_redirect,omitempty"`
 	}
 
 	err := msg.Decode(&redirectInfo)
