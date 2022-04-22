@@ -115,7 +115,7 @@ var Contexts = []ldcontext.Document{ //nolint:gochecknoglobals
 		Content:     revocationList2020,
 	},
 	{
-		URL:         "https://w3id.org/vc-revocation-list-2021/v1",
+		URL:         "https://w3id.org/vc/status-list/2021/v1",
 		DocumentURL: "https://w3c-ccg.github.io/vc-status-list-2021/contexts/v1.jsonld",
 		Content:     revocationList2021,
 	},
