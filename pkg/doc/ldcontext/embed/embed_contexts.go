@@ -48,6 +48,8 @@ var (
 	credentialApplication []byte
 	//go:embed third_party/digitalbazaar.github.io/ed25519-signature-2020-v1.jsonld
 	ed255192020 []byte
+	//go:embed third_party/w3c-ccg.github.io/revocationList2021.jsonld
+	revocationList2021 []byte
 )
 
 // Contexts contains JSON-LD contexts embedded into a Go binary.
@@ -111,6 +113,11 @@ var Contexts = []ldcontext.Document{ //nolint:gochecknoglobals
 		URL:         "https://w3id.org/vc-revocation-list-2020/v1",
 		DocumentURL: "https://w3c-ccg.github.io/vc-status-rl-2020/contexts/vc-revocation-list-2020/v1.jsonld",
 		Content:     revocationList2020,
+	},
+	{
+		URL:         "https://w3id.org/vc/status-list/2021/v1",
+		DocumentURL: "https://w3c-ccg.github.io/vc-status-list-2021/contexts/v1.jsonld",
+		Content:     revocationList2021,
 	},
 	{
 		URL:         "https://identity.foundation/presentation-exchange/submission/v1",
