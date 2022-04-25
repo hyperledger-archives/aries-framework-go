@@ -233,6 +233,7 @@ var (
 	}
 )
 
+// AgentParameters represents the various options to run an Aries Agent.
 type AgentParameters struct {
 	server                                         server
 	host, defaultLabel, transportReturnRoute       string
@@ -289,7 +290,8 @@ func Cmd(server server) (*cobra.Command, error) {
 	return startCmd, nil
 }
 
-func NewAgentParameters(server server, cmd *cobra.Command) (*AgentParameters, error) {
+// NewAgentParameters constructs AgentParameters with the given cobra command.
+func NewAgentParameters(server server, cmd *cobra.Command) (*AgentParameters, error) { //nolint: funlen,gocyclo
 	// log level
 	logLevel, err := getUserSetVar(cmd, agentLogLevelFlagName, agentLogLevelEnvKey, true)
 	if err != nil {
@@ -425,7 +427,7 @@ func NewAgentParameters(server server, cmd *cobra.Command) (*AgentParameters, er
 	return parameters, nil
 }
 
-func createStartCMD(server server) *cobra.Command { //nolint: funlen,gocyclo,gocognit
+func createStartCMD(server server) *cobra.Command { //nolint: gocyclo,gocognit
 	return &cobra.Command{
 		Use:   "start",
 		Short: "Start an agent",
@@ -783,7 +785,8 @@ func authorizationMiddleware(token string) mux.MiddlewareFunc {
 	return middleware
 }
 
-func (parameters AgentParameters) NewRouter() (*mux.Router, error) {
+// NewRouter returns a Router for the Aries Agent.
+func (parameters *AgentParameters) NewRouter() (*mux.Router, error) {
 	if parameters.host == "" {
 		return nil, errMissingHost
 	}
@@ -791,7 +794,7 @@ func (parameters AgentParameters) NewRouter() (*mux.Router, error) {
 	// set message handler
 	parameters.msgHandler = msghandler.NewRegistrar()
 
-	ctx, err := createAriesAgent(&parameters)
+	ctx, err := createAriesAgent(parameters)
 	if err != nil {
 		return nil, err
 	}
