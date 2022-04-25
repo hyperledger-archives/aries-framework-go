@@ -104,7 +104,7 @@ func TestStartAriesDRequests(t *testing.T) {
 	testInboundHostURL := randomURL()
 
 	go func() {
-		parameters := &agentParameters{
+		parameters := &AgentParameters{
 			server:               &HTTPServer{},
 			host:                 testHostURL,
 			inboundHostInternals: []string{httpProtocol + "@" + testInboundHostURL},
@@ -295,7 +295,7 @@ func TestStartCmdWithMissingHostArg(t *testing.T) {
 }
 
 func TestStartAgentWithBlankHost(t *testing.T) {
-	parameters := &agentParameters{
+	parameters := &AgentParameters{
 		server:               &mockServer{},
 		inboundHostInternals: []string{randomURL()},
 	}
@@ -535,7 +535,7 @@ func TestStartMultipleAgentsWithSameHost(t *testing.T) {
 	inboundHost2 := "localhost:8097"
 
 	go func() {
-		parameters := &agentParameters{
+		parameters := &AgentParameters{
 			server:               &HTTPServer{},
 			host:                 host,
 			inboundHostInternals: []string{httpProtocol + "@" + inboundHost},
@@ -548,7 +548,7 @@ func TestStartMultipleAgentsWithSameHost(t *testing.T) {
 
 	waitForServerToStart(t, host, inboundHost)
 
-	parameters := &agentParameters{
+	parameters := &AgentParameters{
 		server:               &HTTPServer{},
 		host:                 host,
 		inboundHostInternals: []string{httpProtocol + "@" + inboundHost2},
@@ -568,7 +568,7 @@ func TestStartAriesErrorWithResolvers(t *testing.T) {
 		testHostURL := randomURL()
 		testInboundHostURL := randomURL()
 
-		parameters := &agentParameters{
+		parameters := &AgentParameters{
 			server:               &HTTPServer{},
 			host:                 testHostURL,
 			inboundHostInternals: []string{httpProtocol + "@" + testInboundHostURL},
@@ -586,7 +586,7 @@ func TestStartAriesErrorWithResolvers(t *testing.T) {
 		testHostURL := randomURL()
 		testInboundHostURL := randomURL()
 
-		parameters := &agentParameters{
+		parameters := &AgentParameters{
 			server:               &HTTPServer{},
 			host:                 testHostURL,
 			inboundHostInternals: []string{httpProtocol + "@" + testInboundHostURL},
@@ -606,7 +606,7 @@ func TestStartAriesWithOutboundTransports(t *testing.T) {
 		testInboundHostURL := randomURL()
 
 		go func() {
-			parameters := &agentParameters{
+			parameters := &AgentParameters{
 				server:               &HTTPServer{},
 				host:                 testHostURL,
 				inboundHostInternals: []string{httpProtocol + "@" + testInboundHostURL},
@@ -627,7 +627,7 @@ func TestStartAriesWithOutboundTransports(t *testing.T) {
 		testHostURL := randomURL()
 		testInboundHostURL := randomURL()
 
-		parameters := &agentParameters{
+		parameters := &AgentParameters{
 			server:               &HTTPServer{},
 			host:                 testHostURL,
 			inboundHostInternals: []string{httpProtocol + "@" + testInboundHostURL},
@@ -647,7 +647,7 @@ func TestStartAriesWithInboundTransport(t *testing.T) {
 		testInboundHostURL := randomURL()
 
 		go func() {
-			parameters := &agentParameters{
+			parameters := &AgentParameters{
 				server:               &HTTPServer{},
 				host:                 testHostURL,
 				inboundHostInternals: []string{websocketProtocol + "@" + testInboundHostURL},
@@ -668,7 +668,7 @@ func TestStartAriesWithInboundTransport(t *testing.T) {
 		testHostURL := randomURL()
 		testInboundHostURL := randomURL()
 
-		parameters := &agentParameters{
+		parameters := &AgentParameters{
 			server:               &HTTPServer{},
 			host:                 testHostURL,
 			inboundHostInternals: []string{"wss" + "@" + testInboundHostURL},
@@ -687,7 +687,7 @@ func TestStartAriesWithAutoAccept(t *testing.T) {
 		testInboundHostURL := randomURL()
 
 		go func() {
-			parameters := &agentParameters{
+			parameters := &AgentParameters{
 				server:               &HTTPServer{},
 				host:                 testHostURL,
 				inboundHostInternals: []string{httpProtocol + "@" + testInboundHostURL},
@@ -706,7 +706,7 @@ func TestStartAriesWithAutoAccept(t *testing.T) {
 }
 
 func TestStartAriesTLS(t *testing.T) {
-	parameters := &agentParameters{
+	parameters := &AgentParameters{
 		server:      &HTTPServer{},
 		host:        ":0",
 		dbParam:     &dbParam{dbType: databaseTypeMemOption},
@@ -756,7 +756,7 @@ func TestCreateAriesWithKeyType(t *testing.T) {
 	for _, tt := range tests {
 		tc := tt
 		t.Run(tc.name, func(t *testing.T) {
-			parameters := &agentParameters{
+			parameters := &AgentParameters{
 				dbParam: &dbParam{dbType: databaseTypeMemOption},
 				keyType: tc.kt,
 			}
@@ -794,7 +794,7 @@ func TestCreateAriesWithKeyAgreementType(t *testing.T) {
 	for _, tt := range tests {
 		tc := tt
 		t.Run(tc.name, func(t *testing.T) {
-			parameters := &agentParameters{
+			parameters := &AgentParameters{
 				dbParam:          &dbParam{dbType: databaseTypeMemOption},
 				keyAgreementType: tc.kt,
 			}
@@ -832,7 +832,7 @@ func TestCreateAriesWithMediaTypeProfiles(t *testing.T) {
 	for _, tt := range tests {
 		tc := tt
 		t.Run(tc.name, func(t *testing.T) {
-			parameters := &agentParameters{
+			parameters := &AgentParameters{
 				dbParam:           &dbParam{dbType: databaseTypeMemOption},
 				mediaTypeProfiles: tc.mtp,
 			}
@@ -854,7 +854,7 @@ func TestStartAriesWithAuthorization(t *testing.T) {
 	testInboundHostURL := randomURL()
 
 	go func() {
-		parameters := &agentParameters{
+		parameters := &AgentParameters{
 			server:               &HTTPServer{},
 			host:                 testHostURL,
 			token:                goodToken,
@@ -893,7 +893,7 @@ func TestStartAriesWithAuthorization(t *testing.T) {
 
 func TestStoreProvider(t *testing.T) {
 	t.Run("test invalid database type", func(t *testing.T) {
-		_, err := createAriesAgent(&agentParameters{dbParam: &dbParam{dbType: "data1"}})
+		_, err := createAriesAgent(&AgentParameters{dbParam: &dbParam{dbType: "data1"}})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "database type not set to a valid type")
 	})

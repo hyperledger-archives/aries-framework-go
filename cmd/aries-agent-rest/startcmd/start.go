@@ -233,7 +233,7 @@ var (
 	}
 )
 
-type agentParameters struct {
+type AgentParameters struct {
 	server                                         server
 	host, defaultLabel, transportReturnRoute       string
 	tlsCertFile, tlsKeyFile                        string
@@ -289,144 +289,152 @@ func Cmd(server server) (*cobra.Command, error) {
 	return startCmd, nil
 }
 
+func NewAgentParameters(server server, cmd *cobra.Command) (*AgentParameters, error) {
+	// log level
+	logLevel, err := getUserSetVar(cmd, agentLogLevelFlagName, agentLogLevelEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
+	err = setLogLevel(logLevel)
+	if err != nil {
+		return nil, err
+	}
+
+	host, err := getUserSetVar(cmd, agentHostFlagName, agentHostEnvKey, false)
+	if err != nil {
+		return nil, err
+	}
+
+	token, err := getUserSetVar(cmd, agentTokenFlagName, agentTokenEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
+	inboundHosts, err := getUserSetVars(cmd, agentInboundHostFlagName, agentInboundHostEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
+	inboundHostExternals, err := getUserSetVars(cmd, agentInboundHostExternalFlagName,
+		agentInboundHostExternalEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
+	websocketReadLimit, err := getWebSocketReadLimit(cmd)
+	if err != nil {
+		return nil, err
+	}
+
+	dbParam, err := getDBParam(cmd)
+	if err != nil {
+		return nil, err
+	}
+
+	defaultLabel, err := getUserSetVar(cmd, agentDefaultLabelFlagName, agentDefaultLabelEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
+	autoAccept, err := getAutoAcceptValue(cmd)
+	if err != nil {
+		return nil, err
+	}
+
+	webhookURLs, err := getUserSetVars(cmd, agentWebhookFlagName, agentWebhookEnvKey, autoAccept)
+	if err != nil {
+		return nil, err
+	}
+
+	httpResolvers, err := getUserSetVars(cmd, agentHTTPResolverFlagName, agentHTTPResolverEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
+	outboundTransports, err := getUserSetVars(cmd, agentOutboundTransportFlagName,
+		agentOutboundTransportEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
+	transportReturnRoute, err := getUserSetVar(cmd, agentTransportReturnRouteFlagName,
+		agentTransportReturnRouteEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
+	contextProviderURLs, err := getUserSetVars(cmd, agentContextProviderFlagName, agentContextProviderEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
+	autoExecuteRFC0593, err := getAutoExecuteRFC0593(cmd)
+	if err != nil {
+		return nil, err
+	}
+
+	tlsCertFile, err := getUserSetVar(cmd, agentTLSCertFileFlagName, agentTLSCertFileEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
+	tlsKeyFile, err := getUserSetVar(cmd, agentTLSKeyFileFlagName, agentTLSKeyFileEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
+	keyType, err := getUserSetVar(cmd, agentKeyTypeFlagName, agentKeyTypeEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
+	keyAgreementType, err := getUserSetVar(cmd, agentKeyAgreementTypeFlagName, agentKeyAgreementTypeEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
+	mediaTypeProfiles, err := getUserSetVars(cmd, agentMediaTypeProfilesFlagName, agentMediaTypeProfilesEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
+	parameters := &AgentParameters{
+		server:               server,
+		host:                 host,
+		token:                token,
+		inboundHostInternals: inboundHosts,
+		inboundHostExternals: inboundHostExternals,
+		websocketReadLimit:   websocketReadLimit,
+		dbParam:              dbParam,
+		defaultLabel:         defaultLabel,
+		webhookURLs:          webhookURLs,
+		httpResolvers:        httpResolvers,
+		outboundTransports:   outboundTransports,
+		autoAccept:           autoAccept,
+		transportReturnRoute: transportReturnRoute,
+		contextProviderURLs:  contextProviderURLs,
+		tlsCertFile:          tlsCertFile,
+		tlsKeyFile:           tlsKeyFile,
+		autoExecuteRFC0593:   autoExecuteRFC0593,
+		keyType:              keyType,
+		keyAgreementType:     keyAgreementType,
+		mediaTypeProfiles:    mediaTypeProfiles,
+	}
+
+	return parameters, nil
+}
+
 func createStartCMD(server server) *cobra.Command { //nolint: funlen,gocyclo,gocognit
 	return &cobra.Command{
 		Use:   "start",
 		Short: "Start an agent",
 		Long:  `Start an Aries agent controller`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// log level
-			logLevel, err := getUserSetVar(cmd, agentLogLevelFlagName, agentLogLevelEnvKey, true)
+			parameters, err := NewAgentParameters(server, cmd)
 			if err != nil {
 				return err
 			}
-
-			err = setLogLevel(logLevel)
-			if err != nil {
-				return err
-			}
-
-			host, err := getUserSetVar(cmd, agentHostFlagName, agentHostEnvKey, false)
-			if err != nil {
-				return err
-			}
-
-			token, err := getUserSetVar(cmd, agentTokenFlagName, agentTokenEnvKey, true)
-			if err != nil {
-				return err
-			}
-
-			inboundHosts, err := getUserSetVars(cmd, agentInboundHostFlagName, agentInboundHostEnvKey, true)
-			if err != nil {
-				return err
-			}
-
-			inboundHostExternals, err := getUserSetVars(cmd, agentInboundHostExternalFlagName,
-				agentInboundHostExternalEnvKey, true)
-			if err != nil {
-				return err
-			}
-
-			websocketReadLimit, err := getWebSocketReadLimit(cmd)
-			if err != nil {
-				return err
-			}
-
-			dbParam, err := getDBParam(cmd)
-			if err != nil {
-				return err
-			}
-
-			defaultLabel, err := getUserSetVar(cmd, agentDefaultLabelFlagName, agentDefaultLabelEnvKey, true)
-			if err != nil {
-				return err
-			}
-
-			autoAccept, err := getAutoAcceptValue(cmd)
-			if err != nil {
-				return err
-			}
-
-			webhookURLs, err := getUserSetVars(cmd, agentWebhookFlagName, agentWebhookEnvKey, autoAccept)
-			if err != nil {
-				return err
-			}
-
-			httpResolvers, err := getUserSetVars(cmd, agentHTTPResolverFlagName, agentHTTPResolverEnvKey, true)
-			if err != nil {
-				return err
-			}
-
-			outboundTransports, err := getUserSetVars(cmd, agentOutboundTransportFlagName,
-				agentOutboundTransportEnvKey, true)
-			if err != nil {
-				return err
-			}
-
-			transportReturnRoute, err := getUserSetVar(cmd, agentTransportReturnRouteFlagName,
-				agentTransportReturnRouteEnvKey, true)
-			if err != nil {
-				return err
-			}
-
-			contextProviderURLs, err := getUserSetVars(cmd, agentContextProviderFlagName, agentContextProviderEnvKey, true)
-			if err != nil {
-				return err
-			}
-
-			autoExecuteRFC0593, err := getAutoExecuteRFC0593(cmd)
-			if err != nil {
-				return err
-			}
-
-			tlsCertFile, err := getUserSetVar(cmd, agentTLSCertFileFlagName, agentTLSCertFileEnvKey, true)
-			if err != nil {
-				return err
-			}
-
-			tlsKeyFile, err := getUserSetVar(cmd, agentTLSKeyFileFlagName, agentTLSKeyFileEnvKey, true)
-			if err != nil {
-				return err
-			}
-
-			keyType, err := getUserSetVar(cmd, agentKeyTypeFlagName, agentKeyTypeEnvKey, true)
-			if err != nil {
-				return err
-			}
-
-			keyAgreementType, err := getUserSetVar(cmd, agentKeyAgreementTypeFlagName, agentKeyAgreementTypeEnvKey, true)
-			if err != nil {
-				return err
-			}
-
-			mediaTypeProfiles, err := getUserSetVars(cmd, agentMediaTypeProfilesFlagName, agentMediaTypeProfilesEnvKey, true)
-			if err != nil {
-				return err
-			}
-
-			parameters := &agentParameters{
-				server:               server,
-				host:                 host,
-				token:                token,
-				inboundHostInternals: inboundHosts,
-				inboundHostExternals: inboundHostExternals,
-				websocketReadLimit:   websocketReadLimit,
-				dbParam:              dbParam,
-				defaultLabel:         defaultLabel,
-				webhookURLs:          webhookURLs,
-				httpResolvers:        httpResolvers,
-				outboundTransports:   outboundTransports,
-				autoAccept:           autoAccept,
-				transportReturnRoute: transportReturnRoute,
-				contextProviderURLs:  contextProviderURLs,
-				tlsCertFile:          tlsCertFile,
-				tlsKeyFile:           tlsKeyFile,
-				autoExecuteRFC0593:   autoExecuteRFC0593,
-				keyType:              keyType,
-				keyAgreementType:     keyAgreementType,
-				mediaTypeProfiles:    mediaTypeProfiles,
-			}
-
 			return startAgent(parameters)
 		},
 	}
@@ -585,7 +593,7 @@ func createFlags(startCmd *cobra.Command) {
 }
 
 func getUserSetVar(cmd *cobra.Command, flagName, envKey string, isOptional bool) (string, error) {
-	if cmd.Flags().Changed(flagName) {
+	if cmd != nil && cmd.Flags().Changed(flagName) {
 		value, err := cmd.Flags().GetString(flagName)
 		if err != nil {
 			return "", fmt.Errorf(flagName+" flag not found: %s", err)
@@ -605,7 +613,7 @@ func getUserSetVar(cmd *cobra.Command, flagName, envKey string, isOptional bool)
 }
 
 func getUserSetVars(cmd *cobra.Command, flagName, envKey string, isOptional bool) ([]string, error) {
-	if cmd.Flags().Changed(flagName) {
+	if cmd != nil && cmd.Flags().Changed(flagName) {
 		value, err := cmd.Flags().GetStringSlice(flagName)
 		if err != nil {
 			return nil, fmt.Errorf(flagName+" flag not found: %s", err)
@@ -775,17 +783,17 @@ func authorizationMiddleware(token string) mux.MiddlewareFunc {
 	return middleware
 }
 
-func startAgent(parameters *agentParameters) error {
+func (parameters AgentParameters) NewRouter() (*mux.Router, error) {
 	if parameters.host == "" {
-		return errMissingHost
+		return nil, errMissingHost
 	}
 
 	// set message handler
 	parameters.msgHandler = msghandler.NewRegistrar()
 
-	ctx, err := createAriesAgent(parameters)
+	ctx, err := createAriesAgent(&parameters)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// get all HTTP REST API handlers available for controller API
@@ -794,7 +802,7 @@ func startAgent(parameters *agentParameters) error {
 		controller.WithMessageHandler(parameters.msgHandler),
 		controller.WithAutoExecuteRFC0593(parameters.autoExecuteRFC0593))
 	if err != nil {
-		return fmt.Errorf("failed to start aries agent rest on port [%s], failed to get rest service api :  %w",
+		return nil, fmt.Errorf("failed to start aries agent rest on port [%s], failed to get rest service api :  %w",
 			parameters.host, err)
 	}
 
@@ -808,7 +816,17 @@ func startAgent(parameters *agentParameters) error {
 		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 	}
 
+	return router, nil
+}
+
+func startAgent(parameters *AgentParameters) error {
 	logger.Infof("Starting aries agent rest on host [%s]", parameters.host)
+
+	router, err := parameters.NewRouter()
+	if err != nil {
+		return fmt.Errorf("failed to start aries agent rest on port [%s], unable to create router:  %w", parameters.host, err)
+	}
+
 	// start server on given port and serve using given handlers
 	handler := cors.New(
 		cors.Options{
@@ -826,7 +844,7 @@ func startAgent(parameters *agentParameters) error {
 }
 
 //nolint:funlen,gocyclo
-func createAriesAgent(parameters *agentParameters) (*context.Provider, error) {
+func createAriesAgent(parameters *AgentParameters) (*context.Provider, error) {
 	var opts []aries.Option
 
 	storePro, err := createStoreProviders(parameters)
@@ -898,7 +916,7 @@ func createAriesAgent(parameters *agentParameters) (*context.Provider, error) {
 	return ctx, nil
 }
 
-func createStoreProviders(parameters *agentParameters) (storage.Provider, error) {
+func createStoreProviders(parameters *AgentParameters) (storage.Provider, error) {
 	provider, supported := supportedStorageProviders[parameters.dbParam.dbType]
 	if !supported {
 		return nil, fmt.Errorf("key database type not set to a valid type." +
