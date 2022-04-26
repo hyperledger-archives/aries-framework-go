@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
@@ -257,7 +258,7 @@ func createDIDDocWithKey(pub string) *did.Doc {
 		{
 			ID:              fmt.Sprintf(didServiceID, id, 1),
 			Type:            "did-communication",
-			ServiceEndpoint: "http://localhost:58416",
+			ServiceEndpoint: model.Endpoint{URI: "http://localhost:58416"},
 			Priority:        0,
 			RecipientKeys:   []string{pubKeyID},
 		},

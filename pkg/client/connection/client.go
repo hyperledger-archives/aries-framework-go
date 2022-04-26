@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/middleware"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/peerdid"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
@@ -105,15 +106,18 @@ func (c *Client) CreateConnectionV2(myDID, theirDID string, opts ...CreateConnec
 	connID := uuid.New().String()
 
 	connRec := connection.Record{
-		ConnectionID:    connID,
-		State:           connection.StateNameCompleted,
-		TheirDID:        theirDID,
-		MyDID:           myDID,
-		ServiceEndPoint: destination.ServiceEndpoint,
-		RecipientKeys:   destination.RecipientKeys,
-		RoutingKeys:     destination.RoutingKeys,
-		Namespace:       connection.MyNSPrefix,
-		DIDCommVersion:  service.V2,
+		ConnectionID: connID,
+		State:        connection.StateNameCompleted,
+		TheirDID:     theirDID,
+		MyDID:        myDID,
+		ServiceEndPoint: model.Endpoint{
+			URI:         destination.ServiceEndpoint.URI,
+			Accept:      destination.ServiceEndpoint.Accept,
+			RoutingKeys: destination.ServiceEndpoint.RoutingKeys,
+		},
+		RecipientKeys:  destination.RecipientKeys,
+		Namespace:      connection.MyNSPrefix,
+		DIDCommVersion: service.V2,
 	}
 
 	for _, opt := range opts {

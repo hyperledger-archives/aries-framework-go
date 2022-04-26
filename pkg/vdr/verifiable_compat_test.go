@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
@@ -152,7 +153,7 @@ func createPeerDIDLikeDIDExchangeService(t *testing.T, a *context.Provider) *did
 	docResolution, err := a.VDRegistry().Create(
 		peer.DIDMethod, &did.Doc{
 			Service: []did.Service{
-				{ServiceEndpoint: "http://example.com/didcomm"},
+				{ServiceEndpoint: model.Endpoint{URI: "http://example.com/didcomm"}},
 			},
 			VerificationMethod: []did.VerificationMethod{
 				authVM,

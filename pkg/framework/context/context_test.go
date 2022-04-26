@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/middleware"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher/inbound"
@@ -768,10 +769,13 @@ func TestNewProvider(t *testing.T) {
 			&mockdidcomm.MockOutboundTransport{ExpectedResponse: "data1"}))
 		require.NoError(t, err)
 		require.Len(t, prov.OutboundTransports(), 2)
-		r, err := prov.outboundTransports[0].Send([]byte("data"), &service.Destination{ServiceEndpoint: "url"})
+		r, err := prov.outboundTransports[0].Send([]byte("data"),
+			&service.Destination{ServiceEndpoint: model.Endpoint{URI: "url"}},
+		)
 		require.NoError(t, err)
 		require.Equal(t, "data", r)
-		r, err = prov.outboundTransports[1].Send([]byte("data1"), &service.Destination{ServiceEndpoint: "url"})
+		r, err = prov.outboundTransports[1].Send([]byte("data1"),
+			&service.Destination{ServiceEndpoint: model.Endpoint{URI: "url"}})
 		require.NoError(t, err)
 		require.Equal(t, "data1", r)
 	})

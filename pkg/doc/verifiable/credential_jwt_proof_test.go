@@ -14,6 +14,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -239,7 +240,7 @@ func createDIDKeyFetcher(t *testing.T, pub ed25519.PublicKey, didID string) Publ
 		{
 			ID:              fmt.Sprintf(didServiceID, id, 1),
 			Type:            "did-communication",
-			ServiceEndpoint: "http://localhost:47582",
+			ServiceEndpoint: model.Endpoint{URI: "http://localhost:47582"},
 			Priority:        0,
 			RecipientKeys:   []string{pubKeyID},
 		},

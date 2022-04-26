@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
@@ -417,7 +418,7 @@ func (c *Client) didServiceBlockFunc(p Provider) func(routerConnID string, accep
 				ID:              uuid.New().String(),
 				Type:            didCommServiceType,
 				RecipientKeys:   []string{didKey},
-				ServiceEndpoint: p.ServiceEndpoint(),
+				ServiceEndpoint: model.Endpoint{URI: p.ServiceEndpoint()},
 			}, nil
 		}
 
@@ -432,11 +433,13 @@ func (c *Client) didServiceBlockFunc(p Provider) func(routerConnID string, accep
 		}
 
 		return &did.Service{
-			ID:              uuid.New().String(),
-			Type:            didCommServiceType,
-			RecipientKeys:   []string{didKey},
-			RoutingKeys:     routingKeys,
-			ServiceEndpoint: serviceEndpoint,
+			ID:            uuid.New().String(),
+			Type:          didCommServiceType,
+			RecipientKeys: []string{didKey},
+			ServiceEndpoint: model.Endpoint{
+				URI:         serviceEndpoint,
+				RoutingKeys: routingKeys,
+			},
 		}, nil
 	}
 }

@@ -19,7 +19,7 @@ Feature: WACI Issuance (Go API, DIDComm V2 + Issue Credential V3)
     And "Holder" creates public DID for did method "sidetree"
     Then "Issuer" waits for public did to become available in sidetree for up to 10 seconds
     And "Holder" waits for public did to become available in sidetree for up to 10 seconds
-    Then "Issuer" creates an out-of-band-v2 invitation with streamlined-vc goal-code
+    Then "Issuer" creates an out-of-band-v2 invitation with streamlined-vc goal_code
     And "Issuer" sends the request to "Holder" and they accept it
     Then "Holder" sends proposal credential V3 to the "Issuer" (WACI)
     And "Issuer" accepts a proposal V3 and sends an offer to the Holder (WACI)
