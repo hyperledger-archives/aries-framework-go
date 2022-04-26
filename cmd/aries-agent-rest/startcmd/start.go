@@ -827,7 +827,7 @@ func startAgent(parameters *AgentParameters) error {
 
 	router, err := parameters.NewRouter()
 	if err != nil {
-		return fmt.Errorf("failed to start aries agent rest on port [%s], unable to create router:  %w", parameters.host, err)
+		return err
 	}
 
 	// start server on given port and serve using given handlers
