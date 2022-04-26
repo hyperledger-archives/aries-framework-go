@@ -427,7 +427,7 @@ func NewAgentParameters(server server, cmd *cobra.Command) (*AgentParameters, er
 	return parameters, nil
 }
 
-func createStartCMD(server server) *cobra.Command { //nolint: gocyclo,gocognit
+func createStartCMD(server server) *cobra.Command { //nolint: gocognit
 	return &cobra.Command{
 		Use:   "start",
 		Short: "Start an agent",
