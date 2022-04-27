@@ -12,12 +12,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 )
 
 // CreateDestination makes a DIDComm Destination object from a DID Doc as per the DIDComm service conventions:
 // https://github.com/hyperledger/aries-rfcs/blob/master/features/0067-didcomm-diddoc-conventions/README.md.
-//nolint:gocyclo
+//nolint:gocyclo,funlen
 func CreateDestination(didDoc *diddoc.Doc) (*Destination, error) {
 	// try DIDComm V2 and use it if found, else use default DIDComm v1 bloc.
 	didCommService, ok := diddoc.LookupService(didDoc, didCommV2ServiceType)
@@ -42,8 +43,8 @@ func CreateDestination(didDoc *diddoc.Doc) (*Destination, error) {
 		didCommService.RecipientKeys = recKeys
 
 		// if Accept is missing, ensure DIDCommV2 is at least added for packer selection based on MediaTypeProfile.
-		if len(didCommService.Accept) == 0 {
-			didCommService.Accept = []string{defaultDIDCommV2Profile}
+		if len(didCommService.ServiceEndpoint.Accept) == 0 {
+			didCommService.ServiceEndpoint.Accept = []string{defaultDIDCommV2Profile}
 		}
 	} else {
 		didCommService, ok = diddoc.LookupService(didDoc, didCommServiceType)
@@ -51,8 +52,8 @@ func CreateDestination(didDoc *diddoc.Doc) (*Destination, error) {
 			return nil, fmt.Errorf("create destination: missing DID doc service")
 		}
 
-		if didCommService.ServiceEndpoint == "" {
-			return nil, fmt.Errorf("create destination: no service endpoint on didcomm service block in diddoc: %+v", didDoc)
+		if didCommService.ServiceEndpoint.URI == "" {
+			return nil, fmt.Errorf("create destination: no service endpoint URI on didcomm service block in diddoc: %+v", didDoc)
 		}
 
 		if len(didCommService.RecipientKeys) == 0 {
@@ -67,16 +68,18 @@ func CreateDestination(didDoc *diddoc.Doc) (*Destination, error) {
 		}
 
 		// if Accept is missing, ensure DIDCommV1 is at least added for packer selection based on MediaTypeProfile.
-		if len(didCommService.Accept) == 0 {
-			didCommService.Accept = []string{defaultDIDCommProfile}
+		if len(didCommService.ServiceEndpoint.Accept) == 0 {
+			didCommService.ServiceEndpoint.Accept = []string{defaultDIDCommProfile}
 		}
 	}
 
 	return &Destination{
-		RecipientKeys:     didCommService.RecipientKeys,
-		ServiceEndpoint:   didCommService.ServiceEndpoint,
-		RoutingKeys:       didCommService.RoutingKeys,
-		MediaTypeProfiles: didCommService.Accept,
-		DIDDoc:            didDoc,
+		RecipientKeys: didCommService.RecipientKeys,
+		ServiceEndpoint: model.Endpoint{
+			URI:         didCommService.ServiceEndpoint.URI,
+			RoutingKeys: didCommService.ServiceEndpoint.RoutingKeys,
+			Accept:      didCommService.ServiceEndpoint.Accept,
+		},
+		DIDDoc: didDoc,
 	}, nil
 }

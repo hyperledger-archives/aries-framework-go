@@ -23,6 +23,7 @@ import (
 	gojose "github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
@@ -143,17 +144,19 @@ func TestValidWithDocBase(t *testing.T) {
 				ID:              "did:example:123456789abcdefghi#inbox",
 				Type:            "SocialWebInboxService",
 				relativeURL:     true,
-				ServiceEndpoint: "https://social.example.com/83hfh37dj",
+				ServiceEndpoint: model.Endpoint{URI: "https://social.example.com/83hfh37dj"},
 				Properties:      map[string]interface{}{"spamCost": map[string]interface{}{"amount": "0.50", "currency": "USD"}},
 			},
 			{
-				ID:                       "did:example:123456789abcdefghi#did-communication",
-				Type:                     "did-communication",
-				Priority:                 0,
-				relativeURL:              true,
-				RecipientKeys:            []string{"did:example:123456789abcdefghi#key2"},
-				RoutingKeys:              []string{"did:example:123456789abcdefghi#key2"},
-				ServiceEndpoint:          "https://agent.example.com/",
+				ID:            "did:example:123456789abcdefghi#did-communication",
+				Type:          "did-communication",
+				Priority:      0,
+				relativeURL:   true,
+				RecipientKeys: []string{"did:example:123456789abcdefghi#key2"},
+				ServiceEndpoint: model.Endpoint{
+					URI:         "https://agent.example.com/",
+					RoutingKeys: []string{"did:example:123456789abcdefghi#key2"},
+				},
 				Properties:               map[string]interface{}{},
 				recipientKeysRelativeURL: map[string]bool{"did:example:123456789abcdefghi#key2": true},
 				routingKeysRelativeURL:   map[string]bool{"did:example:123456789abcdefghi#key2": true},
@@ -250,16 +253,18 @@ func TestValid(t *testing.T) {
 			{
 				ID:              "did:example:123456789abcdefghi#inbox",
 				Type:            "SocialWebInboxService",
-				ServiceEndpoint: "https://social.example.com/83hfh37dj",
+				ServiceEndpoint: model.Endpoint{URI: "https://social.example.com/83hfh37dj"},
 				Properties:      map[string]interface{}{"spamCost": map[string]interface{}{"amount": "0.50", "currency": "USD"}},
 			},
 			{
-				ID:                       "did:example:123456789abcdefghi#did-communication",
-				Type:                     "did-communication",
-				Priority:                 0,
-				RecipientKeys:            []string{"did:example:123456789abcdefghi#key2"},
-				RoutingKeys:              []string{"did:example:123456789abcdefghi#key2"},
-				ServiceEndpoint:          "https://agent.example.com/",
+				ID:            "did:example:123456789abcdefghi#did-communication",
+				Type:          "did-communication",
+				Priority:      0,
+				RecipientKeys: []string{"did:example:123456789abcdefghi#key2"},
+				ServiceEndpoint: model.Endpoint{
+					URI:         "https://agent.example.com/",
+					RoutingKeys: []string{"did:example:123456789abcdefghi#key2"},
+				},
 				Properties:               map[string]interface{}{},
 				recipientKeysRelativeURL: map[string]bool{"did:example:123456789abcdefghi#key2": false},
 				routingKeysRelativeURL:   map[string]bool{"did:example:123456789abcdefghi#key2": false},

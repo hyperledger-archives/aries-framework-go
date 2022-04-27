@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
@@ -737,17 +738,19 @@ func (s *Service) oobInvitationMsgRecord(msg service.DIDCommMsg) (*connection.Re
 	}
 
 	connRecord := &connection.Record{
-		ConnectionID:      generateRandomID(),
-		ThreadID:          thID,
-		ParentThreadID:    oobInvitation.ThreadID,
-		State:             stateNameNull,
-		InvitationID:      oobInvitation.ID,
-		ServiceEndPoint:   svc.ServiceEndpoint, // TODO: service endpoint should be 'theirs' not 'mine'.
-		RecipientKeys:     svc.RecipientKeys,   // TODO: recipient keys should be 'theirs' not 'mine'.
-		TheirLabel:        oobInvitation.TheirLabel,
-		Namespace:         findNamespace(msg.Type()),
-		MediaTypeProfiles: svc.Accept,
-		DIDCommVersion:    service.V1,
+		ConnectionID:   generateRandomID(),
+		ThreadID:       thID,
+		ParentThreadID: oobInvitation.ThreadID,
+		State:          stateNameNull,
+		InvitationID:   oobInvitation.ID,
+		ServiceEndPoint: model.Endpoint{
+			URI:    svc.ServiceEndpoint.URI, // TODO: service endpoint should be 'theirs' not 'mine'.
+			Accept: svc.ServiceEndpoint.Accept,
+		},
+		RecipientKeys:  svc.RecipientKeys, // TODO: recipient keys should be 'theirs' not 'mine'.
+		TheirLabel:     oobInvitation.TheirLabel,
+		Namespace:      findNamespace(msg.Type()),
+		DIDCommVersion: service.V1,
 	}
 
 	publicDID, ok := oobInvitation.Target.(string)
@@ -782,16 +785,20 @@ func (s *Service) invitationMsgRecord(msg service.DIDCommMsg) (*connection.Recor
 	}
 
 	connRecord := &connection.Record{
-		ConnectionID:    generateRandomID(),
-		ThreadID:        thID,
-		State:           stateNameNull,
-		InvitationID:    invitation.ID,
-		InvitationDID:   invitation.DID,
-		ServiceEndPoint: invitation.ServiceEndpoint,
-		RecipientKeys:   []string{recKey},
-		TheirLabel:      invitation.Label,
-		Namespace:       findNamespace(msg.Type()),
-		DIDCommVersion:  service.V1,
+		ConnectionID:  generateRandomID(),
+		ThreadID:      thID,
+		State:         stateNameNull,
+		InvitationID:  invitation.ID,
+		InvitationDID: invitation.DID,
+		ServiceEndPoint: model.Endpoint{
+			URI:         invitation.ServiceEndpoint,
+			Accept:      nil,
+			RoutingKeys: nil,
+		},
+		RecipientKeys:  []string{recKey},
+		TheirLabel:     invitation.Label,
+		Namespace:      findNamespace(msg.Type()),
+		DIDCommVersion: service.V1,
 	}
 
 	if err := s.connectionRecorder.SaveConnectionRecord(connRecord); err != nil {

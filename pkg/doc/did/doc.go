@@ -21,6 +21,7 @@ import (
 	"github.com/multiformats/go-multibase"
 	"github.com/xeipuuv/gojsonschema"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
@@ -364,9 +365,7 @@ type Service struct {
 	Type                     string                 `json:"type"`
 	Priority                 uint                   `json:"priority,omitempty"`
 	RecipientKeys            []string               `json:"recipientKeys,omitempty"`
-	RoutingKeys              []string               `json:"routingKeys,omitempty"`
-	ServiceEndpoint          string                 `json:"serviceEndpoint"`
-	Accept                   []string               `json:"accept,omitempty"`
+	ServiceEndpoint          model.Endpoint         `json:"serviceEndpoint"`
 	Properties               map[string]interface{} `json:"properties,omitempty"`
 	recipientKeysRelativeURL map[string]bool
 	routingKeysRelativeURL   map[string]bool
@@ -634,6 +633,7 @@ func populateProofs(context, didID, baseURI string, rawProofs []interface{}) ([]
 	return proofs, nil
 }
 
+//nolint:funlen
 func populateServices(didID, baseURI string, rawServices []map[string]interface{}) []Service {
 	services := make([]Service, 0, len(rawServices))
 
@@ -661,10 +661,37 @@ func populateServices(didID, baseURI string, rawServices []map[string]interface{
 			routingKeys, routingKeysRelativeURL = populateKeys(routingKeys, didID, baseURI)
 		}
 
+		sp := model.Endpoint{
+			RoutingKeys: routingKeys,
+		}
+
+		//nolint:nestif
+		if epEntry, ok := rawService[jsonldServicePoint]; ok {
+			var (
+				uriStr string
+				accept []string
+			)
+
+			if uriStr, ok = epEntry.(string); ok {
+				sp.URI = uriStr
+			} else {
+				epMapEntry := mapEntry(epEntry)
+
+				if uriStr, ok = epMapEntry["uri"].(string); ok {
+					sp.URI = uriStr
+				}
+
+				if accept, ok = epMapEntry["accept"].([]string); ok {
+					sp.Accept = accept
+				}
+			}
+		}
+
 		service := Service{
 			ID: id, Type: stringEntry(rawService[jsonldType]), relativeURL: isRelative,
-			ServiceEndpoint: stringEntry(rawService[jsonldServicePoint]), RecipientKeys: recipientKeys,
-			RoutingKeys: routingKeys, Priority: uintEntry(rawService[jsonldPriority]),
+			ServiceEndpoint:          sp,
+			RecipientKeys:            recipientKeys,
+			Priority:                 uintEntry(rawService[jsonldPriority]),
 			recipientKeysRelativeURL: recipientKeysRelativeURL, routingKeysRelativeURL: routingKeysRelativeURL,
 		}
 
@@ -1269,7 +1296,7 @@ func populateRawServices(services []Service, didID, baseURI string) []map[string
 
 		routingKeys := make([]string, 0)
 
-		for _, v := range services[i].RoutingKeys {
+		for _, v := range services[i].ServiceEndpoint.RoutingKeys {
 			if services[i].routingKeysRelativeURL[v] {
 				routingKeys = append(routingKeys, makeRelativeDIDURL(v, baseURI, didID))
 				continue

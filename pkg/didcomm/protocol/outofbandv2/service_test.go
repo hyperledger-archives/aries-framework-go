@@ -280,8 +280,8 @@ func TestAcceptInvitation(t *testing.T) {
 		docSvc, ok := did.LookupService(createdDoc, vdrapi.DIDCommV2ServiceType)
 		require.True(t, ok)
 
-		require.Len(t, docSvc.RoutingKeys, 1)
-		require.Equal(t, testKey, docSvc.RoutingKeys[0])
+		require.Len(t, docSvc.ServiceEndpoint.RoutingKeys, 1)
+		require.Equal(t, testKey, docSvc.ServiceEndpoint.RoutingKeys[0])
 	})
 
 	t.Run("error fetching mediator config", func(t *testing.T) {
