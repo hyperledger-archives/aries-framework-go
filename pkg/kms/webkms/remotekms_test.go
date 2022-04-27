@@ -272,6 +272,27 @@ func TestCreateKeyWithLocationInResponseBody(t *testing.T) {
 	require.Contains(t, err.Error(), "failingUnmarshal always fails")
 }
 
+func TestHealthCheck(t *testing.T) {
+	hf := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	})
+
+	server, url, client := CreateMockHTTPServerAndClient(t, hf)
+	defaultKeystoreURL := fmt.Sprintf("%s/%s", strings.ReplaceAll(KeystoreEndpoint,
+		"{serverEndpoint}", url), defaultKeyStoreID)
+
+	defer func() {
+		e := server.Close()
+		require.NoError(t, e)
+	}()
+
+	remoteKMS := New(defaultKeystoreURL, client)
+
+	err := remoteKMS.HealthCheck()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "kms health check return 503 status code")
+}
+
 func TestRemoteKeyStoreWithHeadersFunc(t *testing.T) {
 	xRootCapabilityHeaderValue := []byte("DUMMY")
 
