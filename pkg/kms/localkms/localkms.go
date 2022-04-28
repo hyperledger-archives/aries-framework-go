@@ -97,6 +97,11 @@ func NewWithPrefix(primaryKeyURI string, p kms.Provider, storePrefix string) (*L
 		nil
 }
 
+// HealthCheck check kms.
+func (l *LocalKMS) HealthCheck() error {
+	return nil
+}
+
 // Create a new key/keyset/key handle for the type kt
 // Returns:
 //  - keyID of the handle
