@@ -27,6 +27,7 @@ type testOptions struct {
 	onlySkipTotalItemTestsThatDoNotSetStoreConfig bool
 	skipSortTests                                 bool
 	onlySkipSortTestsThatDoNotSetStoreConfig      bool
+	skipSetGetStoreConfigTests                    bool
 }
 
 // SkipIteratorTotalItemTests causes all checks of an iterator's TotalItems method to be skipped.
@@ -49,6 +50,13 @@ func SkipSortTests(onlySkipTestsThatDoNotSetStoreConfig bool) TestOption {
 	return func(opts *testOptions) {
 		opts.skipSortTests = true
 		opts.onlySkipSortTestsThatDoNotSetStoreConfig = onlySkipTestsThatDoNotSetStoreConfig
+	}
+}
+
+// SkipOpenStoreSetGetStoreConfigTests causes the tests in TestProviderOpenStoreSetGetConfig to be skipped.
+func SkipOpenStoreSetGetStoreConfigTests() TestOption {
+	return func(opts *testOptions) {
+		opts.skipSetGetStoreConfigTests = true
 	}
 }
 
@@ -75,7 +83,9 @@ func TestAll(t *testing.T, provider spi.Provider, opts ...TestOption) {
 		TestProviderGetOpenStores(t, provider)
 	})
 	t.Run("Provider: open store and set/get config", func(t *testing.T) {
-		TestProviderOpenStoreSetGetConfig(t, provider)
+		if !options.skipSetGetStoreConfigTests {
+			TestProviderOpenStoreSetGetConfig(t, provider)
+		}
 	})
 	t.Run("Store", func(t *testing.T) {
 		t.Run("Put and Get", func(t *testing.T) {
