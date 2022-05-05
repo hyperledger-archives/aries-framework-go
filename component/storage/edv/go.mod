@@ -14,7 +14,7 @@ require (
 	github.com/hyperledger/aries-framework-go v0.1.8-0.20220322085443-50e8f9bd208b
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220322085443-50e8f9bd208b
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20220322085443-50e8f9bd208b
-	github.com/hyperledger/aries-framework-go/test/component v0.0.0-20220322085443-50e8f9bd208b
+	github.com/hyperledger/aries-framework-go/test/component v0.0.0-20220428211718-66cc046674a1
 	github.com/stretchr/testify v1.7.0
 )
 

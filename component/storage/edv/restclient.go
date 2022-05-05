@@ -230,6 +230,32 @@ func (c *restClient) deleteDocument(vaultID, docID string) error {
 	return fmt.Errorf(failResponseFromEDVServer, statusCode, respBytes)
 }
 
+func (c *restClient) addIndex(vaultID string, attributeNames []string) error {
+	addIndexOperation := indexOperation{
+		Operation:      "add",
+		AttributeNames: attributeNames,
+	}
+
+	jsonToSend, err := json.Marshal(addIndexOperation)
+	if err != nil {
+		return fmt.Errorf("failed to marshal index operation: %w", err)
+	}
+
+	endpoint := fmt.Sprintf("%s/%s/index", c.edvServerURL, url.PathEscape(vaultID))
+
+	statusCode, _, respBytes, err := c.sendHTTPRequest(http.MethodPost, endpoint, jsonToSend, c.headersFunc)
+	if err != nil {
+		return fmt.Errorf("send HTTP request: %w", err)
+	}
+
+	if statusCode == http.StatusOK {
+		return nil
+	}
+
+	return fmt.Errorf("the EDV server returned status code %d along with the following message: %s",
+		statusCode, respBytes)
+}
+
 func (c *restClient) sendHTTPRequest(method, endpoint string, body []byte,
 	addHeadersFunc addHeaders) (int, http.Header, []byte, error) {
 	var req *http.Request

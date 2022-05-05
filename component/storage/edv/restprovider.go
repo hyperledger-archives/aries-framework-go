@@ -139,10 +139,10 @@ func (r *RESTProvider) OpenStore(name string) (spi.Store, error) {
 	return openStore, nil
 }
 
-// SetStoreConfig isn't needed for EDV storage, since indexes are managed by the server automatically based on the
-// tags used in values. This method simply stores the configuration in memory so that it can be retrieved later
-// via the GetStoreConfig method, which allows it to be more consistent with how other store implementations work.
-// TODO (#2492) Store store config in persistent EDV storage for true consistency with other store implementations.
+// SetStoreConfig asks the EDV server to add indexes for the tag names specified config.
+// Currently, it is only capable of adding indexes to whatever indexes already exist. No existing indexes will get
+// removed.
+// TODO (#3236): Make this method work in the manner specified by the interface docs.
 func (r *RESTProvider) SetStoreConfig(name string, config spi.StoreConfiguration) error {
 	for _, tagName := range config.TagNames {
 		if strings.Contains(tagName, ":") {
@@ -152,26 +152,17 @@ func (r *RESTProvider) SetStoreConfig(name string, config spi.StoreConfiguration
 
 	name = strings.ToLower(name)
 
-	openStore, ok := r.openStores[name]
+	_, ok := r.openStores[name]
 	if !ok {
 		return spi.ErrStoreNotFound
 	}
 
-	openStore.config = config
-
-	return nil
+	return r.restClient.addIndex(r.vaultID, config.TagNames)
 }
 
-// GetStoreConfig returns the store configuration currently stored in memory.
-func (r *RESTProvider) GetStoreConfig(name string) (spi.StoreConfiguration, error) {
-	name = strings.ToLower(name)
-
-	openStore, ok := r.openStores[name]
-	if !ok {
-		return spi.StoreConfiguration{}, spi.ErrStoreNotFound
-	}
-
-	return openStore.config, nil
+// GetStoreConfig is not implemented. See #3236.
+func (r *RESTProvider) GetStoreConfig(string) (spi.StoreConfiguration, error) {
+	return spi.StoreConfiguration{}, errors.New("not implemented")
 }
 
 // GetOpenStores returns all currently open stores.
@@ -212,7 +203,6 @@ type restStore struct {
 	name                          string
 	formatter                     *EncryptedFormatter
 	restClient                    *restClient
-	config                        spi.StoreConfiguration
 	returnFullDocumentsOnQuery    bool
 	batchEndpointExtensionEnabled bool
 	close                         closer
