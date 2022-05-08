@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	didcomm "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -216,14 +217,16 @@ func (h *DIDCommMessageMiddleware) handleInboundInvitationAcceptance(senderDID, 
 	// if we created an invitation with this DID, and have no connection, we create a connection.
 
 	rec = &connection.Record{
-		ConnectionID:      uuid.New().String(),
-		MyDID:             recipientDID,
-		TheirDID:          senderDID,
-		InvitationID:      inv.ID,
-		State:             connection.StateNameCompleted,
-		Namespace:         connection.MyNSPrefix,
-		MediaTypeProfiles: h.mediaTypeProfiles,
-		DIDCommVersion:    didcomm.V2,
+		ConnectionID: uuid.New().String(),
+		MyDID:        recipientDID,
+		TheirDID:     senderDID,
+		InvitationID: inv.ID,
+		State:        connection.StateNameCompleted,
+		Namespace:    connection.MyNSPrefix,
+		ServiceEndPoint: model.Endpoint{
+			Accept: h.mediaTypeProfiles,
+		},
+		DIDCommVersion: didcomm.V2,
 	}
 
 	err = h.connStore.SaveConnectionRecord(rec)

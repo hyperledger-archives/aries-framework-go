@@ -150,8 +150,30 @@ const (
           "type": "string"
         },
         "serviceEndpoint": {
-          "type": "string",
-          "format": "uri"
+           "oneOf": [
+            {
+              "type": "object",
+              "minProperties": 1,
+              "properties": {
+              	"uri": {
+              	   "type": "string",
+                   "format": "uri"
+              	},
+                "accept": {
+                   "type": "array",
+                   "items": [
+                      {
+                         "type": "string"
+                      }
+                   ]
+                }
+              }
+            },
+            {
+              "type": "string",
+              "format": "uri"
+            }
+          ]
         }
       }
     }
@@ -299,8 +321,30 @@ const (
           "type": "string"
         },
         "serviceEndpoint": {
-          "type": "string",
-          "format": "uri"
+           "oneOf": [
+            {
+              "type": "object",
+              "minProperties": 1,
+              "properties": {
+              	"uri": {
+              	   "type": "string",
+                   "format": "uri"
+              	},
+                "accept": {
+                   "type": "array",
+                   "items": [
+                      {
+                         "type": "string"
+                      }
+                   ]
+                }
+              }
+            },
+            {
+              "type": "string",
+              "format": "uri"
+            }
+          ]
         }
       }
     }
@@ -418,8 +462,30 @@ const (
           "type": "string"
         },
         "serviceEndpoint": {
-          "type": "string",
-          "format": "uri"
+           "oneOf": [
+            {
+              "type": "object",
+              "minProperties": 1,
+              "properties": {
+              	"uri": {
+              	   "type": "string",
+                   "format": "uri"
+              	},
+                "accept": {
+                   "type": "array",
+                   "items": [
+                      {
+                         "type": "string"
+                      }
+                   ]
+                }
+              }
+            },
+            {
+              "type": "string",
+              "format": "uri"
+            }
+          ]
         }
       }
     }

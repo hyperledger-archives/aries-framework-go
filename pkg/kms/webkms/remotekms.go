@@ -15,6 +15,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -303,6 +304,28 @@ func (r *RemoteKMS) createKey(kt kms.KeyType) (string, []byte, error) {
 	}
 
 	return httpResp.KeyURL, httpResp.PublicKey, nil
+}
+
+// HealthCheck check kms.
+func (r *RemoteKMS) HealthCheck() error {
+	parseURL, err := url.Parse(r.keystoreURL)
+	if err != nil {
+		return err
+	}
+
+	resp, err := r.getHTTPRequest(parseURL.Scheme + "://" + parseURL.Host + "/healthcheck")
+	if err != nil {
+		return err
+	}
+
+	// handle response
+	defer closeResponseBody(resp.Body, logger, "HealthCheck")
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("kms health check return %d status code", resp.StatusCode)
+	}
+
+	return nil
 }
 
 // Get key handle for the given KeyID remotely

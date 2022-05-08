@@ -92,8 +92,8 @@ func (cs *OutboundClient) getConnection(destination *service.Destination) (*webs
 
 	// get the connection for the routing or recipient keys
 	keys := destination.RecipientKeys
-	if len(destination.RoutingKeys) != 0 {
-		keys = destination.RoutingKeys
+	if len(destination.ServiceEndpoint.RoutingKeys) != 0 {
+		keys = destination.ServiceEndpoint.RoutingKeys
 	}
 
 	for _, v := range keys {
@@ -112,7 +112,7 @@ func (cs *OutboundClient) getConnection(destination *service.Destination) (*webs
 
 	var err error
 
-	conn, _, err = websocket.Dial(context.Background(), destination.ServiceEndpoint, nil)
+	conn, _, err = websocket.Dial(context.Background(), destination.ServiceEndpoint.URI, nil)
 	if err != nil {
 		return nil, cleanup, fmt.Errorf("websocket client : %w", err)
 	}

@@ -60,3 +60,10 @@ func TestMemIterator(t *testing.T) {
 	require.EqualError(t, err, "iterator is exhausted")
 	require.Nil(t, tags)
 }
+
+func TestProvider_Ping(t *testing.T) {
+	provider := mem.NewProvider()
+
+	err := provider.Ping()
+	require.NoError(t, err)
+}

@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -171,9 +172,11 @@ func TestCommand_Send(t *testing.T) { // nolint: gocognit, gocyclo
 			{
 				name: "send message to destination",
 				option: SendByDestination(&service.Destination{
-					RecipientKeys:   []string{"test"},
-					ServiceEndpoint: "sdfsdf",
-					RoutingKeys:     []string{"test"},
+					RecipientKeys: []string{"test"},
+					ServiceEndpoint: model.Endpoint{
+						URI:         "sdfsdf",
+						RoutingKeys: []string{"test"},
+					},
 				}),
 			},
 		}
@@ -266,9 +269,11 @@ func TestCommand_Send(t *testing.T) { // nolint: gocognit, gocyclo
 				name: "send message to destination",
 				option: []SendMessageOpions{
 					SendByDestination(&service.Destination{
-						RecipientKeys:   []string{"test"},
-						ServiceEndpoint: "sdfsdf",
-						RoutingKeys:     []string{"test"},
+						RecipientKeys: []string{"test"},
+						ServiceEndpoint: model.Endpoint{
+							URI:         "sdfsdf",
+							RoutingKeys: []string{"test"},
+						},
 					}),
 					WaitForResponse(context.Background(), "sample-response-type"),
 				},
@@ -417,9 +422,11 @@ func TestCommand_Send(t *testing.T) { // nolint: gocognit, gocyclo
 			{
 				name: "send message to destination - failure 1",
 				option: SendByDestination(&service.Destination{
-					RecipientKeys:   []string{"test"},
-					ServiceEndpoint: "sdfsdf",
-					RoutingKeys:     []string{"test"},
+					RecipientKeys: []string{"test"},
+					ServiceEndpoint: model.Endpoint{
+						URI:         "sdfsdf",
+						RoutingKeys: []string{"test"},
+					},
 				}),
 				messenger: &mocksvc.MockMessenger{ErrSendToDestination: fmt.Errorf("sample-err-01")},
 				errorMsg:  "sample-err-01",
@@ -428,9 +435,11 @@ func TestCommand_Send(t *testing.T) { // nolint: gocognit, gocyclo
 				name: "send message to destination - failure 2",
 				kms:  &mockkms.KeyManager{CrAndExportPubKeyErr: fmt.Errorf("sample-kmserr-01")},
 				option: SendByDestination(&service.Destination{
-					RecipientKeys:   []string{"test"},
-					ServiceEndpoint: "sdfsdf",
-					RoutingKeys:     []string{"test"},
+					RecipientKeys: []string{"test"},
+					ServiceEndpoint: model.Endpoint{
+						URI:         "sdfsdf",
+						RoutingKeys: []string{"test"},
+					},
 				}),
 				errorMsg: "sample-kmserr-01",
 			},

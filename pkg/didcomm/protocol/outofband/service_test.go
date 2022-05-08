@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	commonmodel "github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
@@ -977,12 +978,14 @@ func TestChooseTarget(t *testing.T) {
 	})
 	t.Run("chooses a did service entry", func(t *testing.T) {
 		expected := &did.Service{
-			ID:              uuid.New().String(),
-			Type:            "did-communication",
-			Priority:        0,
-			RecipientKeys:   []string{"my ver key"},
-			RoutingKeys:     []string{"my routing key"},
-			ServiceEndpoint: "my service endpoint",
+			ID:            uuid.New().String(),
+			Type:          "did-communication",
+			Priority:      0,
+			RecipientKeys: []string{"my ver key"},
+			ServiceEndpoint: commonmodel.Endpoint{
+				URI:         "my service endpoint",
+				RoutingKeys: []string{"my routing key"},
+			},
 		}
 		result, err := chooseTarget([]interface{}{expected})
 		require.NoError(t, err)
@@ -990,12 +993,14 @@ func TestChooseTarget(t *testing.T) {
 	})
 	t.Run("chooses a map-type service", func(t *testing.T) {
 		expected := map[string]interface{}{
-			"id":              uuid.New().String(),
-			"type":            "did-communication",
-			"priority":        uint(0),
-			"recipientKeys":   []string{"my ver key"},
-			"routingKeys":     []string{"my routing key"},
-			"serviceEndpoint": "my service endpoint",
+			"id":            uuid.New().String(),
+			"type":          "did-communication",
+			"priority":      uint(0),
+			"recipientKeys": []string{"my ver key"},
+			"serviceEndpoint": commonmodel.Endpoint{
+				URI:         "my service endpoint",
+				RoutingKeys: []string{"my routing key"},
+			},
 		}
 		svc, err := chooseTarget([]interface{}{expected})
 		require.NoError(t, err)
@@ -1005,7 +1010,6 @@ func TestChooseTarget(t *testing.T) {
 		require.Equal(t, expected["type"], result.Type)
 		require.Equal(t, expected["priority"], result.Priority)
 		require.Equal(t, expected["recipientKeys"], result.RecipientKeys)
-		require.Equal(t, expected["routingKeys"], result.RoutingKeys)
 		require.Equal(t, expected["serviceEndpoint"], result.ServiceEndpoint)
 	})
 	t.Run("fails if not services are specified", func(t *testing.T) {

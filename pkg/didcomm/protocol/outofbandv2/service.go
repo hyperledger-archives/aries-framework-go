@@ -16,6 +16,7 @@ import (
 	gojose "github.com/square/go-jose/v3"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
@@ -267,10 +268,13 @@ func (s *Service) AcceptInvitation(i *Invitation, opts ...AcceptOption) (string,
 		}
 
 		services = append(services, did.Service{
-			ServiceEndpoint: serviceEndpoint,
-			RecipientKeys:   []string{recKey},
-			RoutingKeys:     routingKeys,
-			Type:            vdrapi.DIDCommV2ServiceType,
+			ServiceEndpoint: model.Endpoint{
+				URI:         serviceEndpoint,
+				Accept:      s.myMediaTypeProfiles,
+				RoutingKeys: routingKeys,
+			},
+			RecipientKeys: []string{recKey},
+			Type:          vdrapi.DIDCommV2ServiceType,
 		})
 	}
 
@@ -340,12 +344,10 @@ func (s *Service) AcceptInvitation(i *Invitation, opts ...AcceptOption) (string,
 		InvitationID:        i.ID,
 		ServiceEndPoint:     destination.ServiceEndpoint,
 		RecipientKeys:       destination.RecipientKeys,
-		RoutingKeys:         destination.RoutingKeys,
 		TheirLabel:          i.Label,
 		TheirDID:            i.From,
 		MyDID:               myDID.DIDDocument.ID,
 		Namespace:           connection.MyNSPrefix,
-		MediaTypeProfiles:   s.myMediaTypeProfiles,
 		Implicit:            true,
 		InvitationDID:       myDID.DIDDocument.ID,
 		DIDCommVersion:      service.V2,

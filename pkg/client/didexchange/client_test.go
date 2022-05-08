@@ -21,6 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
@@ -772,13 +773,13 @@ func TestClient_CreateConnection(t *testing.T) {
 		require.NoError(t, err)
 
 		// empty ServiceEndpoint to trigger CreateDestination error
-		theirDID.Service[0].ServiceEndpoint = ""
+		theirDID.Service[0].ServiceEndpoint.URI = ""
 
 		_, err = c.CreateConnection(myDID.ID, theirDID,
 			WithTheirLabel(label), WithThreadID(threadID), WithParentThreadID(parentThreadID),
 			WithInvitationID(invitationID), WithInvitationDID(invitationDID), WithImplicit(implicit))
 		require.Contains(t, err.Error(), "createConnection: failed to create destination: "+
-			"create destination: no service endpoint on didcomm service block in diddoc:")
+			"create destination: no service endpoint URI on didcomm service block in diddoc:")
 	})
 }
 
@@ -1515,7 +1516,7 @@ func newPeerDID(t *testing.T) *did.Doc {
 	d, err := ctx.VDRegistry().Create(
 		peer.DIDMethod, &did.Doc{Service: []did.Service{{
 			Type:            "did-communication",
-			ServiceEndpoint: "http://agent.example.com/didcomm",
+			ServiceEndpoint: model.Endpoint{URI: "http://agent.example.com/didcomm"},
 		}}, VerificationMethod: []did.VerificationMethod{getSigningKey()}})
 	require.NoError(t, err)
 

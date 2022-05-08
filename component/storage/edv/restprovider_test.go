@@ -51,29 +51,34 @@ func (m *failingDecrypter) Decrypt(*jose.JSONWebEncryption) ([]byte, error) {
 }
 
 func TestCommon(t *testing.T) {
+	commonTestOptions := []storagetest.TestOption{
+		storagetest.SkipSortTests(false),
+		storagetest.SkipOpenStoreSetGetStoreConfigTests(),
+	}
+
 	t.Run("With random document IDs", func(t *testing.T) {
 		t.Run("Without batch endpoint extension", func(t *testing.T) {
 			t.Run(`Without "return full documents from queries" extension`, func(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t, createValidEncryptedFormatter(t))
-				storagetest.TestAll(t, edvRESTProvider, storagetest.SkipSortTests(false))
+				storagetest.TestAll(t, edvRESTProvider, commonTestOptions...)
 			})
 			t.Run(`With "return full documents from queries" extension`, func(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t, createValidEncryptedFormatter(t),
 					edv.WithFullDocumentsReturnedFromQueries())
-				storagetest.TestAll(t, edvRESTProvider, storagetest.SkipSortTests(false))
+				storagetest.TestAll(t, edvRESTProvider, commonTestOptions...)
 			})
 		})
 		t.Run("With batch endpoint extension", func(t *testing.T) {
 			t.Run(`Without "return full documents from queries" extension`, func(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t, createValidEncryptedFormatter(t),
 					edv.WithBatchEndpointExtension())
-				storagetest.TestAll(t, edvRESTProvider, storagetest.SkipSortTests(false))
+				storagetest.TestAll(t, edvRESTProvider, commonTestOptions...)
 			})
 			t.Run(`With "return full documents from queries" extension`, func(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t, createValidEncryptedFormatter(t),
 					edv.WithBatchEndpointExtension(),
 					edv.WithFullDocumentsReturnedFromQueries())
-				storagetest.TestAll(t, edvRESTProvider, storagetest.SkipSortTests(false))
+				storagetest.TestAll(t, edvRESTProvider, commonTestOptions...)
 			})
 		})
 	})
@@ -82,13 +87,13 @@ func TestCommon(t *testing.T) {
 			t.Run(`Without "return full documents from queries" extension`, func(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t,
 					createValidEncryptedFormatter(t, edv.WithDeterministicDocumentIDs()))
-				storagetest.TestAll(t, edvRESTProvider, storagetest.SkipSortTests(false))
+				storagetest.TestAll(t, edvRESTProvider, commonTestOptions...)
 			})
 			t.Run(`With "return full documents from queries" extension`, func(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t,
 					createValidEncryptedFormatter(t, edv.WithDeterministicDocumentIDs()),
 					edv.WithFullDocumentsReturnedFromQueries())
-				storagetest.TestAll(t, edvRESTProvider, storagetest.SkipSortTests(false))
+				storagetest.TestAll(t, edvRESTProvider, commonTestOptions...)
 			})
 		})
 		t.Run("With batch endpoint extension", func(t *testing.T) {
@@ -96,17 +101,49 @@ func TestCommon(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t,
 					createValidEncryptedFormatter(t, edv.WithDeterministicDocumentIDs()),
 					edv.WithBatchEndpointExtension())
-				storagetest.TestAll(t, edvRESTProvider, storagetest.SkipSortTests(false))
+				storagetest.TestAll(t, edvRESTProvider, commonTestOptions...)
 			})
 			t.Run(`With "return full documents from queries" extension`, func(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t,
 					createValidEncryptedFormatter(t, edv.WithDeterministicDocumentIDs()),
 					edv.WithBatchEndpointExtension(),
 					edv.WithFullDocumentsReturnedFromQueries())
-				storagetest.TestAll(t, edvRESTProvider, storagetest.SkipSortTests(false))
+				storagetest.TestAll(t, edvRESTProvider, commonTestOptions...)
 			})
 		})
 	})
+}
+
+func TestRESTProvider_SetStoreConfig(t *testing.T) {
+	t.Run("Unsupported protocol scheme", func(t *testing.T) {
+		edvRESTProvider := edv.NewRESTProvider("BadURL", "VaultID",
+			createValidEncryptedFormatter(t))
+
+		_, err := edvRESTProvider.OpenStore("TestStore")
+		require.NoError(t, err)
+
+		err = edvRESTProvider.SetStoreConfig("TestStore", spi.StoreConfiguration{})
+		require.EqualError(t, err, "send HTTP request: failed to send request: "+
+			`Post "BadURL/VaultID/index": unsupported protocol scheme ""`)
+	})
+	t.Run("Vault does not exist", func(t *testing.T) {
+		edvRESTProvider := edv.NewRESTProvider(testServerURL, "VaultID",
+			createValidEncryptedFormatter(t))
+
+		_, err := edvRESTProvider.OpenStore("TestStore")
+		require.NoError(t, err)
+
+		err = edvRESTProvider.SetStoreConfig("TestStore", spi.StoreConfiguration{})
+		require.EqualError(t, err, "the EDV server returned status code 400 along with the following "+
+			"message: Failed to add indexes to data vault VaultID: specified vault does not exist.")
+	})
+}
+
+func TestRESTProvider_GetStoreConfig(t *testing.T) {
+	edvRESTProvider := createEDVRESTProvider(t, createValidEncryptedFormatter(t))
+
+	_, err := edvRESTProvider.GetStoreConfig("StoreName")
+	require.EqualError(t, err, "not implemented")
 }
 
 func TestRESTStore_Put(t *testing.T) {

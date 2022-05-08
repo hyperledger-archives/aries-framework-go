@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	commonmodel "github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/middleware"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
@@ -157,9 +158,9 @@ func (o *Dispatcher) SendToDID(msg interface{}, myDID, theirDID string) error { 
 			"outboundDispatcher.SendToDID failed to get didcomm destination for theirDID [%s]: %w", theirDID, err)
 	}
 
-	if len(connRec.MediaTypeProfiles) > 0 {
-		dest.MediaTypeProfiles = make([]string, len(connRec.MediaTypeProfiles))
-		copy(dest.MediaTypeProfiles, connRec.MediaTypeProfiles)
+	if len(connRec.ServiceEndPoint.Accept) > 0 {
+		dest.ServiceEndpoint.Accept = make([]string, len(connRec.ServiceEndPoint.Accept))
+		copy(dest.ServiceEndpoint.Accept, connRec.ServiceEndPoint.Accept)
 	}
 
 	mtp := o.mediaTypeProfile(dest)
@@ -206,13 +207,13 @@ func (o *Dispatcher) getOrCreateConnection(myDID, theirDID string, connectionVer
 	logger.Debugf("no connection record found for myDID=%s theirDID=%s, will create", myDID, theirDID)
 
 	newRecord := connection.Record{
-		ConnectionID:      uuid.New().String(),
-		MyDID:             myDID,
-		TheirDID:          theirDID,
-		State:             connection.StateNameCompleted,
-		Namespace:         connection.MyNSPrefix,
-		MediaTypeProfiles: o.defaultMediaTypeProfiles(),
-		DIDCommVersion:    connectionVersion,
+		ConnectionID:    uuid.New().String(),
+		MyDID:           myDID,
+		TheirDID:        theirDID,
+		State:           connection.StateNameCompleted,
+		Namespace:       connection.MyNSPrefix,
+		ServiceEndPoint: commonmodel.Endpoint{Accept: o.defaultMediaTypeProfiles()},
+		DIDCommVersion:  connectionVersion,
 	}
 
 	err = o.connections.SaveConnectionRecord(&newRecord)
@@ -227,14 +228,14 @@ func (o *Dispatcher) getOrCreateConnection(myDID, theirDID string, connectionVer
 func (o *Dispatcher) Send(msg interface{}, senderKey string, des *service.Destination) error { // nolint:funlen,gocyclo
 	// check if outbound accepts routing keys, else use recipient keys
 	keys := des.RecipientKeys
-	if len(des.RoutingKeys) != 0 {
-		keys = des.RoutingKeys
+	if len(des.ServiceEndpoint.RoutingKeys) != 0 {
+		keys = des.ServiceEndpoint.RoutingKeys
 	}
 
 	var outboundTransport transport.OutboundTransport
 
 	for _, v := range o.outboundTransports {
-		if v.AcceptRecipient(keys) || v.Accept(des.ServiceEndpoint) {
+		if v.AcceptRecipient(keys) || v.Accept(des.ServiceEndpoint.URI) {
 			outboundTransport = v
 			break
 		}
@@ -293,7 +294,7 @@ func (o *Dispatcher) Send(msg interface{}, senderKey string, des *service.Destin
 func (o *Dispatcher) Forward(msg interface{}, des *service.Destination) error {
 	for _, v := range o.outboundTransports {
 		if !v.AcceptRecipient(des.RecipientKeys) {
-			if !v.Accept(des.ServiceEndpoint) {
+			if !v.Accept(des.ServiceEndpoint.URI) {
 				continue
 			}
 		}
@@ -311,7 +312,7 @@ func (o *Dispatcher) Forward(msg interface{}, des *service.Destination) error {
 		return nil
 	}
 
-	return fmt.Errorf("outboundDispatcher.Forward: no transport found for serviceEndpoint: %s", des.ServiceEndpoint)
+	return fmt.Errorf("outboundDispatcher.Forward: no transport found for serviceEndpoint: %s", des.ServiceEndpoint.URI)
 }
 
 func (o *Dispatcher) createForwardMessage(msg []byte, des *service.Destination) ([]byte, error) {
@@ -341,7 +342,7 @@ func (o *Dispatcher) createForwardMessage(msg []byte, des *service.Destination) 
 		senderKey = []byte(senderDIDKey)
 	}
 
-	if len(des.RoutingKeys) == 0 {
+	if len(des.ServiceEndpoint.RoutingKeys) == 0 {
 		return msg, nil
 	}
 
@@ -363,7 +364,7 @@ func (o *Dispatcher) createForwardMessage(msg []byte, des *service.Destination) 
 		MediaTypeProfile: mtProfile,
 		Message:          req,
 		FromKey:          senderKey,
-		ToKeys:           des.RoutingKeys,
+		ToKeys:           des.ServiceEndpoint.RoutingKeys,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to pack forward msg: %w", err)
@@ -374,7 +375,7 @@ func (o *Dispatcher) createForwardMessage(msg []byte, des *service.Destination) 
 
 func (o *Dispatcher) addTransportRouteOptions(req []byte, des *service.Destination) ([]byte, error) {
 	// dont add transport route options for forward messages
-	if len(des.RoutingKeys) != 0 {
+	if len(des.ServiceEndpoint.RoutingKeys) != 0 {
 		return req, nil
 	}
 
@@ -402,8 +403,8 @@ func (o *Dispatcher) addTransportRouteOptions(req []byte, des *service.Destinati
 func (o *Dispatcher) mediaTypeProfile(des *service.Destination) string {
 	mt := ""
 
-	if len(des.MediaTypeProfiles) > 0 {
-		for _, mtp := range des.MediaTypeProfiles {
+	if len(des.ServiceEndpoint.Accept) > 0 {
+		for _, mtp := range des.ServiceEndpoint.Accept {
 			switch mtp {
 			case transport.MediaTypeV1PlaintextPayload, transport.MediaTypeRFC0019EncryptedEnvelope,
 				transport.MediaTypeAIP2RFC0019Profile, transport.MediaTypeProfileDIDCommAIP1:
