@@ -8,10 +8,14 @@ package peer
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
@@ -23,6 +27,8 @@ const (
 	jsonWebKey2020             = "JsonWebKey2020"
 	x25519KeyAgreementKey2019  = "X25519KeyAgreementKey2019"
 )
+
+var logger = log.New("aries-framework/pkg/vdr/peer")
 
 // Create create new DID Document.
 // TODO https://github.com/hyperledger/aries-framework-go/issues/2466
@@ -61,7 +67,7 @@ func (v *VDR) Create(didDoc *did.Doc, opts ...vdrapi.DIDMethodOption) (*did.DocR
 	return &did.DocResolution{Context: []string{schemaResV1}, DIDDocument: didDoc}, nil
 }
 
-//nolint: funlen,gocyclo
+//nolint: funlen,gocyclo,gocognit
 func build(didDoc *did.Doc, docOpts *vdrapi.DIDMethodOpts) (*did.DocResolution, error) {
 	if len(didDoc.VerificationMethod) == 0 && len(didDoc.KeyAgreement) == 0 {
 		return nil, fmt.Errorf("verification method and key agreement are empty, at least one should be set")
@@ -89,13 +95,48 @@ func build(didDoc *did.Doc, docOpts *vdrapi.DIDMethodOpts) (*did.DocResolution, 
 			didDoc.Service[i].Type = v
 		}
 
-		if didDoc.Service[i].ServiceEndpoint.URI == "" && docOpts.Values[DefaultServiceEndpoint] != nil {
-			v, ok := docOpts.Values[DefaultServiceEndpoint].(string)
-			if !ok {
-				return nil, fmt.Errorf("defaultServiceEndpoint not string")
-			}
+		uri, e := didDoc.Service[i].ServiceEndpoint.URI()
+		if e != nil {
+			logger.Debugf("service endpoint URI returned error %w, ignoring..", e)
+		}
 
-			didDoc.Service[i].ServiceEndpoint.URI = v
+		// nolint:nestif
+		if uri == "" && docOpts.Values[DefaultServiceEndpoint] != nil {
+			switch didDoc.Service[i].Type {
+			case vdrapi.DIDCommServiceType:
+				v, ok := docOpts.Values[DefaultServiceEndpoint].(string)
+				if !ok {
+					return nil, fmt.Errorf("defaultServiceEndpoint not string")
+				}
+
+				didDoc.Service[i].ServiceEndpoint = model.NewDIDCommV1Endpoint(v)
+			case vdrapi.DIDCommV2ServiceType:
+				epArrayEntry := stringArray(docOpts.Values[DefaultServiceEndpoint])
+
+				sp := model.Endpoint{}
+
+				if len(epArrayEntry) == 0 {
+					sp = model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{{}})
+				} else {
+					for _, ep := range epArrayEntry {
+						err = sp.UnmarshalJSON([]byte(ep))
+						if err != nil {
+							if strings.EqualFold(err.Error(), "endpoint data is not supported") {
+								// if unmarshall failed, then use as string.
+								sp = model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
+									{URI: ep, Accept: []string{transport.MediaTypeDIDCommV2Profile}},
+								})
+							}
+
+							continue
+						}
+
+						break
+					}
+				}
+
+				didDoc.Service[i].ServiceEndpoint = sp
+			}
 		}
 
 		applyDIDCommKeys(i, didDoc)
@@ -146,6 +187,41 @@ func build(didDoc *did.Doc, docOpts *vdrapi.DIDMethodOpts) (*did.DocResolution, 
 	}
 
 	return &did.DocResolution{DIDDocument: didDoc}, nil
+}
+
+// stringEntry.
+func stringEntry(entry interface{}) string {
+	if entry == nil {
+		return ""
+	}
+
+	return entry.(string)
+}
+
+// stringArray.
+func stringArray(entry interface{}) []string {
+	if entry == nil {
+		return nil
+	}
+
+	entries, ok := entry.([]interface{})
+	if !ok {
+		if entryStr, ok := entry.(string); ok {
+			return []string{entryStr}
+		}
+
+		return nil
+	}
+
+	var result []string
+
+	for _, e := range entries {
+		if e != nil {
+			result = append(result, stringEntry(e))
+		}
+	}
+
+	return result
 }
 
 func applyDIDCommKeys(i int, didDoc *did.Doc) {

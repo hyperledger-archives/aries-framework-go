@@ -126,7 +126,7 @@ func TestFramework(t *testing.T) {
 		e := ctx.OutboundDispatcher().Send(
 			[]byte("Hello World"),
 			mockdiddoc.MockDIDKey(t),
-			&service.Destination{ServiceEndpoint: model.Endpoint{URI: serverURL}},
+			&service.Destination{ServiceEndpoint: model.NewDIDCommV1Endpoint(serverURL)},
 		)
 		require.NoError(t, e)
 	})
@@ -584,11 +584,11 @@ func TestFramework(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 2, len(aries.outboundTransports))
 		r, err := aries.outboundTransports[0].Send([]byte("data"),
-			&service.Destination{ServiceEndpoint: model.Endpoint{URI: "url"}})
+			&service.Destination{ServiceEndpoint: model.NewDIDCommV1Endpoint("url")})
 		require.NoError(t, err)
 		require.Equal(t, "data", r)
 		r, err = aries.outboundTransports[1].Send([]byte("data1"),
-			&service.Destination{ServiceEndpoint: model.Endpoint{URI: "url"}})
+			&service.Destination{ServiceEndpoint: model.NewDIDCommV1Endpoint("url")})
 		require.NoError(t, err)
 		require.Equal(t, "data1", r)
 		require.NoError(t, aries.Close())

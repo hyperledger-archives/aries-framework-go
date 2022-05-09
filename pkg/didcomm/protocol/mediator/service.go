@@ -710,6 +710,7 @@ func (s *Service) GetConnections() ([]string, error) {
 // TODO https://github.com/hyperledger/aries-framework-go/issues/1105 Support to Add multiple
 //  recKeys to the Router
 func (s *Service) AddKey(connID, recKey string) error {
+	logger.Warnf("~~~~~~~~ about to add Router Key: %v", recKey)
 	// check if router is already registered
 	err := s.ensureConnectionExists(connID)
 	if err != nil {

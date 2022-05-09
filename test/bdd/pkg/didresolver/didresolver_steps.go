@@ -16,6 +16,7 @@ import (
 	"github.com/cucumber/godog"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
@@ -113,6 +114,7 @@ func createDIDDocument(ctx *bddctx.BDDContext, agents, keyType string) error {
 		}
 
 		serviceType := vdrapi.DIDCommServiceType
+		serviceEndpoint := model.NewDIDCommV1Endpoint(ctx.AgentCtx[agentID].ServiceEndpoint())
 		mtps := ctx.AgentCtx[agentID].MediaTypeProfiles()
 
 		for _, mtp := range mtps {
@@ -122,6 +124,9 @@ func createDIDDocument(ctx *bddctx.BDDContext, agents, keyType string) error {
 			case transport.MediaTypeDIDCommV2Profile, transport.MediaTypeAIP2RFC0587Profile:
 				found = true
 				serviceType = vdrapi.DIDCommV2ServiceType
+				serviceEndpoint = model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
+					{URI: ctx.AgentCtx[agentID].ServiceEndpoint()},
+				})
 			}
 
 			if found {
@@ -139,7 +144,7 @@ func createDIDDocument(ctx *bddctx.BDDContext, agents, keyType string) error {
 				EncryptionKey:   encKey,
 				KeyType:         keyType,
 				EncKeyType:      encKT,
-				ServiceEndpoint: ctx.AgentCtx[agentID].ServiceEndpoint(),
+				ServiceEndpoint: serviceEndpoint,
 				ServiceType:     serviceType,
 			})
 		if err != nil {

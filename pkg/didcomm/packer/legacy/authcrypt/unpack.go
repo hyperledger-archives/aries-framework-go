@@ -9,7 +9,6 @@ package authcrypt
 import (
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"github.com/btcsuite/btcutil/base58"
@@ -126,6 +125,8 @@ func getCEK(recipients []recipient, km kms.KeyManager) (*keys, error) {
 }
 
 func findVerKey(km kms.KeyManager, candidateKeys []string) (int, error) {
+	var errs []error
+
 	for i, key := range candidateKeys {
 		recKID, err := localkms.CreateKID(base58.Decode(key), kms.ED25519Type)
 		if err != nil {
@@ -136,9 +137,11 @@ func findVerKey(km kms.KeyManager, candidateKeys []string) (int, error) {
 		if err == nil {
 			return i, nil
 		}
+
+		errs = append(errs, err)
 	}
 
-	return -1, errors.New("none of the recipient keys were found in kms")
+	return -1, fmt.Errorf("none of the recipient keys were found in kms: %v", errs)
 }
 
 func decodeSender(b64Sender string, pk []byte, km kms.KeyManager) ([]byte, []byte, error) {

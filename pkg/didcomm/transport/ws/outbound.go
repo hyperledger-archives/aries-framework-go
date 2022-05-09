@@ -86,14 +86,16 @@ func (cs *OutboundClient) AcceptRecipient(keys []string) bool {
 	return acceptRecipient(cs.pool, keys)
 }
 
-//nolint:gocyclo
+//nolint:gocyclo,funlen
 func (cs *OutboundClient) getConnection(destination *service.Destination) (*websocket.Conn, func(), error) {
 	var conn *websocket.Conn
 
 	// get the connection for the routing or recipient keys
 	keys := destination.RecipientKeys
-	if len(destination.ServiceEndpoint.RoutingKeys) != 0 {
-		keys = destination.ServiceEndpoint.RoutingKeys
+	if routingKeys, err := destination.ServiceEndpoint.RoutingKeys(); err == nil && len(routingKeys) != 0 {
+		keys = routingKeys
+	} else if len(destination.RoutingKeys) != 0 {
+		keys = destination.RoutingKeys
 	}
 
 	for _, v := range keys {
@@ -110,9 +112,17 @@ func (cs *OutboundClient) getConnection(destination *service.Destination) (*webs
 		return conn, cleanup, nil
 	}
 
-	var err error
+	var (
+		err error
+		uri string
+	)
 
-	conn, _, err = websocket.Dial(context.Background(), destination.ServiceEndpoint.URI, nil)
+	uri, err = destination.ServiceEndpoint.URI()
+	if err != nil {
+		return nil, cleanup, fmt.Errorf("unable to send ws outbound request: %w", err)
+	}
+
+	conn, _, err = websocket.Dial(context.Background(), uri, nil)
 	if err != nil {
 		return nil, cleanup, fmt.Errorf("websocket client : %w", err)
 	}

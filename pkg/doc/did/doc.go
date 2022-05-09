@@ -21,6 +21,7 @@ import (
 	"github.com/multiformats/go-multibase"
 	"github.com/xeipuuv/gojsonschema"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
@@ -64,6 +65,7 @@ var (
 	schemaLoaderV1     = gojsonschema.NewStringLoader(schemaV1)     //nolint:gochecknoglobals
 	schemaLoaderV011   = gojsonschema.NewStringLoader(schemaV011)   //nolint:gochecknoglobals
 	schemaLoaderV12019 = gojsonschema.NewStringLoader(schemaV12019) //nolint:gochecknoglobals
+	logger             = log.New("aries-framework/doc/did")         //nolint:gochecknoglobals
 )
 
 // ErrDIDDocumentNotExist error did doc not exist.
@@ -365,7 +367,9 @@ type Service struct {
 	Type                     string                 `json:"type"`
 	Priority                 uint                   `json:"priority,omitempty"`
 	RecipientKeys            []string               `json:"recipientKeys,omitempty"`
+	RoutingKeys              []string               `json:"routingKeys,omitempty"`
 	ServiceEndpoint          model.Endpoint         `json:"serviceEndpoint"`
+	Accept                   []string               `json:"accept,omitempty"`
 	Properties               map[string]interface{} `json:"properties,omitempty"`
 	recipientKeysRelativeURL map[string]bool
 	routingKeysRelativeURL   map[string]bool
@@ -633,14 +637,14 @@ func populateProofs(context, didID, baseURI string, rawProofs []interface{}) ([]
 	return proofs, nil
 }
 
-//nolint:funlen
+//nolint:funlen,gocyclo
 func populateServices(didID, baseURI string, rawServices []map[string]interface{}) []Service {
 	services := make([]Service, 0, len(rawServices))
 
 	for _, rawService := range rawServices {
 		id := stringEntry(rawService[jsonldID])
 		recipientKeys := stringArray(rawService[jsonldRecipientKeys])
-		routingKeys := stringArray(rawService[jsonldRoutingKeys])
+		routingKeys := stringArray(rawService[jsonldRoutingKeys]) // routingkeys here for DIDComm V1 only.
 
 		var recipientKeysRelativeURL map[string]bool
 
@@ -661,28 +665,26 @@ func populateServices(didID, baseURI string, rawServices []map[string]interface{
 			routingKeys, routingKeysRelativeURL = populateKeys(routingKeys, didID, baseURI)
 		}
 
-		sp := model.Endpoint{
-			RoutingKeys: routingKeys,
-		}
+		var sp model.Endpoint
 
 		//nolint:nestif
 		if epEntry, ok := rawService[jsonldServicePoint]; ok {
-			var (
-				uriStr string
-				accept []string
-			)
-
-			if uriStr, ok = epEntry.(string); ok {
-				sp.URI = uriStr
-			} else {
-				epMapEntry := mapEntry(epEntry)
-
-				if uriStr, ok = epMapEntry["uri"].(string); ok {
-					sp.URI = uriStr
-				}
-
-				if accept, ok = epMapEntry["accept"].([]string); ok {
-					sp.Accept = accept
+			uriStr, ok := epEntry.(string)
+			// for now handling DIDComm V1 or V2 only.
+			if ok { // DIDComm V1 format.
+				sp = model.NewDIDCommV1Endpoint(uriStr)
+			} else if epEntry != nil { // DIDComm V2 format (first valid entry for now).
+				entries, ok := epEntry.([]interface{})
+				if ok && len(entries) > 0 {
+					firstEntry, ok := entries[0].(map[string]interface{})
+					if ok {
+						epURI := stringEntry(firstEntry["uri"])
+						epAccept := stringArray(firstEntry["accept"])
+						epRoutingKeys := stringArray(firstEntry["routingKeys"])
+						sp = model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
+							{URI: epURI, Accept: epAccept, RoutingKeys: epRoutingKeys},
+						})
+					}
 				}
 			}
 		}
@@ -692,6 +694,7 @@ func populateServices(didID, baseURI string, rawServices []map[string]interface{
 			ServiceEndpoint:          sp,
 			RecipientKeys:            recipientKeys,
 			Priority:                 uintEntry(rawService[jsonldPriority]),
+			RoutingKeys:              routingKeys,
 			recipientKeysRelativeURL: recipientKeysRelativeURL, routingKeysRelativeURL: routingKeysRelativeURL,
 		}
 
@@ -1025,7 +1028,11 @@ func stringEntry(entry interface{}) string {
 		return ""
 	}
 
-	return entry.(string)
+	if e, ok := entry.(string); ok {
+		return e
+	}
+
+	return ""
 }
 
 // uintEntry.
@@ -1284,6 +1291,7 @@ func (r *didKeyResolver) Resolve(id string) (*verifier.PublicKey, error) {
 // ErrKeyNotFound is returned when key is not found.
 var ErrKeyNotFound = errors.New("key not found")
 
+// nolint:funlen,gocognit,gocyclo
 func populateRawServices(services []Service, didID, baseURI string) []map[string]interface{} {
 	var rawServices []map[string]interface{}
 
@@ -1296,13 +1304,45 @@ func populateRawServices(services []Service, didID, baseURI string) []map[string
 
 		routingKeys := make([]string, 0)
 
-		for _, v := range services[i].ServiceEndpoint.RoutingKeys {
+		for _, v := range services[i].RoutingKeys {
 			if services[i].routingKeysRelativeURL[v] {
 				routingKeys = append(routingKeys, makeRelativeDIDURL(v, baseURI, didID))
 				continue
 			}
 
 			routingKeys = append(routingKeys, v)
+		}
+
+		sepRoutingKeys, err := services[i].ServiceEndpoint.RoutingKeys()
+		if err == nil && len(sepRoutingKeys) > 0 {
+			var tmpRoutingKeys []string
+
+			for _, v := range sepRoutingKeys {
+				if services[i].routingKeysRelativeURL[v] {
+					tmpRoutingKeys = append(tmpRoutingKeys, makeRelativeDIDURL(v, baseURI, didID))
+					continue
+				}
+
+				tmpRoutingKeys = append(tmpRoutingKeys, v)
+			}
+
+			sepRoutingKeys = tmpRoutingKeys
+		}
+
+		sepAccept, err := services[i].ServiceEndpoint.Accept()
+		if err != nil {
+			logger.Debugf("accept field of DIDComm V2 endpoint missing or invalid, it will be ignored: %w", err)
+		}
+
+		sepURI, err := services[i].ServiceEndpoint.URI()
+		if err != nil {
+			logger.Debugf("URI field of DIDComm V2 endpoint missing or invalid, it will be ignored: %w", err)
+		}
+
+		if len(sepAccept) > 0 || len(sepRoutingKeys) > 0 {
+			services[i].ServiceEndpoint = model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
+				{URI: sepURI, Accept: sepAccept, RoutingKeys: sepRoutingKeys},
+			})
 		}
 
 		recipientKeys := make([]string, 0)
@@ -1322,7 +1362,23 @@ func populateRawServices(services []Service, didID, baseURI string) []map[string
 		}
 
 		rawService[jsonldType] = services[i].Type
-		rawService[jsonldServicePoint] = services[i].ServiceEndpoint
+
+		if len(sepAccept) > 0 || len(sepRoutingKeys) > 0 { // DIDComm V2
+			if len(sepAccept) == 0 { // ensure array is non nil, to avoid schema validation errors.
+				sepAccept = []string{}
+			}
+
+			if len(sepRoutingKeys) == 0 { // ensure array is non nil, to avoid schema validation errors.
+				sepRoutingKeys = []string{}
+			}
+
+			rawService[jsonldServicePoint] = []map[string]interface{}{
+				{"uri": sepURI, "accept": sepAccept, "routingKeys": sepRoutingKeys},
+			}
+		} else { // DIDComm V1
+			rawService[jsonldServicePoint] = sepURI
+		}
+
 		rawService[jsonldPriority] = services[i].Priority
 
 		if len(recipientKeys) > 0 {

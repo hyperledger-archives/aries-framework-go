@@ -9,6 +9,7 @@
 Feature: DIDComm v2 Transport between two Agents through DIDComm v2 Routers [SDK]
 
   # https://identity.foundation/didcomm-messaging/spec/#routing
+  @aries_didcommv2_router_sdk_allmediatypes_key_agreement
   Scenario Outline: Decentralized Identifier(DID) Exchange between two Edge Agents(without Inbound, DIDComm v2 is one way only) through Routers
     # DID Exchange between Alice and her Router
     Given options "<keyType>" "<keyAgreementType>" "<mediaTypeProfile>"

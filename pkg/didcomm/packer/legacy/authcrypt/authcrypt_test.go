@@ -679,7 +679,8 @@ func Test_getCEK(t *testing.T) {
 	}
 
 	_, err := getCEK(recs, &k)
-	require.EqualError(t, err, "getCEK: no key accessible none of the recipient keys were found in kms")
+	require.EqualError(t, err, "getCEK: no key accessible none of the recipient keys were found in kms: "+
+		"[mock error]")
 }
 
 func Test_newCryptoBox(t *testing.T) {

@@ -217,16 +217,14 @@ func (h *DIDCommMessageMiddleware) handleInboundInvitationAcceptance(senderDID, 
 	// if we created an invitation with this DID, and have no connection, we create a connection.
 
 	rec = &connection.Record{
-		ConnectionID: uuid.New().String(),
-		MyDID:        recipientDID,
-		TheirDID:     senderDID,
-		InvitationID: inv.ID,
-		State:        connection.StateNameCompleted,
-		Namespace:    connection.MyNSPrefix,
-		ServiceEndPoint: model.Endpoint{
-			Accept: h.mediaTypeProfiles,
-		},
-		DIDCommVersion: didcomm.V2,
+		ConnectionID:    uuid.New().String(),
+		MyDID:           recipientDID,
+		TheirDID:        senderDID,
+		InvitationID:    inv.ID,
+		State:           connection.StateNameCompleted,
+		Namespace:       connection.MyNSPrefix,
+		ServiceEndPoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{{Accept: h.mediaTypeProfiles}}),
+		DIDCommVersion:  didcomm.V2,
 	}
 
 	err = h.connStore.SaveConnectionRecord(rec)

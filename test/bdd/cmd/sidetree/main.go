@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/sidetree"
 )
@@ -54,7 +55,7 @@ func main() {
 		JWK:             j,
 		RecoveryJWK:     recoveryJWK,
 		UpdateJWK:       updateJWK,
-		ServiceEndpoint: os.Args[4],
+		ServiceEndpoint: model.NewDIDCommV1Endpoint(os.Args[4]),
 	})
 	if err != nil {
 		fmt.Println(err.Error())

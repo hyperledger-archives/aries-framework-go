@@ -324,8 +324,10 @@ func (ctx *context) handleInboundOOBInvitation(oobInv *OOBInvitation, thid strin
 	}
 
 	dest := &service.Destination{
-		RecipientKeys:   svc.RecipientKeys,
-		ServiceEndpoint: svc.ServiceEndpoint,
+		RecipientKeys:     svc.RecipientKeys,
+		ServiceEndpoint:   svc.ServiceEndpoint,
+		RoutingKeys:       svc.RoutingKeys,
+		MediaTypeProfiles: svc.Accept,
 	}
 
 	connRec.ThreadID = thid
@@ -360,9 +362,14 @@ func (ctx *context) createInvitedRequest(destination *service.Destination, label
 		},
 	}
 
+	accept, err := destination.ServiceEndpoint.Accept()
+	if err != nil {
+		accept = []string{}
+	}
+
 	// get did document to use in exchange request
 	myDIDDoc, err := ctx.getMyDIDDoc(getPublicDID(options), getRouterConnections(options),
-		serviceTypeByMediaProfile(destination.ServiceEndpoint.Accept))
+		serviceTypeByMediaProfile(accept))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -448,7 +455,12 @@ func (ctx *context) handleInboundRequest(request *Request, options *options,
 	if len(requestDidDoc.Service) > 0 {
 		serviceType = requestDidDoc.Service[0].Type
 	} else {
-		serviceType = serviceTypeByMediaProfile(destination.ServiceEndpoint.Accept)
+		accept, e := destination.ServiceEndpoint.Accept()
+		if e != nil {
+			accept = []string{}
+		}
+
+		serviceType = serviceTypeByMediaProfile(accept)
 	}
 
 	responseDidDoc, err := ctx.getMyDIDDoc(myDID, getRouterConnections(options), serviceType)
@@ -488,8 +500,13 @@ func (ctx *context) handleInboundRequest(request *Request, options *options,
 	connRec.TheirDID = request.DID
 	connRec.TheirLabel = request.Label
 
-	if len(destination.ServiceEndpoint.Accept) > 0 {
-		connRec.ServiceEndPoint.Accept = destination.ServiceEndpoint.Accept
+	accept, err := destination.ServiceEndpoint.Accept()
+	if err != nil {
+		accept = []string{}
+	}
+
+	if len(accept) > 0 {
+		connRec.MediaTypeProfiles = accept
 	}
 
 	// send exchange response
@@ -628,14 +645,27 @@ func (ctx *context) getDestination(invitation *Invitation) (*service.Destination
 		return service.GetDestination(invitation.DID, ctx.vdRegistry)
 	}
 
-	return &service.Destination{
-		RecipientKeys: invitation.RecipientKeys,
-		ServiceEndpoint: model.Endpoint{
-			URI:         invitation.ServiceEndpoint,
-			Accept:      ctx.mediaTypeProfiles,
-			RoutingKeys: invitation.RoutingKeys,
-		},
-	}, nil
+	accept := ctx.mediaTypeProfiles
+
+	var dest *service.Destination
+
+	if isDIDCommV2(accept) {
+		dest = &service.Destination{
+			RecipientKeys: invitation.RecipientKeys,
+			ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
+				{URI: invitation.ServiceEndpoint, Accept: accept, RoutingKeys: invitation.RoutingKeys},
+			}),
+		}
+	} else {
+		dest = &service.Destination{
+			RecipientKeys:     invitation.RecipientKeys,
+			ServiceEndpoint:   model.NewDIDCommV1Endpoint(invitation.ServiceEndpoint),
+			MediaTypeProfiles: accept,
+			RoutingKeys:       invitation.RoutingKeys,
+		}
+	}
+
+	return dest, nil
 }
 
 // nolint:gocyclo,funlen
@@ -670,10 +700,23 @@ func (ctx *context) getMyDIDDoc(pubDID string, routerConnections []string, servi
 			return nil, fmt.Errorf("did doc - fetch router config: %w", err)
 		}
 
-		services = append(services, did.Service{ServiceEndpoint: model.Endpoint{
-			URI:         serviceEndpoint,
-			RoutingKeys: routingKeys,
-		}})
+		var svc did.Service
+
+		if serviceType == didCommServiceType {
+			svc = did.Service{
+				Type:            didCommServiceType,
+				ServiceEndpoint: model.NewDIDCommV1Endpoint(serviceEndpoint),
+				RoutingKeys:     routingKeys,
+			}
+		} else if serviceType == didCommV2ServiceType {
+			svc = did.Service{
+				ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
+					{URI: serviceEndpoint, RoutingKeys: routingKeys},
+				}),
+			}
+		}
+
+		services = append(services, svc)
 	}
 
 	if len(services) == 0 {
@@ -949,12 +992,48 @@ func (ctx *context) getVerKeyFromOOBInvitation(invitationID string) (string, err
 		return "", errVerKeyNotFound
 	}
 
+	unmarshalServiceEndpointInOOBTarget(&invitation)
+
 	pubKey, err := ctx.resolveVerKey(&invitation)
 	if err != nil {
 		return "", fmt.Errorf("failed to get my verkey: %w", err)
 	}
 
 	return pubKey, nil
+}
+
+//nolint:nestif
+func unmarshalServiceEndpointInOOBTarget(invitation *OOBInvitation) {
+	// for DIDCommV1, oobInvitation's target serviceEndpoint is a string, transform it to model.Endpoint map equivalent
+	// for a successful service decode().
+	// for DIDCommV2, transform the target from map[string]interface{} to model.Endpoint
+	if targetMap, ok := invitation.Target.(map[string]interface{}); ok {
+		if se, ok := targetMap["serviceEndpoint"]; ok {
+			seStr, ok := se.(string)
+			if ok {
+				targetMap["serviceEndpoint"] = model.NewDIDCommV1Endpoint(seStr)
+			} else if seMap, ok := se.(map[string]interface{}); ok {
+				seStr, ok = seMap["uri"].(string)
+				if !ok {
+					seStr = ""
+				}
+
+				accept, ok := seMap["accept"].([]string)
+				if !ok {
+					accept = []string{}
+				}
+
+				routingKeys, ok := seMap["routingKeys"].([]string)
+				if !ok {
+					routingKeys = []string{}
+				}
+
+				targetMap["serviceEndpoint"] = model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
+					{URI: seStr, Accept: accept, RoutingKeys: routingKeys},
+				})
+			}
+		}
+	}
 }
 
 // nolint:gocyclo,funlen
@@ -1006,7 +1085,13 @@ func (ctx *context) getServiceBlock(i *OOBInvitation) (*did.Service, error) {
 
 		err = decoder.Decode(svc)
 		if err != nil {
-			return nil, fmt.Errorf("failed to decode service block : %w", err)
+			// for DIDCommV2, decoder.Decode(svc) doesn't support serviceEndpoint as []interface{} representing an array
+			// for model.Endpoint. Manually build the endpoint here in this case.
+			if strings.Contains(err.Error(), "'serviceEndpoint' expected a map, got 'slice'") {
+				extractDIDCommV2EndpointIntoService(svc, s)
+			} else {
+				return nil, fmt.Errorf("failed to decode service block : %w", err)
+			}
 		}
 
 		block = &s
@@ -1014,6 +1099,7 @@ func (ctx *context) getServiceBlock(i *OOBInvitation) (*did.Service, error) {
 		return nil, fmt.Errorf("unsupported target type: %+v", svc)
 	}
 
+	//nolint:nestif
 	if len(i.MediaTypeProfiles) > 0 {
 		// marshal/unmarshal to "clone" service block
 		blockBytes, err := json.Marshal(block)
@@ -1031,12 +1117,80 @@ func (ctx *context) getServiceBlock(i *OOBInvitation) (*did.Service, error) {
 		// updating Accept header requires a cloned service block to avoid Data Race errors.
 		// RFC0587: In case the accept property is set in both the DID service block and the out-of-band message,
 		// the out-of-band property takes precedence.
-		block.ServiceEndpoint.Accept = i.MediaTypeProfiles
+		if isDIDCommV2(i.MediaTypeProfiles) {
+			uri, err := block.ServiceEndpoint.URI()
+			if err != nil {
+				logger.Debugf("block ServiceEndpoint URI empty for DIDcomm V2, skipping it.")
+			}
+
+			routingKeys, err := block.ServiceEndpoint.RoutingKeys()
+			if err != nil {
+				logger.Debugf("block ServiceEndpoint RoutingKeys empty for DIDcomm V2, skipping these.")
+			}
+
+			block.ServiceEndpoint = model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
+				{URI: uri, Accept: i.MediaTypeProfiles, RoutingKeys: routingKeys},
+			})
+		} else {
+			block.Accept = i.MediaTypeProfiles
+		}
 	}
 
 	logger.Debugf("extracted service block=%+v", block)
 
 	return block, nil
+}
+
+//nolint:gocognit,gocritic,gocyclo,nestif
+func extractDIDCommV2EndpointIntoService(svc map[string]interface{}, s did.Service) {
+	if svcEndpointModel, ok := svc["serviceEndpoint"]; ok {
+		if svcEndpointArr, ok := svcEndpointModel.([]interface{}); ok && len(svcEndpointArr) > 0 {
+			if svcEndpointMap, ok := svcEndpointArr[0].(map[string]interface{}); ok {
+				var (
+					uri         string
+					accept      []string
+					routingKeys []string
+				)
+
+				if uriVal, ok := svcEndpointMap["uri"]; ok {
+					if uri, ok = uriVal.(string); !ok {
+						uri = ""
+					}
+				}
+
+				if acceptVal, ok := svcEndpointMap["accept"]; ok {
+					if acceptArr, ok := acceptVal.([]interface{}); ok {
+						for _, a := range acceptArr {
+							accept = append(accept, a.(string))
+						}
+					}
+				}
+
+				if routingKeysVal, ok := svcEndpointMap["routingKeys"]; ok {
+					if routingKeysArr, ok := routingKeysVal.([]interface{}); ok {
+						for _, r := range routingKeysArr {
+							routingKeys = append(routingKeys, r.(string))
+						}
+					}
+				}
+
+				s.ServiceEndpoint = model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
+					{URI: uri, Accept: accept, RoutingKeys: routingKeys},
+				})
+			}
+		}
+	}
+}
+
+func isDIDCommV2(mediaTypeProfiles []string) bool {
+	for _, mtp := range mediaTypeProfiles {
+		switch mtp {
+		case transport.MediaTypeDIDCommV2Profile, transport.MediaTypeAIP2RFC0587Profile:
+			return true
+		}
+	}
+
+	return false
 }
 
 func interopSovService(doc *did.Doc) (*did.Service, error) {

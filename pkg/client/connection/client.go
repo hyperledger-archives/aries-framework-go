@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/middleware"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/peerdid"
@@ -21,6 +22,8 @@ import (
 	didstore "github.com/hyperledger/aries-framework-go/pkg/store/did"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
+
+var logger = log.New("aries-framework/pkg/client/connection")
 
 type provider interface {
 	VDRegistry() vdr.Registry
@@ -80,6 +83,7 @@ func (c *Client) RotateDID(connectionID, signingKID string, opts ...RotateDIDOpt
 }
 
 // CreateConnectionV2 creates a DIDComm V2 connection with the given DID.
+//nolint:funlen
 func (c *Client) CreateConnectionV2(myDID, theirDID string, opts ...CreateConnectionOption) (string, error) {
 	theirDocRes, err := c.vdr.Resolve(theirDID)
 	if err != nil {
@@ -105,16 +109,31 @@ func (c *Client) CreateConnectionV2(myDID, theirDID string, opts ...CreateConnec
 
 	connID := uuid.New().String()
 
+	uri, err := destination.ServiceEndpoint.URI()
+	if err != nil {
+		logger.Debugf("create destination from serviceEndpoint.URI() failed: %w, using value: %s", err, uri)
+	}
+
+	accept, err := destination.ServiceEndpoint.Accept()
+	if err != nil {
+		logger.Debugf("create destination from serviceEndpoint.Accept() failed: %w, using value %v", err, accept)
+	}
+
+	routingKeys, err := destination.ServiceEndpoint.RoutingKeys()
+	if err != nil {
+		logger.Debugf("create destination from serviceEndpoint.RoutingKeys() failed: %w, using value %v", err, routingKeys)
+	}
+
 	connRec := connection.Record{
 		ConnectionID: connID,
 		State:        connection.StateNameCompleted,
 		TheirDID:     theirDID,
 		MyDID:        myDID,
-		ServiceEndPoint: model.Endpoint{
-			URI:         destination.ServiceEndpoint.URI,
-			Accept:      destination.ServiceEndpoint.Accept,
-			RoutingKeys: destination.ServiceEndpoint.RoutingKeys,
-		},
+		ServiceEndPoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{{
+			URI:         uri,
+			Accept:      accept,
+			RoutingKeys: routingKeys,
+		}}),
 		RecipientKeys:  destination.RecipientKeys,
 		Namespace:      connection.MyNSPrefix,
 		DIDCommVersion: service.V2,

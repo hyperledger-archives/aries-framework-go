@@ -400,7 +400,7 @@ func TestRequestedState_Execute(t *testing.T) {
 								Type:            didServiceType,
 								Priority:        0,
 								RecipientKeys:   []string{"key"},
-								ServiceEndpoint: commonmodel.Endpoint{URI: "http://test.com"},
+								ServiceEndpoint: commonmodel.NewDIDCommV1Endpoint("http://test.com"),
 							},
 						}),
 						connRecord: &connection.Record{},
@@ -453,7 +453,7 @@ func TestRequestedState_Execute(t *testing.T) {
 								Type:            didServiceType,
 								Priority:        0,
 								RecipientKeys:   []string{"key"},
-								ServiceEndpoint: commonmodel.Endpoint{URI: "http://test.com"},
+								ServiceEndpoint: commonmodel.NewDIDCommV1Endpoint("http://test.com"),
 							},
 						}),
 						connRecord: &connection.Record{},
@@ -509,7 +509,8 @@ func TestRequestedState_Execute(t *testing.T) {
 
 					_, encKey := newSigningAndEncryptionDIDKeys(t, tc.ctx)
 
-					inv := newOOBInvite(newServiceBlock([]string{encKey}, []string{encKey}, didServiceType))
+					inv := newOOBInvite(tc.ctx.mediaTypeProfiles, newServiceBlock([]string{encKey}, []string{encKey},
+						didServiceType))
 					inv.MyLabel = expected
 					_, _, action, e := (&requested{}).ExecuteInbound(&stateMachineMsg{
 						DIDCommMsg: service.NewDIDCommMsgMap(inv),
@@ -561,13 +562,22 @@ func TestRequestedState_Execute(t *testing.T) {
 
 					if didServiceType == vdrapi.DIDCommV2ServiceType {
 						expected = doc.KeyAgreement[0].VerificationMethod.ID
+
+						doc.Service = []diddoc.Service{{
+							Type: didServiceType,
+							ServiceEndpoint: commonmodel.NewDIDCommV2Endpoint([]commonmodel.DIDCommV2Endpoint{
+								{URI: "http://test.com", Accept: []string{"didcomm/v2"}},
+							}),
+							RecipientKeys: []string{expected},
+						}}
+					} else {
+						doc.Service = []diddoc.Service{{
+							Type:            didServiceType,
+							ServiceEndpoint: commonmodel.NewDIDCommV1Endpoint("http://test.com"),
+							RecipientKeys:   []string{expected},
+						}}
 					}
 
-					doc.Service = []diddoc.Service{{
-						Type:            didServiceType,
-						ServiceEndpoint: commonmodel.Endpoint{URI: "http://test.com"},
-						RecipientKeys:   []string{expected},
-					}}
 					tc.ctx.vdRegistry = &mockvdr.MockVDRegistry{
 						CreateValue: doc,
 					}
@@ -585,6 +595,7 @@ func TestRequestedState_Execute(t *testing.T) {
 					_, _, _, err = (&requested{}).ExecuteInbound(&stateMachineMsg{
 						options: &options{routerConnections: []string{"xyz"}},
 						DIDCommMsg: service.NewDIDCommMsgMap(newOOBInvite(
+							tc.ctx.mediaTypeProfiles,
 							newServiceBlock([]string{encKey}, []string{encKey}, didServiceType))),
 						connRecord: &connection.Record{},
 					}, "", tc.ctx)
@@ -639,14 +650,16 @@ func TestRequestedState_Execute(t *testing.T) {
 							options ...vdrapi.DIDMethodOption) (*diddoc.DocResolution, error) {
 							created = true
 
-							require.Equal(t, expected.Keys(), didDoc.Service[0].ServiceEndpoint.RoutingKeys)
-							require.Equal(t, expected.Endpoint(), didDoc.Service[0].ServiceEndpoint.URI)
+							uri, e := didDoc.Service[0].ServiceEndpoint.URI()
+							require.NoError(t, e)
+							require.Equal(t, expected.Endpoint(), uri)
 							return &diddoc.DocResolution{DIDDocument: docResolution}, nil
 						},
 						ResolveValue: docResolution,
 					}
 
-					oobInvite := newOOBInvite(newServiceBlock([]string{encKey}, []string{encKey}, didServiceType))
+					oobInvite := newOOBInvite(tc.ctx.mediaTypeProfiles, newServiceBlock(
+						[]string{encKey}, []string{encKey}, didServiceType))
 					_, _, _, err = (&requested{}).ExecuteInbound(&stateMachineMsg{
 						options:    &options{routerConnections: []string{"xyz"}},
 						DIDCommMsg: service.NewDIDCommMsgMap(oobInvite),
@@ -701,14 +714,11 @@ func TestRequestedState_Execute(t *testing.T) {
 				t.Run(tc.name, func(t *testing.T) {
 					myDoc := createDIDDoc(t, tc.ctx)
 					myDoc.Service = []diddoc.Service{{
-						ID:            uuid.New().String(),
-						Type:          "invalid",
-						Priority:      0,
-						RecipientKeys: nil,
-						ServiceEndpoint: commonmodel.Endpoint{
-							URI:         "",
-							RoutingKeys: nil,
-						},
+						ID:              uuid.New().String(),
+						Type:            "invalid",
+						Priority:        0,
+						RecipientKeys:   nil,
+						ServiceEndpoint: commonmodel.NewDIDCommV2Endpoint([]commonmodel.DIDCommV2Endpoint{{}}),
 					}}
 					tc.ctx.vdRegistry = &mockvdr.MockVDRegistry{CreateValue: myDoc}
 					_, _, _, err = (&requested{}).ExecuteInbound(&stateMachineMsg{
@@ -751,14 +761,11 @@ func TestRequestedState_Execute(t *testing.T) {
 				t.Run(tc.name, func(t *testing.T) {
 					myDoc := createDIDDoc(t, tc.ctx)
 					myDoc.Service = []diddoc.Service{{
-						ID:            uuid.New().String(),
-						Type:          "invalid",
-						Priority:      0,
-						RecipientKeys: nil,
-						ServiceEndpoint: commonmodel.Endpoint{
-							URI:         "",
-							RoutingKeys: nil,
-						},
+						ID:              uuid.New().String(),
+						Type:            "invalid",
+						Priority:        0,
+						RecipientKeys:   nil,
+						ServiceEndpoint: commonmodel.NewDIDCommV2Endpoint([]commonmodel.DIDCommV2Endpoint{{}}),
 					}}
 					tc.ctx.vdRegistry = &mockvdr.MockVDRegistry{CreateValue: myDoc}
 					_, _, _, err = (&requested{}).ExecuteInbound(&stateMachineMsg{
@@ -772,7 +779,7 @@ func TestRequestedState_Execute(t *testing.T) {
 								Type:            didServiceType,
 								Priority:        0,
 								RecipientKeys:   []string{"key"},
-								ServiceEndpoint: commonmodel.Endpoint{URI: "http://test.com"},
+								ServiceEndpoint: commonmodel.NewDIDCommV1Endpoint("http://test.com"),
 							},
 						}),
 						connRecord: &connection.Record{},
@@ -827,23 +834,23 @@ func TestRespondedState_Execute(t *testing.T) {
 			ctx  *context
 		}{
 			{
-				name: "using context with ED25519 main VM and X25519 keyAgreement",
+				name: fmt.Sprintf("using context with ED25519 main VM and X25519 keyAgreement with profile %s", mtp),
 				ctx:  getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType, mtp),
 			},
 			{
-				name: "using context with P-256 main VM and P-256 keyAgreement",
+				name: fmt.Sprintf("using context with P-256 main VM and P-256 keyAgreement with profile %s", mtp),
 				ctx:  getContext(t, &prov, kms.ECDSAP256TypeIEEEP1363, kms.NISTP256ECDHKWType, mtp),
 			},
 			{
-				name: "using context with P-384 main VM and P-384 keyAgreement",
+				name: fmt.Sprintf("using context with P-384 main VM and P-384 keyAgreement with profile %s", mtp),
 				ctx:  getContext(t, &prov, kms.ECDSAP384TypeIEEEP1363, kms.NISTP384ECDHKWType, mtp),
 			},
 			{
-				name: "using context with P-521 main VM and P-521 keyAgreement",
+				name: fmt.Sprintf("using context with P-521 main VM and P-521 keyAgreement with profile %s", mtp),
 				ctx:  getContext(t, &prov, kms.ECDSAP521TypeIEEEP1363, kms.NISTP521ECDHKWType, mtp),
 			},
 			{
-				name: "using context with ED25519 main VM and P-384 keyAgreement",
+				name: fmt.Sprintf("using context with ED25519 main VM and P-384 keyAgreement with profile %s", mtp),
 				ctx:  getContext(t, &prov, kms.ED25519Type, kms.NISTP384ECDHKWType, mtp),
 			},
 		}
@@ -914,14 +921,11 @@ func TestRespondedState_Execute(t *testing.T) {
 					ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType, mtp)
 					myDoc := createDIDDoc(t, ctx)
 					myDoc.Service = []diddoc.Service{{
-						ID:            uuid.New().String(),
-						Type:          "invalid",
-						Priority:      0,
-						RecipientKeys: nil,
-						ServiceEndpoint: commonmodel.Endpoint{
-							URI:         "",
-							RoutingKeys: nil,
-						},
+						ID:              uuid.New().String(),
+						Type:            "invalid",
+						Priority:        0,
+						RecipientKeys:   nil,
+						ServiceEndpoint: commonmodel.NewDIDCommV2Endpoint([]commonmodel.DIDCommV2Endpoint{{}}),
 					}}
 					ctx.vdRegistry = &mockvdr.MockVDRegistry{CreateValue: myDoc}
 					_, _, _, err := (&responded{}).ExecuteInbound(&stateMachineMsg{
@@ -999,7 +1003,7 @@ func TestCompletedState_Execute(t *testing.T) {
 		}
 		err = ctx.connectionRecorder.SaveConnectionRecordWithMappings(connRec)
 		require.NoError(t, err)
-		ctx.vdRegistry = &mockvdr.MockVDRegistry{ResolveValue: mockdiddoc.GetMockDIDDoc(t)}
+		ctx.vdRegistry = &mockvdr.MockVDRegistry{ResolveValue: mockdiddoc.GetMockDIDDoc(t, false)}
 		require.NoError(t, err)
 		_, followup, _, e := (&completed{}).ExecuteInbound(&stateMachineMsg{
 			DIDCommMsg: bytesToDIDCommMsg(t, responsePayloadBytes),
@@ -1267,11 +1271,11 @@ func TestNewResponseFromRequest(t *testing.T) {
 	})
 
 	t.Run("unsuccessful new response from request due to create did error", func(t *testing.T) {
-		didDoc := mockdiddoc.GetMockDIDDoc(t)
+		didDoc := mockdiddoc.GetMockDIDDoc(t, false)
 		ctx := &context{
 			vdRegistry: &mockvdr.MockVDRegistry{
 				CreateErr:    fmt.Errorf("create DID error"),
-				ResolveValue: mockdiddoc.GetMockDIDDoc(t),
+				ResolveValue: mockdiddoc.GetMockDIDDoc(t, false),
 			},
 			routeSvc: &mockroute.MockMediatorSvc{},
 		}
@@ -1307,7 +1311,7 @@ func TestNewResponseFromRequest(t *testing.T) {
 		require.NotNil(t, didConnStore)
 
 		ctx := &context{
-			vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc(t)},
+			vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc(t, false)},
 			crypto:             &mockcrypto.Crypto{SignErr: errors.New("sign error")},
 			connectionRecorder: connRec,
 			connectionStore:    didConnStore,
@@ -1362,7 +1366,7 @@ func TestPrepareResponse(t *testing.T) {
 		request, err := createRequest(t, ctx, false, transport.MediaTypeRFC0019EncryptedEnvelope)
 		require.NoError(t, err)
 
-		_, err = ctx.prepareResponse(request, mockdiddoc.GetMockDIDDoc(t))
+		_, err = ctx.prepareResponse(request, mockdiddoc.GetMockDIDDoc(t, false))
 		require.NoError(t, err)
 	})
 
@@ -1373,7 +1377,7 @@ func TestPrepareResponse(t *testing.T) {
 		request, err := createRequest(t, ctx, false, transport.MediaTypeRFC0019EncryptedEnvelope)
 		require.NoError(t, err)
 
-		_, err = ctx.prepareResponse(request, mockdiddoc.GetMockDIDDoc(t))
+		_, err = ctx.prepareResponse(request, mockdiddoc.GetMockDIDDoc(t, false))
 		require.NoError(t, err)
 	})
 
@@ -1395,7 +1399,7 @@ func TestPrepareResponse(t *testing.T) {
 		request, err := createRequest(t, ctx, false, transport.MediaTypeRFC0019EncryptedEnvelope)
 		require.NoError(t, err)
 
-		_, err = ctx.prepareResponse(request, mockdiddoc.GetMockDIDDoc(t))
+		_, err = ctx.prepareResponse(request, mockdiddoc.GetMockDIDDoc(t, false))
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})
@@ -1410,7 +1414,7 @@ func TestPrepareResponse(t *testing.T) {
 
 		ctx.kms = &mockkms.KeyManager{GetKeyErr: expected}
 
-		_, err = ctx.prepareResponse(request, mockdiddoc.GetMockDIDDoc(t))
+		_, err = ctx.prepareResponse(request, mockdiddoc.GetMockDIDDoc(t, false))
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})
@@ -1428,7 +1432,7 @@ func TestPrepareResponse(t *testing.T) {
 
 		ctx.kms = &mockkms.KeyManager{GetKeyValue: mockKey}
 
-		_, err = ctx.prepareResponse(request, mockdiddoc.GetMockDIDDoc(t))
+		_, err = ctx.prepareResponse(request, mockdiddoc.GetMockDIDDoc(t, false))
 		require.Error(t, err)
 	})
 }
@@ -1439,7 +1443,7 @@ func TestContext_DIDDocAttachment(t *testing.T) {
 	t.Run("successful new did doc attachment without signing", func(t *testing.T) {
 		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType, transport.MediaTypeRFC0019EncryptedEnvelope)
 
-		doc := mockdiddoc.GetMockDIDDoc(t)
+		doc := mockdiddoc.GetMockDIDDoc(t, false)
 
 		att, err := ctx.didDocAttachment(doc, "")
 		require.NoError(t, err)
@@ -1458,7 +1462,7 @@ func TestContext_DIDDocAttachment(t *testing.T) {
 		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType, transport.MediaTypeRFC0019EncryptedEnvelope)
 		ctx.doACAPyInterop = true
 
-		doc := mockdiddoc.GetMockDIDDoc(t)
+		doc := mockdiddoc.GetMockDIDDoc(t, false)
 
 		_, pub, err := ctx.kms.CreateAndExportPubKeyBytes(kms.ED25519Type)
 		require.NoError(t, err)
@@ -1482,7 +1486,7 @@ func TestContext_DIDDocAttachment(t *testing.T) {
 		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType, transport.MediaTypeRFC0019EncryptedEnvelope)
 		ctx.doACAPyInterop = true
 
-		doc := mockdiddoc.GetMockDIDDoc(t)
+		doc := mockdiddoc.GetMockDIDDoc(t, false)
 
 		_, err := ctx.didDocAttachment(doc, "did:key:not a did key")
 		require.Error(t, err)
@@ -1493,7 +1497,7 @@ func TestContext_DIDDocAttachment(t *testing.T) {
 		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType, transport.MediaTypeRFC0019EncryptedEnvelope)
 		ctx.doACAPyInterop = true
 
-		doc := mockdiddoc.GetMockDIDDoc(t)
+		doc := mockdiddoc.GetMockDIDDoc(t, false)
 
 		didKey, _ := fingerprint.CreateDIDKey([]byte("abcdefghabcdefghabcdefghabcdefgh~!@#"))
 
@@ -1519,7 +1523,7 @@ func TestResolvePublicKey(t *testing.T) {
 
 	t.Run("resolve key reference from doc in vdr", func(t *testing.T) {
 		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType, transport.MediaTypeRFC0019EncryptedEnvelope)
-		doc := mockdiddoc.GetMockDIDDoc(t)
+		doc := mockdiddoc.GetMockDIDDoc(t, false)
 		ctx.vdRegistry = &mockvdr.MockVDRegistry{ResolveValue: doc}
 
 		vm := doc.VerificationMethod[0]
@@ -1547,7 +1551,7 @@ func TestResolvePublicKey(t *testing.T) {
 
 	t.Run("fail to resolve doc for key reference", func(t *testing.T) {
 		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType, transport.MediaTypeRFC0019EncryptedEnvelope)
-		doc := mockdiddoc.GetMockDIDDoc(t)
+		doc := mockdiddoc.GetMockDIDDoc(t, false)
 
 		vm := doc.VerificationMethod[0]
 
@@ -1558,7 +1562,7 @@ func TestResolvePublicKey(t *testing.T) {
 
 	t.Run("fail to find key in resolved doc", func(t *testing.T) {
 		ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType, transport.MediaTypeRFC0019EncryptedEnvelope)
-		doc := mockdiddoc.GetMockDIDDoc(t)
+		doc := mockdiddoc.GetMockDIDDoc(t, false)
 		ctx.vdRegistry = &mockvdr.MockVDRegistry{ResolveValue: doc}
 
 		kid := doc.VerificationMethod[0].ID
@@ -1578,7 +1582,7 @@ func TestResolveDIDDocFromMessage(t *testing.T) {
 	for _, mtp := range mtps {
 		t.Run(fmt.Sprintf("success with media type profile: %s", mtp), func(t *testing.T) {
 			ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType, mtp)
-			docIn := mockdiddoc.GetMockDIDDoc(t)
+			docIn := mockdiddoc.GetMockDIDDoc(t, false)
 
 			att, err := ctx.didDocAttachment(docIn, "")
 			require.NoError(t, err)
@@ -1591,7 +1595,7 @@ func TestResolveDIDDocFromMessage(t *testing.T) {
 
 		t.Run(fmt.Sprintf("success - public resolution with media type profile: %s", mtp), func(t *testing.T) {
 			ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType, mtp)
-			docIn := mockdiddoc.GetMockDIDDoc(t)
+			docIn := mockdiddoc.GetMockDIDDoc(t, false)
 			docIn.ID = "did:remote:abc"
 
 			ctx.vdRegistry = &mockvdr.MockVDRegistry{ResolveValue: docIn}
@@ -1605,7 +1609,7 @@ func TestResolveDIDDocFromMessage(t *testing.T) {
 		t.Run(fmt.Sprintf("failure - can't do public resolution with media type profile: %s", mtp),
 			func(t *testing.T) {
 				ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType, mtp)
-				docIn := mockdiddoc.GetMockDIDDoc(t)
+				docIn := mockdiddoc.GetMockDIDDoc(t, false)
 				docIn.ID = "did:remote:abc"
 
 				ctx.vdRegistry = &mockvdr.MockVDRegistry{ResolveErr: fmt.Errorf("resolve error")}
@@ -1659,7 +1663,7 @@ func TestResolveDIDDocFromMessage(t *testing.T) {
 		t.Run(fmt.Sprintf("success - interop mode with media type profile: %s", mtp), func(t *testing.T) {
 			ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType, mtp)
 
-			docIn := mockdiddoc.GetMockDIDDoc(t)
+			docIn := mockdiddoc.GetMockDIDDoc(t, false)
 			docIn.ID = "did:sov:abcdefg"
 
 			att, err := ctx.didDocAttachment(docIn, "")
@@ -1679,7 +1683,7 @@ func TestResolveDIDDocFromMessage(t *testing.T) {
 
 				ctx.vdRegistry = &mockvdr.MockVDRegistry{CreateErr: fmt.Errorf("create error")}
 
-				docIn := mockdiddoc.GetMockDIDDoc(t)
+				docIn := mockdiddoc.GetMockDIDDoc(t, false)
 
 				att, err := ctx.didDocAttachment(docIn, "")
 				require.NoError(t, err)
@@ -1732,7 +1736,7 @@ func TestGetInvitationRecipientKey(t *testing.T) {
 		require.Equal(t, invitation.RecipientKeys[0], recKey)
 	})
 	t.Run("failed to get invitation recipient key", func(t *testing.T) {
-		doc := mockdiddoc.GetMockDIDDoc(t)
+		doc := mockdiddoc.GetMockDIDDoc(t, false)
 		_, ok := diddoc.LookupService(doc, "did-communication")
 		require.True(t, ok)
 		ctx := context{vdRegistry: &mockvdr.MockVDRegistry{ResolveValue: doc}}
@@ -1835,7 +1839,7 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 		customKMS := newKMS(t, mockstorage.NewMockStoreProvider())
 		ctx := context{
 			kms:                customKMS,
-			vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc(t)},
+			vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc(t, false)},
 			connectionRecorder: connRec,
 			connectionStore:    didConnStore,
 			routeSvc:           &mockroute.MockMediatorSvc{},
@@ -1871,7 +1875,7 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 		customKMS := newKMS(t, mockstorage.NewMockStoreProvider())
 		ctx := context{
 			kms:                customKMS,
-			vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc(t)},
+			vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc(t, false)},
 			connectionRecorder: connRec,
 			routeSvc: &mockroute.MockMediatorSvc{
 				Connections: []string{"xyz"},
@@ -1890,7 +1894,7 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 		customKMS := newKMS(t, mockstorage.NewMockStoreProvider())
 		ctx := context{
 			kms:                customKMS,
-			vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc(t)},
+			vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc(t, false)},
 			connectionRecorder: connRec,
 			routeSvc: &mockroute.MockMediatorSvc{
 				Connections: []string{"xyz"},
@@ -1944,7 +1948,7 @@ func TestGetServiceBlock(t *testing.T) {
 			vdRegistry:     v,
 		}
 
-		inv := newOOBInvite(doc.ID)
+		inv := newOOBInvite([]string{transport.MediaTypeRFC0019EncryptedEnvelope}, doc.ID)
 
 		svc, err := ctx.getServiceBlock(inv)
 		require.NoError(t, err)
@@ -1956,7 +1960,7 @@ func TestGetServiceBlock(t *testing.T) {
 			vdRegistry: v,
 		}
 
-		inv := newOOBInvite(doc.ID)
+		inv := newOOBInvite([]string{transport.MediaTypeRFC0019EncryptedEnvelope}, doc.ID)
 
 		svc, err := ctx.getServiceBlock(inv)
 		require.Error(t, err)
@@ -1975,7 +1979,7 @@ func TestGetServiceBlock(t *testing.T) {
 			doACAPyInterop: true,
 		}
 
-		inv := newOOBInvite(doc.ID)
+		inv := newOOBInvite([]string{transport.MediaTypeRFC0019EncryptedEnvelope}, doc.ID)
 
 		svc, err := ctx.getServiceBlock(inv)
 		require.Error(t, err)
@@ -1997,7 +2001,7 @@ func TestGetVerKey(t *testing.T) {
 
 	t.Run("returns verkey from explicit oob invitation", func(t *testing.T) {
 		expected := newServiceBlock([]string{encKey}, []string{encKey}, didCommServiceType)
-		invitation := newOOBInvite(expected)
+		invitation := newOOBInvite(expected.Accept, expected)
 		ctx.connectionRecorder = connRecorder(t, testProvider())
 
 		err := ctx.connectionRecorder.SaveInvitation(invitation.ThreadID, invitation)
@@ -2008,7 +2012,9 @@ func TestGetVerKey(t *testing.T) {
 		require.Equal(t, expected.RecipientKeys[0], result)
 
 		expected = newServiceBlock([]string{encKey}, []string{encKey}, didCommV2ServiceType)
-		invitation = newOOBInvite(expected)
+		accept, err := expected.ServiceEndpoint.Accept()
+		require.NoError(t, err)
+		invitation = newOOBInvite(accept, expected)
 		ctx.connectionRecorder = connRecorder(t, testProvider())
 
 		err = ctx.connectionRecorder.SaveInvitation(invitation.ThreadID, invitation)
@@ -2020,7 +2026,7 @@ func TestGetVerKey(t *testing.T) {
 	})
 	t.Run("returns verkey from implicit oob invitation", func(t *testing.T) {
 		publicDID := createDIDDoc(t, ctx)
-		invitation := newOOBInvite(publicDID.ID)
+		invitation := newOOBInvite([]string{ctx.mediaTypeProfiles[0]}, publicDID.ID)
 		ctx.connectionRecorder = connRecorder(t, testProvider())
 		ctx.vdRegistry = &mockvdr.MockVDRegistry{
 			ResolveValue: publicDID,
@@ -2037,7 +2043,7 @@ func TestGetVerKey(t *testing.T) {
 	t.Run("returns verkey from implicit (interop) oob invitation", func(t *testing.T) {
 		publicDID, err := diddoc.ParseDocument([]byte(sovDoc))
 		require.NoError(t, err)
-		invitation := newOOBInvite(publicDID.ID)
+		invitation := newOOBInvite([]string{transport.MediaTypeRFC0019EncryptedEnvelope}, publicDID.ID)
 		ctx.connectionRecorder = connRecorder(t, testProvider())
 		ctx.vdRegistry = &mockvdr.MockVDRegistry{
 			ResolveValue: publicDID,
@@ -2056,7 +2062,7 @@ func TestGetVerKey(t *testing.T) {
 
 	t.Run("returns verkey from explicit didexchange invitation", func(t *testing.T) {
 		expected := newServiceBlock([]string{encKey}, []string{encKey}, didCommServiceType)
-		invitation := newDidExchangeInvite("", expected)
+		invitation := newDidExchangeInvite(t, "", expected)
 		ctx.connectionRecorder = connRecorder(t, testProvider())
 
 		err := ctx.connectionRecorder.SaveInvitation(invitation.ID, invitation)
@@ -2067,7 +2073,7 @@ func TestGetVerKey(t *testing.T) {
 		require.Equal(t, expected.RecipientKeys[0], result)
 
 		expected = newServiceBlock([]string{encKey}, []string{encKey}, didCommV2ServiceType)
-		invitation = newDidExchangeInvite("", expected)
+		invitation = newDidExchangeInvite(t, "", expected)
 		ctx.connectionRecorder = connRecorder(t, testProvider())
 
 		err = ctx.connectionRecorder.SaveInvitation(invitation.ID, invitation)
@@ -2094,7 +2100,7 @@ func TestGetVerKey(t *testing.T) {
 	})
 
 	t.Run("fails for oob invitation with no target", func(t *testing.T) {
-		invalid := newOOBInvite(nil)
+		invalid := newOOBInvite(nil, nil)
 		ctx.connectionRecorder = connRecorder(t, testProvider())
 
 		err := ctx.connectionRecorder.SaveInvitation(invalid.ThreadID, invalid)
@@ -2115,11 +2121,13 @@ func TestGetVerKey(t *testing.T) {
 		}
 		ctx.connectionRecorder = connRecorder(t, pr)
 
-		invitation := newOOBInvite(newServiceBlock([]string{encKey}, []string{encKey}, didCommServiceType))
+		invitation := newOOBInvite([]string{transport.MediaTypeRFC0019EncryptedEnvelope},
+			newServiceBlock([]string{encKey}, []string{encKey}, didCommServiceType))
 		err := ctx.connectionRecorder.SaveInvitation(invitation.ID, invitation)
 		require.NoError(t, err)
 
-		invitation = newOOBInvite(newServiceBlock([]string{encKey}, []string{encKey}, didCommV2ServiceType))
+		invitation = newOOBInvite([]string{transport.MediaTypeDIDCommV2Profile},
+			newServiceBlock([]string{encKey}, []string{encKey}, didCommV2ServiceType))
 		err = ctx.connectionRecorder.SaveInvitation(invitation.ID, invitation)
 		require.NoError(t, err)
 
@@ -2179,29 +2187,38 @@ func createDIDDocWithKey(verDIDKey, encDIDKey, mediaTypeProfile string) *diddoc.
 	var (
 		didCommService string
 		recKey         string
+		sp             commonmodel.Endpoint
 	)
 
 	switch mediaTypeProfile {
 	case transport.MediaTypeDIDCommV2Profile, transport.MediaTypeAIP2RFC0587Profile:
 		didCommService = vdrapi.DIDCommV2ServiceType
 		recKey = verDIDKey
+		sp = commonmodel.NewDIDCommV2Endpoint([]commonmodel.DIDCommV2Endpoint{
+			{URI: "http://localhost:58416", Accept: []string{mediaTypeProfile}},
+		})
 	default:
 		didCommService = vdrapi.DIDCommServiceType
 		recKey = encPubKeyID
+		sp = commonmodel.NewDIDCommV1Endpoint("http://localhost:58416")
 	}
 
 	services := []diddoc.Service{
 		{
-			ID:   fmt.Sprintf(didServiceID, id, 1),
-			Type: didCommService,
-			ServiceEndpoint: commonmodel.Endpoint{
-				URI:    "http://localhost:58416",
-				Accept: []string{mediaTypeProfile},
-			},
-			Priority:      0,
-			RecipientKeys: []string{recKey},
+			ID:              fmt.Sprintf(didServiceID, id, 1),
+			Type:            didCommService,
+			ServiceEndpoint: sp,
+			Priority:        0,
+			RecipientKeys:   []string{recKey},
 		},
 	}
+
+	switch mediaTypeProfile {
+	case transport.MediaTypeDIDCommV2Profile, transport.MediaTypeAIP2RFC0587Profile:
+	default: // set DIDComm V1 Accept field.
+		services[0].Accept = []string{mediaTypeProfile}
+	}
+
 	createdTime := time.Now()
 	didDoc := &diddoc.Doc{
 		Context:            []string{diddoc.ContextV1},
@@ -2360,7 +2377,9 @@ func toBytes(t *testing.T, data interface{}) []byte {
 	return src
 }
 
-func newDidExchangeInvite(publicDID string, svc *diddoc.Service) *Invitation {
+func newDidExchangeInvite(t *testing.T, publicDID string, svc *diddoc.Service) *Invitation {
+	t.Helper()
+
 	i := &Invitation{
 		ID:   uuid.New().String(),
 		Type: InvitationMsgType,
@@ -2368,35 +2387,70 @@ func newDidExchangeInvite(publicDID string, svc *diddoc.Service) *Invitation {
 	}
 
 	if svc != nil {
-		i.RecipientKeys = svc.RecipientKeys
-		i.ServiceEndpoint = svc.ServiceEndpoint.URI
-		i.RoutingKeys = svc.ServiceEndpoint.RoutingKeys
+		if svc.Type == didCommV2ServiceType {
+			i.RecipientKeys = svc.RecipientKeys
+			uri, err := svc.ServiceEndpoint.URI()
+			require.NoError(t, err)
+
+			i.ServiceEndpoint = uri
+
+			routingKeys, err := svc.ServiceEndpoint.RoutingKeys()
+			require.NoError(t, err)
+
+			i.RoutingKeys = routingKeys
+		} else {
+			var err error
+
+			i.RecipientKeys = svc.RecipientKeys
+			i.ServiceEndpoint, err = svc.ServiceEndpoint.URI()
+			require.NoError(t, err)
+			i.RoutingKeys = svc.RoutingKeys
+		}
 	}
 
 	return i
 }
 
-func newOOBInvite(target interface{}) *OOBInvitation {
+func newOOBInvite(accept []string, target interface{}) *OOBInvitation {
 	return &OOBInvitation{
 		ID:                uuid.New().String(),
 		Type:              oobMsgType,
 		ThreadID:          uuid.New().String(),
 		TheirLabel:        "test",
 		Target:            target,
-		MediaTypeProfiles: []string{"didcomm/v2"},
+		MediaTypeProfiles: accept,
 	}
 }
 
 func newServiceBlock(recKeys, routingKeys []string, didCommServiceVType string) *diddoc.Service {
-	return &diddoc.Service{
-		ID:            uuid.New().String(),
-		Type:          didCommServiceVType,
-		RecipientKeys: recKeys,
-		ServiceEndpoint: commonmodel.Endpoint{
-			URI:         "http://test.com",
-			RoutingKeys: routingKeys,
-		},
+	var (
+		sp                   commonmodel.Endpoint
+		didCommV1RoutingKeys []string
+	)
+
+	switch didCommServiceVType {
+	case didCommV2ServiceType:
+		sp = commonmodel.NewDIDCommV2Endpoint([]commonmodel.DIDCommV2Endpoint{
+			{URI: "http://test.com", Accept: []string{transport.MediaTypeDIDCommV2Profile}, RoutingKeys: routingKeys},
+		})
+	default:
+		sp = commonmodel.NewDIDCommV1Endpoint("http://test.com")
+		didCommV1RoutingKeys = routingKeys
 	}
+
+	svc := &diddoc.Service{
+		ID:              uuid.New().String(),
+		Type:            didCommServiceVType,
+		RecipientKeys:   recKeys,
+		ServiceEndpoint: sp,
+	}
+
+	if didCommServiceVType == didCommServiceType {
+		svc.Accept = []string{transport.MediaTypeRFC0019EncryptedEnvelope}
+		svc.RoutingKeys = didCommV1RoutingKeys
+	}
+
+	return svc
 }
 
 func connRecorder(t *testing.T, p provider) *connection.Recorder {

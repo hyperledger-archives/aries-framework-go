@@ -59,7 +59,7 @@ func TestConnectionStore(t *testing.T) {
 			frameworkID:   uuid.New().String(),
 			executeInbound: func(envelope *transport.Envelope) error {
 				resp, outboundErr := outbound.Send([]byte(response),
-					prepareDestinationWithTransport("ws://doesnt-matter", "", []string{verKey}))
+					prepareDestinationWithTransport("ws://doesnt-matter", "", []string{verKey}, nil))
 				require.NoError(t, outboundErr)
 				require.Equal(t, "", resp)
 				return nil
@@ -125,7 +125,7 @@ func TestConnectionStore(t *testing.T) {
 
 		// send the outbound message
 		resp, err := outbound.Send(request,
-			prepareDestinationWithTransport("ws://"+addr, decorator.TransportReturnRouteAll, []string{verKey}))
+			prepareDestinationWithTransport("ws://"+addr, decorator.TransportReturnRouteAll, []string{verKey}, nil))
 		require.NoError(t, err)
 		require.Equal(t, "", resp)
 
