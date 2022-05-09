@@ -57,20 +57,13 @@ type idTypePair struct {
 	Type string `json:"type"`
 }
 
-// nameAndValueQuery represents a name+value pair that can be used to query the encrypted indices for specific data.
-// TODO: #2262 This is a simplified version of the actual EDV query format, which is still not finalized
-//  in the spec as of writing. See: https://github.com/decentralized-identity/confidential-storage/issues/34.
-type nameAndValueQuery struct {
-	ReturnFullDocuments bool   `json:"returnFullDocuments"`
-	Name                string `json:"index"`
-	Value               string `json:"equals"`
-}
-
-// hasQuery represents a simpler version of query above that matches all documents that are tagged with the index name
-// specified in "has", regardless of index value.
-type hasQuery struct {
-	ReturnFullDocuments bool   `json:"returnFullDocuments"`
-	Has                 string `json:"has"`
+// query represents a vault query.
+// See https://identity.foundation/edv-spec/#searching-encrypted-documents for more info.
+type query struct {
+	Index               string              `json:"index"`
+	Equals              []map[string]string `json:"equals"`
+	Has                 string              `json:"has"`
+	ReturnFullDocuments bool                `json:"returnFullDocuments"`
 }
 
 const (

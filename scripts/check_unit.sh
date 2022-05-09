@@ -39,17 +39,17 @@ fi
 # Any return status other than 0 or 1 is unusual and so we exit.
 remove_docker_containers () {
 DOCKER_KILL_EXIT_CODE=0
-docker kill AriesCouchDBStorageTest >/dev/null 2>&1 || DOCKER_KILL_EXIT_CODE=$?
+docker kill AriesMongoDBStorageTest >/dev/null 2>&1 || DOCKER_KILL_EXIT_CODE=$?
 docker kill AriesEDVStorageTest >/dev/null 2>&1 || DOCKER_KILL_EXIT_CODE=$?
 
-check_exit_code $DOCKER_KILL_EXIT_CODE "docker kill AriesCouchDBStorageTest"
+check_exit_code $DOCKER_KILL_EXIT_CODE "docker kill AriesMongoDBStorageTest"
 check_exit_code $DOCKER_KILL_EXIT_CODE "docker kill AriesEDVStorageTest"
 
 DOCKER_RM_EXIT_CODE=0
-docker rm AriesCouchDBStorageTest >/dev/null 2>&1 || DOCKER_RM_EXIT_CODE=$?
+docker rm AriesMongoDBStorageTest >/dev/null 2>&1 || DOCKER_RM_EXIT_CODE=$?
 docker rm AriesEDVStorageTest >/dev/null 2>&1 || DOCKER_RM_EXIT_CODE=$?
 
-check_exit_code $DOCKER_RM_EXIT_CODE "docker rm AriesCouchDBStorageTest"
+check_exit_code $DOCKER_RM_EXIT_CODE "docker rm AriesMongoDBStorageTest"
 check_exit_code $DOCKER_RM_EXIT_CODE "docker rm AriesEDVStorageTest"
 }
 
@@ -98,7 +98,7 @@ else
 
 amend_coverage_file
 
-docker kill AriesCouchDBStorageTest >/dev/null
+docker kill AriesMongoDBStorageTest >/dev/null
 docker kill AriesEDVStorageTest >/dev/null
 remove_docker_containers
 fi
