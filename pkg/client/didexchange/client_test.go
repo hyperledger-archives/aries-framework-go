@@ -773,13 +773,13 @@ func TestClient_CreateConnection(t *testing.T) {
 		require.NoError(t, err)
 
 		// empty ServiceEndpoint to trigger CreateDestination error
-		theirDID.Service[0].ServiceEndpoint.URI = ""
+		theirDID.Service[0].ServiceEndpoint = model.NewDIDCommV1Endpoint("")
 
 		_, err = c.CreateConnection(myDID.ID, theirDID,
 			WithTheirLabel(label), WithThreadID(threadID), WithParentThreadID(parentThreadID),
 			WithInvitationID(invitationID), WithInvitationDID(invitationDID), WithImplicit(implicit))
 		require.Contains(t, err.Error(), "createConnection: failed to create destination: "+
-			"create destination: no service endpoint URI on didcomm service block in diddoc:")
+			"create destination: service endpoint URI on didcomm v1 service block in diddoc error:")
 	})
 }
 
@@ -1516,7 +1516,7 @@ func newPeerDID(t *testing.T) *did.Doc {
 	d, err := ctx.VDRegistry().Create(
 		peer.DIDMethod, &did.Doc{Service: []did.Service{{
 			Type:            "did-communication",
-			ServiceEndpoint: model.Endpoint{URI: "http://agent.example.com/didcomm"},
+			ServiceEndpoint: model.NewDIDCommV1Endpoint("http://agent.example.com/didcomm"),
 		}}, VerificationMethod: []did.VerificationMethod{getSigningKey()}})
 	require.NoError(t, err)
 

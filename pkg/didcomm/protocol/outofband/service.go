@@ -10,11 +10,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/mitchellh/mapstructure"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
@@ -927,6 +929,7 @@ func decodeDIDInvitationAndOOBInvitation(c *callback) (*didexchange.OOBInvitatio
 	return didInv, oobInv, nil
 }
 
+//nolint:funlen,gocognit,gocyclo
 func chooseTarget(svcs []interface{}) (interface{}, error) {
 	for i := range svcs {
 		switch svc := svcs[i].(type) {
@@ -941,8 +944,70 @@ func chooseTarget(svcs []interface{}) (interface{}, error) {
 			}
 
 			err = decoder.Decode(svc)
+			//nolint:nestif
 			if err != nil {
-				return nil, fmt.Errorf("failed to decode service block : %w", err)
+				var targetErr *mapstructure.Error
+
+				if errors.As(err, &targetErr) {
+					for _, er := range targetErr.Errors {
+						// TODO this error check depend on mapstructure decoding 'ServiceEndpoint' section of service.
+						// TODO Find a  better way to build it.
+						// if serviceEndpoint is a string, explicitly convert it using model.NewDIDCommV1Endpoint().
+						if strings.EqualFold(er, "'serviceEndpoint' expected a map, got 'string'") {
+							uri, ok := svc["serviceEndpoint"].(string)
+							if ok {
+								s.ServiceEndpoint = model.NewDIDCommV1Endpoint(uri)
+								return &s, nil
+							}
+						} else if strings.EqualFold(er, "'serviceEndpoint' expected a map, got 'slice'") {
+							// if serviceEndpoint is a slice, explicitly convert each entry using the following call:
+							// model.NewDIDCommV2Endpoint()
+							seps, ok := svc["serviceEndpoint"].([]interface{})
+							if ok {
+								var (
+									v2Endpoints []model.DIDCommV2Endpoint
+									errs        []error
+								)
+
+								for _, sep := range seps {
+									var v2Endpoint model.DIDCommV2Endpoint
+
+									endpointDecoder, e := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+										TagName: "json", Result: &v2Endpoint,
+									})
+									if e != nil {
+										errs = append(errs, fmt.Errorf("failed to initialize DIDComm V2 "+
+											"ServiceEndpoint decoder: %w, skipping", e))
+
+										continue
+									}
+
+									e = endpointDecoder.Decode(sep)
+									if e != nil {
+										errs = append(errs, fmt.Errorf("didComm V2 ServiceEndpoint decoding "+
+											"failed: %w, skipping", e))
+
+										continue
+									}
+
+									v2Endpoints = append(v2Endpoints, v2Endpoint)
+								}
+
+								if len(v2Endpoints) > 0 {
+									s.ServiceEndpoint = model.NewDIDCommV2Endpoint(v2Endpoints)
+									return &s, nil
+								}
+
+								if len(errs) > 0 {
+									return nil, fmt.Errorf("failed to decode DIDComm V2 service endpoint of "+
+										"service block: %v", errs)
+								}
+							}
+						}
+					}
+				}
+
+				return nil, fmt.Errorf("failed to decode service block : %w, svc: %#v", err, svc)
 			}
 
 			return &s, nil

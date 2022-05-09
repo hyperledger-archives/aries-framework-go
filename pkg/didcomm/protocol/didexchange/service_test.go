@@ -406,7 +406,9 @@ func TestService_Handle_Invitee(t *testing.T) {
 	require.Equal(t, (&requested{}).Name(), connRecord.State)
 	require.Equal(t, invitation.ID, connRecord.InvitationID)
 	require.Equal(t, invitation.RecipientKeys, connRecord.RecipientKeys)
-	require.Equal(t, invitation.ServiceEndpoint, connRecord.ServiceEndPoint.URI)
+	uri, err := connRecord.ServiceEndPoint.URI()
+	require.NoError(t, err)
+	require.Equal(t, invitation.ServiceEndpoint, uri)
 
 	didKey, err := ctx.getVerKey(invitation.ID)
 	require.NoError(t, err)
@@ -694,7 +696,7 @@ func TestCreateConnection(t *testing.T) {
 			TheirLabel:      uuid.New().String(),
 			TheirDID:        theirDID.ID,
 			MyDID:           newPeerDID(t, k).ID,
-			ServiceEndPoint: commonmodel.Endpoint{URI: "http://example.com"},
+			ServiceEndPoint: commonmodel.NewDIDCommV1Endpoint("http://example.com"),
 			RecipientKeys:   []string{"testkeys"},
 			InvitationID:    uuid.New().String(),
 			Namespace:       myNSPrefix,
@@ -954,7 +956,7 @@ func TestContinueWithPublicDID(t *testing.T) {
 		keyType:          kms.ED25519Type,
 		keyAgreementType: kms.X25519ECDHKWType,
 	}
-	didDoc := mockdiddoc.GetMockDIDDoc(t)
+	didDoc := mockdiddoc.GetMockDIDDoc(t, false)
 	svc, err := New(&protocol.MockProvider{
 		ServiceMap: map[string]interface{}{
 			mediator.Coordination: &mockroute.MockMediatorSvc{},
@@ -2015,7 +2017,7 @@ func generateRequestMsgPayload(t *testing.T, prov provider, id, invitationID str
 
 	ctx := context{
 		outboundDispatcher: prov.OutboundDispatcher(),
-		vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc(t)},
+		vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc(t, false)},
 		connectionRecorder: connRec,
 	}
 	doc, err := ctx.vdRegistry.Create(testMethod, nil)
@@ -2183,7 +2185,7 @@ func TestRespondTo(t *testing.T) {
 			ID:              uuid.New().String(),
 			Type:            "did-communication",
 			RecipientKeys:   []string{"did:key:1234567"},
-			ServiceEndpoint: commonmodel.Endpoint{URI: "http://example.com"},
+			ServiceEndpoint: commonmodel.NewDIDCommV1Endpoint("http://example.com"),
 		}), nil)
 		require.NoError(t, err)
 		require.NotEmpty(t, connID)
@@ -2248,7 +2250,7 @@ func TestRespondTo(t *testing.T) {
 
 func TestSave(t *testing.T) {
 	t.Run("saves invitation", func(t *testing.T) {
-		expected := newOOBInvite("did:example:public")
+		expected := newOOBInvite([]string{transport.MediaTypeRFC0019EncryptedEnvelope}, "did:example:public")
 		provider := testProvider()
 		provider.StoreProvider = &mockstorage.MockStoreProvider{
 			Custom: &mockStore{
@@ -2276,7 +2278,7 @@ func TestSave(t *testing.T) {
 		}
 		s, err := New(provider)
 		require.NoError(t, err)
-		err = s.SaveInvitation(newOOBInvite("did:example:public"))
+		err = s.SaveInvitation(newOOBInvite([]string{transport.MediaTypeRFC0019EncryptedEnvelope}, "did:example:public"))
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})
@@ -2324,7 +2326,7 @@ func newPeerDID(t *testing.T, k kms.KeyManager) *did.Doc {
 			Type:            "did-communication",
 			Priority:        0,
 			RecipientKeys:   []string{base58.Encode(pubKey)},
-			ServiceEndpoint: commonmodel.Endpoint{URI: "http://example.com"},
+			ServiceEndpoint: commonmodel.NewDIDCommV1Endpoint("http://example.com"),
 		}}),
 	)
 	require.NoError(t, err)

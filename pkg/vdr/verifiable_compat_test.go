@@ -153,7 +153,7 @@ func createPeerDIDLikeDIDExchangeService(t *testing.T, a *context.Provider) *did
 	docResolution, err := a.VDRegistry().Create(
 		peer.DIDMethod, &did.Doc{
 			Service: []did.Service{
-				{ServiceEndpoint: model.Endpoint{URI: "http://example.com/didcomm"}},
+				{ServiceEndpoint: model.NewDIDCommV1Endpoint("http://example.com/didcomm")},
 			},
 			VerificationMethod: []did.VerificationMethod{
 				authVM,

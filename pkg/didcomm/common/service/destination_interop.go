@@ -1,3 +1,4 @@
+//go:build ACAPyInterop
 // +build ACAPyInterop
 
 /*
@@ -35,7 +36,7 @@ func CreateDestination(didDoc *diddoc.Doc) (*Destination, error) {
 		}
 	}
 
-	if didCommService.ServiceEndpoint == "" {
+	if uri, err := didCommService.ServiceEndpoint.URI(); uri == "" || err != nil {
 		return nil, fmt.Errorf("create destination: no service endpoint on didcomm service block in diddoc: %+v", didDoc)
 	}
 

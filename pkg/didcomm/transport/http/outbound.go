@@ -92,7 +92,12 @@ func (cs *OutboundHTTPClient) Start(prov transport.Provider) error {
 
 // Send sends a2a exchange data via HTTP (client side).
 func (cs *OutboundHTTPClient) Send(data []byte, destination *service.Destination) (string, error) {
-	resp, err := cs.client.Post(destination.ServiceEndpoint.URI, commContentType, bytes.NewBuffer(data))
+	uri, err := destination.ServiceEndpoint.URI()
+	if err != nil {
+		return "", fmt.Errorf("error getting ServiceEndpoint URI: %w", err)
+	}
+
+	resp, err := cs.client.Post(uri, commContentType, bytes.NewBuffer(data))
 	if err != nil {
 		logger.Errorf("posting DID envelope to agent failed [%s, %v]", destination.ServiceEndpoint, err)
 		return "", err

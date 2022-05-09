@@ -16,6 +16,7 @@ import (
 	"github.com/trustbloc/sidetree-core-go/pkg/util/pubkey"
 	"github.com/trustbloc/sidetree-core-go/pkg/versions/1_0/client"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/jwkkid"
@@ -39,7 +40,7 @@ const docTemplate = `{
 	{
 	   "id": "hub",
 	   "type": "%s",
-	   "serviceEndpoint": "%s",
+	   "serviceEndpoint": %s,
        "recipientKeys" : [ "%s" ]
 	}
   ]
@@ -48,7 +49,7 @@ const docTemplate = `{
 const (
 	sha2_256 = 18 // multihash
 
-	defaultKeyType = "JwsVerificationKey2020"
+	defaultKeyType = "JsonWebKey2020"
 )
 
 type didResolution struct {
@@ -68,7 +69,7 @@ type CreateDIDParams struct {
 	EncryptionKey   []byte
 	KeyType         string
 	EncKeyType      kms.KeyType
-	ServiceEndpoint string
+	ServiceEndpoint model.Endpoint
 	ServiceType     string
 }
 
@@ -162,7 +163,12 @@ func getOpaqueDocument(params *CreateDIDParams) ([]byte, error) {
 		ka = fmt.Sprintf(ka, "key-2", kaType, encJWKMarshalled)
 	}
 
-	data := fmt.Sprintf(docTemplate, params.KeyID, keyType, opsPubKey, ka, serviceType, params.ServiceEndpoint, didKey)
+	mEndPoint, err := params.ServiceEndpoint.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+
+	data := fmt.Sprintf(docTemplate, params.KeyID, keyType, opsPubKey, ka, serviceType, mEndPoint, didKey)
 
 	doc, err := document.FromBytes([]byte(data))
 	if err != nil {

@@ -258,7 +258,7 @@ func createDIDDocWithKey(pub string) *did.Doc {
 		{
 			ID:              fmt.Sprintf(didServiceID, id, 1),
 			Type:            "did-communication",
-			ServiceEndpoint: model.Endpoint{URI: "http://localhost:58416"},
+			ServiceEndpoint: model.NewDIDCommV1Endpoint("http://localhost:58416"),
 			Priority:        0,
 			RecipientKeys:   []string{pubKeyID},
 		},

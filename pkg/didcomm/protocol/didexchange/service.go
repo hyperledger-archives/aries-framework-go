@@ -697,7 +697,11 @@ func (s *Service) CreateConnection(record *connection.Record, theirDID *did.Doc)
 		return fmt.Errorf("failed to save myDID to the did.ConnectionStore: %w", err)
 	}
 
-	record.DIDCommVersion = service.V1
+	if isDIDCommV2(record.MediaTypeProfiles) {
+		record.DIDCommVersion = service.V2
+	} else {
+		record.DIDCommVersion = service.V1
+	}
 
 	return s.connectionRecorder.SaveConnectionRecord(record)
 }
@@ -719,6 +723,7 @@ func (s *Service) connectionRecord(msg service.DIDCommMsg) (*connection.Record, 
 	return nil, errors.New("invalid message type")
 }
 
+//nolint:funlen
 func (s *Service) oobInvitationMsgRecord(msg service.DIDCommMsg) (*connection.Record, error) {
 	thID, err := msg.ThreadID()
 	if err != nil {
@@ -737,20 +742,40 @@ func (s *Service) oobInvitationMsgRecord(msg service.DIDCommMsg) (*connection.Re
 		return nil, fmt.Errorf("failed to get the did service block from oob invitation : %w", err)
 	}
 
-	connRecord := &connection.Record{
-		ConnectionID:   generateRandomID(),
-		ThreadID:       thID,
-		ParentThreadID: oobInvitation.ThreadID,
-		State:          stateNameNull,
-		InvitationID:   oobInvitation.ID,
-		ServiceEndPoint: model.Endpoint{
-			URI:    svc.ServiceEndpoint.URI, // TODO: service endpoint should be 'theirs' not 'mine'.
-			Accept: svc.ServiceEndpoint.Accept,
-		},
-		RecipientKeys:  svc.RecipientKeys, // TODO: recipient keys should be 'theirs' not 'mine'.
-		TheirLabel:     oobInvitation.TheirLabel,
-		Namespace:      findNamespace(msg.Type()),
-		DIDCommVersion: service.V1,
+	uri, err := svc.ServiceEndpoint.URI()
+	if err != nil {
+		logger.Debugf("service DIDComm V1 without ServiceEndpoint URI: %w, skipping it", err)
+	}
+
+	var connRecord *connection.Record
+
+	if accept, err := svc.ServiceEndpoint.Accept(); err == nil && isDIDCommV2(accept) {
+		connRecord = &connection.Record{
+			ConnectionID:    generateRandomID(),
+			ThreadID:        thID,
+			ParentThreadID:  oobInvitation.ThreadID,
+			State:           stateNameNull,
+			InvitationID:    oobInvitation.ID,
+			ServiceEndPoint: svc.ServiceEndpoint,
+			RecipientKeys:   svc.RecipientKeys, // TODO: recipient keys should be 'theirs' not 'mine'.
+			TheirLabel:      oobInvitation.TheirLabel,
+			Namespace:       findNamespace(msg.Type()),
+			DIDCommVersion:  service.V2,
+		}
+	} else {
+		connRecord = &connection.Record{
+			ConnectionID:      generateRandomID(),
+			ThreadID:          thID,
+			ParentThreadID:    oobInvitation.ThreadID,
+			State:             stateNameNull,
+			InvitationID:      oobInvitation.ID,
+			ServiceEndPoint:   model.NewDIDCommV1Endpoint(uri),
+			RecipientKeys:     svc.RecipientKeys, // TODO: recipient keys should be 'theirs' not 'mine'.
+			TheirLabel:        oobInvitation.TheirLabel,
+			Namespace:         findNamespace(msg.Type()),
+			MediaTypeProfiles: svc.Accept,
+			DIDCommVersion:    service.V1,
+		}
 	}
 
 	publicDID, ok := oobInvitation.Target.(string)
@@ -785,20 +810,16 @@ func (s *Service) invitationMsgRecord(msg service.DIDCommMsg) (*connection.Recor
 	}
 
 	connRecord := &connection.Record{
-		ConnectionID:  generateRandomID(),
-		ThreadID:      thID,
-		State:         stateNameNull,
-		InvitationID:  invitation.ID,
-		InvitationDID: invitation.DID,
-		ServiceEndPoint: model.Endpoint{
-			URI:         invitation.ServiceEndpoint,
-			Accept:      nil,
-			RoutingKeys: nil,
-		},
-		RecipientKeys:  []string{recKey},
-		TheirLabel:     invitation.Label,
-		Namespace:      findNamespace(msg.Type()),
-		DIDCommVersion: service.V1,
+		ConnectionID:    generateRandomID(),
+		ThreadID:        thID,
+		State:           stateNameNull,
+		InvitationID:    invitation.ID,
+		InvitationDID:   invitation.DID,
+		ServiceEndPoint: model.NewDIDCommV1Endpoint(invitation.ServiceEndpoint),
+		RecipientKeys:   []string{recKey},
+		TheirLabel:      invitation.Label,
+		Namespace:       findNamespace(msg.Type()),
+		DIDCommVersion:  service.V1,
 	}
 
 	if err := s.connectionRecorder.SaveConnectionRecord(connRecord); err != nil {
@@ -918,6 +939,7 @@ type options struct {
 
 // CreateImplicitInvitation creates implicit invitation. Inviter DID is required, invitee DID is optional.
 // If invitee DID is not provided new peer DID will be created for implicit invitation exchange request.
+//nolint:funlen
 func (s *Service) CreateImplicitInvitation(inviterLabel, inviterDID,
 	inviteeLabel, inviteeDID string, routerConnections []string) (string, error) {
 	logger.Debugf("implicit invitation requested inviterDID[%s] inviteeDID[%s]", inviterDID, inviteeDID)
@@ -933,16 +955,35 @@ func (s *Service) CreateImplicitInvitation(inviterLabel, inviterDID,
 	}
 
 	thID := generateRandomID()
-	connRecord := &connection.Record{
-		ConnectionID:    generateRandomID(),
-		ThreadID:        thID,
-		State:           stateNameNull,
-		InvitationDID:   inviterDID,
-		Implicit:        true,
-		ServiceEndPoint: dest.ServiceEndpoint,
-		RecipientKeys:   dest.RecipientKeys,
-		TheirLabel:      inviterLabel,
-		Namespace:       findNamespace(InvitationMsgType),
+
+	var connRecord *connection.Record
+
+	if accept, e := dest.ServiceEndpoint.Accept(); e == nil && isDIDCommV2(accept) {
+		connRecord = &connection.Record{
+			ConnectionID:    generateRandomID(),
+			ThreadID:        thID,
+			State:           stateNameNull,
+			InvitationDID:   inviterDID,
+			Implicit:        true,
+			ServiceEndPoint: dest.ServiceEndpoint,
+			RecipientKeys:   dest.RecipientKeys,
+			TheirLabel:      inviterLabel,
+			Namespace:       findNamespace(InvitationMsgType),
+		}
+	} else {
+		connRecord = &connection.Record{
+			ConnectionID:      generateRandomID(),
+			ThreadID:          thID,
+			State:             stateNameNull,
+			InvitationDID:     inviterDID,
+			Implicit:          true,
+			ServiceEndPoint:   dest.ServiceEndpoint,
+			RecipientKeys:     dest.RecipientKeys,
+			RoutingKeys:       dest.RoutingKeys,
+			MediaTypeProfiles: dest.MediaTypeProfiles,
+			TheirLabel:        inviterLabel,
+			Namespace:         findNamespace(InvitationMsgType),
+		}
 	}
 
 	if e := s.connectionRecorder.SaveConnectionRecordWithMappings(connRecord); e != nil {

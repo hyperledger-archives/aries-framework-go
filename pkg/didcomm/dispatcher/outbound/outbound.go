@@ -107,9 +107,11 @@ func (o *Dispatcher) SendToDID(msg interface{}, myDID, theirDID string) error { 
 
 	didcommMsg, isMsgMap := msg.(service.DIDCommMsgMap)
 
+	var isV2 bool
+
 	if isMsgMap {
-		isV2, e := service.IsDIDCommV2(&didcommMsg)
-		if e == nil && isV2 {
+		isV2, err = service.IsDIDCommV2(&didcommMsg)
+		if err == nil && isV2 {
 			connectionVersion = service.V2
 		} else {
 			connectionVersion = service.V1
@@ -158,9 +160,9 @@ func (o *Dispatcher) SendToDID(msg interface{}, myDID, theirDID string) error { 
 			"outboundDispatcher.SendToDID failed to get didcomm destination for theirDID [%s]: %w", theirDID, err)
 	}
 
-	if len(connRec.ServiceEndPoint.Accept) > 0 {
-		dest.ServiceEndpoint.Accept = make([]string, len(connRec.ServiceEndPoint.Accept))
-		copy(dest.ServiceEndpoint.Accept, connRec.ServiceEndPoint.Accept)
+	if len(connRec.MediaTypeProfiles) > 0 {
+		dest.MediaTypeProfiles = make([]string, len(connRec.MediaTypeProfiles))
+		copy(dest.MediaTypeProfiles, connRec.MediaTypeProfiles)
 	}
 
 	mtp := o.mediaTypeProfile(dest)
@@ -207,13 +209,19 @@ func (o *Dispatcher) getOrCreateConnection(myDID, theirDID string, connectionVer
 	logger.Debugf("no connection record found for myDID=%s theirDID=%s, will create", myDID, theirDID)
 
 	newRecord := connection.Record{
-		ConnectionID:    uuid.New().String(),
-		MyDID:           myDID,
-		TheirDID:        theirDID,
-		State:           connection.StateNameCompleted,
-		Namespace:       connection.MyNSPrefix,
-		ServiceEndPoint: commonmodel.Endpoint{Accept: o.defaultMediaTypeProfiles()},
-		DIDCommVersion:  connectionVersion,
+		ConnectionID:   uuid.New().String(),
+		MyDID:          myDID,
+		TheirDID:       theirDID,
+		State:          connection.StateNameCompleted,
+		Namespace:      connection.MyNSPrefix,
+		DIDCommVersion: connectionVersion,
+	}
+
+	if connectionVersion == service.V2 {
+		newRecord.ServiceEndPoint = commonmodel.NewDIDCommV2Endpoint(
+			[]commonmodel.DIDCommV2Endpoint{{Accept: o.defaultMediaTypeProfiles()}})
+	} else {
+		newRecord.MediaTypeProfiles = o.defaultMediaTypeProfiles()
 	}
 
 	err = o.connections.SaveConnectionRecord(&newRecord)
@@ -228,14 +236,21 @@ func (o *Dispatcher) getOrCreateConnection(myDID, theirDID string, connectionVer
 func (o *Dispatcher) Send(msg interface{}, senderKey string, des *service.Destination) error { // nolint:funlen,gocyclo
 	// check if outbound accepts routing keys, else use recipient keys
 	keys := des.RecipientKeys
-	if len(des.ServiceEndpoint.RoutingKeys) != 0 {
-		keys = des.ServiceEndpoint.RoutingKeys
+	if routingKeys, err := des.ServiceEndpoint.RoutingKeys(); err == nil && len(routingKeys) > 0 { // DIDComm V2
+		keys = routingKeys
+	} else if len(des.RoutingKeys) > 0 { // DIDComm V1
+		keys = routingKeys
 	}
 
 	var outboundTransport transport.OutboundTransport
 
 	for _, v := range o.outboundTransports {
-		if v.AcceptRecipient(keys) || v.Accept(des.ServiceEndpoint.URI) {
+		uri, err := des.ServiceEndpoint.URI()
+		if err != nil {
+			logger.Debugf("destination ServiceEndpoint empty: %w, it will not be checked", err)
+		}
+
+		if v.AcceptRecipient(keys) || v.Accept(uri) {
 			outboundTransport = v
 			break
 		}
@@ -292,9 +307,19 @@ func (o *Dispatcher) Send(msg interface{}, senderKey string, des *service.Destin
 
 // Forward forwards the message without packing to the destination.
 func (o *Dispatcher) Forward(msg interface{}, des *service.Destination) error {
+	var (
+		uri string
+		err error
+	)
+
+	uri, err = des.ServiceEndpoint.URI()
+	if err != nil {
+		logger.Debugf("destination serviceEndpoint forward URI is not set: %w, will skip value", err)
+	}
+
 	for _, v := range o.outboundTransports {
 		if !v.AcceptRecipient(des.RecipientKeys) {
-			if !v.Accept(des.ServiceEndpoint.URI) {
+			if !v.Accept(uri) {
 				continue
 			}
 		}
@@ -312,9 +337,10 @@ func (o *Dispatcher) Forward(msg interface{}, des *service.Destination) error {
 		return nil
 	}
 
-	return fmt.Errorf("outboundDispatcher.Forward: no transport found for serviceEndpoint: %s", des.ServiceEndpoint.URI)
+	return fmt.Errorf("outboundDispatcher.Forward: no transport found for serviceEndpoint: %s", uri)
 }
 
+//nolint:funlen
 func (o *Dispatcher) createForwardMessage(msg []byte, des *service.Destination) ([]byte, error) {
 	forwardMsgType := service.ForwardMsgType
 
@@ -342,8 +368,18 @@ func (o *Dispatcher) createForwardMessage(msg []byte, des *service.Destination) 
 		senderKey = []byte(senderDIDKey)
 	}
 
-	if len(des.ServiceEndpoint.RoutingKeys) == 0 {
-		return msg, nil
+	routingKeys, err := des.ServiceEndpoint.RoutingKeys()
+	if err != nil {
+		logger.Debugf("des.ServiceEndpoint.RoutingKeys() (didcomm v2) returned an error %w, "+
+			"will check routinKeys (didcomm v1) array", err)
+	}
+
+	if len(routingKeys) == 0 {
+		if len(des.RoutingKeys) == 0 {
+			return msg, nil
+		}
+
+		routingKeys = des.RoutingKeys
 	}
 
 	// create forward message
@@ -364,7 +400,7 @@ func (o *Dispatcher) createForwardMessage(msg []byte, des *service.Destination) 
 		MediaTypeProfile: mtProfile,
 		Message:          req,
 		FromKey:          senderKey,
-		ToKeys:           des.ServiceEndpoint.RoutingKeys,
+		ToKeys:           routingKeys,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to pack forward msg: %w", err)
@@ -374,8 +410,8 @@ func (o *Dispatcher) createForwardMessage(msg []byte, des *service.Destination) 
 }
 
 func (o *Dispatcher) addTransportRouteOptions(req []byte, des *service.Destination) ([]byte, error) {
-	// dont add transport route options for forward messages
-	if len(des.ServiceEndpoint.RoutingKeys) != 0 {
+	// don't add transport route options for forward messages
+	if routingKeys, err := des.ServiceEndpoint.RoutingKeys(); err == nil && len(routingKeys) > 0 {
 		return req, nil
 	}
 
@@ -401,10 +437,18 @@ func (o *Dispatcher) addTransportRouteOptions(req []byte, des *service.Destinati
 }
 
 func (o *Dispatcher) mediaTypeProfile(des *service.Destination) string {
-	mt := ""
+	var (
+		mt     string
+		accept []string
+		err    error
+	)
 
-	if len(des.ServiceEndpoint.Accept) > 0 {
-		for _, mtp := range des.ServiceEndpoint.Accept {
+	if accept, err = des.ServiceEndpoint.Accept(); err != nil || len(accept) == 0 { // didcomm v2
+		accept = des.MediaTypeProfiles // didcomm v1
+	}
+
+	if len(accept) > 0 {
+		for _, mtp := range accept {
 			switch mtp {
 			case transport.MediaTypeV1PlaintextPayload, transport.MediaTypeRFC0019EncryptedEnvelope,
 				transport.MediaTypeAIP2RFC0019Profile, transport.MediaTypeProfileDIDCommAIP1:

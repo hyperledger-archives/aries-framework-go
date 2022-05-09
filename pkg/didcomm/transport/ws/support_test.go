@@ -67,13 +67,15 @@ func websocketClient(t *testing.T, port string) (*websocket.Conn, func()) {
 
 func prepareDestination(endPoint string) *service.Destination {
 	return &service.Destination{
-		ServiceEndpoint: model.Endpoint{URI: endPoint},
+		ServiceEndpoint: model.NewDIDCommV1Endpoint(endPoint),
 	}
 }
 
-func prepareDestinationWithTransport(endPoint, returnRoute string, recipientKeys []string) *service.Destination {
+func prepareDestinationWithTransport(endPoint, returnRoute string,
+	recipientKeys, routingKeys []string) *service.Destination {
 	return &service.Destination{
-		ServiceEndpoint:      model.Endpoint{URI: endPoint},
+		ServiceEndpoint:      model.NewDIDCommV1Endpoint(endPoint),
+		RoutingKeys:          routingKeys,
 		RecipientKeys:        recipientKeys,
 		TransportReturnRoute: returnRoute,
 	}
