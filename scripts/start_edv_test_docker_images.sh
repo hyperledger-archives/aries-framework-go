@@ -23,17 +23,17 @@ fi
 # Any return status other than 0 or 1 is unusual and so we exit.
 remove_docker_containers () {
 DOCKER_KILL_EXIT_CODE=0
-docker kill AriesCouchDBStorageTest >/dev/null 2>&1 || DOCKER_KILL_EXIT_CODE=$?
+docker kill AriesMongoDBStorageTest >/dev/null 2>&1 || DOCKER_KILL_EXIT_CODE=$?
 docker kill AriesEDVStorageTest >/dev/null 2>&1 || DOCKER_KILL_EXIT_CODE=$?
 
-check_exit_code $DOCKER_KILL_EXIT_CODE "docker kill AriesCouchDBStorageTest"
+check_exit_code $DOCKER_KILL_EXIT_CODE "docker kill AriesMongoDBStorageTest"
 check_exit_code $DOCKER_KILL_EXIT_CODE "docker kill AriesEDVStorageTest"
 
 DOCKER_RM_EXIT_CODE=0
-docker rm AriesCouchDBStorageTest >/dev/null 2>&1 || DOCKER_RM_EXIT_CODE=$?
+docker rm AriesMongoDBStorageTest >/dev/null 2>&1 || DOCKER_RM_EXIT_CODE=$?
 docker rm AriesEDVStorageTest >/dev/null 2>&1 || DOCKER_RM_EXIT_CODE=$?
 
-check_exit_code $DOCKER_RM_EXIT_CODE "docker rm AriesCouchDBStorageTest"
+check_exit_code $DOCKER_RM_EXIT_CODE "docker rm AriesMongoDBStorageTest"
 check_exit_code $DOCKER_RM_EXIT_CODE "docker rm AriesEDVStorageTest"
 }
 
@@ -44,7 +44,7 @@ check_exit_code $DOCKER_CREATE_NETWORK_EXIT_CODE "docker network create AriesTes
 remove_docker_containers
 
 PWD=$(pwd)
-configPath="$PWD"/scripts/couchdb-config/10-single-node.ini
-docker run -p 5984:5984 -d --network AriesTestNetwork --name AriesCouchDBStorageTest -v "$configPath":/opt/couchdb/etc/local.d/config.ini -e COUCHDB_USER=admin -e COUCHDB_PASSWORD=password couchdb:3.1.0 >/dev/null
 
-docker run -p 8071:8071 -d --network AriesTestNetwork --name AriesEDVStorageTest ghcr.io/trustbloc-cicd/edv:0.1.9-snapshot-325e1bd start --host-url 0.0.0.0:8071 --database-prefix edv_db_ --database-type couchdb --database-url admin:password@AriesCouchDBStorageTest:5984 --with-extensions ReturnFullDocumentsOnQuery,Batch  >/dev/null
+docker run -p 27017:27017 -d --network AriesTestNetwork --name AriesMongoDBStorageTest mongo:4.0.0 >/dev/null
+
+docker run -p 8071:8071 -d --network AriesTestNetwork --name AriesEDVStorageTest ghcr.io/trustbloc-cicd/edv:0.1.9-snapshot-fb17917 start --host-url 0.0.0.0:8071 --database-prefix edv_db_ --database-type mongodb --database-url mongodb://AriesMongoDBStorageTest:27017 --with-extensions Batch >/dev/null
