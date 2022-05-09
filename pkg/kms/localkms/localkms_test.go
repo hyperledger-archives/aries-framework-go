@@ -14,6 +14,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -25,6 +26,7 @@ import (
 	"github.com/google/tink/go/subtle/random"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -203,7 +205,7 @@ func TestCreateGetRotateKey_Failure(t *testing.T) {
 		kid, _, err := kmsStorage.Create(kms.AES128GCM)
 		require.NoError(t, err)
 
-		_, err = kmsStorage.ExportPubKeyBytes(kid)
+		_, _, err = kmsStorage.ExportPubKeyBytes(kid)
 		require.EqualError(t, err, "exportPubKeyBytes: failed to export marshalled key: exportPubKeyBytes: "+
 			"failed to get public keyset handle: keyset.Handle: keyset.Handle: keyset contains a non-private key")
 	})
@@ -365,13 +367,15 @@ func TestLocalKMS_Success(t *testing.T) {
 		require.Equal(t, len(readKHPrimitives.Entries), len(rotatedKHPrimitives.Entries))
 
 		if strings.Contains(string(v), "ECDSA") || v == kms.ED25519Type || v == kms.BLS12381G2Type {
-			pubKeyBytes, e := kmsService.ExportPubKeyBytes(keyID)
+			pubKeyBytes, kt, e := kmsService.ExportPubKeyBytes(keyID)
 			require.Errorf(t, e, "KeyID has been rotated. An error must be returned")
 			require.Empty(t, pubKeyBytes)
+			require.Empty(t, kt)
 
-			pubKeyBytes, e = kmsService.ExportPubKeyBytes(newKeyID)
+			pubKeyBytes, kt, e = kmsService.ExportPubKeyBytes(newKeyID)
 			require.NoError(t, e)
 			require.NotEmpty(t, pubKeyBytes)
+			require.Equal(t, v, kt)
 
 			kh, e := kmsService.PubKeyBytesToHandle(pubKeyBytes, v)
 			require.NoError(t, e)
@@ -384,7 +388,7 @@ func TestLocalKMS_Success(t *testing.T) {
 	}
 }
 
-func TestLocalKMS_ImportPrivateKey(t *testing.T) {
+func TestLocalKMS_ImportPrivateKey(t *testing.T) { // nolint:gocyclo
 	// create a real (not mocked) master key and secret lock to test the KMS end to end
 	sl := createMasterKeyAndSecretLock(t)
 
@@ -424,6 +428,21 @@ func TestLocalKMS_ImportPrivateKey(t *testing.T) {
 		{
 			tcName:  "import private key using ECDSAP521TypeDER type",
 			keyType: kms.ECDSAP521TypeDER,
+			curve:   elliptic.P521(),
+		},
+		{
+			tcName:  "import private key using NISTP256ECDHKW type",
+			keyType: kms.NISTP256ECDHKWType,
+			curve:   elliptic.P256(),
+		},
+		{
+			tcName:  "import private key using NISTP384ECDHKW type",
+			keyType: kms.NISTP384ECDHKWType,
+			curve:   elliptic.P384(),
+		},
+		{
+			tcName:  "import private key using NISTP521ECDHKW type",
+			keyType: kms.NISTP521ECDHKWType,
 			curve:   elliptic.P521(),
 		},
 		{
@@ -484,9 +503,10 @@ func TestLocalKMS_ImportPrivateKey(t *testing.T) {
 				ksID, _, err := kmsService.ImportPrivateKey(privKey, tt.keyType)
 				require.NoError(t, err)
 
-				pubKeyBytes, err := kmsService.ExportPubKeyBytes(ksID)
+				pubKeyBytes, kt, err := kmsService.ExportPubKeyBytes(ksID)
 				require.NoError(t, err)
 				require.EqualValues(t, pubKey, pubKeyBytes)
+				require.Equal(t, tt.keyType, kt)
 				return
 			}
 
@@ -502,8 +522,9 @@ func TestLocalKMS_ImportPrivateKey(t *testing.T) {
 				ksID, _, err := kmsService.ImportPrivateKey(privKey, tt.keyType)
 				require.NoError(t, err)
 
-				pubKeyBytes, err := kmsService.ExportPubKeyBytes(ksID)
+				pubKeyBytes, kt, err := kmsService.ExportPubKeyBytes(ksID)
 				require.NoError(t, err)
+				require.Equal(t, tt.keyType, kt)
 
 				expectedPubKeyBytes, err := pubKey.Marshal()
 				require.NoError(t, err)
@@ -532,18 +553,43 @@ func TestLocalKMS_ImportPrivateKey(t *testing.T) {
 			}
 
 			// export marshaled public key to verify it against the original public key (marshalled)
-			pubKeyBytes, err := kmsService.ExportPubKeyBytes(ksID)
+			actualPubKey, kt, err := kmsService.ExportPubKeyBytes(ksID)
 			require.NoError(t, err)
+			require.Equal(t, tt.keyType, kt)
+
+			var expectedPubKey []byte
 
 			switch tt.keyType {
 			case kms.ECDSAP256TypeDER, kms.ECDSAP384TypeDER, kms.ECDSAP521TypeDER:
-				pubKey, err := x509.MarshalPKIXPublicKey(privKey.Public())
+				expectedPubKey, err = x509.MarshalPKIXPublicKey(privKey.Public())
 				require.NoError(t, err)
-				require.EqualValues(t, pubKey, pubKeyBytes)
 			case kms.ECDSAP256TypeIEEEP1363, kms.ECDSAP384TypeIEEEP1363, kms.ECDSAP521TypeIEEEP1363:
-				pubKey := elliptic.Marshal(tt.curve, privKey.X, privKey.Y)
-				require.EqualValues(t, pubKey, pubKeyBytes)
+				expectedPubKey = elliptic.Marshal(tt.curve, privKey.X, privKey.Y)
+			case kms.NISTP256ECDHKWType, kms.NISTP384ECDHKWType, kms.NISTP521ECDHKWType:
+				var curveName string
+
+				switch tt.curve.Params().Name {
+				case "P-256":
+					curveName = "NIST_P256"
+				case "P-384":
+					curveName = "NIST_P384"
+				case "P-521":
+					curveName = "NIST_P521"
+				}
+
+				cryptoKey := &crypto.PublicKey{
+					KID:   ksID,
+					X:     privKey.PublicKey.X.Bytes(),
+					Y:     privKey.PublicKey.Y.Bytes(),
+					Curve: curveName,
+					Type:  "EC",
+				}
+
+				expectedPubKey, err = json.Marshal(cryptoKey)
+				require.NoError(t, err)
 			}
+
+			require.EqualValues(t, expectedPubKey, actualPubKey)
 		})
 	}
 }

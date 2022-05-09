@@ -76,7 +76,7 @@ func (i *IssuanceSDKDIDCommV1Steps) SetContext(ctx *context.BDDContext) {
 // RegisterSteps registers the BDD test steps on the suite.
 // Note that VC proofs are not checked in this test suite.
 func (i *IssuanceSDKDIDCommV1Steps) RegisterSteps(suite *godog.Suite) {
-	suite.Step(`^"([^"]*)" creates an out-of-band-v1 invitation with streamlined-vc goal-code$`,
+	suite.Step(`^"([^"]*)" creates an out-of-band-v1 invitation with streamlined-vc goal_code$`,
 		i.createOOBV1WithStreamlinedVCGoalCode)
 	suite.Step(`^"([^"]*)" sends the out-of-band-v1 invitation to "([^"]*)" and they accept it$`,
 		i.acceptOOBV1Invitation)

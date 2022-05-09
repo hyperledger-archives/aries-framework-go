@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mitchellh/mapstructure"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
@@ -323,10 +324,8 @@ func (ctx *context) handleInboundOOBInvitation(oobInv *OOBInvitation, thid strin
 	}
 
 	dest := &service.Destination{
-		RecipientKeys:     svc.RecipientKeys,
-		ServiceEndpoint:   svc.ServiceEndpoint,
-		RoutingKeys:       svc.RoutingKeys,
-		MediaTypeProfiles: svc.Accept,
+		RecipientKeys:   svc.RecipientKeys,
+		ServiceEndpoint: svc.ServiceEndpoint,
 	}
 
 	connRec.ThreadID = thid
@@ -363,7 +362,7 @@ func (ctx *context) createInvitedRequest(destination *service.Destination, label
 
 	// get did document to use in exchange request
 	myDIDDoc, err := ctx.getMyDIDDoc(getPublicDID(options), getRouterConnections(options),
-		serviceTypeByMediaProfile(destination.MediaTypeProfiles))
+		serviceTypeByMediaProfile(destination.ServiceEndpoint.Accept))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -449,7 +448,7 @@ func (ctx *context) handleInboundRequest(request *Request, options *options,
 	if len(requestDidDoc.Service) > 0 {
 		serviceType = requestDidDoc.Service[0].Type
 	} else {
-		serviceType = serviceTypeByMediaProfile(destination.MediaTypeProfiles)
+		serviceType = serviceTypeByMediaProfile(destination.ServiceEndpoint.Accept)
 	}
 
 	responseDidDoc, err := ctx.getMyDIDDoc(myDID, getRouterConnections(options), serviceType)
@@ -489,8 +488,8 @@ func (ctx *context) handleInboundRequest(request *Request, options *options,
 	connRec.TheirDID = request.DID
 	connRec.TheirLabel = request.Label
 
-	if len(destination.MediaTypeProfiles) > 0 {
-		connRec.MediaTypeProfiles = destination.MediaTypeProfiles
+	if len(destination.ServiceEndpoint.Accept) > 0 {
+		connRec.ServiceEndPoint.Accept = destination.ServiceEndpoint.Accept
 	}
 
 	// send exchange response
@@ -630,10 +629,12 @@ func (ctx *context) getDestination(invitation *Invitation) (*service.Destination
 	}
 
 	return &service.Destination{
-		RecipientKeys:     invitation.RecipientKeys,
-		ServiceEndpoint:   invitation.ServiceEndpoint,
-		RoutingKeys:       invitation.RoutingKeys,
-		MediaTypeProfiles: ctx.mediaTypeProfiles,
+		RecipientKeys: invitation.RecipientKeys,
+		ServiceEndpoint: model.Endpoint{
+			URI:         invitation.ServiceEndpoint,
+			Accept:      ctx.mediaTypeProfiles,
+			RoutingKeys: invitation.RoutingKeys,
+		},
 	}, nil
 }
 
@@ -669,7 +670,10 @@ func (ctx *context) getMyDIDDoc(pubDID string, routerConnections []string, servi
 			return nil, fmt.Errorf("did doc - fetch router config: %w", err)
 		}
 
-		services = append(services, did.Service{ServiceEndpoint: serviceEndpoint, RoutingKeys: routingKeys})
+		services = append(services, did.Service{ServiceEndpoint: model.Endpoint{
+			URI:         serviceEndpoint,
+			RoutingKeys: routingKeys,
+		}})
 	}
 
 	if len(services) == 0 {
@@ -1027,7 +1031,7 @@ func (ctx *context) getServiceBlock(i *OOBInvitation) (*did.Service, error) {
 		// updating Accept header requires a cloned service block to avoid Data Race errors.
 		// RFC0587: In case the accept property is set in both the DID service block and the out-of-band message,
 		// the out-of-band property takes precedence.
-		block.Accept = i.MediaTypeProfiles
+		block.ServiceEndpoint.Accept = i.MediaTypeProfiles
 	}
 
 	logger.Debugf("extracted service block=%+v", block)

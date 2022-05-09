@@ -1,3 +1,23 @@
+# 0.1.8
+
+## March 29, 2022
+
+- DIDCommV2 full support:
+  - Updated to V2 message structure
+  - OOB V2
+  - Issue Credential V3, Present Proof V3
+  - Mediator protocol support for DIDComm V2
+  - DID Rotation
+- Universal Wallet:
+  - WACI Issuance
+  - WACI Presentation
+  - Credential Manifest support & minor improvements
+- Aries RFCs / Interop
+  - Web-redirect support in issue-credential and present-proof protocols (V2 and V3)
+  - Media type profile support
+  - Various minor fixes
+- Fixes and improvements to Crypto, KMS, VDR, Verifiable Credential, Storage, and other components
+
 # 0.1.7
 
 ## September 14, 2021

@@ -206,12 +206,12 @@ func TestNegativeCases(t *testing.T) {
 	})
 
 	t.Run("test buildCompositeKey() with bad EC curve", func(t *testing.T) {
-		_, err := buildCompositeKey("", ecdhpb.KeyType_EC.String(), "BAD", nil, nil)
+		_, _, err := buildCompositeKey("", ecdhpb.KeyType_EC.String(), "BAD", nil, nil)
 		require.EqualError(t, err, "undefined EC curve: unsupported curve")
 	})
 
 	t.Run("test buildCompositeKey() with bad OKP curve", func(t *testing.T) {
-		_, err := buildCompositeKey("", ecdhpb.KeyType_OKP.String(), "BAD", nil, nil)
+		_, _, err := buildCompositeKey("", ecdhpb.KeyType_OKP.String(), "BAD", nil, nil)
 		require.EqualError(t, err, "invalid OKP curve: BAD")
 	})
 
@@ -232,7 +232,7 @@ func TestNegativeCases(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = protoToCompositeKey(&tinkpb.KeyData{
+		_, _, err = protoToCompositeKey(&tinkpb.KeyData{
 			TypeUrl:         nistPECDHKWPublicKeyTypeURL,
 			Value:           mKey,
 			KeyMaterialType: 0,
@@ -260,7 +260,8 @@ func TestNegativeCases(t *testing.T) {
 	t.Run("test write() should fail with empty key set", func(t *testing.T) {
 		buf := new(bytes.Buffer)
 
-		err := write(buf, &tinkpb.Keyset{})
+		pw := &PubKeyWriter{w: buf}
+		err := pw.write(&tinkpb.Keyset{})
 		require.Error(t, err)
 	})
 
@@ -281,7 +282,8 @@ func TestNegativeCases(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = write(&failWriter{}, &tinkpb.Keyset{
+		pw := &PubKeyWriter{w: &failWriter{}}
+		err = pw.write(&tinkpb.Keyset{
 			PrimaryKeyId: 0,
 			Key: []*tinkpb.Keyset_Key{
 				{

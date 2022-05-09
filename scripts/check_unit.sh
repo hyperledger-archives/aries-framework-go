@@ -6,11 +6,6 @@
 #
 set -e
 
-# TODO: MacOS Monterey Golang fix, remove "MallocNanoZone=0" once https://github.com/golang/go/issues/49138 is resolved.
-# TODO: issue is now resolved in :https://github.com/golang/go/commit/5f6552018d1ec920c3ca3d459691528f48363c3c,
-# TODO" but will need to wait for next Go release.
-export MallocNanoZone=0
-
 echo "Running $0"
 
 GO_TEST_CMD="go test"
@@ -44,17 +39,17 @@ fi
 # Any return status other than 0 or 1 is unusual and so we exit.
 remove_docker_containers () {
 DOCKER_KILL_EXIT_CODE=0
-docker kill AriesCouchDBStorageTest >/dev/null 2>&1 || DOCKER_KILL_EXIT_CODE=$?
+docker kill AriesMongoDBStorageTest >/dev/null 2>&1 || DOCKER_KILL_EXIT_CODE=$?
 docker kill AriesEDVStorageTest >/dev/null 2>&1 || DOCKER_KILL_EXIT_CODE=$?
 
-check_exit_code $DOCKER_KILL_EXIT_CODE "docker kill AriesCouchDBStorageTest"
+check_exit_code $DOCKER_KILL_EXIT_CODE "docker kill AriesMongoDBStorageTest"
 check_exit_code $DOCKER_KILL_EXIT_CODE "docker kill AriesEDVStorageTest"
 
 DOCKER_RM_EXIT_CODE=0
-docker rm AriesCouchDBStorageTest >/dev/null 2>&1 || DOCKER_RM_EXIT_CODE=$?
+docker rm AriesMongoDBStorageTest >/dev/null 2>&1 || DOCKER_RM_EXIT_CODE=$?
 docker rm AriesEDVStorageTest >/dev/null 2>&1 || DOCKER_RM_EXIT_CODE=$?
 
-check_exit_code $DOCKER_RM_EXIT_CODE "docker rm AriesCouchDBStorageTest"
+check_exit_code $DOCKER_RM_EXIT_CODE "docker rm AriesMongoDBStorageTest"
 check_exit_code $DOCKER_RM_EXIT_CODE "docker rm AriesEDVStorageTest"
 }
 
@@ -103,7 +98,7 @@ else
 
 amend_coverage_file
 
-docker kill AriesCouchDBStorageTest >/dev/null
+docker kill AriesMongoDBStorageTest >/dev/null
 docker kill AriesEDVStorageTest >/dev/null
 remove_docker_containers
 fi

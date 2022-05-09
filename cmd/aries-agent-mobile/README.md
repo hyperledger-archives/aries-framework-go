@@ -460,10 +460,6 @@ class AriesService {
 </p>
 </details>
 
-### 3.3. Demo apps
-
-For examples of mobile apps built with the aries-agent-mobile bindings, see [https://github.com/trustbloc/aries-examples](https://github.com/trustbloc/aries-examples).
-
 
 ## 4. Test
 

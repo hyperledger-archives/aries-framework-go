@@ -51,29 +51,34 @@ func (m *failingDecrypter) Decrypt(*jose.JSONWebEncryption) ([]byte, error) {
 }
 
 func TestCommon(t *testing.T) {
+	commonTestOptions := []storagetest.TestOption{
+		storagetest.SkipSortTests(false),
+		storagetest.SkipOpenStoreSetGetStoreConfigTests(),
+	}
+
 	t.Run("With random document IDs", func(t *testing.T) {
 		t.Run("Without batch endpoint extension", func(t *testing.T) {
 			t.Run(`Without "return full documents from queries" extension`, func(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t, createValidEncryptedFormatter(t))
-				storagetest.TestAll(t, edvRESTProvider, storagetest.SkipSortTests(false))
+				runCommonTests(t, edvRESTProvider, commonTestOptions)
 			})
 			t.Run(`With "return full documents from queries" extension`, func(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t, createValidEncryptedFormatter(t),
 					edv.WithFullDocumentsReturnedFromQueries())
-				storagetest.TestAll(t, edvRESTProvider, storagetest.SkipSortTests(false))
+				runCommonTests(t, edvRESTProvider, commonTestOptions)
 			})
 		})
 		t.Run("With batch endpoint extension", func(t *testing.T) {
 			t.Run(`Without "return full documents from queries" extension`, func(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t, createValidEncryptedFormatter(t),
 					edv.WithBatchEndpointExtension())
-				storagetest.TestAll(t, edvRESTProvider, storagetest.SkipSortTests(false))
+				runCommonTests(t, edvRESTProvider, commonTestOptions)
 			})
 			t.Run(`With "return full documents from queries" extension`, func(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t, createValidEncryptedFormatter(t),
 					edv.WithBatchEndpointExtension(),
 					edv.WithFullDocumentsReturnedFromQueries())
-				storagetest.TestAll(t, edvRESTProvider, storagetest.SkipSortTests(false))
+				runCommonTests(t, edvRESTProvider, commonTestOptions)
 			})
 		})
 	})
@@ -82,13 +87,13 @@ func TestCommon(t *testing.T) {
 			t.Run(`Without "return full documents from queries" extension`, func(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t,
 					createValidEncryptedFormatter(t, edv.WithDeterministicDocumentIDs()))
-				storagetest.TestAll(t, edvRESTProvider, storagetest.SkipSortTests(false))
+				runCommonTests(t, edvRESTProvider, commonTestOptions)
 			})
 			t.Run(`With "return full documents from queries" extension`, func(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t,
 					createValidEncryptedFormatter(t, edv.WithDeterministicDocumentIDs()),
 					edv.WithFullDocumentsReturnedFromQueries())
-				storagetest.TestAll(t, edvRESTProvider, storagetest.SkipSortTests(false))
+				runCommonTests(t, edvRESTProvider, commonTestOptions)
 			})
 		})
 		t.Run("With batch endpoint extension", func(t *testing.T) {
@@ -96,17 +101,54 @@ func TestCommon(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t,
 					createValidEncryptedFormatter(t, edv.WithDeterministicDocumentIDs()),
 					edv.WithBatchEndpointExtension())
-				storagetest.TestAll(t, edvRESTProvider, storagetest.SkipSortTests(false))
+				runCommonTests(t, edvRESTProvider, commonTestOptions)
 			})
 			t.Run(`With "return full documents from queries" extension`, func(t *testing.T) {
 				edvRESTProvider := createEDVRESTProvider(t,
 					createValidEncryptedFormatter(t, edv.WithDeterministicDocumentIDs()),
 					edv.WithBatchEndpointExtension(),
 					edv.WithFullDocumentsReturnedFromQueries())
-				storagetest.TestAll(t, edvRESTProvider, storagetest.SkipSortTests(false))
+				runCommonTests(t, edvRESTProvider, commonTestOptions)
 			})
 		})
 	})
+}
+
+func runCommonTests(t *testing.T, provider spi.Provider, commonTestOptions []storagetest.TestOption) {
+	storagetest.TestAll(t, provider, commonTestOptions...)
+	testQueryWithMultipleTags(t, provider)
+}
+
+func TestRESTProvider_SetStoreConfig(t *testing.T) {
+	t.Run("Unsupported protocol scheme", func(t *testing.T) {
+		edvRESTProvider := edv.NewRESTProvider("BadURL", "VaultID",
+			createValidEncryptedFormatter(t))
+
+		_, err := edvRESTProvider.OpenStore("TestStore")
+		require.NoError(t, err)
+
+		err = edvRESTProvider.SetStoreConfig("TestStore", spi.StoreConfiguration{})
+		require.EqualError(t, err, "send HTTP request: failed to send request: "+
+			`Post "BadURL/VaultID/index": unsupported protocol scheme ""`)
+	})
+	t.Run("Vault does not exist", func(t *testing.T) {
+		edvRESTProvider := edv.NewRESTProvider(testServerURL, "VaultID",
+			createValidEncryptedFormatter(t))
+
+		_, err := edvRESTProvider.OpenStore("TestStore")
+		require.NoError(t, err)
+
+		err = edvRESTProvider.SetStoreConfig("TestStore", spi.StoreConfiguration{})
+		require.EqualError(t, err, "the EDV server returned status code 400 along with the following "+
+			"message: Failed to add indexes to data vault VaultID: specified vault does not exist.")
+	})
+}
+
+func TestRESTProvider_GetStoreConfig(t *testing.T) {
+	edvRESTProvider := createEDVRESTProvider(t, createValidEncryptedFormatter(t))
+
+	_, err := edvRESTProvider.GetStoreConfig("StoreName")
+	require.EqualError(t, err, "not implemented")
 }
 
 func TestRESTStore_Put(t *testing.T) {
@@ -213,7 +255,8 @@ func TestRESTStore_Put(t *testing.T) {
 
 func TestRESTStore_Get(t *testing.T) {
 	t.Run("Fail to decrypt encrypted document", func(t *testing.T) {
-		encrypter, _ := createEncrypterAndDecrypter(t)
+		kmsSvc, cryptoSvc := createKMSAndCrypto(t)
+		encrypter, _, _ := createEncrypterAndDecrypter(t, kmsSvc, cryptoSvc)
 
 		failingEncryptedFormatter := edv.NewEncryptedFormatter(encrypter, &failingDecrypter{},
 			createValidMACCrypto(t), edv.WithDeterministicDocumentIDs())
@@ -252,7 +295,8 @@ func TestRESTStore_GetTags(t *testing.T) {
 		require.Nil(t, tags)
 	})
 	t.Run("Fail to decrypt encrypted document", func(t *testing.T) {
-		encrypter, _ := createEncrypterAndDecrypter(t)
+		kmsSvc, cryptoSvc := createKMSAndCrypto(t)
+		encrypter, _, _ := createEncrypterAndDecrypter(t, kmsSvc, cryptoSvc)
 
 		failingEncryptedFormatter := edv.NewEncryptedFormatter(encrypter, &failingDecrypter{},
 			createValidMACCrypto(t))
@@ -302,11 +346,11 @@ func TestRESTStore_Query(t *testing.T) {
 		require.NoError(t, err)
 
 		iterator, err := store.Query("TagName:TagValue")
-		require.EqualError(t, err, `failed to format tag for querying: `+
+		require.EqualError(t, err, `failed to format tags for querying: failed to format tag: `+
 			`failed to compute MAC for tag name "TagName": bad key handle format`)
 		require.Nil(t, iterator)
 	})
-	t.Run("Failure while querying EDV server", func(t *testing.T) {
+	t.Run("Failure while querying vault", func(t *testing.T) {
 		edvRESTProvider := edv.NewRESTProvider("InvalidURL", "InvalidVaultID",
 			createValidEncryptedFormatter(t))
 
@@ -314,7 +358,7 @@ func TestRESTStore_Query(t *testing.T) {
 		require.NoError(t, err)
 
 		iterator, err := store.Query("TagName:TagValue")
-		require.EqualError(t, err, `failure while querying EDV server: failed to send POST request: `+
+		require.EqualError(t, err, `failure while querying vault: failed to send POST request: `+
 			`failed to send request: Post "InvalidURL/InvalidVaultID/query": unsupported protocol scheme ""`)
 		require.Nil(t, iterator)
 	})
@@ -546,6 +590,326 @@ func TestRESTStore_Batch(t *testing.T) {
 	})
 }
 
+func testQueryWithMultipleTags(t *testing.T, provider spi.Provider) {
+	t.Helper()
+
+	defer func() {
+		require.NoError(t, provider.Close())
+	}()
+
+	keysToPut, valuesToPut, tagsToPut := getTestData()
+
+	storeName := randomStoreName()
+
+	store, err := provider.OpenStore(storeName)
+	require.NoError(t, err)
+
+	defer func() {
+		require.NoError(t, store.Close())
+	}()
+
+	putData(t, store, keysToPut, valuesToPut, tagsToPut)
+
+	t.Run("Both pairs are tag names + values - 3 values found", func(t *testing.T) {
+		queryExpressionsToTest := []string{
+			"Breed:GoldenRetriever&&NumLegs:4&&EarType:Floppy",
+			"NumLegs:4&&EarType:Floppy&&Breed:GoldenRetriever", // Should be equivalent to the above expression
+		}
+
+		expectedKeys := []string{keysToPut[0], keysToPut[3], keysToPut[4]}
+		expectedValues := [][]byte{valuesToPut[0], valuesToPut[3], valuesToPut[4]}
+		expectedTags := [][]spi.Tag{tagsToPut[0], tagsToPut[3], tagsToPut[4]}
+		expectedTotalItemsCount := 3
+
+		for _, queryExpressionToTest := range queryExpressionsToTest {
+			iterator, err := store.Query(queryExpressionToTest)
+			require.NoError(t, err)
+
+			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, expectedTotalItemsCount)
+		}
+	})
+	t.Run("Both pairs are tag names + values - 2 values found", func(t *testing.T) {
+		queryExpressionsToTest := []string{
+			"Breed:GoldenRetriever&&Personality:Calm",
+			"Personality:Calm&&Breed:GoldenRetriever", // Should be equivalent to the above expression
+		}
+
+		expectedKeys := []string{keysToPut[3], keysToPut[4]}
+		expectedValues := [][]byte{valuesToPut[3], valuesToPut[4]}
+		expectedTags := [][]spi.Tag{tagsToPut[3], tagsToPut[4]}
+		expectedTotalItemsCount := 2
+
+		for _, queryExpressionToTest := range queryExpressionsToTest {
+			iterator, err := store.Query(queryExpressionToTest)
+			require.NoError(t, err)
+
+			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, expectedTotalItemsCount)
+		}
+	})
+	t.Run("Both pairs are tag names + values - 1 value found", func(t *testing.T) {
+		queryExpressionsToTest := []string{
+			"Personality:Shy&&EarType:Pointy",
+			"EarType:Pointy&&Personality:Shy", // Should be equivalent to the above expression
+		}
+
+		expectedKeys := []string{keysToPut[1]}
+		expectedValues := [][]byte{valuesToPut[1]}
+		expectedTags := [][]spi.Tag{tagsToPut[1]}
+		expectedTotalItemsCount := 1
+
+		for _, queryExpressionToTest := range queryExpressionsToTest {
+			iterator, err := store.Query(queryExpressionToTest)
+			require.NoError(t, err)
+
+			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, expectedTotalItemsCount)
+		}
+	})
+	t.Run("Both pairs are tag names + values - 0 values found", func(t *testing.T) {
+		queryExpressionsToTest := []string{
+			"Personality:Crazy&&EarType:Pointy",
+			"EarType:Pointy&&Personality:Crazy", // Should be equivalent to the above expression
+		}
+
+		expectedTotalItemsCount := 0
+
+		for _, queryExpressionToTest := range queryExpressionsToTest {
+			iterator, err := store.Query(queryExpressionToTest)
+			require.NoError(t, err)
+
+			verifyExpectedIterator(t, iterator, nil, nil, nil, expectedTotalItemsCount)
+		}
+	})
+	t.Run("First pair is a tag name + value, second is a tag name only - 1 value found", func(t *testing.T) {
+		queryExpressionsToTest := []string{
+			"EarType:Pointy&&Nickname",
+			"Nickname&&EarType:Pointy", // Should be equivalent to the above expression
+		}
+
+		expectedKeys := []string{keysToPut[2]}
+		expectedValues := [][]byte{valuesToPut[2]}
+		expectedTags := [][]spi.Tag{tagsToPut[2]}
+		expectedTotalItemsCount := 1
+
+		for _, queryExpressionToTest := range queryExpressionsToTest {
+			iterator, err := store.Query(queryExpressionToTest)
+			require.NoError(t, err)
+
+			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, expectedTotalItemsCount)
+		}
+	})
+	t.Run("First pair is a tag name + value, second is a tag name only - 0 values found", func(t *testing.T) {
+		queryExpressionsToTest := []string{
+			"EarType:Pointy&&CoatType",
+			"CoatType&&EarType:Pointy", // Should be equivalent to the above expression
+		}
+
+		expectedTotalItemsCount := 0
+
+		for _, queryExpressionToTest := range queryExpressionsToTest {
+			iterator, err := store.Query(queryExpressionToTest)
+			require.NoError(t, err)
+
+			verifyExpectedIterator(t, iterator, nil, nil, nil, expectedTotalItemsCount)
+		}
+	})
+}
+
+func getTestData() (testKeys []string, testValues [][]byte, testTags [][]spi.Tag) {
+	testKeys = []string{
+		"Cassie",
+		"Luna",
+		"Miku",
+		"Amber",
+		"Brandy",
+	}
+
+	testValues = [][]byte{
+		[]byte("is a big, young dog"),
+		[]byte("is a small dog"),
+		[]byte("is a fluffy dog (also small)"),
+		[]byte("is a big, old dog"),
+		[]byte("is a big dog of unknown age (but probably old)"),
+	}
+
+	testTags = [][]spi.Tag{
+		{
+			{Name: "Breed", Value: "GoldenRetriever"},
+			{Name: "Personality", Value: "Playful"},
+			{Name: "NumLegs", Value: "4"},
+			{Name: "EarType", Value: "Floppy"},
+			{Name: "Nickname", Value: "Miss"},
+			{Name: "Age", Value: "2"},
+		},
+		{
+			{Name: "Breed", Value: "Schweenie"},
+			{Name: "Personality", Value: "Shy"},
+			{Name: "NumLegs", Value: "4"},
+			{Name: "EarType", Value: "Pointy"},
+			{Name: "Age", Value: "1"},
+		},
+		{
+			{Name: "Breed", Value: "Pomchi"},
+			{Name: "Personality", Value: "Outgoing"},
+			{Name: "NumLegs", Value: "4"},
+			{Name: "EarType", Value: "Pointy"},
+			{Name: "Nickname", Value: "Fluffball"},
+			{Name: "Age", Value: "1"},
+		},
+		{
+			{Name: "Breed", Value: "GoldenRetriever"},
+			{Name: "Personality", Value: "Calm"},
+			{Name: "NumLegs", Value: "4"},
+			{Name: "EarType", Value: "Floppy"},
+			{Name: "Age", Value: "14"},
+		},
+		{
+			{Name: "Breed", Value: "GoldenRetriever"},
+			{Name: "Personality", Value: "Calm"},
+			{Name: "NumLegs", Value: "4"},
+			{Name: "EarType", Value: "Floppy"},
+		},
+	}
+
+	return testKeys, testValues, testTags
+}
+
+func putData(t *testing.T, store spi.Store, keys []string, values [][]byte, tags [][]spi.Tag) {
+	t.Helper()
+
+	for i := 0; i < len(keys); i++ {
+		err := store.Put(keys[i], values[i], tags[i]...)
+		require.NoError(t, err)
+	}
+}
+
+// expectedKeys, expectedValues, and expectedTags are with respect to the query's page settings.
+// Since Iterator.TotalItems' count is not affected by page settings, expectedTotalItemsCount must be passed in and
+// can't be determined by looking at the length of expectedKeys, expectedValues, nor expectedTags.
+func verifyExpectedIterator(t *testing.T, actualResultsItr spi.Iterator, //nolint:gocognit, gocyclo // test file
+	expectedKeys []string, expectedValues [][]byte, expectedTags [][]spi.Tag, expectedTotalItemsCount int) {
+	t.Helper()
+
+	if len(expectedValues) != len(expectedKeys) || len(expectedTags) != len(expectedKeys) {
+		require.FailNow(t,
+			"Invalid test case. Expected keys, values and tags slices must be the same length.")
+	}
+
+	t.Helper()
+
+	var dataChecklist struct {
+		keys     []string
+		values   [][]byte
+		tags     [][]spi.Tag
+		received []bool
+	}
+
+	dataChecklist.keys = expectedKeys
+	dataChecklist.values = expectedValues
+	dataChecklist.tags = expectedTags
+	dataChecklist.received = make([]bool, len(expectedKeys))
+
+	moreResultsToCheck, err := actualResultsItr.Next()
+	require.NoError(t, err)
+
+	if !moreResultsToCheck && len(expectedKeys) != 0 {
+		require.FailNow(t, "query unexpectedly returned no results")
+	}
+
+	for moreResultsToCheck {
+		dataReceivedCount := 0
+
+		for _, received := range dataChecklist.received {
+			if received {
+				dataReceivedCount++
+			}
+		}
+
+		if dataReceivedCount == len(dataChecklist.received) {
+			require.FailNow(t, "iterator contains more results than expected")
+		}
+
+		var itrErr error
+		receivedKey, itrErr := actualResultsItr.Key()
+		require.NoError(t, itrErr)
+
+		receivedValue, itrErr := actualResultsItr.Value()
+		require.NoError(t, itrErr)
+
+		receivedTags, itrErr := actualResultsItr.Tags()
+		require.NoError(t, itrErr)
+
+		for i := 0; i < len(dataChecklist.keys); i++ {
+			if receivedKey == dataChecklist.keys[i] {
+				if string(receivedValue) == string(dataChecklist.values[i]) {
+					if equalTags(receivedTags, dataChecklist.tags[i]) {
+						dataChecklist.received[i] = true
+
+						break
+					}
+				}
+			}
+		}
+
+		moreResultsToCheck, err = actualResultsItr.Next()
+		require.NoError(t, err)
+	}
+
+	count, errTotalItems := actualResultsItr.TotalItems()
+	require.NoError(t, errTotalItems)
+	require.Equal(t, expectedTotalItemsCount, count)
+
+	err = actualResultsItr.Close()
+	require.NoError(t, err)
+
+	for _, received := range dataChecklist.received {
+		if !received {
+			require.FailNow(t, "received unexpected query results")
+		}
+	}
+}
+
+func equalTags(tags1, tags2 []spi.Tag) bool { //nolint:gocyclo // Test file
+	if len(tags1) != len(tags2) {
+		return false
+	}
+
+	matchedTags1 := make([]bool, len(tags1))
+	matchedTags2 := make([]bool, len(tags2))
+
+	for i, tag1 := range tags1 {
+		for j, tag2 := range tags2 {
+			if matchedTags2[j] {
+				continue // This tag has already found a match. Tags can only have one match!
+			}
+
+			if tag1.Name == tag2.Name && tag1.Value == tag2.Value {
+				matchedTags1[i] = true
+				matchedTags2[j] = true
+
+				break
+			}
+		}
+
+		if !matchedTags1[i] {
+			return false
+		}
+	}
+
+	for _, matchedTag := range matchedTags1 {
+		if !matchedTag {
+			return false
+		}
+	}
+
+	for _, matchedTag := range matchedTags2 {
+		if !matchedTag {
+			return false
+		}
+	}
+
+	return true
+}
+
 func createEDVRESTProvider(t *testing.T, encryptedFormatter *edv.EncryptedFormatter,
 	options ...edv.RESTProviderOption) *edv.RESTProvider {
 	options = append(options,
@@ -585,7 +949,7 @@ func createEDVRESTProvider(t *testing.T, encryptedFormatter *edv.EncryptedFormat
 	err := backoff.Retry(func() error {
 		var err error
 
-		// We defer outside of the function so we can read the response after we're out of this Retry function.
+		// We defer outside the function, so we can read the response after we're out of this Retry function.
 		response, err =
 			http.Post(testServerURL, "", //nolint: bodyclose // false positive
 				bytes.NewBuffer([]byte(testVaultConfig)))
@@ -598,7 +962,7 @@ func createEDVRESTProvider(t *testing.T, encryptedFormatter *edv.EncryptedFormat
 	}, backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), 10))
 
 	require.NoError(t, err, `Failed to create data vault for testing. These unit tests `+
-		`require specific CouchDB and EDV docker containers to be running first. `+
+		`require specific MongoDB and EDV docker containers to be running first. `+
 		`To run these unit tests, either execute the main unit test script by running `+
 		`"make unit-test" (without the quotes) from the root aries-framework-go directory, or, if you want to `+
 		`directly run only these EDV REST provider unit tests, run ". scripts/start_edv_test_docker_images.sh" `+
@@ -631,4 +995,8 @@ func getVaultIDFromURL(vaultURL string) string {
 	vaultIDToRetrieve := splitBySlashes[len(splitBySlashes)-1]
 
 	return vaultIDToRetrieve
+}
+
+func randomStoreName() string {
+	return "store-" + uuid.New().String()
 }

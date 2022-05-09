@@ -132,6 +132,12 @@ func (p *Provider) Close() error {
 	return nil
 }
 
+// Ping always returns nil. It's here just to allow it to implement a "Pinger" sort of interface which may be defined
+// somewhere and implemented by other storage implementations that use a remote database.
+func (p *Provider) Ping() error {
+	return nil
+}
+
 func (p *Provider) removeStore(name string) {
 	p.lock.Lock()
 	defer p.lock.Unlock()

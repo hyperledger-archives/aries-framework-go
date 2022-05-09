@@ -19,7 +19,11 @@ import (
 )
 
 const (
-	didLDJson = "application/did+ld+json"
+	// VersionIDOpt version id opt this option is not mandatory.
+	VersionIDOpt = "versionID"
+	// VersionTimeOpt version time opt this option is not mandatory.
+	VersionTimeOpt = "versionTime"
+	didLDJson      = "application/did+ld+json"
 )
 
 // resolveDID makes DID resolution via HTTP.
@@ -60,13 +64,53 @@ func (v *VDR) resolveDID(uri string) ([]byte, error) {
 }
 
 // Read implements didresolver.DidMethod.Read interface (https://w3c-ccg.github.io/did-resolution/#resolving-input)
-func (v *VDR) Read(didID string, _ ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+func (v *VDR) Read(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) { //nolint: funlen,gocyclo
+	didMethodOpts := &vdrapi.DIDMethodOpts{Values: make(map[string]interface{})}
+
+	// Apply options
+	for _, opt := range opts {
+		opt(didMethodOpts)
+	}
+
+	versionID := ""
+	versionTime := ""
+
+	if didMethodOpts.Values[VersionIDOpt] != nil {
+		var ok bool
+
+		versionID, ok = didMethodOpts.Values[VersionIDOpt].(string)
+		if !ok {
+			return nil, fmt.Errorf("versionIDOpt is not string")
+		}
+	}
+
+	if didMethodOpts.Values[VersionTimeOpt] != nil {
+		var ok bool
+
+		versionTime, ok = didMethodOpts.Values[VersionTimeOpt].(string)
+		if !ok {
+			return nil, fmt.Errorf("versionIDOpt is not string")
+		}
+	}
+
+	if versionID != "" && versionTime != "" {
+		return nil, fmt.Errorf("versionID and versionTime can not set at same time")
+	}
+
 	reqURL, err := url.ParseRequestURI(v.endpointURL)
 	if err != nil {
 		return nil, fmt.Errorf("url parse request uri failed: %w", err)
 	}
 
 	reqURL.Path = path.Join(reqURL.Path, didID)
+
+	if versionID != "" {
+		reqURL.RawQuery = fmt.Sprintf("versionId=%s", versionID)
+	}
+
+	if versionTime != "" {
+		reqURL.RawQuery = fmt.Sprintf("versionTime=%s", versionTime)
+	}
 
 	data, err := v.resolveDID(reqURL.String())
 	if err != nil {

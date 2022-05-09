@@ -20,6 +20,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	commonmodel "github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
@@ -405,7 +406,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 	require.Equal(t, (&requested{}).Name(), connRecord.State)
 	require.Equal(t, invitation.ID, connRecord.InvitationID)
 	require.Equal(t, invitation.RecipientKeys, connRecord.RecipientKeys)
-	require.Equal(t, invitation.ServiceEndpoint, connRecord.ServiceEndPoint)
+	require.Equal(t, invitation.ServiceEndpoint, connRecord.ServiceEndPoint.URI)
 
 	didKey, err := ctx.getVerKey(invitation.ID)
 	require.NoError(t, err)
@@ -693,7 +694,7 @@ func TestCreateConnection(t *testing.T) {
 			TheirLabel:      uuid.New().String(),
 			TheirDID:        theirDID.ID,
 			MyDID:           newPeerDID(t, k).ID,
-			ServiceEndPoint: "http://example.com",
+			ServiceEndPoint: commonmodel.Endpoint{URI: "http://example.com"},
 			RecipientKeys:   []string{"testkeys"},
 			InvitationID:    uuid.New().String(),
 			Namespace:       myNSPrefix,
@@ -2182,7 +2183,7 @@ func TestRespondTo(t *testing.T) {
 			ID:              uuid.New().String(),
 			Type:            "did-communication",
 			RecipientKeys:   []string{"did:key:1234567"},
-			ServiceEndpoint: "http://example.com",
+			ServiceEndpoint: commonmodel.Endpoint{URI: "http://example.com"},
 		}), nil)
 		require.NoError(t, err)
 		require.NotEmpty(t, connID)
@@ -2323,7 +2324,7 @@ func newPeerDID(t *testing.T, k kms.KeyManager) *did.Doc {
 			Type:            "did-communication",
 			Priority:        0,
 			RecipientKeys:   []string{base58.Encode(pubKey)},
-			ServiceEndpoint: "http://example.com",
+			ServiceEndpoint: commonmodel.Endpoint{URI: "http://example.com"},
 		}}),
 	)
 	require.NoError(t, err)
@@ -2365,8 +2366,9 @@ func signedDocAttach(t *testing.T, doc *did.Doc) *decorator.Attachment {
 	kid, kh, err := kmsInstance.Create(kms.ED25519Type)
 	require.NoError(t, err)
 
-	pub, err := kmsInstance.ExportPubKeyBytes(kid)
+	pub, kt, err := kmsInstance.ExportPubKeyBytes(kid)
 	require.NoError(t, err)
+	require.Equal(t, kms.ED25519Type, kt)
 
 	c := &tinkcrypto.Crypto{}
 

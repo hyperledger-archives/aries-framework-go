@@ -15,6 +15,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/jwkkid"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
@@ -74,9 +75,11 @@ func TestDIDCreator(t *testing.T) {
 		routingKeys := []string{"abc", "xyz"}
 		docResolution, err := c.Create(
 			&did.Doc{VerificationMethod: []did.VerificationMethod{getSigningKey()}, Service: []did.Service{{
-				ServiceEndpoint: "request-endpoint",
-				Type:            "request-type",
-				RoutingKeys:     routingKeys,
+				ServiceEndpoint: model.Endpoint{
+					URI:         "request-endpoint",
+					RoutingKeys: routingKeys,
+				},
+				Type: "request-type",
 			}}})
 
 		require.NoError(t, err)
@@ -85,8 +88,8 @@ func TestDIDCreator(t *testing.T) {
 		// verify service not empty, type and endpoint from request options
 		require.NotEmpty(t, docResolution.DIDDocument.Service)
 		require.Equal(t, "request-type", docResolution.DIDDocument.Service[0].Type)
-		require.Equal(t, "request-endpoint", docResolution.DIDDocument.Service[0].ServiceEndpoint)
-		require.Equal(t, routingKeys, docResolution.DIDDocument.Service[0].RoutingKeys)
+		require.Equal(t, "request-endpoint", docResolution.DIDDocument.Service[0].ServiceEndpoint.URI)
+		require.Equal(t, routingKeys, docResolution.DIDDocument.Service[0].ServiceEndpoint.RoutingKeys)
 	})
 
 	t.Run("test request overrides with keyAgreement", func(t *testing.T) {
@@ -100,9 +103,11 @@ func TestDIDCreator(t *testing.T) {
 		docResolution, err := c.Create(
 			&did.Doc{
 				VerificationMethod: []did.VerificationMethod{sVM}, Service: []did.Service{{
-					ServiceEndpoint: "request-endpoint",
-					Type:            "request-type",
-					RoutingKeys:     routingKeys,
+					ServiceEndpoint: model.Endpoint{
+						URI:         "request-endpoint",
+						RoutingKeys: routingKeys,
+					},
+					Type: "request-type",
 				}},
 				KeyAgreement: []did.Verification{eVM},
 			})
@@ -113,8 +118,8 @@ func TestDIDCreator(t *testing.T) {
 		// verify service not empty, type and endpoint from request options
 		require.NotEmpty(t, docResolution.DIDDocument.Service)
 		require.Equal(t, "request-type", docResolution.DIDDocument.Service[0].Type)
-		require.Equal(t, "request-endpoint", docResolution.DIDDocument.Service[0].ServiceEndpoint)
-		require.Equal(t, routingKeys, docResolution.DIDDocument.Service[0].RoutingKeys)
+		require.Equal(t, "request-endpoint", docResolution.DIDDocument.Service[0].ServiceEndpoint.URI)
+		require.Equal(t, routingKeys, docResolution.DIDDocument.Service[0].ServiceEndpoint.RoutingKeys)
 
 		// verify KeyAgreement
 		require.Len(t, docResolution.DIDDocument.KeyAgreement, 1)

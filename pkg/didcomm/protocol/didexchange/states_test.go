@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	commonmodel "github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
@@ -399,7 +400,7 @@ func TestRequestedState_Execute(t *testing.T) {
 								Type:            didServiceType,
 								Priority:        0,
 								RecipientKeys:   []string{"key"},
-								ServiceEndpoint: "http://test.com",
+								ServiceEndpoint: commonmodel.Endpoint{URI: "http://test.com"},
 							},
 						}),
 						connRecord: &connection.Record{},
@@ -452,7 +453,7 @@ func TestRequestedState_Execute(t *testing.T) {
 								Type:            didServiceType,
 								Priority:        0,
 								RecipientKeys:   []string{"key"},
-								ServiceEndpoint: "http://test.com",
+								ServiceEndpoint: commonmodel.Endpoint{URI: "http://test.com"},
 							},
 						}),
 						connRecord: &connection.Record{},
@@ -564,7 +565,7 @@ func TestRequestedState_Execute(t *testing.T) {
 
 					doc.Service = []diddoc.Service{{
 						Type:            didServiceType,
-						ServiceEndpoint: "http://test.com",
+						ServiceEndpoint: commonmodel.Endpoint{URI: "http://test.com"},
 						RecipientKeys:   []string{expected},
 					}}
 					tc.ctx.vdRegistry = &mockvdr.MockVDRegistry{
@@ -638,8 +639,8 @@ func TestRequestedState_Execute(t *testing.T) {
 							options ...vdrapi.DIDMethodOption) (*diddoc.DocResolution, error) {
 							created = true
 
-							require.Equal(t, expected.Keys(), didDoc.Service[0].RoutingKeys)
-							require.Equal(t, expected.Endpoint(), didDoc.Service[0].ServiceEndpoint)
+							require.Equal(t, expected.Keys(), didDoc.Service[0].ServiceEndpoint.RoutingKeys)
+							require.Equal(t, expected.Endpoint(), didDoc.Service[0].ServiceEndpoint.URI)
 							return &diddoc.DocResolution{DIDDocument: docResolution}, nil
 						},
 						ResolveValue: docResolution,
@@ -700,12 +701,14 @@ func TestRequestedState_Execute(t *testing.T) {
 				t.Run(tc.name, func(t *testing.T) {
 					myDoc := createDIDDoc(t, tc.ctx)
 					myDoc.Service = []diddoc.Service{{
-						ID:              uuid.New().String(),
-						Type:            "invalid",
-						Priority:        0,
-						RecipientKeys:   nil,
-						RoutingKeys:     nil,
-						ServiceEndpoint: "",
+						ID:            uuid.New().String(),
+						Type:          "invalid",
+						Priority:      0,
+						RecipientKeys: nil,
+						ServiceEndpoint: commonmodel.Endpoint{
+							URI:         "",
+							RoutingKeys: nil,
+						},
 					}}
 					tc.ctx.vdRegistry = &mockvdr.MockVDRegistry{CreateValue: myDoc}
 					_, _, _, err = (&requested{}).ExecuteInbound(&stateMachineMsg{
@@ -748,12 +751,14 @@ func TestRequestedState_Execute(t *testing.T) {
 				t.Run(tc.name, func(t *testing.T) {
 					myDoc := createDIDDoc(t, tc.ctx)
 					myDoc.Service = []diddoc.Service{{
-						ID:              uuid.New().String(),
-						Type:            "invalid",
-						Priority:        0,
-						RecipientKeys:   nil,
-						RoutingKeys:     nil,
-						ServiceEndpoint: "",
+						ID:            uuid.New().String(),
+						Type:          "invalid",
+						Priority:      0,
+						RecipientKeys: nil,
+						ServiceEndpoint: commonmodel.Endpoint{
+							URI:         "",
+							RoutingKeys: nil,
+						},
 					}}
 					tc.ctx.vdRegistry = &mockvdr.MockVDRegistry{CreateValue: myDoc}
 					_, _, _, err = (&requested{}).ExecuteInbound(&stateMachineMsg{
@@ -767,7 +772,7 @@ func TestRequestedState_Execute(t *testing.T) {
 								Type:            didServiceType,
 								Priority:        0,
 								RecipientKeys:   []string{"key"},
-								ServiceEndpoint: "http://test.com",
+								ServiceEndpoint: commonmodel.Endpoint{URI: "http://test.com"},
 							},
 						}),
 						connRecord: &connection.Record{},
@@ -909,12 +914,14 @@ func TestRespondedState_Execute(t *testing.T) {
 					ctx := getContext(t, &prov, kms.ED25519Type, kms.X25519ECDHKWType, mtp)
 					myDoc := createDIDDoc(t, ctx)
 					myDoc.Service = []diddoc.Service{{
-						ID:              uuid.New().String(),
-						Type:            "invalid",
-						Priority:        0,
-						RecipientKeys:   nil,
-						RoutingKeys:     nil,
-						ServiceEndpoint: "",
+						ID:            uuid.New().String(),
+						Type:          "invalid",
+						Priority:      0,
+						RecipientKeys: nil,
+						ServiceEndpoint: commonmodel.Endpoint{
+							URI:         "",
+							RoutingKeys: nil,
+						},
 					}}
 					ctx.vdRegistry = &mockvdr.MockVDRegistry{CreateValue: myDoc}
 					_, _, _, err := (&responded{}).ExecuteInbound(&stateMachineMsg{
@@ -2185,12 +2192,14 @@ func createDIDDocWithKey(verDIDKey, encDIDKey, mediaTypeProfile string) *diddoc.
 
 	services := []diddoc.Service{
 		{
-			ID:              fmt.Sprintf(didServiceID, id, 1),
-			Type:            didCommService,
-			ServiceEndpoint: "http://localhost:58416",
-			Priority:        0,
-			RecipientKeys:   []string{recKey},
-			Accept:          []string{mediaTypeProfile},
+			ID:   fmt.Sprintf(didServiceID, id, 1),
+			Type: didCommService,
+			ServiceEndpoint: commonmodel.Endpoint{
+				URI:    "http://localhost:58416",
+				Accept: []string{mediaTypeProfile},
+			},
+			Priority:      0,
+			RecipientKeys: []string{recKey},
 		},
 	}
 	createdTime := time.Now()
@@ -2360,8 +2369,8 @@ func newDidExchangeInvite(publicDID string, svc *diddoc.Service) *Invitation {
 
 	if svc != nil {
 		i.RecipientKeys = svc.RecipientKeys
-		i.ServiceEndpoint = svc.ServiceEndpoint
-		i.RoutingKeys = svc.RoutingKeys
+		i.ServiceEndpoint = svc.ServiceEndpoint.URI
+		i.RoutingKeys = svc.ServiceEndpoint.RoutingKeys
 	}
 
 	return i
@@ -2380,11 +2389,13 @@ func newOOBInvite(target interface{}) *OOBInvitation {
 
 func newServiceBlock(recKeys, routingKeys []string, didCommServiceVType string) *diddoc.Service {
 	return &diddoc.Service{
-		ID:              uuid.New().String(),
-		Type:            didCommServiceVType,
-		RecipientKeys:   recKeys,
-		RoutingKeys:     routingKeys,
-		ServiceEndpoint: "http://test.com",
+		ID:            uuid.New().String(),
+		Type:          didCommServiceVType,
+		RecipientKeys: recKeys,
+		ServiceEndpoint: commonmodel.Endpoint{
+			URI:         "http://test.com",
+			RoutingKeys: routingKeys,
+		},
 	}
 }
 

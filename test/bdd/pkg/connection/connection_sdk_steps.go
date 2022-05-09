@@ -179,7 +179,6 @@ func (s *SDKSteps) createConnection(agentCtx *context.Provider, myDID string, ta
 
 	conn.ServiceEndPoint = destination.ServiceEndpoint
 	conn.RecipientKeys = destination.RecipientKeys
-	conn.RoutingKeys = destination.RoutingKeys
 
 	didConnStore := agentCtx.DIDConnectionStore()
 

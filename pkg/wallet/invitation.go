@@ -40,7 +40,7 @@ type GenericInvitation struct {
 	From      string                        `json:"from,omitempty"`
 	Label     string                        `json:"label,omitempty"`
 	Goal      string                        `json:"goal,omitempty"`
-	GoalCode  string                        `json:"goal-code,omitempty"`
+	GoalCode  string                        `json:"goal_code,omitempty"`
 	Services  []interface{}                 `json:"services"`
 	Accept    []string                      `json:"accept,omitempty"`
 	Protocols []string                      `json:"handshake_protocols,omitempty"`

@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	expressionTagNameOnlyLength     = 1
-	expressionTagNameAndValueLength = 2
+	criterionTagNameOnlyLength     = 1
+	criterionTagNameAndValueLength = 2
 
 	invalidTagName  = `"%s" is an invalid tag name since it contains one or more ':' characters`
 	invalidTagValue = `"%s" is an invalid tag value since it contains one or more ':' characters`
@@ -29,7 +29,7 @@ const (
 var (
 	errEmptyKey                     = errors.New("key cannot be empty")
 	errInvalidQueryExpressionFormat = errors.New("invalid expression format. " +
-		"it must be in the following format: TagName:TagValue")
+		"it must be in the following format: Criterion1&&Criterion2&&...CriterionN")
 )
 
 // RESTProviderOption allows for configuration of a RESTProvider.
@@ -139,10 +139,10 @@ func (r *RESTProvider) OpenStore(name string) (spi.Store, error) {
 	return openStore, nil
 }
 
-// SetStoreConfig isn't needed for EDV storage, since indexes are managed by the server automatically based on the
-// tags used in values. This method simply stores the configuration in memory so that it can be retrieved later
-// via the GetStoreConfig method, which allows it to be more consistent with how other store implementations work.
-// TODO (#2492) Store store config in persistent EDV storage for true consistency with other store implementations.
+// SetStoreConfig asks the EDV server to add indexes for the tag names specified config.
+// Currently, it is only capable of adding indexes to whatever indexes already exist. No existing indexes will get
+// removed.
+// TODO (#3236): Make this method work in the manner specified by the interface docs.
 func (r *RESTProvider) SetStoreConfig(name string, config spi.StoreConfiguration) error {
 	for _, tagName := range config.TagNames {
 		if strings.Contains(tagName, ":") {
@@ -152,26 +152,17 @@ func (r *RESTProvider) SetStoreConfig(name string, config spi.StoreConfiguration
 
 	name = strings.ToLower(name)
 
-	openStore, ok := r.openStores[name]
+	_, ok := r.openStores[name]
 	if !ok {
 		return spi.ErrStoreNotFound
 	}
 
-	openStore.config = config
-
-	return nil
+	return r.restClient.addIndex(r.vaultID, config.TagNames)
 }
 
-// GetStoreConfig returns the store configuration currently stored in memory.
-func (r *RESTProvider) GetStoreConfig(name string) (spi.StoreConfiguration, error) {
-	name = strings.ToLower(name)
-
-	openStore, ok := r.openStores[name]
-	if !ok {
-		return spi.StoreConfiguration{}, spi.ErrStoreNotFound
-	}
-
-	return openStore.config, nil
+// GetStoreConfig is not implemented. See #3236.
+func (r *RESTProvider) GetStoreConfig(string) (spi.StoreConfiguration, error) {
+	return spi.StoreConfiguration{}, errors.New("not implemented")
 }
 
 // GetOpenStores returns all currently open stores.
@@ -212,7 +203,6 @@ type restStore struct {
 	name                          string
 	formatter                     *EncryptedFormatter
 	restClient                    *restClient
-	config                        spi.StoreConfiguration
 	returnFullDocumentsOnQuery    bool
 	batchEndpointExtensionEnabled bool
 	close                         closer
@@ -332,7 +322,12 @@ func (r *restStore) GetBulk(keys ...string) ([][]byte, error) {
 	return values, nil
 }
 
-// EDV doesn't support any of the current query options.
+// Expression format: Criterion1&&Criterion2&&...CriterionN.
+// The && characters indicate an AND operator. There must be at least one Criterion.
+// Each Criterion can be in one of either two formats: Either "TagName" or "TagName:TagValue" (both without quotes).
+// If only using TagName, then the tag value will be treated as a wildcard, so any data tagged with the given TagName
+// will be matched regardless of tag value.
+// Note that EDV doesn't support sorting or pagination.
 // spi.WithPageSize will simply be ignored since it only relates to performance and not the actual end result.
 // spi.WithInitialPageNum and spi.WithSortOrder will result in an error being returned since those options do
 // affect the results that the Iterator returns.
@@ -342,18 +337,17 @@ func (r *restStore) Query(expression string, options ...spi.QueryOption) (spi.It
 		return nil, err
 	}
 
-	expressionTagName, expressionTagValue, err := parseQueryExpression(expression)
+	parsedTags, err := parseQueryExpression(expression)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse query expression: %w", err)
 	}
 
-	tag, err := r.formatter.formatTag(r.name,
-		spi.Tag{Name: expressionTagName, Value: expressionTagValue})
+	tags, err := r.formatter.formatTags(r.name, parsedTags)
 	if err != nil {
-		return nil, fmt.Errorf("failed to format tag for querying: %w", err)
+		return nil, fmt.Errorf("failed to format tags for querying: %w", err)
 	}
 
-	return r.query(tag)
+	return r.query(tags)
 }
 
 func (r *restStore) Delete(key string) error {
@@ -587,8 +581,8 @@ func (r *restStore) getFullDocumentViaKeyTagQuery(key string) ([]byte, error) {
 		return nil, fmt.Errorf("failed to format key tag: %w", err)
 	}
 
-	matchingDocuments, err := r.restClient.queryVaultForFullDocuments(r.vaultID,
-		formattedKeyTag.Name, formattedKeyTag.Value)
+	_, matchingDocuments, err := r.restClient.query(r.vaultID,
+		[]spi.Tag{{Name: formattedKeyTag.Name, Value: formattedKeyTag.Value}}, true)
 	if err != nil {
 		return nil, fmt.Errorf("failure while querying vault: %w", err)
 	}
@@ -608,45 +602,39 @@ func (r *restStore) getFullDocumentViaKeyTagQuery(key string) ([]byte, error) {
 	return encryptedDocumentBytes, nil
 }
 
-func (r *restStore) query(encryptedIndexTag spi.Tag) (spi.Iterator, error) {
-	if r.returnFullDocumentsOnQuery {
-		documents, err :=
-			r.restClient.queryVaultForFullDocuments(r.vaultID, encryptedIndexTag.Name, encryptedIndexTag.Value)
-		if err != nil {
-			return nil, fmt.Errorf("failure while querying vault: %w", err)
-		}
+func (r *restStore) query(attributeTags []spi.Tag) (spi.Iterator, error) {
+	documentURLs, documents, err := r.restClient.query(r.vaultID, attributeTags, r.returnFullDocumentsOnQuery)
+	if err != nil {
+		return nil, fmt.Errorf("failure while querying vault: %w", err)
+	}
 
-		allDocumentsBytes := make([][]byte, len(documents))
+	if documentURLs != nil {
+		documentIDs := make([]string, len(documentURLs))
 
-		for i, document := range documents {
-			documentBytes, err := json.Marshal(document)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal document into bytes: %w", err)
-			}
-
-			allDocumentsBytes[i] = documentBytes
+		for i, documentURL := range documentURLs {
+			documentIDs[i] = getDocIDFromURL(documentURL)
 		}
 
 		return &restIterator{
 			vaultID: r.vaultID, restClient: r.restClient, formatter: r.formatter,
-			documents: allDocumentsBytes,
+			documentIDs: documentIDs,
 		}, nil
 	}
 
-	documentURLs, err := r.restClient.queryVault(r.vaultID, encryptedIndexTag.Name, encryptedIndexTag.Value)
-	if err != nil {
-		return nil, fmt.Errorf("failure while querying EDV server: %w", err)
-	}
+	allDocumentsBytes := make([][]byte, len(documents))
 
-	documentIDs := make([]string, len(documentURLs))
+	for i, document := range documents {
+		documentBytes, err := json.Marshal(document)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal document into bytes: %w", err)
+		}
 
-	for i, documentURL := range documentURLs {
-		documentIDs[i] = getDocIDFromURL(documentURL)
+		allDocumentsBytes[i] = documentBytes
 	}
 
 	return &restIterator{
 		vaultID: r.vaultID, restClient: r.restClient, formatter: r.formatter,
-		documentIDs: documentIDs,
+		documents: allDocumentsBytes,
 	}, nil
 }
 
@@ -1026,7 +1014,8 @@ func (r *restStore) getDocumentIDViaKeyTagQuery(key string) (string, error) {
 		return "", fmt.Errorf("failed to format key tag: %w", err)
 	}
 
-	matchingDocumentsURLs, err := r.restClient.queryVault(r.vaultID, formattedKeyTag.Name, formattedKeyTag.Value)
+	matchingDocumentsURLs, _, err := r.restClient.query(r.vaultID,
+		[]spi.Tag{{Name: formattedKeyTag.Name, Value: formattedKeyTag.Value}}, false)
 	if err != nil {
 		return "", fmt.Errorf("failure while querying EDV server: %w", err)
 	}
@@ -1175,26 +1164,32 @@ func checkForUnsupportedQueryOptions(options []spi.QueryOption) error {
 	return nil
 }
 
-func parseQueryExpression(expression string) (string, string, error) {
+func parseQueryExpression(expression string) ([]spi.Tag, error) {
 	if expression == "" {
-		return "", "", errInvalidQueryExpressionFormat
+		return nil, errInvalidQueryExpressionFormat
 	}
 
-	expressionSplit := strings.Split(expression, ":")
+	criteria := strings.Split(expression, "&&")
 
-	var expressionTagName, expressionTagValue string
+	parsedTags := make([]spi.Tag, len(criteria))
 
-	switch len(expressionSplit) {
-	case expressionTagNameOnlyLength:
-		expressionTagName = expressionSplit[0]
-	case expressionTagNameAndValueLength:
-		expressionTagName = expressionSplit[0]
-		expressionTagValue = expressionSplit[1]
-	default:
-		return "", "", errInvalidQueryExpressionFormat
+	for i, criterion := range criteria {
+		criterionSplitByTagNameAndValue := strings.Split(criterion, ":")
+
+		switch len(criterionSplitByTagNameAndValue) {
+		case criterionTagNameOnlyLength:
+			parsedTags[i] = spi.Tag{Name: criterionSplitByTagNameAndValue[0]}
+		case criterionTagNameAndValueLength:
+			parsedTags[i] = spi.Tag{
+				Name:  criterionSplitByTagNameAndValue[0],
+				Value: criterionSplitByTagNameAndValue[1],
+			}
+		default:
+			return nil, errInvalidQueryExpressionFormat
+		}
 	}
 
-	return expressionTagName, expressionTagValue, nil
+	return parsedTags, nil
 }
 
 func getDocIDFromURL(docURL string) string {

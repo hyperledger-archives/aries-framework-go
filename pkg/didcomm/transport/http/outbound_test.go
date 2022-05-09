@@ -14,6 +14,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 )
 
@@ -101,6 +102,6 @@ func TestOutboundHTTPTransport(t *testing.T) {
 
 func prepareDestination(endPoint string) *service.Destination {
 	return &service.Destination{
-		ServiceEndpoint: endPoint,
+		ServiceEndpoint: model.Endpoint{URI: endPoint},
 	}
 }

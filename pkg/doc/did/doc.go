@@ -18,8 +18,10 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/multiformats/go-multibase"
 	"github.com/xeipuuv/gojsonschema"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
@@ -51,10 +53,11 @@ const (
 	jsonldProofPurpose   = "proofPurpose"
 
 	// various public key encodings.
-	jsonldPublicKeyBase58 = "publicKeyBase58"
-	jsonldPublicKeyHex    = "publicKeyHex"
-	jsonldPublicKeyPem    = "publicKeyPem"
-	jsonldPublicKeyjwk    = "publicKeyJwk"
+	jsonldPublicKeyBase58    = "publicKeyBase58"
+	jsonldPublicKeyMultibase = "publicKeyMultibase"
+	jsonldPublicKeyHex       = "publicKeyHex"
+	jsonldPublicKeyPem       = "publicKeyPem"
+	jsonldPublicKeyjwk       = "publicKeyJwk"
 )
 
 var (
@@ -178,15 +181,15 @@ type MethodMetadata struct {
 	// AnchorOrigin is anchor origin.
 	AnchorOrigin string `json:"anchorOrigin,omitempty"`
 	// UnpublishedOperations unpublished operations
-	UnpublishedOperations []*Operations `json:"unpublishedOperations,omitempty"`
+	UnpublishedOperations []*ProtocolOperation `json:"unpublishedOperations,omitempty"`
 	// PublishedOperations published operations
-	PublishedOperations []*Operations `json:"publishedOperations,omitempty"`
+	PublishedOperations []*ProtocolOperation `json:"publishedOperations,omitempty"`
 }
 
-// Operations info.
-type Operations struct {
-	// OperationRequest is operation request.
-	OperationRequest string `json:"operationRequest,omitempty"`
+// ProtocolOperation info.
+type ProtocolOperation struct {
+	// Operation is operation request.
+	Operation string `json:"operation,omitempty"`
 	// ProtocolVersion is protocol version.
 	ProtocolVersion int `json:"protocolVersion,omitempty"`
 	// TransactionNumber is transaction number.
@@ -205,6 +208,8 @@ type Operations struct {
 
 // DocumentMetadata document metadata.
 type DocumentMetadata struct {
+	// VersionID is version ID key.
+	VersionID string `json:"versionId,omitempty"`
 	// Deactivated is deactivated flag key.
 	Deactivated bool `json:"deactivated,omitempty"`
 	// CanonicalID is canonical ID key.
@@ -283,8 +288,28 @@ type VerificationMethod struct {
 
 	Value []byte
 
-	jsonWebKey  *jwk.JWK
-	relativeURL bool
+	jsonWebKey        *jwk.JWK
+	relativeURL       bool
+	multibaseEncoding multibase.Encoding
+}
+
+// NewVerificationMethodFromBytesWithMultibase creates a new VerificationMethod based on
+// raw public key bytes with multibase.
+func NewVerificationMethodFromBytesWithMultibase(id, keyType, controller string, value []byte,
+	encoding multibase.Encoding) *VerificationMethod {
+	relativeURL := false
+	if strings.HasPrefix(id, "#") {
+		relativeURL = true
+	}
+
+	return &VerificationMethod{
+		ID:                id,
+		Type:              keyType,
+		Controller:        controller,
+		Value:             value,
+		relativeURL:       relativeURL,
+		multibaseEncoding: encoding,
+	}
 }
 
 // NewVerificationMethodFromBytes creates a new VerificationMethod based on raw public key bytes.
@@ -292,6 +317,10 @@ func NewVerificationMethodFromBytes(id, keyType, controller string, value []byte
 	relativeURL := false
 	if strings.HasPrefix(id, "#") {
 		relativeURL = true
+	}
+
+	if keyType == "Ed25519VerificationKey2020" {
+		return NewVerificationMethodFromBytesWithMultibase(id, keyType, controller, value, multibase.Base58BTC)
 	}
 
 	return &VerificationMethod{
@@ -336,9 +365,7 @@ type Service struct {
 	Type                     string                 `json:"type"`
 	Priority                 uint                   `json:"priority,omitempty"`
 	RecipientKeys            []string               `json:"recipientKeys,omitempty"`
-	RoutingKeys              []string               `json:"routingKeys,omitempty"`
-	ServiceEndpoint          string                 `json:"serviceEndpoint"`
-	Accept                   []string               `json:"accept,omitempty"`
+	ServiceEndpoint          model.Endpoint         `json:"serviceEndpoint"`
 	Properties               map[string]interface{} `json:"properties,omitempty"`
 	recipientKeysRelativeURL map[string]bool
 	routingKeysRelativeURL   map[string]bool
@@ -606,6 +633,7 @@ func populateProofs(context, didID, baseURI string, rawProofs []interface{}) ([]
 	return proofs, nil
 }
 
+//nolint:funlen
 func populateServices(didID, baseURI string, rawServices []map[string]interface{}) []Service {
 	services := make([]Service, 0, len(rawServices))
 
@@ -633,10 +661,37 @@ func populateServices(didID, baseURI string, rawServices []map[string]interface{
 			routingKeys, routingKeysRelativeURL = populateKeys(routingKeys, didID, baseURI)
 		}
 
+		sp := model.Endpoint{
+			RoutingKeys: routingKeys,
+		}
+
+		//nolint:nestif
+		if epEntry, ok := rawService[jsonldServicePoint]; ok {
+			var (
+				uriStr string
+				accept []string
+			)
+
+			if uriStr, ok = epEntry.(string); ok {
+				sp.URI = uriStr
+			} else {
+				epMapEntry := mapEntry(epEntry)
+
+				if uriStr, ok = epMapEntry["uri"].(string); ok {
+					sp.URI = uriStr
+				}
+
+				if accept, ok = epMapEntry["accept"].([]string); ok {
+					sp.Accept = accept
+				}
+			}
+		}
+
 		service := Service{
 			ID: id, Type: stringEntry(rawService[jsonldType]), relativeURL: isRelative,
-			ServiceEndpoint: stringEntry(rawService[jsonldServicePoint]), RecipientKeys: recipientKeys,
-			RoutingKeys: routingKeys, Priority: uintEntry(rawService[jsonldPriority]),
+			ServiceEndpoint:          sp,
+			RecipientKeys:            recipientKeys,
+			Priority:                 uintEntry(rawService[jsonldPriority]),
 			recipientKeysRelativeURL: recipientKeysRelativeURL, routingKeysRelativeURL: routingKeysRelativeURL,
 		}
 
@@ -822,6 +877,18 @@ func populateVerificationMethod(context, didID, baseURI string,
 func decodeVM(vm *VerificationMethod, rawPK map[string]interface{}) error {
 	if stringEntry(rawPK[jsonldPublicKeyBase58]) != "" {
 		vm.Value = base58.Decode(stringEntry(rawPK[jsonldPublicKeyBase58]))
+		return nil
+	}
+
+	if stringEntry(rawPK[jsonldPublicKeyMultibase]) != "" {
+		multibaseEncoding, value, err := multibase.Decode(stringEntry(rawPK[jsonldPublicKeyMultibase]))
+		if err != nil {
+			return err
+		}
+
+		vm.Value = value
+		vm.multibaseEncoding = multibaseEncoding
+
 		return nil
 	}
 
@@ -1229,7 +1296,7 @@ func populateRawServices(services []Service, didID, baseURI string) []map[string
 
 		routingKeys := make([]string, 0)
 
-		for _, v := range services[i].RoutingKeys {
+		for _, v := range services[i].ServiceEndpoint.RoutingKeys {
 			if services[i].routingKeysRelativeURL[v] {
 				routingKeys = append(routingKeys, makeRelativeDIDURL(v, baseURI, didID))
 				continue
@@ -1307,13 +1374,20 @@ func populateRawVerificationMethod(context, didID, baseURI string,
 		}
 	}
 
-	if vm.jsonWebKey != nil {
+	if vm.jsonWebKey != nil { //nolint: gocritic
 		jwkBytes, err := json.Marshal(vm.jsonWebKey)
 		if err != nil {
 			return nil, err
 		}
 
 		rawVM[jsonldPublicKeyjwk] = json.RawMessage(jwkBytes)
+	} else if vm.Type == "Ed25519VerificationKey2020" {
+		var err error
+
+		rawVM[jsonldPublicKeyMultibase], err = multibase.Encode(vm.multibaseEncoding, vm.Value)
+		if err != nil {
+			return nil, err
+		}
 	} else if vm.Value != nil {
 		rawVM[jsonldPublicKeyBase58] = base58.Encode(vm.Value)
 	}

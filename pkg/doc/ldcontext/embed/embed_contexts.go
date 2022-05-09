@@ -46,6 +46,10 @@ var (
 	credentialFulfillment []byte
 	//go:embed third_party/identity.foundation/credential-application.jsonld
 	credentialApplication []byte
+	//go:embed third_party/digitalbazaar.github.io/ed25519-signature-2020-v1.jsonld
+	ed255192020 []byte
+	//go:embed third_party/w3c-ccg.github.io/revocationList2021.jsonld
+	revocationList2021 []byte
 )
 
 // Contexts contains JSON-LD contexts embedded into a Go binary.
@@ -111,6 +115,11 @@ var Contexts = []ldcontext.Document{ //nolint:gochecknoglobals
 		Content:     revocationList2020,
 	},
 	{
+		URL:         "https://w3id.org/vc/status-list/2021/v1",
+		DocumentURL: "https://w3c-ccg.github.io/vc-status-list-2021/contexts/v1.jsonld",
+		Content:     revocationList2021,
+	},
+	{
 		URL:         "https://identity.foundation/presentation-exchange/submission/v1",
 		DocumentURL: "https://identity.foundation/presentation-exchange/submission/v1/",
 		Content:     presentationSubmission,
@@ -139,5 +148,10 @@ var Contexts = []ldcontext.Document{ //nolint:gochecknoglobals
 		URL:         "https://identity.foundation/credential-manifest/application/v1",
 		DocumentURL: "https://identity.foundation/credential-manifest/application/v1",
 		Content:     credentialApplication,
+	},
+	{
+		URL:         "https://w3id.org/security/suites/ed25519-2020/v1",
+		DocumentURL: "https://digitalbazaar.github.io/ed25519-signature-2020-context/contexts/ed25519-signature-2020-v1.jsonld", //nolint: lll
+		Content:     ed255192020,
 	},
 }

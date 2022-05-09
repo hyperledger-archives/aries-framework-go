@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	didcomm "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -77,6 +78,7 @@ type rotatePayload struct {
 const (
 	fromPriorJSONKey  = "from_prior"
 	fromDIDJSONKey    = "from"
+	bodyJSONKey       = "body"
 	initialStateParam = "initialState"
 )
 
@@ -85,19 +87,18 @@ func (h *DIDCommMessageMiddleware) HandleInboundMessage( // nolint:gocyclo,funle
 	msg didcomm.DIDCommMsgMap,
 	theirDID, myDID string,
 ) error {
-	if isV2, err := didcomm.IsDIDCommV2(&msg); !isV2 || err != nil {
-		return err
-	}
-
 	// TODO: clean up connection record management across all the handler methods. Currently correct but messy.
-
 	// TODO: clean up some logic:
 	//  - inbound invitation acceptance cannot be a rotation
-
 	// GetConnectionRecordByDIDs(myDID, theirDID)
 	// if no connection, create connection
 	rec, err := h.handleInboundInvitationAcceptance(theirDID, myDID)
 	if err != nil {
+		return err
+	}
+
+	isV2, err := didcomm.IsDIDCommV2(&msg)
+	if !isV2 || err != nil {
 		return err
 	}
 
@@ -161,6 +162,16 @@ func (h *DIDCommMessageMiddleware) HandleOutboundMessage(msg didcomm.DIDCommMsgM
 		return msg
 	}
 
+	// if there's no from DID, add a from DID.
+	if _, ok := msg[fromDIDJSONKey]; !ok {
+		msg[fromDIDJSONKey] = rec.MyDID
+	}
+
+	// if there's no body, add a body.
+	if _, ok := msg[bodyJSONKey]; !ok {
+		msg[bodyJSONKey] = map[string]interface{}{}
+	}
+
 	if rec.MyDIDRotation != nil {
 		msg[fromPriorJSONKey] = rec.MyDIDRotation.FromPrior
 	}
@@ -170,13 +181,15 @@ func (h *DIDCommMessageMiddleware) HandleOutboundMessage(msg didcomm.DIDCommMsgM
 
 type invitationStub struct {
 	Type string `json:"type"`
+	ID   string `json:"id"`
 }
 
 func (h *DIDCommMessageMiddleware) handleInboundInvitationAcceptance(senderDID, recipientDID string,
 ) (*connection.Record, error) {
 	didParsed, err := did.Parse(recipientDID)
 	if err != nil {
-		return nil, fmt.Errorf("parsing inbound recipient DID: %w", err)
+		logger.Warnf("failed to parse inbound recipient DID: %s", err.Error())
+		return nil, nil
 	}
 
 	if didParsed.Method == peer.DIDMethod { // TODO any more exception cases like peer?
@@ -195,22 +208,25 @@ func (h *DIDCommMessageMiddleware) handleInboundInvitationAcceptance(senderDID, 
 	}
 
 	rec, err := h.connStore.GetConnectionRecordByDIDs(recipientDID, senderDID)
-	if !errors.Is(err, storage.ErrDataNotFound) {
-		// either an error, or a record exists
-		logger.Warnf("record present, or error=%v", err)
-		return rec, err
+	if err == nil {
+		return rec, nil
+	} else if !errors.Is(err, storage.ErrDataNotFound) {
+		return rec, fmt.Errorf("failed to get connection record: %w", err)
 	}
 
 	// if we created an invitation with this DID, and have no connection, we create a connection.
 
 	rec = &connection.Record{
-		ConnectionID:      uuid.New().String(),
-		MyDID:             recipientDID,
-		TheirDID:          senderDID,
-		State:             connection.StateNameCompleted,
-		Namespace:         connection.MyNSPrefix,
-		MediaTypeProfiles: h.mediaTypeProfiles,
-		DIDCommVersion:    didcomm.V2,
+		ConnectionID: uuid.New().String(),
+		MyDID:        recipientDID,
+		TheirDID:     senderDID,
+		InvitationID: inv.ID,
+		State:        connection.StateNameCompleted,
+		Namespace:    connection.MyNSPrefix,
+		ServiceEndPoint: model.Endpoint{
+			Accept: h.mediaTypeProfiles,
+		},
+		DIDCommVersion: didcomm.V2,
 	}
 
 	err = h.connStore.SaveConnectionRecord(rec)

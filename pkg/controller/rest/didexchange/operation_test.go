@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
@@ -580,8 +581,10 @@ func newPeerDID(t *testing.T) *did.Doc {
 
 	d, err := ctx.VDRegistry().Create(
 		peer.DIDMethod, &did.Doc{Service: []did.Service{{
-			Type:            vdr.DIDCommServiceType,
-			ServiceEndpoint: "http://agent.example.com/didcomm",
+			Type: vdr.DIDCommServiceType,
+			ServiceEndpoint: model.Endpoint{
+				URI: "http://agent.example.com/didcomm",
+			},
 		}}, VerificationMethod: []did.VerificationMethod{getSigningKey()}},
 	)
 	require.NoError(t, err)
