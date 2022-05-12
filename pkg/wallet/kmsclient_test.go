@@ -283,9 +283,9 @@ func TestImportKeyJWK(t *testing.T) {
 				name: "import Ed25519",
 				sampleJWK: []byte(`{
 							"kty": "OKP",
-							"d":"Dq5t2WS3OMzcpkh8AyVxJs5r9v4L39ocIz9CpUOqM40",
+							"d": "PZ1PSb0Szy6VG8_ht-vWCFHOyLCeLYForcoanFXqSgs",
 							"crv": "Ed25519",
-							"x": "ODaPFurJgFcoVCUYEmgOJpWOtPlOYbHSugasscKWqDM",
+							"x": "6F3EgB2EcymlT50_UOplrSWKVTF2pXFZ1dg_ZWlu9O0",
 							"kid":"z6MkiEh8RQL83nkPo8ehDeE7"
 				}`),
 				ID: "did:example:123#z6MkiEh8RQL83nkPo8ehDeE7",
@@ -294,9 +294,9 @@ func TestImportKeyJWK(t *testing.T) {
 				name: "import Ed25519, use document id for missing kid",
 				sampleJWK: []byte(`{
 							"kty": "OKP",
-							"d":"Dq5t2WS3OMzcpkh8AyVxJs5r9v4L39ocIz9CpUOqM40",
+							"d":"70u3yNq94C2f06zHhkcAu2Yqs1AMA99u5Z9bjkcFGE8",
 							"crv": "Ed25519",
-							"x": "ODaPFurJgFcoVCUYEmgOJpWOtPlOYbHSugasscKWqDM"
+							"x": "14Xchu6CUKOmmSWZMAXwM_jV9cwVyt28H8467LBDFxE"
 				}`),
 				ID: "did:example:123#z6MkiEh8RQL83nkPo8ehDeE8",
 			},
@@ -352,7 +352,7 @@ func TestImportKeyJWK(t *testing.T) {
 					"x": "VCpo2LMLhn6iWku8MKvSLg2ZAoC-nlOyPVQaO3FxVeQ"
       				}`),
 				ID:    "did:example:123#z6MkiEh8RQL83nkPo8ehDeE7",
-				error: "mport private key does not support this key type or key is public",
+				error: "import private key does not support this key type or key is public",
 			},
 		}
 
@@ -362,20 +362,20 @@ func TestImportKeyJWK(t *testing.T) {
 			tc := test
 			t.Run(tc.name, func(t *testing.T) {
 				if tc.error != "" {
-					err := importKeyJWK(tkn, &keyContent{PrivateKeyJwk: tc.sampleJWK, ID: tc.ID})
+					_, err := importKeyJWK(tkn, &keyContent{PrivateKeyJwk: tc.sampleJWK, ID: tc.ID})
 					require.Error(t, err)
 					require.Contains(t, err.Error(), tc.error)
 
 					return
 				}
 
-				err := importKeyJWK(tkn, &keyContent{PrivateKeyJwk: tc.sampleJWK, ID: tc.ID})
+				kid, err := importKeyJWK(tkn, &keyContent{PrivateKeyJwk: tc.sampleJWK, ID: tc.ID})
 				require.NoError(t, err)
 
 				kmgr, err := keyManager().getKeyManger(tkn)
 				require.NoError(t, err)
 
-				handle, err := kmgr.Get(getKID(tc.ID))
+				handle, err := kmgr.Get(kid)
 				require.NoError(t, err)
 				require.NotEmpty(t, handle)
 			})
@@ -383,7 +383,7 @@ func TestImportKeyJWK(t *testing.T) {
 	})
 
 	t.Run("test key ID already exists", func(t *testing.T) {
-		err := importKeyJWK(tkn, &keyContent{PrivateKeyJwk: []byte(`{
+		_, err := importKeyJWK(tkn, &keyContent{PrivateKeyJwk: []byte(`{
 							"kty": "OKP",
 							"d":"Dq5t2WS3OMzcpkh8AyVxJs5r9v4L39ocIz9CpUOqM40",
 							"crv": "Ed25519",
@@ -393,7 +393,7 @@ func TestImportKeyJWK(t *testing.T) {
 		require.NoError(t, err)
 
 		// import different key with same key ID
-		err = importKeyJWK(tkn, &keyContent{PrivateKeyJwk: []byte(`{
+		_, err = importKeyJWK(tkn, &keyContent{PrivateKeyJwk: []byte(`{
       						"kty": "EC",
       						"crv": "P-384",
       						"x": "eQbMauiHc9HuiqXT894gW5XTCrOpeY8cjLXAckfRtdVBLzVHKaiXAAxBFeVrSB75",
@@ -405,7 +405,7 @@ func TestImportKeyJWK(t *testing.T) {
 		require.Contains(t, err.Error(), "requested ID 'z6MkiEh8RQL83nkPo8ehDeX7' already exists")
 
 		// import different key with same content ID (missing kid)
-		err = importKeyJWK(tkn, &keyContent{PrivateKeyJwk: []byte(`{
+		_, err = importKeyJWK(tkn, &keyContent{PrivateKeyJwk: []byte(`{
       						"kty": "EC",
       						"crv": "P-384",
       						"x": "eQbMauiHc9HuiqXT894gW5XTCrOpeY8cjLXAckfRtdVBLzVHKaiXAAxBFeVrSB75",
@@ -416,7 +416,7 @@ func TestImportKeyJWK(t *testing.T) {
 		require.Contains(t, err.Error(), "requested ID 'z6MkiEh8RQL83nkPo8ehDeX7' already exists")
 
 		// no KID
-		err = importKeyJWK(tkn, &keyContent{PrivateKeyJwk: []byte(`{
+		_, err = importKeyJWK(tkn, &keyContent{PrivateKeyJwk: []byte(`{
 							"kty": "OKP",
 							"d":"Dq5t2WS3OMzcpkh8AyVxJs5r9v4L39ocIz9CpUOqM40",
 							"crv": "Ed25519",
@@ -426,7 +426,7 @@ func TestImportKeyJWK(t *testing.T) {
 	})
 
 	t.Run("test key manager errors", func(t *testing.T) {
-		err := importKeyJWK(tkn+"invalid", &keyContent{PrivateKeyJwk: []byte(`{
+		_, err := importKeyJWK(tkn+"invalid", &keyContent{PrivateKeyJwk: []byte(`{
 							"kty": "OKP",
 							"d":"Dq5t2WS3OMzcpkh8AyVxJs5r9v4L39ocIz9CpUOqM40",
 							"crv": "Ed25519",
@@ -498,7 +498,7 @@ func TestImportKeyBase58(t *testing.T) {
 			tc := test
 			t.Run(tc.name, func(t *testing.T) {
 				if tc.error != "" {
-					err := importKeyBase58(tkn, &keyContent{
+					_, err := importKeyBase58(tkn, &keyContent{
 						ID:               tc.ID,
 						PrivateKeyBase58: tc.keyBase58,
 						KeyType:          tc.keyType,
@@ -509,7 +509,7 @@ func TestImportKeyBase58(t *testing.T) {
 					return
 				}
 
-				err := importKeyBase58(tkn, &keyContent{
+				_, err := importKeyBase58(tkn, &keyContent{
 					ID:               tc.ID,
 					PrivateKeyBase58: tc.keyBase58,
 					KeyType:          tc.keyType,
@@ -527,14 +527,14 @@ func TestImportKeyBase58(t *testing.T) {
 	})
 
 	t.Run("test key ID already exists", func(t *testing.T) {
-		err := importKeyBase58(tkn, &keyContent{
+		_, err := importKeyBase58(tkn, &keyContent{
 			ID:               "did:example:123#z6MkiEh8RQL83nkPo8ehDeE4",
 			PrivateKeyBase58: "zJRjGFZydU5DBdS2p5qbiUzDFAxbXTkjiDuGPksMBbY5TNyEsGfK4a4WGKjBCh1zeNryeuKtPotp8W1ESnwP71y",
 			KeyType:          "Ed25519VerificationKey2018",
 		})
 		require.NoError(t, err)
 
-		err = importKeyBase58(tkn, &keyContent{
+		_, err = importKeyBase58(tkn, &keyContent{
 			ID:               "did:example:123#z6MkiEh8RQL83nkPo8ehDeE4",
 			PrivateKeyBase58: "zJRjGFZydU5DBdS2p5qbiUzDFAxbXTkjiDuGPksMBbY5TNyEsGfK4a4WGKjBCh1zeNryeuKtPotp8W1ESnwP71y",
 			KeyType:          "Ed25519VerificationKey2018",
@@ -544,7 +544,7 @@ func TestImportKeyBase58(t *testing.T) {
 	})
 
 	t.Run("test key manager errors", func(t *testing.T) {
-		err := importKeyBase58(tkn+"invalid", &keyContent{
+		_, err := importKeyBase58(tkn+"invalid", &keyContent{
 			ID:               "did:example:123#z6MkiEh8RQL83nkPo8ehDeE5",
 			PrivateKeyBase58: "zJRjGFZydU5DBdS2p5qbiUzDFAxbXTkjiDuGPksMBbY5TNyEsGfK4a4WGKjBCh1zeNryeuKtPotp8W1ESnwP71y",
 			KeyType:          "Ed25519VerificationKey2018",
@@ -561,7 +561,7 @@ func TestImportKeyBase58(t *testing.T) {
 			&mockkms.KeyManager{ImportPrivateKeyErr: sampleErr}, 0)
 		require.NoError(t, err)
 
-		err = importKeyBase58(mockToken, &keyContent{
+		_, err = importKeyBase58(mockToken, &keyContent{
 			ID:               "did:example:123#z6MkiEh8RQL83nkPo8ehDeE5",
 			PrivateKeyBase58: "zJRjGFZydU5DBdS2p5qbiUzDFAxbXTkjiDuGPksMBbY5TNyEsGfK4a4WGKjBCh1zeNryeuKtPotp8W1ESnwP71y",
 			KeyType:          "Ed25519VerificationKey2018",
@@ -569,7 +569,7 @@ func TestImportKeyBase58(t *testing.T) {
 		require.Error(t, err)
 		require.True(t, errors.Is(err, sampleErr))
 
-		err = importKeyBase58(mockToken, &keyContent{
+		_, err = importKeyBase58(mockToken, &keyContent{
 			ID:               "did:example:123#z6MkiEh8RQL83nkPo8ehDeE5",
 			PrivateKeyBase58: "6gsgGpdx7p1nYoKJ4b5fKt1xEomWdnemg9nJFX6mqNCh",
 			KeyType:          "Bls12381G1Key2020",

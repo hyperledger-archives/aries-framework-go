@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/elliptic"
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
@@ -23,6 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
 	bbspb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/bbs_go_proto"
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/jwkkid"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -34,8 +36,10 @@ const (
 	nistpECDHKWPrivateKeyTypeURL = "type.hyperledger.org/hyperledger.aries.crypto.tink.NistPEcdhKwPrivateKey"
 )
 
+//nolint:funlen,gocyclo
 func (l *LocalKMS) importECDSAKey(privKey *ecdsa.PrivateKey, kt kms.KeyType,
-	opts ...kms.PrivateKeyOpts) (string, *keyset.Handle, error) {
+	opts ...kms.PrivateKeyOpts,
+) (string, *keyset.Handle, error) {
 	var params *ecdsapb.EcdsaParams
 
 	err := validECPrivateKey(privKey)
@@ -86,6 +90,34 @@ func (l *LocalKMS) importECDSAKey(privKey *ecdsa.PrivateKey, kt kms.KeyType,
 		return "", nil, fmt.Errorf("import private EC key failed: invalid ECDSA key type")
 	}
 
+	if len(opts) == 0 {
+		var kid string
+
+		// since the public key exists already in decoded form, use the
+		// IEEEP1363 encoding for marhalling and computing the key id as it is
+		// easier to use
+		tmpKt := kms.ECDSAP256TypeIEEEP1363
+
+		switch kt {
+		case kms.ECDSAP256TypeIEEEP1363, kms.ECDSAP256TypeDER:
+			tmpKt = kms.ECDSAP256TypeIEEEP1363
+		case kms.ECDSAP384TypeIEEEP1363, kms.ECDSAP384TypeDER:
+			tmpKt = kms.ECDSAP384TypeIEEEP1363
+		case kms.ECDSAP521TypeIEEEP1363, kms.ECDSAP521TypeDER:
+			tmpKt = kms.ECDSAP521TypeIEEEP1363
+		}
+
+		c := jwkkid.GetCurveByKMSKeyType(tmpKt)
+		pubKeyBytes := elliptic.Marshal(c, privKey.PublicKey.X, privKey.PublicKey.Y)
+
+		kid, err = CreateKID(pubKeyBytes, tmpKt)
+		if err != nil {
+			return "", nil, fmt.Errorf("import private EC  key failed: %w", err)
+		}
+
+		opts = append(opts, kms.WithKeyID(kid))
+	}
+
 	mKeyValue, err := getMarshalledECDSAPrivateKey(privKey, params)
 	if err != nil {
 		return "", nil, fmt.Errorf("import private EC key failed: %w", err)
@@ -97,7 +129,8 @@ func (l *LocalKMS) importECDSAKey(privKey *ecdsa.PrivateKey, kt kms.KeyType,
 }
 
 func (l *LocalKMS) buildAndImportECDSAPrivateKeyAsECDHKW(privKey *ecdsa.PrivateKey, kt kms.KeyType,
-	opts ...kms.PrivateKeyOpts) (string, *keyset.Handle, error) {
+	opts ...kms.PrivateKeyOpts,
+) (string, *keyset.Handle, error) {
 	var keyTemplate *tinkpb.KeyTemplate
 
 	switch kt {
@@ -157,7 +190,8 @@ func getMarshalledECDSAPrivateKey(privKey *ecdsa.PrivateKey, params *ecdsapb.Ecd
 }
 
 func (l *LocalKMS) importEd25519Key(privKey ed25519.PrivateKey, kt kms.KeyType,
-	opts ...kms.PrivateKeyOpts) (string, *keyset.Handle, error) {
+	opts ...kms.PrivateKeyOpts,
+) (string, *keyset.Handle, error) {
 	if privKey == nil {
 		return "", nil, fmt.Errorf("import private ED25519 key failed: private key is nil")
 	}
@@ -171,6 +205,17 @@ func (l *LocalKMS) importEd25519Key(privKey ed25519.PrivateKey, kt kms.KeyType,
 		return "", nil, fmt.Errorf("import private ED25519 key failed: %w", err)
 	}
 
+	if len(opts) == 0 {
+		var kid string
+
+		kid, err = CreateKID(privKeyProto.PublicKey.KeyValue, kt)
+		if err != nil {
+			return "", nil, fmt.Errorf("import private ED25519 key failed: %w", err)
+		}
+
+		opts = append(opts, kms.WithKeyID(kid))
+	}
+
 	mKeyValue, err := proto.Marshal(privKeyProto)
 	if err != nil {
 		return "", nil, fmt.Errorf("import private ED25519 key failed: %w", err)
@@ -182,7 +227,8 @@ func (l *LocalKMS) importEd25519Key(privKey ed25519.PrivateKey, kt kms.KeyType,
 }
 
 func (l *LocalKMS) importBBSKey(privKey *bbs12381g2pub.PrivateKey, kt kms.KeyType,
-	opts ...kms.PrivateKeyOpts) (string, *keyset.Handle, error) {
+	opts ...kms.PrivateKeyOpts,
+) (string, *keyset.Handle, error) {
 	if privKey == nil {
 		return "", nil, fmt.Errorf("import private BBS+ key failed: private key is nil")
 	}
@@ -194,6 +240,17 @@ func (l *LocalKMS) importBBSKey(privKey *bbs12381g2pub.PrivateKey, kt kms.KeyTyp
 	privKeyProto, err := newProtoBBSPrivateKey(privKey, kt)
 	if err != nil {
 		return "", nil, fmt.Errorf("import private BBS+ key failed: %w", err)
+	}
+
+	if len(opts) == 0 {
+		var kid string
+
+		kid, err = CreateKID(privKeyProto.PublicKey.KeyValue, kt)
+		if err != nil {
+			return "", nil, fmt.Errorf("import private BBS+ key failed: %w", err)
+		}
+
+		opts = append(opts, kms.WithKeyID(kid))
 	}
 
 	mKeyValue, err := proto.Marshal(privKeyProto)

@@ -145,10 +145,10 @@ func TestCreateKIDFromFixedKey(t *testing.T) {
 }
 
 func TestGetCurve(t *testing.T) {
-	c := getCurveByKMSKeyType(kms.ECDSAP384TypeIEEEP1363)
+	c := GetCurveByKMSKeyType(kms.ECDSAP384TypeIEEEP1363)
 	require.Equal(t, c, elliptic.P384())
 
-	c = getCurveByKMSKeyType(kms.AES128GCMType) // default P-256 if curve not found
+	c = GetCurveByKMSKeyType(kms.AES128GCMType) // default P-256 if curve not found
 	require.Equal(t, c, elliptic.P256())
 }
 

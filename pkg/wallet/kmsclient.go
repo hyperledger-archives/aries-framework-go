@@ -268,7 +268,7 @@ func newKMSSigner(authToken string, c crypto.Crypto, opts *ProofOptions) (*kmsSi
 		return nil, errors.New("invalid verification method format")
 	}
 
-	keyHandler, err := keyManager.Get(vmSplit[vmSectionCount-1])
+	keyHandler, err := keyManager.Get(opts.KID)
 	if err != nil {
 		return nil, err
 	}
@@ -304,69 +304,82 @@ func (s *kmsSigner) Sign(data []byte) ([]byte, error) {
 
 // importKeyJWK imports private key jwk found in key contents,
 // supported curve types - Ed25519, P-256, BLS12381G2.
-func importKeyJWK(auth string, key *keyContent) error {
+func importKeyJWK(auth string, key *keyContent) (string, error) {
 	keyManager, err := keyManager().getKeyManger(auth)
 	if err != nil {
 		if errors.Is(err, gcache.KeyNotFoundError) {
-			return ErrWalletLocked
+			return "", ErrWalletLocked
 		}
 
-		return fmt.Errorf("failed to get key manager: %w", err)
+		return "", fmt.Errorf("failed to get key manager: %w", err)
 	}
 
 	var j jwk.JWK
 	if e := j.UnmarshalJSON(key.PrivateKeyJwk); e != nil {
-		return fmt.Errorf("failed to unmarshal jwk : %w", e)
+		return "", fmt.Errorf("failed to unmarshal jwk : %w", e)
 	}
 
 	keyType, ok := jwkCurves[j.Crv]
 	if !ok {
-		return fmt.Errorf("unsupported Key type %s", j.Crv)
+		return "", fmt.Errorf("unsupported Key type %s", j.Crv)
 	}
 
-	_, _, err = keyManager.ImportPrivateKey(j.Key, keyType, kms.WithKeyID(getKIDFromJWK(key.ID, &j)))
+	opts := make([]kms.PrivateKeyOpts, 0)
+	if key.ID != "" {
+		opts = append(opts, kms.WithKeyID(getKIDFromJWK(key.ID, &j)))
+	}
+
+	kid, _, err := keyManager.ImportPrivateKey(j.Key, keyType, opts...)
 	if err != nil {
-		return fmt.Errorf("failed to import jwk key : %w", err)
+		return "", fmt.Errorf("failed to import jwk key : %w", err)
 	}
 
-	return nil
+	return kid, nil
 }
 
 // importKeyBase58 imports private key base58 found in key contents,
 // supported types - Ed25519Signature2018, Bls12381G1Key2020.
-func importKeyBase58(auth string, key *keyContent) error {
+//nolint:unparam // no test uses the kid return value yet but it should nevertheless be there
+func importKeyBase58(auth string, key *keyContent) (string, error) {
+	var kid string
+
 	keyManager, err := keyManager().getKeyManger(auth)
 	if err != nil {
 		if errors.Is(err, gcache.KeyNotFoundError) {
-			return ErrWalletLocked
+			return "", ErrWalletLocked
 		}
 
-		return fmt.Errorf("failed to get key manager: %w", err)
+		return "", fmt.Errorf("failed to get key manager: %w", err)
+	}
+
+	opts := make([]kms.PrivateKeyOpts, 0)
+	if key.ID != "" {
+		opts = append(opts, kms.WithKeyID(getKID(key.ID)))
 	}
 
 	switch strings.ToLower(key.KeyType) {
 	case Ed25519VerificationKey2018:
 		edPriv := ed25519.PrivateKey(base58.Decode(key.PrivateKeyBase58))
 
-		_, _, err := keyManager.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(getKID(key.ID)))
+		kid, _, err = keyManager.ImportPrivateKey(edPriv, kms.ED25519, opts...)
 		if err != nil {
-			return fmt.Errorf("failed to import Ed25519Signature2018 key : %w", err)
+			return "", fmt.Errorf("failed to import Ed25519Signature2018 key : %w", err)
 		}
 	case Bls12381G1Key2020:
 		blsKey, err := bbs12381g2pub.UnmarshalPrivateKey(base58.Decode(key.PrivateKeyBase58))
 		if err != nil {
-			return fmt.Errorf("failed to unmarshal %s private key : %w", kms.BLS12381G2Type, err)
+			return "", fmt.Errorf("failed to unmarshal %s private key : %w", kms.BLS12381G2Type, err)
 		}
 
-		_, _, err = keyManager.ImportPrivateKey(blsKey, kms.BLS12381G2, kms.WithKeyID(getKID(key.ID)))
+		kid, _, err = keyManager.ImportPrivateKey(blsKey, kms.BLS12381G2, opts...)
 		if err != nil {
-			return fmt.Errorf("failed to import Ed25519Signature2018 key : %w", err)
+			return "", fmt.Errorf("failed to import Ed25519Signature2018 key : %w", err)
 		}
 	default:
-		return errors.New("only Ed25519VerificationKey2018 &  Bls12381G1Key2020 are supported in base58 format")
+		return "", errors.New("only Ed25519VerificationKey2018 &  Bls12381G1Key2020 are supported in base58 format")
 	}
 
-	return nil
+	return kid, nil
 }
 
 func getKID(id string) string {
@@ -376,7 +389,7 @@ func getKID(id string) string {
 		return cSplit[1]
 	}
 
-	return ""
+	return id
 }
 
 func getKIDFromJWK(id string, j *jwk.JWK) string {

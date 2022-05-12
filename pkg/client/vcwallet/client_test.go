@@ -56,19 +56,21 @@ import (
 )
 
 const (
-	samplePassPhrase        = "fakepassphrase"
-	sampleRemoteKMSAuth     = "sample-auth-token"
-	sampleKeyServerURL      = "sample/keyserver/test"
-	sampleUserID            = "sample-user01"
-	toBeImplementedErr      = "to be implemented"
-	sampleClientErr         = "sample client err"
-	sampleDIDKey            = "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
-	sampleDIDKey2           = "did:key:z6MkwFKUCsf8wvn6eSSu1WFAKatN1yexiDM7bf7pZLSFjdz6"
-	sampleInvalidDIDContent = `{"@context": ["https://w3id.org/did/v1"],"id": "did:example:sampleInvalidDIDContent"}`
-	webRedirectStatusKey    = "status"
-	webRedirectURLKey       = "url"
-	exampleWebRedirect      = "http://example.com/sample"
-	sampleMsgComment        = "sample mock msg"
+	samplePassPhrase             = "fakepassphrase"
+	sampleRemoteKMSAuth          = "sample-auth-token"
+	sampleKeyServerURL           = "sample/keyserver/test"
+	sampleUserID                 = "sample-user01"
+	toBeImplementedErr           = "to be implemented"
+	sampleClientErr              = "sample client err"
+	sampleDIDKey                 = "did:key:z6MknC1wwS6DEYwtGbZZo2QvjQjkh2qSBjb4GYmbye8dv4S5"
+	sampleDIDKey2                = "did:key:z6MkwFKUCsf8wvn6eSSu1WFAKatN1yexiDM7bf7pZLSFjdz6"
+	sampleDIDKeyBase58ID         = "23"
+	sampleDIDKeyBase58FragmentID = "z6MknT4m3MtA9UD1npGehFuBNiv6Bu8M25egHCaDbVcdHtia"
+	sampleInvalidDIDContent      = `{"@context": ["https://w3id.org/did/v1"],"id": "did:example:sampleInvalidDIDContent"}` // nolint:lll
+	webRedirectStatusKey         = "status"
+	webRedirectURLKey            = "url"
+	exampleWebRedirect           = "http://example.com/sample"
+	sampleMsgComment             = "sample mock msg"
 )
 
 func TestCreateProfile(t *testing.T) {
@@ -879,6 +881,162 @@ func TestClient_Issue(t *testing.T) {
 
 		// sign with just controller
 		result, err := vcWalletClient.Issue(testdata.SampleUDCVC, &wallet.ProofOptions{
+			Controller: sampleDIDKey,
+		})
+		require.Error(t, err)
+		require.True(t, errors.Is(err, ErrWalletLocked))
+		require.Empty(t, result)
+	})
+}
+
+func TestClient_IssueWithID(t *testing.T) {
+	customVDR := &mockvdr.MockVDRegistry{
+		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+			if strings.HasPrefix(didID, "did:key:") {
+				k := key.New()
+
+				d, e := k.Read(didID)
+				if e != nil {
+					return nil, e
+				}
+
+				return d, nil
+			}
+
+			return nil, fmt.Errorf("did not found")
+		},
+	}
+
+	mockctx := newMockProvider(t)
+	mockctx.VDRegistryValue = customVDR
+	mockctx.CryptoValue = &cryptomock.Crypto{}
+
+	err := CreateProfile(sampleUserID, mockctx, wallet.WithPassphrase(samplePassPhrase))
+	require.NoError(t, err)
+
+	t.Run("Test VC wallet client issue using controller - success", func(t *testing.T) {
+		vcWalletClient, err := New(sampleUserID, mockctx, wallet.WithUnlockByPassphrase(samplePassPhrase))
+		require.NotEmpty(t, vcWalletClient)
+		require.NoError(t, err)
+
+		defer vcWalletClient.Close()
+
+		// save a DID & corresponding key
+		require.NoError(t, vcWalletClient.Add(wallet.Key, testdata.SampleWalletContentKeyBase58WithID))
+		result, err := vcWalletClient.Issue(testdata.SampleUDCVC, &wallet.ProofOptions{
+			Controller: sampleDIDKey2,
+		})
+
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to read json keyset from reader")
+		require.Empty(t, result)
+	})
+
+	t.Run("Test VC wallet client issue using controller - wallet locked", func(t *testing.T) {
+		vcWalletClient, err := New(sampleUserID, mockctx)
+		require.NotEmpty(t, vcWalletClient)
+		require.NoError(t, err)
+
+		defer vcWalletClient.Close()
+
+		// sign with just controller
+		result, err := vcWalletClient.Issue(testdata.SampleUDCVC, &wallet.ProofOptions{
+			KID:        sampleDIDKeyBase58ID,
+			Controller: sampleDIDKey,
+		})
+		require.Error(t, err)
+		require.True(t, errors.Is(err, ErrWalletLocked))
+		require.Empty(t, result)
+	})
+
+	t.Run("Test VC wallet client issue using controller - wallet locked", func(t *testing.T) {
+		vcWalletClient, err := New(sampleUserID, mockctx)
+		require.NotEmpty(t, vcWalletClient)
+		require.NoError(t, err)
+
+		defer vcWalletClient.Close()
+
+		// sign with just controller
+		result, err := vcWalletClient.Issue(testdata.SampleUDCVC, &wallet.ProofOptions{
+			KID:        sampleDIDKeyBase58ID,
+			Controller: sampleDIDKey,
+		})
+		require.Error(t, err)
+		require.True(t, errors.Is(err, ErrWalletLocked))
+		require.Empty(t, result)
+	})
+}
+
+func TestClient_IssueWithFramentID(t *testing.T) {
+	customVDR := &mockvdr.MockVDRegistry{
+		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+			if strings.HasPrefix(didID, "did:key:") {
+				k := key.New()
+
+				d, e := k.Read(didID)
+				if e != nil {
+					return nil, e
+				}
+
+				return d, nil
+			}
+
+			return nil, fmt.Errorf("did not found")
+		},
+	}
+
+	mockctx := newMockProvider(t)
+	mockctx.VDRegistryValue = customVDR
+	mockctx.CryptoValue = &cryptomock.Crypto{}
+
+	err := CreateProfile(sampleUserID, mockctx, wallet.WithPassphrase(samplePassPhrase))
+	require.NoError(t, err)
+
+	t.Run("Test VC wallet client issue using controller - success", func(t *testing.T) {
+		vcWalletClient, err := New(sampleUserID, mockctx, wallet.WithUnlockByPassphrase(samplePassPhrase))
+		require.NotEmpty(t, vcWalletClient)
+		require.NoError(t, err)
+
+		defer vcWalletClient.Close()
+
+		// save a DID & corresponding key
+		require.NoError(t, vcWalletClient.Add(wallet.Key, testdata.SampleWalletContentKeyBase58WithFragmentID))
+		result, err := vcWalletClient.Issue(testdata.SampleUDCVC, &wallet.ProofOptions{
+			Controller: sampleDIDKey2,
+		})
+
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to read json keyset from reader")
+		require.Empty(t, result)
+	})
+
+	t.Run("Test VC wallet client issue using controller - wallet locked", func(t *testing.T) {
+		vcWalletClient, err := New(sampleUserID, mockctx)
+		require.NotEmpty(t, vcWalletClient)
+		require.NoError(t, err)
+
+		defer vcWalletClient.Close()
+
+		// sign with just controller
+		result, err := vcWalletClient.Issue(testdata.SampleUDCVC, &wallet.ProofOptions{
+			KID:        sampleDIDKeyBase58FragmentID,
+			Controller: sampleDIDKey,
+		})
+		require.Error(t, err)
+		require.True(t, errors.Is(err, ErrWalletLocked))
+		require.Empty(t, result)
+	})
+
+	t.Run("Test VC wallet client issue using controller - wallet locked", func(t *testing.T) {
+		vcWalletClient, err := New(sampleUserID, mockctx)
+		require.NotEmpty(t, vcWalletClient)
+		require.NoError(t, err)
+
+		defer vcWalletClient.Close()
+
+		// sign with just controller
+		result, err := vcWalletClient.Issue(testdata.SampleUDCVC, &wallet.ProofOptions{
+			KID:        sampleDIDKeyBase58FragmentID,
 			Controller: sampleDIDKey,
 		})
 		require.Error(t, err)
