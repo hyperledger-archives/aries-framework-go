@@ -26,14 +26,18 @@ import (
 
 var logger = log.New("aries-framework/doc/verifiable")
 
-// DefaultSchema describes default schema.
-const DefaultSchema = `{
+const (
+	schemaPropertyType              = "type"
+	schemaPropertyCredentialSubject = "credentialSubject"
+	schemaPropertyIssuer            = "issuer"
+	schemaPropertyIssuanceDate      = "issuanceDate"
+)
+
+// DefaultSchemaTemplate describes default schema.
+const DefaultSchemaTemplate = `{
   "required": [
-    "@context",
-    "type",
-    "credentialSubject",
-    "issuer",
-    "issuanceDate"
+    "@context"
+    %s    
   ],
   "properties": {
     "@context": {
@@ -574,6 +578,7 @@ type credentialOpts struct {
 	disabledProofCheck    bool
 	strictValidation      bool
 	ldpSuites             []verifier.SignatureSuite
+	defaultSchema         string
 
 	jsonldCredentialOpts
 }
@@ -585,6 +590,13 @@ type CredentialOpt func(opts *credentialOpts)
 func WithDisabledProofCheck() CredentialOpt {
 	return func(opts *credentialOpts) {
 		opts.disabledProofCheck = true
+	}
+}
+
+// WithSchema option to set custom schema.
+func WithSchema(schema string) CredentialOpt {
+	return func(opts *credentialOpts) {
+		opts.defaultSchema = schema
 	}
 }
 
@@ -1179,7 +1191,7 @@ func validateCredentialUsingJSONSchema(data []byte, schemas []TypedID, opts *cre
 
 func getSchemaLoader(schemas []TypedID, opts *credentialOpts) (gojsonschema.JSONLoader, error) {
 	if opts.disabledCustomSchema {
-		return defaultSchemaLoader(), nil
+		return defaultSchemaLoaderWithOpts(opts), nil
 	}
 
 	for _, schema := range schemas {
@@ -1197,11 +1209,67 @@ func getSchemaLoader(schemas []TypedID, opts *credentialOpts) (gojsonschema.JSON
 	}
 
 	// If no custom schema is chosen, use default one
-	return defaultSchemaLoader(), nil
+	return defaultSchemaLoaderWithOpts(opts), nil
+}
+
+type schemaOpts struct {
+	disabledChecks []string
+}
+
+// SchemaOpt is create default schema options.
+type SchemaOpt func(*schemaOpts)
+
+// WithDisableRequiredField disabled check of required field in default schema.
+func WithDisableRequiredField(fieldName string) SchemaOpt {
+	return func(opts *schemaOpts) {
+		opts.disabledChecks = append(opts.disabledChecks, fieldName)
+	}
+}
+
+// JSONSchemaLoader creates default schema with the option to disable the check of specific properties.
+func JSONSchemaLoader(opts ...SchemaOpt) string {
+	defaultRequired := []string{
+		schemaPropertyType,
+		schemaPropertyCredentialSubject,
+		schemaPropertyIssuer,
+		schemaPropertyIssuanceDate,
+	}
+
+	dsOpts := &schemaOpts{}
+	for _, opt := range opts {
+		opt(dsOpts)
+	}
+
+	required := ""
+
+	for _, prop := range defaultRequired {
+		filterOut := false
+
+		for _, d := range dsOpts.disabledChecks {
+			if prop == d {
+				filterOut = true
+				break
+			}
+		}
+
+		if !filterOut {
+			required += fmt.Sprintf(",%q", prop)
+		}
+	}
+
+	return fmt.Sprintf(DefaultSchemaTemplate, required)
+}
+
+func defaultSchemaLoaderWithOpts(opts *credentialOpts) gojsonschema.JSONLoader {
+	if opts.defaultSchema != "" {
+		return gojsonschema.NewStringLoader(opts.defaultSchema)
+	}
+
+	return defaultSchemaLoader()
 }
 
 func defaultSchemaLoader() gojsonschema.JSONLoader {
-	return gojsonschema.NewStringLoader(DefaultSchema)
+	return gojsonschema.NewStringLoader(JSONSchemaLoader())
 }
 
 func getJSONSchema(url string, opts *credentialOpts) ([]byte, error) {
