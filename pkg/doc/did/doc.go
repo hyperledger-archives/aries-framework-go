@@ -24,6 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
+	sigproof "github.com/hyperledger/aries-framework-go/pkg/doc/signature/proof"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 )
 
@@ -597,9 +598,9 @@ func populateProofs(context, didID, baseURI string, rawProofs []interface{}) ([]
 			proofKey = jsonldSignatureValue
 		}
 
-		proofValue, err := base64.RawURLEncoding.DecodeString(stringEntry(emap[proofKey]))
+		proofValue, err := sigproof.DecodeProofValue(stringEntry(emap[proofKey]), stringEntry(emap[jsonldType]))
 		if err != nil {
-			return nil, err
+			return nil, errors.New("unsupported encoding")
 		}
 
 		nonce, err := base64.RawURLEncoding.DecodeString(stringEntry(emap[jsonldNonce]))
@@ -1438,7 +1439,7 @@ func populateRawProofs(context, didID, baseURI string, proofs []Proof) []interfa
 			jsonldType:         p.Type,
 			jsonldCreated:      p.Created,
 			jsonldCreator:      creator,
-			k:                  base64.RawURLEncoding.EncodeToString(p.ProofValue),
+			k:                  sigproof.EncodeProofValue(p.ProofValue, p.Type),
 			jsonldDomain:       p.Domain,
 			jsonldNonce:        base64.RawURLEncoding.EncodeToString(p.Nonce),
 			jsonldProofPurpose: p.ProofPurpose,
