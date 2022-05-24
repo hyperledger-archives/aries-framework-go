@@ -357,7 +357,7 @@ func TestInvalidEncodingInProof(t *testing.T) {
 		doc, err = populateProofs(c, "", "", rawProofs)
 		require.NotNil(t, err)
 		require.Nil(t, doc)
-		require.Contains(t, err.Error(), "illegal base64 data")
+		require.Contains(t, err.Error(), "unsupported encoding")
 	}
 }
 
