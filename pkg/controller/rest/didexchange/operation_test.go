@@ -581,10 +581,8 @@ func newPeerDID(t *testing.T) *did.Doc {
 
 	d, err := ctx.VDRegistry().Create(
 		peer.DIDMethod, &did.Doc{Service: []did.Service{{
-			Type: vdr.DIDCommServiceType,
-			ServiceEndpoint: model.Endpoint{
-				URI: "http://agent.example.com/didcomm",
-			},
+			Type:            vdr.DIDCommServiceType,
+			ServiceEndpoint: model.NewDIDCommV1Endpoint("http://agent.example.com/didcomm"),
 		}}, VerificationMethod: []did.VerificationMethod{getSigningKey()}},
 	)
 	require.NoError(t, err)

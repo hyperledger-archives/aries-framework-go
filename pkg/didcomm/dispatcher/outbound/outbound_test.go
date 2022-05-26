@@ -58,7 +58,7 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NoError(t, o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{
-			ServiceEndpoint: model.Endpoint{URI: "url"},
+			ServiceEndpoint: model.NewDIDCommV1Endpoint("url"),
 		}))
 	})
 
@@ -77,10 +77,10 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 
 		require.NoError(t, o.Send("data", fromDIDDoc.KeyAgreement[0].VerificationMethod.ID, &service.Destination{
 			RecipientKeys: []string{toDIDDoc.KeyAgreement[0].VerificationMethod.ID},
-			ServiceEndpoint: model.Endpoint{
+			ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{{
 				URI:    "url",
 				Accept: []string{transport.MediaTypeDIDCommV2Profile},
-			},
+			}}),
 		}))
 	})
 
@@ -94,7 +94,7 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 		})
 		require.NoError(t, err)
 		err = o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{
-			ServiceEndpoint: model.Endpoint{URI: "url"},
+			ServiceEndpoint: model.NewDIDCommV1Endpoint("url"),
 		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "outboundDispatcher.Send: no transport found for destination")
@@ -110,7 +110,7 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 		})
 		require.NoError(t, err)
 		err = o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{
-			ServiceEndpoint: model.Endpoint{URI: "url"},
+			ServiceEndpoint: model.NewDIDCommV1Endpoint("url"),
 		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "pack error")
@@ -128,7 +128,7 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 		})
 		require.NoError(t, err)
 		err = o.Send("data", mockdiddoc.MockDIDKey(t),
-			&service.Destination{ServiceEndpoint: model.Endpoint{URI: "url"}})
+			&service.Destination{ServiceEndpoint: model.NewDIDCommV1Endpoint("url")})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "send error")
 	})
@@ -144,10 +144,9 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 		require.NoError(t, err)
 
 		require.NoError(t, o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{
-			ServiceEndpoint: model.Endpoint{
-				URI:         "url",
-				RoutingKeys: []string{"xyz"},
-			},
+			ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
+				{URI: "url", RoutingKeys: []string{"xyz"}},
+			}),
 			RecipientKeys: []string{"abc"},
 		}))
 	})
@@ -167,10 +166,9 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 		require.NoError(t, err)
 
 		require.NoError(t, o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{
-			ServiceEndpoint: model.Endpoint{
-				URI:         "url",
-				RoutingKeys: []string{"xyz"},
-			},
+			ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
+				{URI: "url", RoutingKeys: []string{"xyz"}},
+			}),
 			RecipientKeys: []string{"abc"},
 		}))
 	})
@@ -189,10 +187,9 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 		require.NoError(t, err)
 
 		err = o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{
-			ServiceEndpoint: model.Endpoint{
-				URI:         "url",
-				RoutingKeys: []string{"xyz"},
-			},
+			ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
+				{URI: "url", RoutingKeys: []string{"xyz"}},
+			}),
 			RecipientKeys: []string{"abc"},
 		})
 		require.EqualError(t, err, "outboundDispatcher.Send: failed to create forward msg: failed Create "+
@@ -210,10 +207,9 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = o.createForwardMessage(createPackedMsgForForward(t), &service.Destination{
-			ServiceEndpoint: model.Endpoint{
-				URI:         "url",
-				RoutingKeys: []string{"xyz"},
-			},
+			ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
+				{URI: "url", RoutingKeys: []string{"xyz"}},
+			}),
 			RecipientKeys: []string{"abc"},
 		})
 		require.Error(t, err)
@@ -228,7 +224,7 @@ type mockMessage struct {
 }
 
 func TestOutboundDispatcher_SendToDID(t *testing.T) {
-	mockDoc := mockdiddoc.GetMockDIDDoc(t)
+	mockDoc := mockdiddoc.GetMockDIDDoc(t, false)
 
 	t.Run("success with existing connection record", func(t *testing.T) {
 		o, err := NewOutbound(&mockProvider{
@@ -555,7 +551,7 @@ func TestOutboundDispatcherTransportReturnRoute(t *testing.T) {
 		require.NoError(t, err)
 
 		require.NoError(t, o.Send(req, mockdiddoc.MockDIDKey(t),
-			&service.Destination{ServiceEndpoint: model.Endpoint{URI: "url"}}))
+			&service.Destination{ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{{URI: "url"}})}))
 	})
 
 	t.Run("transport route option - value set thread", func(t *testing.T) {
@@ -590,7 +586,7 @@ func TestOutboundDispatcherTransportReturnRoute(t *testing.T) {
 		require.NoError(t, err)
 
 		require.NoError(t, o.Send(req, mockdiddoc.MockDIDKey(t),
-			&service.Destination{ServiceEndpoint: model.Endpoint{URI: "url"}}))
+			&service.Destination{ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{{URI: "url"}})}))
 	})
 
 	t.Run("transport route option - no value set", func(t *testing.T) {
@@ -617,7 +613,7 @@ func TestOutboundDispatcherTransportReturnRoute(t *testing.T) {
 		require.NoError(t, err)
 
 		require.NoError(t, o.Send(req, mockdiddoc.MockDIDKey(t),
-			&service.Destination{ServiceEndpoint: model.Endpoint{URI: "url"}}))
+			&service.Destination{ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{{URI: "url"}})}))
 	})
 
 	t.Run("transport route option - forward message", func(t *testing.T) {
@@ -634,7 +630,9 @@ func TestOutboundDispatcherTransportReturnRoute(t *testing.T) {
 		testData := []byte("testData")
 
 		data, err := o.addTransportRouteOptions(testData,
-			&service.Destination{ServiceEndpoint: model.Endpoint{RoutingKeys: []string{"abc"}}})
+			&service.Destination{ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
+				{RoutingKeys: []string{"abc"}},
+			})})
 		require.NoError(t, err)
 		require.Equal(t, testData, data)
 	})
@@ -643,14 +641,18 @@ func TestOutboundDispatcherTransportReturnRoute(t *testing.T) {
 func TestOutboundDispatcher_Forward(t *testing.T) {
 	t.Run("test forward - success", func(t *testing.T) {
 		o, err := NewOutbound(&mockProvider{
-			packagerValue:           &mockpackager.Packager{},
-			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}},
-			storageProvider:         mockstore.NewMockStoreProvider(),
-			protoStorageProvider:    mockstore.NewMockStoreProvider(),
-			mediaTypeProfiles:       []string{transport.MediaTypeDIDCommV2Profile},
+			packagerValue: &mockpackager.Packager{},
+			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{
+				AcceptValue: true,
+			}},
+			storageProvider:      mockstore.NewMockStoreProvider(),
+			protoStorageProvider: mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:    []string{transport.MediaTypeDIDCommV2Profile},
 		})
 		require.NoError(t, err)
-		require.NoError(t, o.Forward("data", &service.Destination{ServiceEndpoint: model.Endpoint{URI: "url"}}))
+		require.NoError(t, o.Forward("data", &service.Destination{
+			ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{{URI: "url"}}),
+		}))
 	})
 
 	t.Run("test forward - no outbound transport found", func(t *testing.T) {
@@ -662,7 +664,9 @@ func TestOutboundDispatcher_Forward(t *testing.T) {
 			mediaTypeProfiles:       []string{transport.MediaTypeDIDCommV2Profile},
 		})
 		require.NoError(t, err)
-		err = o.Forward("data", &service.Destination{ServiceEndpoint: model.Endpoint{URI: "url"}})
+		err = o.Forward("data", &service.Destination{
+			ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{{URI: "url"}}),
+		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "outboundDispatcher.Forward: no transport found for serviceEndpoint: url")
 	})
@@ -678,7 +682,8 @@ func TestOutboundDispatcher_Forward(t *testing.T) {
 			mediaTypeProfiles:    []string{transport.MediaTypeDIDCommV2Profile},
 		})
 		require.NoError(t, err)
-		err = o.Forward("data", &service.Destination{ServiceEndpoint: model.Endpoint{URI: "url"}})
+		err = o.Forward("data", &service.Destination{ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.
+			DIDCommV2Endpoint{{URI: "url"}})})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "send error")
 	})

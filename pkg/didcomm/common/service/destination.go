@@ -18,7 +18,9 @@ import (
 type Destination struct {
 	RecipientKeys        []string
 	ServiceEndpoint      model.Endpoint
+	RoutingKeys          []string
 	TransportReturnRoute string
+	MediaTypeProfiles    []string
 	DIDDoc               *did.Doc
 }
 

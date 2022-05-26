@@ -10,7 +10,7 @@
 Feature: WACI Issuance (Go API, DIDComm V1 + Issue Credential V2)
 
   Background:
-    Given all agents are using Media Type Profiles "didcomm/aip1,didcomm/aip2;env=rfc19,didcomm/aip2;env=rfc587,didcomm/v2"
+    Given all agents are using Media Type Profiles "didcomm/aip1,didcomm/aip2;env=rfc19"
     Given "Issuer" agent is running on "localhost" port "random" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
     And "Holder" agent is running on "localhost" port "random" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
 

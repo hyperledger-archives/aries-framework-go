@@ -75,15 +75,13 @@ func TestCreateInvitation(t *testing.T) {
 	})
 	t.Run("includes the diddoc Service block returned by provider", func(t *testing.T) {
 		expected := &did.Service{
-			ID:            uuid.New().String(),
-			Type:          uuid.New().String(),
-			Priority:      0,
-			RecipientKeys: []string{uuid.New().String()},
-			ServiceEndpoint: commonmodel.Endpoint{
-				URI:         uuid.New().String(),
-				RoutingKeys: []string{uuid.New().String()},
-			},
-			Properties: nil,
+			ID:              uuid.New().String(),
+			Type:            uuid.New().String(),
+			Priority:        0,
+			RecipientKeys:   []string{uuid.New().String()},
+			ServiceEndpoint: commonmodel.NewDIDCommV1Endpoint(uuid.New().String()),
+			RoutingKeys:     []string{uuid.New().String()},
+			Properties:      nil,
 		}
 		c, err := New(withTestProvider())
 		require.NoError(t, err)
@@ -129,26 +127,31 @@ func TestCreateInvitation(t *testing.T) {
 		c.didDocSvcFunc = func(conn string, accept []string) (*did.Service, error) {
 			require.Equal(t, expectedConn, conn)
 
-			var serviceType string
+			var svc *did.Service
 
 			if isDIDCommV2(accept) {
-				serviceType = vdr.DIDCommV2ServiceType
+				svc = &did.Service{
+					ServiceEndpoint: commonmodel.NewDIDCommV2Endpoint([]commonmodel.DIDCommV2Endpoint{
+						{URI: expectedConn, Accept: accept},
+					}),
+					Type: vdr.DIDCommV2ServiceType,
+				}
 			} else {
-				serviceType = vdr.DIDCommServiceType
+				svc = &did.Service{
+					ServiceEndpoint: commonmodel.NewDIDCommV1Endpoint(expectedConn),
+					Accept:          accept,
+					Type:            vdr.DIDCommServiceType,
+				}
 			}
 
-			return &did.Service{
-				ServiceEndpoint: commonmodel.Endpoint{
-					URI:    expectedConn,
-					Accept: accept,
-				},
-				Type: serviceType,
-			}, nil
+			return svc, nil
 		}
 
 		inv, err := c.CreateInvitation(nil, WithRouterConnections(expectedConn))
 		require.NoError(t, err)
-		require.Equal(t, expectedConn, inv.Services[0].(*did.Service).ServiceEndpoint.URI)
+		uri, err := inv.Services[0].(*did.Service).ServiceEndpoint.URI()
+		require.NoError(t, err)
+		require.Equal(t, expectedConn, uri)
 	})
 	t.Run("WithGoal", func(t *testing.T) {
 		c, err := New(withTestProvider())
@@ -164,15 +167,13 @@ func TestCreateInvitation(t *testing.T) {
 		c, err := New(withTestProvider())
 		require.NoError(t, err)
 		expected := &did.Service{
-			ID:            uuid.New().String(),
-			Type:          uuid.New().String(),
-			Priority:      0,
-			RecipientKeys: []string{uuid.New().String()},
-			ServiceEndpoint: commonmodel.Endpoint{
-				URI:         uuid.New().String(),
-				RoutingKeys: []string{uuid.New().String()},
-			},
-			Properties: nil,
+			ID:              uuid.New().String(),
+			Type:            uuid.New().String(),
+			Priority:        0,
+			RecipientKeys:   []string{uuid.New().String()},
+			ServiceEndpoint: commonmodel.NewDIDCommV1Endpoint(uuid.New().String()),
+			RoutingKeys:     []string{uuid.New().String()},
+			Properties:      nil,
 		}
 		inv, err := c.CreateInvitation([]interface{}{expected})
 		require.NoError(t, err)
@@ -193,15 +194,13 @@ func TestCreateInvitation(t *testing.T) {
 		require.NoError(t, err)
 		didRef := "did:example:234"
 		svc := &did.Service{
-			ID:            uuid.New().String(),
-			Type:          uuid.New().String(),
-			Priority:      0,
-			RecipientKeys: []string{uuid.New().String()},
-			ServiceEndpoint: commonmodel.Endpoint{
-				URI:         uuid.New().String(),
-				RoutingKeys: []string{uuid.New().String()},
-			},
-			Properties: nil,
+			ID:              uuid.New().String(),
+			Type:            uuid.New().String(),
+			Priority:        0,
+			RecipientKeys:   []string{uuid.New().String()},
+			ServiceEndpoint: commonmodel.NewDIDCommV1Endpoint(uuid.New().String()),
+			RoutingKeys:     []string{uuid.New().String()},
+			Properties:      nil,
 		}
 		inv, err := c.CreateInvitation([]interface{}{svc, didRef})
 		require.NoError(t, err)

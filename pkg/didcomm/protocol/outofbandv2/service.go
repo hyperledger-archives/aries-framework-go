@@ -268,11 +268,9 @@ func (s *Service) AcceptInvitation(i *Invitation, opts ...AcceptOption) (string,
 		}
 
 		services = append(services, did.Service{
-			ServiceEndpoint: model.Endpoint{
-				URI:         serviceEndpoint,
-				Accept:      s.myMediaTypeProfiles,
-				RoutingKeys: routingKeys,
-			},
+			ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
+				{URI: serviceEndpoint, Accept: s.myMediaTypeProfiles, RoutingKeys: routingKeys},
+			}),
 			RecipientKeys: []string{recKey},
 			Type:          vdrapi.DIDCommV2ServiceType,
 		})

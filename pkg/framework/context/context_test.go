@@ -770,12 +770,12 @@ func TestNewProvider(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, prov.OutboundTransports(), 2)
 		r, err := prov.outboundTransports[0].Send([]byte("data"),
-			&service.Destination{ServiceEndpoint: model.Endpoint{URI: "url"}},
+			&service.Destination{ServiceEndpoint: model.NewDIDCommV1Endpoint("url")},
 		)
 		require.NoError(t, err)
 		require.Equal(t, "data", r)
 		r, err = prov.outboundTransports[1].Send([]byte("data1"),
-			&service.Destination{ServiceEndpoint: model.Endpoint{URI: "url"}})
+			&service.Destination{ServiceEndpoint: model.NewDIDCommV1Endpoint("url")})
 		require.NoError(t, err)
 		require.Equal(t, "data1", r)
 	})

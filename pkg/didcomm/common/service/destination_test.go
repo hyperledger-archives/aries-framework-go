@@ -86,7 +86,7 @@ func TestGetDestinationFromDID(t *testing.T) {
 	t.Run("fails if the service endpoint is missing", func(t *testing.T) {
 		diddoc := createDIDDoc()
 		for i := range diddoc.Service {
-			diddoc.Service[i].ServiceEndpoint.URI = ""
+			diddoc.Service[i].ServiceEndpoint = model.NewDIDCommV1Endpoint("")
 		}
 		vdr := &mockvdr.MockVDRegistry{ResolveValue: diddoc}
 		_, err := GetDestination(diddoc.ID, vdr)
@@ -114,16 +114,18 @@ func TestGetDestinationFromDID(t *testing.T) {
 
 func TestPrepareDestination(t *testing.T) {
 	t.Run("successfully prepared destination", func(t *testing.T) {
-		doc := mockdiddoc.GetMockDIDDoc(t)
+		doc := mockdiddoc.GetMockDIDDoc(t, false)
 		dest, err := CreateDestination(doc)
 		require.NoError(t, err)
 		require.NotNil(t, dest)
-		require.Equal(t, dest.ServiceEndpoint.URI, "https://localhost:8090")
-		require.EqualValues(t, doc.Service[0].ServiceEndpoint.RoutingKeys, dest.ServiceEndpoint.RoutingKeys)
+		uri, err := dest.ServiceEndpoint.URI()
+		require.NoError(t, err)
+		require.Equal(t, uri, "https://localhost:8090")
+		require.EqualValues(t, doc.Service[0].RoutingKeys, dest.RoutingKeys)
 	})
 
 	t.Run("error with destination having recipientKeys not did:keys", func(t *testing.T) {
-		doc := mockdiddoc.GetMockDIDDoc(t)
+		doc := mockdiddoc.GetMockDIDDoc(t, false)
 		doc.Service[0].RecipientKeys = []string{"badKey"}
 		dest, err := CreateDestination(doc)
 
@@ -132,7 +134,7 @@ func TestPrepareDestination(t *testing.T) {
 	})
 
 	t.Run("error while getting service", func(t *testing.T) {
-		didDoc := mockdiddoc.GetMockDIDDoc(t)
+		didDoc := mockdiddoc.GetMockDIDDoc(t, false)
 		didDoc.Service = nil
 
 		dest, err := CreateDestination(didDoc)
@@ -142,7 +144,7 @@ func TestPrepareDestination(t *testing.T) {
 	})
 
 	t.Run("error while getting recipient keys from did doc", func(t *testing.T) {
-		didDoc := mockdiddoc.GetMockDIDDoc(t)
+		didDoc := mockdiddoc.GetMockDIDDoc(t, false)
 		didDoc.Service[0].RecipientKeys = []string{}
 
 		recipientKeys, ok := did.LookupDIDCommRecipientKeys(didDoc)
@@ -183,15 +185,11 @@ func createDIDDocWithKey(pub string) *did.Doc {
 	}
 	services := []did.Service{
 		{
-			ID:   fmt.Sprintf(didServiceID, id, 1),
-			Type: "did-communication",
-			ServiceEndpoint: model.Endpoint{
-				URI:         "http://localhost:58416",
-				Accept:      nil,
-				RoutingKeys: nil,
-			},
-			Priority:      0,
-			RecipientKeys: []string{pubKeyID},
+			ID:              fmt.Sprintf(didServiceID, id, 1),
+			Type:            "did-communication",
+			ServiceEndpoint: model.NewDIDCommV1Endpoint("http://localhost:58416"),
+			Priority:        0,
+			RecipientKeys:   []string{pubKeyID},
 		},
 	}
 	createdTime := time.Now()

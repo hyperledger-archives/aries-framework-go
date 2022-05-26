@@ -64,10 +64,12 @@ type Record struct {
 	MyDID               string
 	ServiceEndPoint     model.Endpoint // ServiceEndPoint is 'their' DIDComm service endpoint.
 	RecipientKeys       []string       // RecipientKeys holds 'their' DIDComm recipient keys.
+	RoutingKeys         []string       // RoutingKeys holds 'their' DIDComm routing keys.
 	InvitationID        string
 	InvitationDID       string
 	Implicit            bool
 	Namespace           string
+	MediaTypeProfiles   []string
 	DIDCommVersion      didcomm.Version
 	PeerDIDInitialState string
 	MyDIDRotation       *DIDRotationRecord `json:"myDIDRotation,omitempty"`

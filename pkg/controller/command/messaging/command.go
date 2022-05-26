@@ -186,13 +186,23 @@ func (o *Command) Send(rw io.Writer, req io.Reader) command.Error {
 	}
 
 	var destination *service.Destination
+
 	if request.ServiceEndpointDestination != nil {
-		destination = &service.Destination{
-			ServiceEndpoint: model.Endpoint{
-				URI:         request.ServiceEndpointDestination.ServiceEndpoint,
-				RoutingKeys: request.ServiceEndpointDestination.RoutingKeys,
-			},
-			RecipientKeys: request.ServiceEndpointDestination.RecipientKeys,
+		routingKeys := request.ServiceEndpointDestination.RoutingKeys
+		if len(routingKeys) > 0 {
+			destination = &service.Destination{
+				ServiceEndpoint: model.NewDIDCommV1Endpoint(request.ServiceEndpointDestination.ServiceEndpoint),
+				RoutingKeys:     routingKeys,
+				RecipientKeys:   request.ServiceEndpointDestination.RecipientKeys,
+			}
+		} else {
+			destination = &service.Destination{
+				ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{{
+					URI:         request.ServiceEndpointDestination.ServiceEndpoint,
+					RoutingKeys: routingKeys,
+				}}),
+				RecipientKeys: request.ServiceEndpointDestination.RecipientKeys,
+			}
 		}
 	}
 

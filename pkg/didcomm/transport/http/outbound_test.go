@@ -102,6 +102,6 @@ func TestOutboundHTTPTransport(t *testing.T) {
 
 func prepareDestination(endPoint string) *service.Destination {
 	return &service.Destination{
-		ServiceEndpoint: model.Endpoint{URI: endPoint},
+		ServiceEndpoint: model.NewDIDCommV1Endpoint(endPoint),
 	}
 }

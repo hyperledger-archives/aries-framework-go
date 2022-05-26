@@ -570,7 +570,7 @@ func (i *IssuanceSDKDIDCommV1Steps) newInvitation(agentID string,
 	opts := []outofband.MessageOption{
 		outofband.WithLabel(agentID),
 		outofband.WithAttachments(attachDecorators...),
-		outofband.WithAccept("didcomm/v2"),
+		outofband.WithAccept("didcomm/aip1", "JWM/1.0"),
 	}
 
 	inv, err := agent.CreateInvitation(
