@@ -46,6 +46,8 @@ const (
 	StateIDAbandoned   = "abandoned"
 	ackStatusOK        = "ok"
 	didCommServiceType = "did-communication"
+	// legacyDIDCommServiceType for aca-py interop.
+	legacyDIDCommServiceType = "IndyAgent"
 	// DIDComm V2 service type ref: https://identity.foundation/didcomm-messaging/spec/#did-document-service-endpoint
 	didCommV2ServiceType       = "DIDCommMessaging"
 	ed25519VerificationKey2018 = "Ed25519VerificationKey2018"
@@ -430,7 +432,7 @@ func serviceTypeByMediaProfile(mediaTypeProfiles []string) string {
 // nolint:gocyclo,funlen
 func (ctx *context) handleInboundRequest(request *Request, options *options,
 	connRec *connectionstore.Record) (stateAction, *connectionstore.Record, error) {
-	logger.Debugf("handling request: %+v", request)
+	logger.Debugf("handling request: %#v", request)
 
 	// Interop: aca-py issue https://github.com/hyperledger/aries-cloudagent-python/issues/1048
 	if ctx.doACAPyInterop && !strings.HasPrefix(request.DID, "did") {
@@ -473,12 +475,12 @@ func (ctx *context) handleInboundRequest(request *Request, options *options,
 	if myDID != "" { // empty myDID means a new DID was just created and not exchanged yet, use did:key instead
 		senderVerKey, err = recipientKey(responseDidDoc)
 		if err != nil {
-			return nil, nil, fmt.Errorf("handle inbound request: %w", err)
+			return nil, nil, fmt.Errorf("get recipient key: %w", err)
 		}
 	} else {
 		senderVerKey, err = recipientKeyAsDIDKey(responseDidDoc)
 		if err != nil {
-			return nil, nil, fmt.Errorf("handle inbound request: %w", err)
+			return nil, nil, fmt.Errorf("get recipient key as did:key: %w", err)
 		}
 	}
 
@@ -702,13 +704,14 @@ func (ctx *context) getMyDIDDoc(pubDID string, routerConnections []string, servi
 
 		var svc did.Service
 
-		if serviceType == didCommServiceType {
+		switch serviceType {
+		case didCommServiceType, legacyDIDCommServiceType:
 			svc = did.Service{
 				Type:            didCommServiceType,
 				ServiceEndpoint: model.NewDIDCommV1Endpoint(serviceEndpoint),
 				RoutingKeys:     routingKeys,
 			}
-		} else if serviceType == didCommV2ServiceType {
+		case didCommV2ServiceType:
 			svc = did.Service{
 				ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
 					{URI: serviceEndpoint, RoutingKeys: routingKeys},
