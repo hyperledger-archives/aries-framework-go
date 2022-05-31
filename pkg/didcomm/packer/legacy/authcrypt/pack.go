@@ -16,11 +16,14 @@ import (
 	chacha "golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/poly1305"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
 )
+
+var logger = log.New("aries-framework/pkg/didcomm/packer/legacy")
 
 // Pack will encode the payload argument
 // Using the protocol defined by Aries RFC 0019.
@@ -101,15 +104,21 @@ func (p *Packer) buildEnvelope(nonce, payload, cek []byte, header *protected) ([
 }
 
 func (p *Packer) buildRecipients(cek *[chacha.KeySize]byte, senderKey []byte, recPubKeys [][]byte) ([]recipient, error) { // nolint: lll
-	encodedRecipients := make([]recipient, len(recPubKeys))
+	encodedRecipients := make([]recipient, 0)
 
-	for i, recKey := range recPubKeys {
+	for _, recKey := range recPubKeys {
 		rec, err := p.buildRecipient(cek, senderKey, recKey)
 		if err != nil {
-			return nil, fmt.Errorf("buildRecipients: failed to build recipient: %w", err)
+			logger.Warnf("buildRecipients: failed to build recipient: %w", err)
+
+			continue
 		}
 
-		encodedRecipients[i] = *rec
+		encodedRecipients = append(encodedRecipients, *rec)
+	}
+
+	if len(encodedRecipients) == 0 {
+		return nil, fmt.Errorf("recipients keys are empty")
 	}
 
 	return encodedRecipients, nil
