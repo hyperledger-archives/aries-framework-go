@@ -338,6 +338,7 @@ func TestServiceRequestMsg(t *testing.T) {
 				CrAndExportPubKeyErr: expected,
 			},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{},
+			MediaTypeProfilesValue:  []string{"value"},
 		})
 		require.NoError(t, err)
 
