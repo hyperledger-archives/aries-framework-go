@@ -128,7 +128,7 @@ func (s *abandoned) Execute(md *metaData) (state, stateAction, error) {
 		if s.V == SpecV3 {
 			return messenger.ReplyToNested(service.NewDIDCommMsgMap(&model.ProblemReportV2{
 				Type: ProblemReportMsgTypeV3,
-				Body: model.ProblemReportV2Body{Code: code.Code, WebRedirect: md.properties[webRedirect]},
+				Body: model.ProblemReportV2Body{Code: code.Code, WebRedirect: md.properties[webRedirectV2]},
 			}), &service.NestedReplyOpts{ThreadID: thID, MyDID: md.MyDID, TheirDID: md.TheirDID, V: getDIDVersion(s.V)})
 		}
 
@@ -379,7 +379,7 @@ func (s *presentationReceived) Execute(md *metaData) (state, stateAction, error)
 		if s.V == SpecV3 {
 			return messenger.ReplyToMsg(md.Msg, service.NewDIDCommMsgMap(model.AckV2{
 				Type:        AckMsgTypeV3,
-				WebRedirect: md.properties[webRedirect],
+				WebRedirect: md.properties[webRedirectV2],
 				Body:        model.AckV2Body{},
 			}), md.MyDID, md.TheirDID, service.WithVersion(getDIDVersion(s.V)))
 		}

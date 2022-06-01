@@ -33,5 +33,5 @@ type ProblemReportV2Body struct {
 	Comment     string      `json:"comment,omitempty"`
 	Args        []string    `json:"args,omitempty"`
 	EscalateTo  string      `json:"escalate_to,omitempty"`
-	WebRedirect interface{} `json:"~web-redirect,omitempty"`
+	WebRedirect interface{} `json:"web_redirect,omitempty"`
 }
