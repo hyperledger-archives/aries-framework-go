@@ -17,6 +17,7 @@ type ServiceEndpoint interface {
 	URI() (string, error)
 	Accept() ([]string, error)
 	RoutingKeys() ([]string, error)
+	IsDIDCommV2() bool
 }
 
 // Endpoint contains endpoint specific content. Content of ServiceEndpoint api above will be used by priority:
@@ -113,6 +114,11 @@ func (s *Endpoint) RoutingKeys() ([]string, error) {
 	}
 
 	return nil, fmt.Errorf("endpoint RoutingKeys not found")
+}
+
+// IsDIDCommV2 return is did comm v2 endpoint.
+func (s *Endpoint) IsDIDCommV2() bool {
+	return len(s.rawDIDCommV2) > 0
 }
 
 // MarshalJSON marshals the content of Endpoint into a valid JSON []byte. Order of data is:
