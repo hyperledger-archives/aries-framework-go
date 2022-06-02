@@ -265,6 +265,19 @@ func TestValid(t *testing.T) {
 				recipientKeysRelativeURL: map[string]bool{"did:example:123456789abcdefghi#key2": false},
 				routingKeysRelativeURL:   map[string]bool{"did:example:123456789abcdefghi#key2": false},
 			},
+			{
+				ID:            "did:example:123456789abcdefghi#DIDCommMessaging",
+				Type:          "DIDCommMessaging",
+				Priority:      0,
+				RecipientKeys: []string{"did:example:123456789abcdefghi#key2"},
+				ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{{
+					URI:         "https://agent.example.com/",
+					Accept:      []string{"didcomm/v2"},
+					RoutingKeys: []string{"did:example:123456789abcdefghi#key2"},
+				}}),
+				Properties:               map[string]interface{}{},
+				recipientKeysRelativeURL: map[string]bool{"did:example:123456789abcdefghi#key2": false},
+			},
 		}
 		require.EqualValues(t, eServices, doc.Service)
 	}
