@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/bluele/gcache"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
 
 	"github.com/hyperledger/aries-framework-go/component/storage/edv"
@@ -41,12 +40,12 @@ func newWalletStorageProvider(profile *profile, provider storage.Provider) *stor
 
 // OpenStore opens and returns store and sets store config to provider.
 // if wallet profile has EDV settings then auth provided will be used to initialize edv storage provider.
-func (s *storageProvider) OpenStore(auth string, opts *unlockOpts, config storage.StoreConfiguration) (storage.Store, error) {
+func (s *storageProvider) OpenStore(keyMgr kms.KeyManager, opts *unlockOpts, config storage.StoreConfiguration) (storage.Store, error) {
 	var provider storage.Provider
 	var err error
 
 	if s.profile.EDVConf != nil {
-		provider, err = createEDVStorageProvider(auth, s.profile, opts)
+		provider, err = createEDVStorageProvider(keyMgr, s.profile, opts)
 		if err != nil {
 			return nil, err
 		}
@@ -74,20 +73,12 @@ func (s *storageProvider) OpenStore(auth string, opts *unlockOpts, config storag
 
 // TODO (#2815): find a way to allow EDV to be used without importing the edv package, since it causes the main Aries
 //               module to depend on edv
-func createEDVStorageProvider(auth string, profile *profile, opts *unlockOpts) (storage.Provider, error) {
+func createEDVStorageProvider(keyMgr kms.KeyManager, profile *profile, opts *unlockOpts) (storage.Provider, error) {
 	if profile.EDVConf.EncryptionKeyID == "" || profile.EDVConf.MACKeyID == "" {
 		return nil, errors.New("invalid EDV configuration found in wallet profile, key IDs for encryption and MAC operations are missing") //nolint: lll
 	}
 
-	// get key manager
-	keyMgr, err := keyManager().getKeyManger(auth)
-	if err != nil {
-		if errors.Is(err, gcache.KeyNotFoundError) {
-			return nil, ErrWalletLocked
-		}
-
-		return nil, err
-	}
+	var err error
 
 	// get crypto
 	var cryptoImpl crypto.Crypto

@@ -15,12 +15,10 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/bluele/gcache"
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/tink/go/subtle/random"
-	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
@@ -37,9 +35,6 @@ import (
 const (
 	// LocalKeyURIPrefix for locally stored keys.
 	localKeyURIPrefix = "local-lock://"
-
-	// default cache expiry time.
-	defaultCacheExpiry = 10 * time.Minute
 
 	// number of sections in verification method.
 	vmSectionCount = 2
@@ -65,11 +60,8 @@ var (
 	// ErrAlreadyUnlocked error when key manager is already created for a given user.
 	ErrAlreadyUnlocked = errors.New("wallet already unlocked")
 
-	// WalletLocked when key manager operation is attempted without unlocking wallet.
+	// ErrWalletLocked when key manager operation is attempted without unlocking wallet.
 	ErrWalletLocked = errors.New("wallet locked")
-
-	// ErrInvalidAuthToken when auth token provided to wallet is unable to unlock key manager.
-	ErrInvalidAuthToken = errors.New("invalid auth token")
 )
 
 // walletKMSInstance is key manager store singleton - access only via keyManager()
@@ -96,15 +88,9 @@ type walletKeyManager struct {
 }
 
 func (k *walletKeyManager) createKeyManager(profileInfo *profile,
-	storeProvider storage.Provider, opts *unlockOpts) (string, error) {
+	storeProvider storage.Provider, opts *unlockOpts) (kms.KeyManager, error) {
 	if profileInfo.MasterLockCipher == "" && profileInfo.KeyServerURL == "" {
-		return "", fmt.Errorf("invalid wallet profile")
-	}
-
-	// get user from cache if token already exists
-	token, _ := k.getKeyMangerToken(profileInfo.User) //nolint: errcheck
-	if token != "" {
-		return "", ErrAlreadyUnlocked
+		return nil, fmt.Errorf("invalid wallet profile")
 	}
 
 	var err error
@@ -117,64 +103,14 @@ func (k *walletKeyManager) createKeyManager(profileInfo *profile,
 		keyManager, err = createLocalKeyManager(profileInfo.User, opts.passphrase,
 			profileInfo.MasterLockCipher, opts.secretLockSvc, storeProvider)
 		if err != nil {
-			return "", fmt.Errorf("failed to create local key manager: %w", err)
+			return nil, fmt.Errorf("failed to create local key manager: %w", err)
 		}
 	} else {
 		// remote kms
 		keyManager = createRemoteKeyManager(opts, profileInfo.KeyServerURL)
 	}
 
-	// generate token
-	token = uuid.New().String()
-
-	// save key manager
-	err = k.saveKeyManger(profileInfo.User, token, keyManager, opts.tokenExpiry)
-	if err != nil {
-		return "", fmt.Errorf("failed to persist local key manager: %w", err)
-	}
-
-	return token, nil
-}
-
-// TODO refresh expiry on each access.
-func (k *walletKeyManager) saveKeyManger(user, key string, manager kms.KeyManager, expiration time.Duration) error {
-	if expiration == 0 {
-		expiration = defaultCacheExpiry
-	}
-
-	err := k.gstore.SetWithExpire(user, key, expiration)
-	if err != nil {
-		return err
-	}
-
-	return k.gstore.SetWithExpire(key, manager, expiration)
-}
-
-func (k *walletKeyManager) getKeyManger(key string) (kms.KeyManager, error) {
-	val, err := k.gstore.Get(key)
-	if err != nil {
-		return nil, err
-	}
-
-	return val.(kms.KeyManager), nil
-}
-
-func (k *walletKeyManager) getKeyMangerToken(user string) (string, error) {
-	val, err := k.gstore.Get(user)
-	if err != nil {
-		return "", err
-	}
-
-	return val.(string), nil
-}
-
-func (k *walletKeyManager) removeKeyManager(user string) bool {
-	token, _ := k.getKeyMangerToken(user) //nolint: errcheck
-	if token != "" {
-		return k.gstore.Remove(token) && k.gstore.Remove(user)
-	}
-
-	return false
+	return keyManager, nil
 }
 
 // createMasterLock creates master lock from secret lock service provided.
@@ -253,14 +189,16 @@ type kmsSigner struct {
 }
 
 func newKMSSigner(authToken string, c crypto.Crypto, opts *ProofOptions) (*kmsSigner, error) {
-	keyManager, err := keyManager().getKeyManger(authToken)
+	session, err := sessionManager().getSession(authToken)
 	if err != nil {
-		if errors.Is(err, gcache.KeyNotFoundError) {
+		if errors.Is(err, ErrInvalidAuthToken) {
 			return nil, ErrWalletLocked
 		}
 
-		return nil, fmt.Errorf("failed to get key manager: %w", err)
+		return nil, fmt.Errorf("failed to get session: %w", err)
 	}
+
+	keyManager := session.KeyManager
 
 	vmSplit := strings.Split(opts.VerificationMethod, "#")
 
@@ -305,14 +243,16 @@ func (s *kmsSigner) Sign(data []byte) ([]byte, error) {
 // importKeyJWK imports private key jwk found in key contents,
 // supported curve types - Ed25519, P-256, BLS12381G2.
 func importKeyJWK(auth string, key *keyContent) error {
-	keyManager, err := keyManager().getKeyManger(auth)
+	session, err := sessionManager().getSession(auth)
 	if err != nil {
-		if errors.Is(err, gcache.KeyNotFoundError) {
+		if errors.Is(err, ErrInvalidAuthToken) {
 			return ErrWalletLocked
 		}
 
-		return fmt.Errorf("failed to get key manager: %w", err)
+		return fmt.Errorf("failed to get session: %w", err)
 	}
+
+	keyManager := session.KeyManager
 
 	var j jwk.JWK
 	if e := j.UnmarshalJSON(key.PrivateKeyJwk); e != nil {
@@ -335,14 +275,16 @@ func importKeyJWK(auth string, key *keyContent) error {
 // importKeyBase58 imports private key base58 found in key contents,
 // supported types - Ed25519Signature2018, Bls12381G1Key2020.
 func importKeyBase58(auth string, key *keyContent) error {
-	keyManager, err := keyManager().getKeyManger(auth)
+	session, err := sessionManager().getSession(auth)
 	if err != nil {
-		if errors.Is(err, gcache.KeyNotFoundError) {
+		if errors.Is(err, ErrInvalidAuthToken) {
 			return ErrWalletLocked
 		}
 
-		return fmt.Errorf("failed to get key manager: %w", err)
+		return fmt.Errorf("failed to get session: %w", err)
 	}
+
+	keyManager := session.KeyManager
 
 	switch strings.ToLower(key.KeyType) {
 	case Ed25519VerificationKey2018:

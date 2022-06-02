@@ -403,31 +403,25 @@ func TestCreateDataVaultKeyPairs(t *testing.T) {
 	})
 
 	t.Run("test update profile errors", func(t *testing.T) {
-		require.Error(t, updateProfile("invalid", &profile{}))
+		kmgr := &mockkms.KeyManager{CreateKeyFn: func(kt kms.KeyType) (s string, i interface{}, e error) {
+			if kt == kms.HMACSHA256Tag256Type {
+				return "", nil, errors.New(sampleWalletErr)
+			}
+			return "", nil, nil
+		}}
 
-		token := uuid.New().String()
-
-		require.NoError(t, keyManager().saveKeyManger(uuid.New().String(), token,
-			&mockkms.KeyManager{CreateKeyFn: func(kt kms.KeyType) (s string, i interface{}, e error) {
-				if kt == kms.HMACSHA256Tag256Type {
-					return "", nil, errors.New(sampleWalletErr)
-				}
-				return "", nil, nil
-			}}, 1000*time.Millisecond))
-
-		err := updateProfile(token, &profile{EDVConf: &edvConf{}})
+		err := updateProfile(kmgr, &profile{EDVConf: &edvConf{}})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to create EDV MAC key pair")
 
-		require.NoError(t, keyManager().saveKeyManger(uuid.New().String(), token,
-			&mockkms.KeyManager{CreateKeyFn: func(kt kms.KeyType) (s string, i interface{}, e error) {
-				if kt == kms.NISTP256ECDHKWType {
-					return "", nil, errors.New(sampleWalletErr)
-				}
-				return "", nil, nil
-			}}, 1000*time.Millisecond))
+		kmgr = &mockkms.KeyManager{CreateKeyFn: func(kt kms.KeyType) (s string, i interface{}, e error) {
+			if kt == kms.NISTP256ECDHKWType {
+				return "", nil, errors.New(sampleWalletErr)
+			}
+			return "", nil, nil
+		}}
 
-		err = updateProfile(token, &profile{EDVConf: &edvConf{}})
+		err = updateProfile(kmgr, &profile{EDVConf: &edvConf{}})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to create EDV encryption key pair")
 	})
@@ -1182,8 +1176,13 @@ func TestWallet_Issue(t *testing.T) {
 		defer walletInstance.Close()
 
 		// import keys manually
-		kmgr, err := keyManager().getKeyManger(authToken)
+		session, err := sessionManager().getSession(authToken)
+		require.NotEmpty(t, session)
 		require.NoError(t, err)
+
+		kmgr := session.KeyManager
+		require.NotEmpty(t, kmgr)
+
 		edPriv := ed25519.PrivateKey(base58.Decode(pkBase58))
 		// nolint: errcheck, gosec
 		kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
@@ -1210,11 +1209,12 @@ func TestWallet_Issue(t *testing.T) {
 		defer walletInstance.Close()
 
 		// import keys manually
-		kmgr, err := keyManager().getKeyManger(authToken)
+		session, err := sessionManager().getSession(authToken)
+		require.NotEmpty(t, session)
 		require.NoError(t, err)
 		edPriv := ed25519.PrivateKey(base58.Decode(pkBase58))
 		// nolint: errcheck, gosec
-		kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
+		session.KeyManager.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
 
 		// sign with just controller
 		result, err := walletInstance.Issue(authToken, testdata.SampleUDCVC, &ProofOptions{
@@ -1239,11 +1239,13 @@ func TestWallet_Issue(t *testing.T) {
 		defer walletInstance.Close()
 
 		// import keys manually
-		kmgr, err := keyManager().getKeyManger(authToken)
+		session, err := sessionManager().getSession(authToken)
+		require.NotEmpty(t, session)
 		require.NoError(t, err)
+
 		edPriv := ed25519.PrivateKey(base58.Decode(pkBase58))
 		// nolint: errcheck, gosec
-		kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
+		session.KeyManager.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
 
 		// issue
 		result, err := walletInstance.Issue(authToken, testdata.SampleUDCVC, &ProofOptions{
@@ -1268,8 +1270,13 @@ func TestWallet_Issue(t *testing.T) {
 		defer walletInstance.Close()
 
 		// import keys manually
-		kmgr, err := keyManager().getKeyManger(authToken)
+		session, err := sessionManager().getSession(authToken)
+		require.NotEmpty(t, session)
 		require.NoError(t, err)
+
+		kmgr := session.KeyManager
+		require.NotEmpty(t, kmgr)
+
 		edPriv := ed25519.PrivateKey(base58.Decode(pkBase58))
 		// nolint: errcheck, gosec
 		kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
@@ -1315,8 +1322,13 @@ func TestWallet_Issue(t *testing.T) {
 		defer walletInstance.Close()
 
 		// import keys manually
-		kmgr, err := keyManager().getKeyManger(authToken)
+		session, err := sessionManager().getSession(authToken)
+		require.NotEmpty(t, session)
 		require.NoError(t, err)
+
+		kmgr := session.KeyManager
+		require.NotEmpty(t, kmgr)
+
 		privKeyBBS, err := bbs12381g2pub.UnmarshalPrivateKey(base58.Decode(pkBBSBase58))
 		require.NoError(t, err)
 		// nolint: errcheck, gosec
@@ -1354,8 +1366,13 @@ func TestWallet_Issue(t *testing.T) {
 		defer walletInstance.Close()
 
 		// import keys manually
-		kmgr, err := keyManager().getKeyManger(authToken)
+		session, err := sessionManager().getSession(authToken)
+		require.NotEmpty(t, session)
 		require.NoError(t, err)
+
+		kmgr := session.KeyManager
+		require.NotEmpty(t, kmgr)
+
 		edPriv := ed25519.PrivateKey(base58.Decode(pkBase58))
 		// nolint: errcheck, gosec
 		kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
@@ -1447,8 +1464,13 @@ func TestWallet_Issue(t *testing.T) {
 		require.Contains(t, err.Error(), "cannot read data for keysetID")
 
 		// import keys manually
-		kmgr, err := keyManager().getKeyManger(authToken)
+		session, err := sessionManager().getSession(authToken)
+		require.NotEmpty(t, session)
 		require.NoError(t, err)
+
+		kmgr := session.KeyManager
+		require.NotEmpty(t, kmgr)
+
 		edPriv := ed25519.PrivateKey(base58.Decode(pkBase58))
 		// nolint: errcheck, gosec
 		kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
@@ -1514,8 +1536,12 @@ func TestWallet_Prove(t *testing.T) {
 	require.NotEmpty(t, authToken)
 
 	// import ED25519 & BLS12381G2Type keys manually
-	kmgr, err := keyManager().getKeyManger(authToken)
+	session, err := sessionManager().getSession(authToken)
+	require.NotEmpty(t, session)
 	require.NoError(t, err)
+
+	kmgr := session.KeyManager
+	require.NotEmpty(t, kmgr)
 
 	edPriv := ed25519.PrivateKey(base58.Decode(pkBase58))
 	// nolint: errcheck, gosec
@@ -1566,8 +1592,13 @@ func TestWallet_Prove(t *testing.T) {
 		defer cleanup()
 
 		// import keys manually for signing presentation
-		kmgr, err := keyManager().getKeyManger(authToken)
+		session, err := sessionManager().getSession(authToken)
+		require.NotEmpty(t, session)
 		require.NoError(t, err)
+
+		kmgr := session.KeyManager
+		require.NotEmpty(t, kmgr)
+
 		edPriv := ed25519.PrivateKey(base58.Decode(pkBase58))
 		// nolint: errcheck, gosec
 		kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
@@ -1619,8 +1650,13 @@ func TestWallet_Prove(t *testing.T) {
 		defer cleanup()
 
 		// import keys manually for signing presentation
-		kmgr, err := keyManager().getKeyManger(authToken)
+		session, err := sessionManager().getSession(authToken)
+		require.NotEmpty(t, session)
 		require.NoError(t, err)
+
+		kmgr := session.KeyManager
+		require.NotEmpty(t, kmgr)
+
 		edPriv := ed25519.PrivateKey(base58.Decode(pkBase58))
 		// nolint: errcheck, gosec
 		kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
@@ -1679,8 +1715,13 @@ func TestWallet_Prove(t *testing.T) {
 		defer cleanup()
 
 		// import keys manually for signing presentation
-		kmgr, err := keyManager().getKeyManger(authToken)
+		session, err := sessionManager().getSession(authToken)
+		require.NotEmpty(t, session)
 		require.NoError(t, err)
+
+		kmgr := session.KeyManager
+		require.NotEmpty(t, kmgr)
+
 		edPriv := ed25519.PrivateKey(base58.Decode(pkBase58))
 		// nolint: errcheck, gosec
 		kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
@@ -1742,8 +1783,13 @@ func TestWallet_Prove(t *testing.T) {
 		defer cleanup()
 
 		// import keys manually for signing presentation
-		kmgr, err := keyManager().getKeyManger(authToken)
+		session, err := sessionManager().getSession(authToken)
+		require.NotEmpty(t, session)
 		require.NoError(t, err)
+
+		kmgr := session.KeyManager
+		require.NotEmpty(t, kmgr)
+
 		edPriv := ed25519.PrivateKey(base58.Decode(pkBase58))
 		// nolint: errcheck, gosec
 		kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
@@ -1790,8 +1836,13 @@ func TestWallet_Prove(t *testing.T) {
 		defer walletInstance.Close()
 
 		// import keys manually for signing presentation
-		kmgr, err := keyManager().getKeyManger(authToken)
+		session, err := sessionManager().getSession(authToken)
+		require.NotEmpty(t, session)
 		require.NoError(t, err)
+
+		kmgr := session.KeyManager
+		require.NotEmpty(t, kmgr)
+
 		edPriv := ed25519.PrivateKey(base58.Decode(pkBase58))
 		// nolint: errcheck, gosec
 		kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
@@ -1932,8 +1983,13 @@ func TestWallet_Prove(t *testing.T) {
 		require.Contains(t, err.Error(), "cannot read data for keysetID")
 
 		// import keys manually
-		kmgr, err := keyManager().getKeyManger(authToken)
+		session, err := sessionManager().getSession(authToken)
+		require.NotEmpty(t, session)
 		require.NoError(t, err)
+
+		kmgr := session.KeyManager
+		require.NotEmpty(t, kmgr)
+
 		edPriv := ed25519.PrivateKey(base58.Decode(pkBase58))
 		// nolint: errcheck, gosec
 		kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
@@ -2013,8 +2069,12 @@ func TestWallet_Verify(t *testing.T) {
 	require.NotEmpty(t, tkn)
 
 	// import keys manually
-	kmgr, err := keyManager().getKeyManger(tkn)
+	session, err := sessionManager().getSession(tkn)
+	require.NotEmpty(t, session)
 	require.NoError(t, err)
+
+	kmgr := session.KeyManager
+	require.NotEmpty(t, kmgr)
 
 	edPriv := ed25519.PrivateKey(base58.Decode(pkBase58))
 	// nolint: errcheck, gosec
@@ -2253,8 +2313,12 @@ func TestWallet_Derive(t *testing.T) {
 	require.NotEmpty(t, authToken)
 
 	// import ED25519 & BLS12381G2Type keys manually
-	kmgr, err := keyManager().getKeyManger(authToken)
+	session, err := sessionManager().getSession(authToken)
+	require.NotEmpty(t, session)
 	require.NoError(t, err)
+
+	kmgr := session.KeyManager
+	require.NotEmpty(t, kmgr)
 
 	edPriv := ed25519.PrivateKey(base58.Decode(pkBase58))
 	// nolint: errcheck, gosec

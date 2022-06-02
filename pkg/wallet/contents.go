@@ -21,6 +21,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
@@ -122,8 +123,8 @@ func newContentStore(p storage.Provider, pr *profile) *contentStore {
 	return contents
 }
 
-func (cs *contentStore) Open(auth string, opts *unlockOpts) error {
-	store, err := cs.provider.OpenStore(auth, opts, storage.StoreConfiguration{TagNames: []string{
+func (cs *contentStore) Open(keyMgr kms.KeyManager, opts *unlockOpts) error {
+	store, err := cs.provider.OpenStore(keyMgr, opts, storage.StoreConfiguration{TagNames: []string{
 		Collection.Name(), Credential.Name(), Connection.Name(), DIDResolutionResponse.Name(), Connection.Name(), Key.Name(),
 	}})
 	if err != nil {
@@ -146,9 +147,9 @@ func (cs *contentStore) Open(auth string, opts *unlockOpts) error {
 func (cs *contentStore) updateStoreHandles(store storage.Store) {
 	// give access to store only when auth is valid & not expired.
 	cs.open = func(auth string) (storage.Store, error) {
-		_, err := keyManager().getKeyManger(auth)
+		_, err := sessionManager().getSession(auth)
 		if err != nil {
-			return nil, ErrInvalidAuthToken
+			return nil, err
 		}
 
 		return store, nil

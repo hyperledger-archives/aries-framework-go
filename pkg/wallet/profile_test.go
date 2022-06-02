@@ -10,9 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
-	"time"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
@@ -128,11 +126,7 @@ func TestCreateNewProfile(t *testing.T) {
 			},
 		}
 
-		token := uuid.New().String()
 		kid := "sample-kid"
-		kms := &mockkms.KeyManager{CreateKeyID: kid}
-
-		require.NoError(t, keyManager().saveKeyManger(uuid.New().String(), token, kms, 500*time.Millisecond))
 
 		// setup edv keys
 		err := sampleProfile.setupEDVEncryptionKey(&mockkms.KeyManager{CreateKeyID: kid})

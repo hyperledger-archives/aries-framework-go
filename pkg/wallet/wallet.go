@@ -261,15 +261,13 @@ func CreateDataVaultKeyPairs(userID string, ctx provider, options ...UnlockOptio
 	}
 
 	// unlock key manager
-	token, err := keyManager().createKeyManager(profile, ctx.StorageProvider(), opts)
+	kmsm, err := keyManager().createKeyManager(profile, ctx.StorageProvider(), opts)
 	if err != nil {
 		return fmt.Errorf("failed to get key manager: %w", err)
 	}
 
-	defer keyManager().removeKeyManager(userID)
-
 	// update profile
-	err = updateProfile(token, profile)
+	err = updateProfile(kmsm, profile)
 	if err != nil {
 		return fmt.Errorf("failed to create key pairs: %w", err)
 	}
@@ -357,13 +355,18 @@ func (c *Wallet) Open(options ...UnlockOptions) (string, error) {
 	}
 
 	// unlock key manager
-	token, err := keyManager().createKeyManager(c.profile, c.storeProvider, opts)
+	keyManager, err := keyManager().createKeyManager(c.profile, c.storeProvider, opts)
+	if err != nil {
+		return "", err
+	}
+
+	token, err := sessionManager().createSession(c.profile.User, keyManager, opts.tokenExpiry)
 	if err != nil {
 		return "", err
 	}
 
 	// open content store using token
-	err = c.contents.Open(token, opts)
+	err = c.contents.Open(keyManager, opts)
 	if err != nil {
 		// close wallet if it fails to open store
 		c.Close()
@@ -377,7 +380,7 @@ func (c *Wallet) Open(options ...UnlockOptions) (string, error) {
 // Close expires token issued to this VC wallet, removes the key manager instance and closes wallet content store.
 // returns false if token is not found or already expired for this wallet user.
 func (c *Wallet) Close() bool {
-	return keyManager().removeKeyManager(c.userID) && c.contents.Close()
+	return sessionManager().closeSession(c.userID) && c.contents.Close()
 }
 
 // Export produces a serialized exported wallet representation.
@@ -627,12 +630,12 @@ func (c *Wallet) Derive(authToken string, credential CredentialToDerive, options
 //		- keyType: type of the key to be created.
 //
 func (c *Wallet) CreateKeyPair(authToken string, keyType kms.KeyType) (*KeyPair, error) {
-	kmgr, err := keyManager().getKeyManger(authToken)
+	session, err := sessionManager().getSession(authToken)
 	if err != nil {
-		return nil, ErrInvalidAuthToken
+		return nil, err
 	}
 
-	kid, pubBytes, err := kmgr.CreateAndExportPubKeyBytes(keyType)
+	kid, pubBytes, err := session.KeyManager.CreateAndExportPubKeyBytes(keyType)
 	if err != nil {
 		return nil, err
 	}
@@ -1455,15 +1458,9 @@ func addContext(v interface{}, ldcontext string) {
 	}
 }
 
-func updateProfile(auth string, profile *profile) error {
-	// get key manager
-	keyManager, err := keyManager().getKeyManger(auth)
-	if err != nil {
-		return err
-	}
-
+func updateProfile(keyManager kms.KeyManager, profile *profile) error {
 	// setup key pairs
-	err = profile.setupEDVEncryptionKey(keyManager)
+	err := profile.setupEDVEncryptionKey(keyManager)
 	if err != nil {
 		return fmt.Errorf("failed to create EDV encryption key pair: %w", err)
 	}
