@@ -98,20 +98,8 @@ func (c *restClient) readDocument(vaultID, docID string) ([]byte, error) {
 // then it acts as a wildcard, where any tag value for the associated tag name will match.
 // If query.ReturnFullDocuments is false, then only the document locations will be returned via the first return value.
 // If query.ReturnFullDocuments is true, then the full documents will be returned via the second return value.
-func (c *restClient) query(vaultID string, tags []spi.Tag,
-	returnFullDocuments bool) ([]string, []encryptedDocument, error) {
-	subfilter := make(map[string]string, len(tags))
-
-	for _, tag := range tags {
-		subfilter[tag.Name] = tag.Value
-	}
-
-	queryToSend := query{
-		Equals:              []map[string]string{subfilter},
-		ReturnFullDocuments: returnFullDocuments,
-	}
-
-	jsonToSend, err := json.Marshal(queryToSend)
+func (c *restClient) query(vaultID string, edvQuery query) ([]string, []encryptedDocument, error) {
+	jsonToSend, err := json.Marshal(edvQuery)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -124,7 +112,7 @@ func (c *restClient) query(vaultID string, tags []spi.Tag,
 	}
 
 	if statusCode == http.StatusOK {
-		if returnFullDocuments {
+		if edvQuery.ReturnFullDocuments {
 			var documents []encryptedDocument
 
 			err = json.Unmarshal(respBytes, &documents)
@@ -184,32 +172,6 @@ func (c *restClient) deleteDocument(vaultID, docID string) error {
 	}
 
 	return fmt.Errorf(failResponseFromEDVServer, statusCode, respBytes)
-}
-
-func (c *restClient) addIndex(vaultID string, attributeNames []string) error {
-	addIndexOperation := indexOperation{
-		Operation:      "add",
-		AttributeNames: attributeNames,
-	}
-
-	jsonToSend, err := json.Marshal(addIndexOperation)
-	if err != nil {
-		return fmt.Errorf("failed to marshal index operation: %w", err)
-	}
-
-	endpoint := fmt.Sprintf("%s/%s/index", c.edvServerURL, url.PathEscape(vaultID))
-
-	statusCode, _, respBytes, err := c.sendHTTPRequest(http.MethodPost, endpoint, jsonToSend, c.headersFunc)
-	if err != nil {
-		return fmt.Errorf("send HTTP request: %w", err)
-	}
-
-	if statusCode == http.StatusOK {
-		return nil
-	}
-
-	return fmt.Errorf("the EDV server returned status code %d along with the following message: %s",
-		statusCode, respBytes)
 }
 
 func (c *restClient) sendHTTPRequest(method, endpoint string, body []byte,

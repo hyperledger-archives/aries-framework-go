@@ -119,38 +119,6 @@ func runCommonTests(t *testing.T, provider spi.Provider, commonTestOptions []sto
 	testQueryWithMultipleTags(t, provider)
 }
 
-func TestRESTProvider_SetStoreConfig(t *testing.T) {
-	t.Run("Unsupported protocol scheme", func(t *testing.T) {
-		edvRESTProvider := edv.NewRESTProvider("BadURL", "VaultID",
-			createValidEncryptedFormatter(t))
-
-		_, err := edvRESTProvider.OpenStore("TestStore")
-		require.NoError(t, err)
-
-		err = edvRESTProvider.SetStoreConfig("TestStore", spi.StoreConfiguration{})
-		require.EqualError(t, err, "send HTTP request: failed to send request: "+
-			`Post "BadURL/VaultID/index": unsupported protocol scheme ""`)
-	})
-	t.Run("Vault does not exist", func(t *testing.T) {
-		edvRESTProvider := edv.NewRESTProvider(testServerURL, "VaultID",
-			createValidEncryptedFormatter(t))
-
-		_, err := edvRESTProvider.OpenStore("TestStore")
-		require.NoError(t, err)
-
-		err = edvRESTProvider.SetStoreConfig("TestStore", spi.StoreConfiguration{})
-		require.EqualError(t, err, "the EDV server returned status code 400 along with the following "+
-			"message: Failed to add indexes to data vault VaultID: specified vault does not exist.")
-	})
-}
-
-func TestRESTProvider_GetStoreConfig(t *testing.T) {
-	edvRESTProvider := createEDVRESTProvider(t, createValidEncryptedFormatter(t))
-
-	_, err := edvRESTProvider.GetStoreConfig("StoreName")
-	require.EqualError(t, err, "not implemented")
-}
-
 func TestRESTStore_Put(t *testing.T) {
 	t.Run("Fail to generate encrypted document ID and encrypted document bytes "+
 		"for vault operation (batch extension enabled)", func(t *testing.T) {
@@ -346,7 +314,7 @@ func TestRESTStore_Query(t *testing.T) {
 		require.NoError(t, err)
 
 		iterator, err := store.Query("TagName:TagValue")
-		require.EqualError(t, err, `failed to format tags for querying: failed to format tag: `+
+		require.EqualError(t, err, `failed to format tag for querying: `+
 			`failed to compute MAC for tag name "TagName": bad key handle format`)
 		require.Nil(t, iterator)
 	})
@@ -590,7 +558,7 @@ func TestRESTStore_Batch(t *testing.T) {
 	})
 }
 
-func testQueryWithMultipleTags(t *testing.T, provider spi.Provider) {
+func testQueryWithMultipleTags(t *testing.T, provider spi.Provider) { //nolint:gocyclo // test file
 	t.Helper()
 
 	defer func() {
@@ -610,106 +578,154 @@ func testQueryWithMultipleTags(t *testing.T, provider spi.Provider) {
 
 	putData(t, store, keysToPut, valuesToPut, tagsToPut)
 
-	t.Run("Both pairs are tag names + values - 3 values found", func(t *testing.T) {
-		queryExpressionsToTest := []string{
-			"Breed:GoldenRetriever&&NumLegs:4&&EarType:Floppy",
-			"NumLegs:4&&EarType:Floppy&&Breed:GoldenRetriever", // Should be equivalent to the above expression
-		}
+	t.Run("AND queries", func(t *testing.T) {
+		t.Run("Two tag name + value pairs - 2 values found", func(t *testing.T) {
+			queryExpressionsToTest := []string{
+				"Breed:GoldenRetriever&&Personality:Calm",
+				"Personality:Calm&&Breed:GoldenRetriever", // Should be equivalent to the above expression
+			}
 
-		expectedKeys := []string{keysToPut[0], keysToPut[3], keysToPut[4]}
-		expectedValues := [][]byte{valuesToPut[0], valuesToPut[3], valuesToPut[4]}
-		expectedTags := [][]spi.Tag{tagsToPut[0], tagsToPut[3], tagsToPut[4]}
-		expectedTotalItemsCount := 3
+			expectedKeys, expectedValues, expectedTags := getExpectedData([]int{3, 4})
 
-		for _, queryExpressionToTest := range queryExpressionsToTest {
-			iterator, err := store.Query(queryExpressionToTest)
-			require.NoError(t, err)
+			for _, queryExpressionToTest := range queryExpressionsToTest {
+				iterator, err := store.Query(queryExpressionToTest)
+				require.NoError(t, err)
 
-			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, expectedTotalItemsCount)
-		}
+				verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, len(expectedKeys))
+			}
+		})
+		t.Run("Two tag name + value pairs - 1 value found", func(t *testing.T) {
+			queryExpressionsToTest := []string{
+				"Personality:Shy&&EarType:Pointy",
+				"EarType:Pointy&&Personality:Shy", // Should be equivalent to the above expression
+			}
+
+			expectedKeys, expectedValues, expectedTags := getExpectedData([]int{1})
+
+			for _, queryExpressionToTest := range queryExpressionsToTest {
+				iterator, err := store.Query(queryExpressionToTest)
+				require.NoError(t, err)
+
+				verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, len(expectedKeys))
+			}
+		})
+		t.Run("Two tag name + value pairs - 0 values found", func(t *testing.T) {
+			queryExpressionsToTest := []string{
+				"Personality:Crazy&&EarType:Pointy",
+				"EarType:Pointy&&Personality:Crazy", // Should be equivalent to the above expression
+			}
+
+			for _, queryExpressionToTest := range queryExpressionsToTest {
+				iterator, err := store.Query(queryExpressionToTest)
+				require.NoError(t, err)
+
+				verifyExpectedIterator(t, iterator, nil, nil, nil, 0)
+			}
+		})
+		t.Run("One tag name + value pair and an additional tag name - 1 value found", func(t *testing.T) {
+			queryExpressionsToTest := []string{
+				"EarType:Pointy&&Nickname",
+				"Nickname&&EarType:Pointy", // Should be equivalent to the above expression
+			}
+
+			expectedKeys, expectedValues, expectedTags := getExpectedData([]int{2})
+
+			for _, queryExpressionToTest := range queryExpressionsToTest {
+				iterator, err := store.Query(queryExpressionToTest)
+				require.NoError(t, err)
+
+				verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, len(expectedKeys))
+			}
+		})
+		t.Run("One tag name + value pair and an additional tag name - 0 values found", func(t *testing.T) {
+			queryExpressionsToTest := []string{
+				"EarType:Pointy&&CoatType",
+				"CoatType&&EarType:Pointy", // Should be equivalent to the above expression
+			}
+
+			for _, queryExpressionToTest := range queryExpressionsToTest {
+				iterator, err := store.Query(queryExpressionToTest)
+				require.NoError(t, err)
+
+				verifyExpectedIterator(t, iterator, nil, nil, nil, 0)
+			}
+		})
+		t.Run("Three tag name + values pairs - 3 values found", func(t *testing.T) {
+			queryExpressionsToTest := []string{
+				"Breed:GoldenRetriever&&NumLegs:4&&EarType:Floppy",
+				"NumLegs:4&&EarType:Floppy&&Breed:GoldenRetriever", // Should be equivalent to the above expression
+			}
+
+			expectedKeys, expectedValues, expectedTags := getExpectedData([]int{0, 3, 4})
+
+			for _, queryExpressionToTest := range queryExpressionsToTest {
+				iterator, err := store.Query(queryExpressionToTest)
+				require.NoError(t, err)
+
+				verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, len(expectedKeys))
+			}
+		})
 	})
-	t.Run("Both pairs are tag names + values - 2 values found", func(t *testing.T) {
-		queryExpressionsToTest := []string{
-			"Breed:GoldenRetriever&&Personality:Calm",
-			"Personality:Calm&&Breed:GoldenRetriever", // Should be equivalent to the above expression
-		}
+	t.Run("OR queries", func(t *testing.T) {
+		t.Run("Two tag name + value pairs - 2 values found", func(t *testing.T) {
+			queryExpressionsToTest := []string{
+				"Breed:GoldenRetriever||Nickname:Fluffball",
+				"Nickname:Fluffball||Breed:GoldenRetriever", // Should be equivalent to the above expression
+			}
 
-		expectedKeys := []string{keysToPut[3], keysToPut[4]}
-		expectedValues := [][]byte{valuesToPut[3], valuesToPut[4]}
-		expectedTags := [][]spi.Tag{tagsToPut[3], tagsToPut[4]}
-		expectedTotalItemsCount := 2
+			expectedKeys, expectedValues, expectedTags := getExpectedData([]int{0, 2, 3, 4})
 
-		for _, queryExpressionToTest := range queryExpressionsToTest {
-			iterator, err := store.Query(queryExpressionToTest)
-			require.NoError(t, err)
+			for _, queryExpressionToTest := range queryExpressionsToTest {
+				iterator, err := store.Query(queryExpressionToTest)
+				require.NoError(t, err)
 
-			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, expectedTotalItemsCount)
-		}
+				verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, len(expectedKeys))
+			}
+		})
+		t.Run("One tag name + value pair and an additional tag name - 3 values found", func(t *testing.T) {
+			queryExpressionsToTest := []string{
+				"Nickname||Breed:Schweenie",
+				"Breed:Schweenie||Nickname", // Should be equivalent to the above expression
+			}
+
+			expectedKeys, expectedValues, expectedTags := getExpectedData([]int{0, 1, 2})
+
+			for _, queryExpressionToTest := range queryExpressionsToTest {
+				iterator, err := store.Query(queryExpressionToTest)
+				require.NoError(t, err)
+
+				verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, len(expectedKeys))
+			}
+		})
+		t.Run("Three tag name + values pairs - 4 values found", func(t *testing.T) {
+			queryExpressionsToTest := []string{
+				"Breed:GoldenRetriever||Nickname:Fluffball||Age:1",
+				"Age:1||Nickname:Fluffball||Breed:GoldenRetriever", // Should be equivalent to the above expression
+			}
+
+			expectedKeys, expectedValues, expectedTags := getExpectedData([]int{0, 1, 2, 3, 4})
+
+			for _, queryExpressionToTest := range queryExpressionsToTest {
+				iterator, err := store.Query(queryExpressionToTest)
+				require.NoError(t, err)
+
+				verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, len(expectedKeys))
+			}
+		})
 	})
-	t.Run("Both pairs are tag names + values - 1 value found", func(t *testing.T) {
+	t.Run("AND+OR combined query", func(t *testing.T) {
 		queryExpressionsToTest := []string{
-			"Personality:Shy&&EarType:Pointy",
-			"EarType:Pointy&&Personality:Shy", // Should be equivalent to the above expression
+			"Breed:GoldenRetriever&&Personality:Calm||Nickname:Fluffball",
+			"Nickname:Fluffball||Breed:GoldenRetriever&&Personality:Calm", // Should be equivalent to the above expression
 		}
 
-		expectedKeys := []string{keysToPut[1]}
-		expectedValues := [][]byte{valuesToPut[1]}
-		expectedTags := [][]spi.Tag{tagsToPut[1]}
-		expectedTotalItemsCount := 1
+		expectedKeys, expectedValues, expectedTags := getExpectedData([]int{2, 3, 4})
 
 		for _, queryExpressionToTest := range queryExpressionsToTest {
 			iterator, err := store.Query(queryExpressionToTest)
 			require.NoError(t, err)
 
-			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, expectedTotalItemsCount)
-		}
-	})
-	t.Run("Both pairs are tag names + values - 0 values found", func(t *testing.T) {
-		queryExpressionsToTest := []string{
-			"Personality:Crazy&&EarType:Pointy",
-			"EarType:Pointy&&Personality:Crazy", // Should be equivalent to the above expression
-		}
-
-		expectedTotalItemsCount := 0
-
-		for _, queryExpressionToTest := range queryExpressionsToTest {
-			iterator, err := store.Query(queryExpressionToTest)
-			require.NoError(t, err)
-
-			verifyExpectedIterator(t, iterator, nil, nil, nil, expectedTotalItemsCount)
-		}
-	})
-	t.Run("First pair is a tag name + value, second is a tag name only - 1 value found", func(t *testing.T) {
-		queryExpressionsToTest := []string{
-			"EarType:Pointy&&Nickname",
-			"Nickname&&EarType:Pointy", // Should be equivalent to the above expression
-		}
-
-		expectedKeys := []string{keysToPut[2]}
-		expectedValues := [][]byte{valuesToPut[2]}
-		expectedTags := [][]spi.Tag{tagsToPut[2]}
-		expectedTotalItemsCount := 1
-
-		for _, queryExpressionToTest := range queryExpressionsToTest {
-			iterator, err := store.Query(queryExpressionToTest)
-			require.NoError(t, err)
-
-			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, expectedTotalItemsCount)
-		}
-	})
-	t.Run("First pair is a tag name + value, second is a tag name only - 0 values found", func(t *testing.T) {
-		queryExpressionsToTest := []string{
-			"EarType:Pointy&&CoatType",
-			"CoatType&&EarType:Pointy", // Should be equivalent to the above expression
-		}
-
-		expectedTotalItemsCount := 0
-
-		for _, queryExpressionToTest := range queryExpressionsToTest {
-			iterator, err := store.Query(queryExpressionToTest)
-			require.NoError(t, err)
-
-			verifyExpectedIterator(t, iterator, nil, nil, nil, expectedTotalItemsCount)
+			verifyExpectedIterator(t, iterator, expectedKeys, expectedValues, expectedTags, len(expectedKeys))
 		}
 	})
 }
@@ -771,6 +787,22 @@ func getTestData() (testKeys []string, testValues [][]byte, testTags [][]spi.Tag
 	}
 
 	return testKeys, testValues, testTags
+}
+
+func getExpectedData(expectedIndexes []int) (expectedKeys []string, expectedValues [][]byte, expectedTags [][]spi.Tag) {
+	keys, values, tags := getTestData()
+
+	expectedKeys = make([]string, len(expectedIndexes))
+	expectedValues = make([][]byte, len(expectedIndexes))
+	expectedTags = make([][]spi.Tag, len(expectedIndexes))
+
+	for i, expectedIndex := range expectedIndexes {
+		expectedKeys[i] = keys[expectedIndex]
+		expectedValues[i] = values[expectedIndex]
+		expectedTags[i] = tags[expectedIndex]
+	}
+
+	return expectedKeys, expectedValues, expectedTags
 }
 
 func putData(t *testing.T, store spi.Store, keys []string, values [][]byte, tags [][]spi.Tag) {
