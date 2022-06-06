@@ -1340,7 +1340,7 @@ func populateRawServices(services []Service, didID, baseURI string) []map[string
 			logger.Debugf("URI field of DIDComm V2 endpoint missing or invalid, it will be ignored: %w", err)
 		}
 
-		if services[i].ServiceEndpoint.IsDIDCommV2() {
+		if services[i].ServiceEndpoint.Type() == model.DIDCommV2 {
 			services[i].ServiceEndpoint = model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
 				{URI: sepURI, Accept: sepAccept, RoutingKeys: sepRoutingKeys},
 			})
@@ -1364,7 +1364,7 @@ func populateRawServices(services []Service, didID, baseURI string) []map[string
 
 		rawService[jsonldType] = services[i].Type
 
-		if services[i].ServiceEndpoint.IsDIDCommV2() { // DIDComm V2
+		if services[i].ServiceEndpoint.Type() == model.DIDCommV2 { // DIDComm V2
 			serviceEndpointMap := []map[string]interface{}{{"uri": sepURI}}
 			if len(sepAccept) > 0 {
 				serviceEndpointMap[0]["accept"] = sepAccept
