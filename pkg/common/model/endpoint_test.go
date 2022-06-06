@@ -28,6 +28,7 @@ func TestNewEndpoint(t *testing.T) {
 
 	ep := NewDIDCommV2Endpoint([]DIDCommV2Endpoint{{uri, accept, routingkeys}})
 	require.EqualValues(t, didCommV2Endpoint, ep)
+	require.Equal(t, DIDCommV2, ep.Type())
 
 	didCommV1Endpoint := Endpoint{
 		rawDIDCommV1: uri,
@@ -35,6 +36,7 @@ func TestNewEndpoint(t *testing.T) {
 
 	ep = NewDIDCommV1Endpoint(uri)
 	require.EqualValues(t, didCommV1Endpoint, ep)
+	require.Equal(t, DIDCommV1, ep.Type())
 
 	didCoreEndpoint := Endpoint{
 		rawObj: []string{uri, "uri2"},
@@ -42,6 +44,7 @@ func TestNewEndpoint(t *testing.T) {
 
 	ep = NewDIDCoreEndpoint([]string{uri, "uri2"})
 	require.EqualValues(t, didCoreEndpoint, ep)
+	require.Equal(t, Generic, ep.Type())
 
 	ep = NewDIDCommV1Endpoint("")
 	require.EqualValues(t, Endpoint{}, ep)
