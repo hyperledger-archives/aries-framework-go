@@ -79,9 +79,3 @@ type vaultOperation struct {
 	DocumentID        string          `json:"id,omitempty"`       // Only used if Operation=delete
 	EncryptedDocument json.RawMessage `json:"document,omitempty"` // Only used if Operation=upsert
 }
-
-// indexOperation represents an operation to add, update or remove indexes.
-type indexOperation struct {
-	Operation      string   `json:"operation"`
-	AttributeNames []string `json:"attributeNames"`
-}

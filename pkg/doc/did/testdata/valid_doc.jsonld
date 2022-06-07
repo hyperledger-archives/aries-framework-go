@@ -41,6 +41,13 @@
       "priority" : 0,
       "recipientKeys" : ["did:example:123456789abcdefghi#key2"],
       "routingKeys" : ["did:example:123456789abcdefghi#key2"]
+    },
+    {
+      "id": "did:example:123456789abcdefghi#DIDCommMessaging",
+      "type": "DIDCommMessaging",
+      "serviceEndpoint": [{"uri":"https://agent.example.com/", "accept":["didcomm/v2"], "routingKeys" : ["did:example:123456789abcdefghi#key2"]}],
+      "priority" : 0,
+      "recipientKeys" : ["did:example:123456789abcdefghi#key2"]
     }
   ],
   "created": "2002-10-10T17:00:00Z"

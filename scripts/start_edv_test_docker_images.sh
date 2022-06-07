@@ -47,4 +47,4 @@ PWD=$(pwd)
 
 docker run -p 27017:27017 -d --network AriesTestNetwork --name AriesMongoDBStorageTest mongo:4.0.0 >/dev/null
 
-docker run -p 8071:8071 -d --network AriesTestNetwork --name AriesEDVStorageTest ghcr.io/trustbloc-cicd/edv:0.1.9-snapshot-fb17917 start --host-url 0.0.0.0:8071 --database-prefix edv_db_ --database-type mongodb --database-url mongodb://AriesMongoDBStorageTest:27017 --with-extensions Batch >/dev/null
+docker run -p 8071:8071 -d --network AriesTestNetwork --name AriesEDVStorageTest ghcr.io/trustbloc-cicd/edv:0.1.9-snapshot-894c500 start --host-url 0.0.0.0:8071 --database-prefix edv_db_ --database-type mongodb --database-url mongodb://AriesMongoDBStorageTest:27017 --with-extensions Batch --log-level=debug >/dev/null

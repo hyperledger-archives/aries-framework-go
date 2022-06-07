@@ -12,11 +12,24 @@ import (
 	"net/url"
 )
 
+// EndpointType endpoint type.
+type EndpointType int
+
+const (
+	// DIDCommV1 type.
+	DIDCommV1 EndpointType = iota
+	// DIDCommV2 type.
+	DIDCommV2
+	// Generic type.
+	Generic
+)
+
 // ServiceEndpoint api for fetching ServiceEndpoint content based off of a DIDComm V1, V2 or DIDCore format.
 type ServiceEndpoint interface {
 	URI() (string, error)
 	Accept() ([]string, error)
 	RoutingKeys() ([]string, error)
+	Type() EndpointType
 }
 
 // Endpoint contains endpoint specific content. Content of ServiceEndpoint api above will be used by priority:
@@ -113,6 +126,19 @@ func (s *Endpoint) RoutingKeys() ([]string, error) {
 	}
 
 	return nil, fmt.Errorf("endpoint RoutingKeys not found")
+}
+
+// Type return endpoint type.
+func (s *Endpoint) Type() EndpointType {
+	if len(s.rawDIDCommV2) > 0 {
+		return DIDCommV2
+	}
+
+	if s.rawDIDCommV1 != "" {
+		return DIDCommV1
+	}
+
+	return Generic
 }
 
 // MarshalJSON marshals the content of Endpoint into a valid JSON []byte. Order of data is:

@@ -1340,7 +1340,7 @@ func populateRawServices(services []Service, didID, baseURI string) []map[string
 			logger.Debugf("URI field of DIDComm V2 endpoint missing or invalid, it will be ignored: %w", err)
 		}
 
-		if len(sepAccept) > 0 || len(sepRoutingKeys) > 0 {
+		if services[i].ServiceEndpoint.Type() == model.DIDCommV2 {
 			services[i].ServiceEndpoint = model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
 				{URI: sepURI, Accept: sepAccept, RoutingKeys: sepRoutingKeys},
 			})
@@ -1364,19 +1364,18 @@ func populateRawServices(services []Service, didID, baseURI string) []map[string
 
 		rawService[jsonldType] = services[i].Type
 
-		if len(sepAccept) > 0 || len(sepRoutingKeys) > 0 { // DIDComm V2
-			if len(sepAccept) == 0 { // ensure array is non nil, to avoid schema validation errors.
-				sepAccept = []string{}
+		if services[i].ServiceEndpoint.Type() == model.DIDCommV2 { // DIDComm V2
+			serviceEndpointMap := []map[string]interface{}{{"uri": sepURI}}
+			if len(sepAccept) > 0 {
+				serviceEndpointMap[0]["accept"] = sepAccept
 			}
 
-			if len(sepRoutingKeys) == 0 { // ensure array is non nil, to avoid schema validation errors.
-				sepRoutingKeys = []string{}
+			if len(sepRoutingKeys) > 0 {
+				serviceEndpointMap[0]["routingKeys"] = sepRoutingKeys
 			}
 
-			rawService[jsonldServicePoint] = []map[string]interface{}{
-				{"uri": sepURI, "accept": sepAccept, "routingKeys": sepRoutingKeys},
-			}
-		} else { // DIDComm V1
+			rawService[jsonldServicePoint] = serviceEndpointMap
+		} else { // DIDComm V1, default is generic endpoint as string URI
 			rawService[jsonldServicePoint] = sepURI
 		}
 
