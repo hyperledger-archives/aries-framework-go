@@ -184,10 +184,10 @@ func TestContentTypes(t *testing.T) {
 }
 
 func TestContentStores(t *testing.T) {
-	token := uuid.New().String()
+	keyMgr := &mockkms.KeyManager{}
 
-	require.NoError(t, keyManager().saveKeyManger(uuid.New().String(), token,
-		&mockkms.KeyManager{}, 1000*time.Millisecond))
+	token, e := sessionManager().createSession(uuid.New().String(), keyMgr, 5*time.Second)
+	require.NoError(t, e)
 
 	t.Run("create new content store - success", func(t *testing.T) {
 		sp := getMockStorageProvider()
@@ -198,7 +198,7 @@ func TestContentStores(t *testing.T) {
 		require.Empty(t, sp.config.TagNames)
 
 		// open store
-		require.NoError(t, contentStore.Open(token, &unlockOpts{}))
+		require.NoError(t, contentStore.Open(keyMgr, &unlockOpts{}))
 		require.EqualValues(t, sp.config.TagNames,
 			[]string{"collection", "credential", "connection", "didResolutionResponse", "connection", "key"})
 
@@ -229,11 +229,12 @@ func TestContentStores(t *testing.T) {
 			},
 		}
 
-		tkn, err := keyManager().createKeyManager(profileInfo, sp, &unlockOpts{passphrase: samplePassPhrase})
+		kmgr, err := keyManager().createKeyManager(profileInfo, sp, &unlockOpts{passphrase: samplePassPhrase})
+		require.NotEmpty(t, kmgr)
 		require.NoError(t, err)
-		require.NotEmpty(t, tkn)
 
-		kmgr, err := keyManager().getKeyManger(tkn)
+		tkn, err := sessionManager().createSession(profileInfo.User, kmgr, 500*time.Millisecond)
+
 		require.NoError(t, err)
 		require.NotEmpty(t, kmgr)
 
@@ -249,7 +250,7 @@ func TestContentStores(t *testing.T) {
 		require.Empty(t, sp.config.TagNames)
 
 		// open store
-		require.NoError(t, contentStore.Open(tkn, &unlockOpts{
+		require.NoError(t, contentStore.Open(kmgr, &unlockOpts{
 			edvOpts: []edv.RESTProviderOption{
 				edv.WithFullDocumentsReturnedFromQueries(),
 				edv.WithBatchEndpointExtension(),
@@ -270,7 +271,7 @@ func TestContentStores(t *testing.T) {
 
 		// open store error
 		sp.ErrOpenStoreHandle = errors.New(sampleContenttErr)
-		err := contentStore.Open(token, &unlockOpts{})
+		err := contentStore.Open(keyMgr, &unlockOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), sampleContenttErr)
 		require.Contains(t, err.Error(), "failed to open store")
@@ -278,7 +279,7 @@ func TestContentStores(t *testing.T) {
 		// set store config error
 		sp.ErrOpenStoreHandle = nil
 		sp.failure = errors.New(sampleContenttErr)
-		err = contentStore.Open(token, &unlockOpts{})
+		err = contentStore.Open(keyMgr, &unlockOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), sampleContenttErr)
 		require.Contains(t, err.Error(), "failed to set store config")
@@ -287,7 +288,7 @@ func TestContentStores(t *testing.T) {
 		sp.failure = nil
 		sp.Store.ErrClose = errors.New(sampleContenttErr)
 		contentStore = newContentStore(sp, &profile{ID: uuid.New().String()})
-		require.NoError(t, contentStore.Open(token, &unlockOpts{}))
+		require.NoError(t, contentStore.Open(keyMgr, &unlockOpts{}))
 
 		require.True(t, contentStore.Close())
 	})
@@ -298,7 +299,7 @@ func TestContentStores(t *testing.T) {
 		contentStore := newContentStore(sp, &profile{ID: uuid.New().String()})
 		require.NotEmpty(t, contentStore)
 
-		require.NoError(t, contentStore.Open(token, &unlockOpts{}))
+		require.NoError(t, contentStore.Open(keyMgr, &unlockOpts{}))
 
 		err := contentStore.Save(token, Collection, []byte(sampleContentValid))
 		require.NoError(t, err)
@@ -318,7 +319,7 @@ func TestContentStores(t *testing.T) {
 		contentStore := newContentStore(sp, &profile{ID: uuid.New().String()})
 		require.NotEmpty(t, contentStore)
 
-		require.NoError(t, contentStore.Open(token, &unlockOpts{}))
+		require.NoError(t, contentStore.Open(keyMgr, &unlockOpts{}))
 
 		err := contentStore.Save(token, Collection, []byte(sampleContentNoID))
 		require.NoError(t, err)
@@ -330,7 +331,7 @@ func TestContentStores(t *testing.T) {
 		contentStore := newContentStore(sp, &profile{ID: uuid.New().String()})
 		require.NotEmpty(t, contentStore)
 
-		require.NoError(t, contentStore.Open(token, &unlockOpts{}))
+		require.NoError(t, contentStore.Open(keyMgr, &unlockOpts{}))
 
 		err := contentStore.Save(token, DIDResolutionResponse, []byte(didResolutionResult))
 		require.NoError(t, err)
@@ -376,8 +377,13 @@ func TestContentStores(t *testing.T) {
 			MasterLockCipher: masterLockCipherText,
 		}
 
-		tkn, err := keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
+		kmgr, err := keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
 			&unlockOpts{passphrase: samplePassPhrase})
+		require.NotEmpty(t, kmgr)
+		require.NoError(t, err)
+
+		tkn, err := sessionManager().createSession(profileInfo.User, kmgr, 500*time.Millisecond)
+
 		require.NoError(t, err)
 		require.NotEmpty(t, tkn)
 
@@ -444,7 +450,7 @@ func TestContentStores(t *testing.T) {
 		err = contentStore.Save(token, Credential, []byte(sampleContentValid))
 		require.True(t, errors.Is(err, ErrWalletLocked))
 
-		require.NoError(t, contentStore.Open(token, &unlockOpts{}))
+		require.NoError(t, contentStore.Open(keyMgr, &unlockOpts{}))
 
 		err = contentStore.Save(token, Credential, []byte(sampleContentValid))
 		require.Error(t, err)
@@ -473,7 +479,7 @@ func TestContentStores(t *testing.T) {
 		contentStore := newContentStore(sp, &profile{ID: uuid.New().String()})
 		require.NotEmpty(t, contentStore)
 
-		require.NoError(t, contentStore.Open(token, &unlockOpts{}))
+		require.NoError(t, contentStore.Open(keyMgr, &unlockOpts{}))
 
 		err := contentStore.Save(token, Collection, []byte(sampleContentValid))
 		require.NoError(t, err)
@@ -490,7 +496,7 @@ func TestContentStores(t *testing.T) {
 		contentStore := newContentStore(sp, &profile{ID: uuid.New().String()})
 		require.NotEmpty(t, contentStore)
 
-		require.NoError(t, contentStore.Open(token, &unlockOpts{}))
+		require.NoError(t, contentStore.Open(keyMgr, &unlockOpts{}))
 
 		// save
 		err := contentStore.Save(token, Collection, []byte(sampleContentValid))
@@ -513,7 +519,7 @@ func TestContentStores(t *testing.T) {
 		require.Empty(t, content)
 		require.True(t, errors.Is(err, ErrWalletLocked))
 
-		require.NoError(t, contentStore.Open(token, &unlockOpts{}))
+		require.NoError(t, contentStore.Open(keyMgr, &unlockOpts{}))
 
 		// get
 		content, err = contentStore.Get(token, "did:example:123456789abcdefghi", Collection)
@@ -528,7 +534,7 @@ func TestContentStores(t *testing.T) {
 		contentStore := newContentStore(sp, &profile{ID: uuid.New().String()})
 		require.NotEmpty(t, contentStore)
 
-		require.NoError(t, contentStore.Open(token, &unlockOpts{}))
+		require.NoError(t, contentStore.Open(keyMgr, &unlockOpts{}))
 
 		// save
 		err := contentStore.Save(token, Collection, []byte(sampleContentValid))
@@ -557,7 +563,7 @@ func TestContentStores(t *testing.T) {
 		contentStore := newContentStore(sp, &profile{ID: uuid.New().String()})
 		require.NotEmpty(t, contentStore)
 
-		require.NoError(t, contentStore.Open(token, &unlockOpts{}))
+		require.NoError(t, contentStore.Open(keyMgr, &unlockOpts{}))
 
 		// save
 		err := contentStore.Save(token, Collection, []byte(sampleContentValid))
@@ -606,9 +612,10 @@ func TestContentStore_GetAll(t *testing.T) {
     		"description" : "Professional software developer for Acme Corp."
   		}`
 
-	token := uuid.New().String()
+	keyMgr := &mockkms.KeyManager{}
 
-	require.NoError(t, keyManager().saveKeyManger(uuid.New().String(), token, &mockkms.KeyManager{}, 500*time.Millisecond))
+	token, err := sessionManager().createSession(uuid.New().String(), keyMgr, 500*time.Millisecond)
+	require.NoError(t, err)
 
 	t.Run("get all content from store for credential type - success", func(t *testing.T) {
 		sp := getMockStorageProvider()
@@ -616,7 +623,7 @@ func TestContentStore_GetAll(t *testing.T) {
 		contentStore := newContentStore(sp, &profile{ID: uuid.New().String()})
 		require.NotEmpty(t, contentStore)
 
-		require.NoError(t, contentStore.Open(token, &unlockOpts{}))
+		require.NoError(t, contentStore.Open(keyMgr, &unlockOpts{}))
 
 		// save test data
 		const count = 5
@@ -656,7 +663,7 @@ func TestContentStore_GetAll(t *testing.T) {
 		require.True(t, errors.Is(err, ErrWalletLocked))
 		require.Empty(t, allVcs)
 
-		require.NoError(t, contentStore.Open(token, &unlockOpts{}))
+		require.NoError(t, contentStore.Open(keyMgr, &unlockOpts{}))
 		require.NoError(t, contentStore.Save(token, Credential, []byte(fmt.Sprintf(vcContent, uuid.New().String()))))
 
 		// iterator value error
@@ -671,7 +678,7 @@ func TestContentStore_GetAll(t *testing.T) {
 
 		contentStore = newContentStore(sp, &profile{ID: uuid.New().String()})
 		require.NotEmpty(t, contentStore)
-		require.NoError(t, contentStore.Open(token, &unlockOpts{}))
+		require.NoError(t, contentStore.Open(keyMgr, &unlockOpts{}))
 
 		allVcs, err = contentStore.GetAll(token, Credential)
 		require.True(t, errors.Is(err, sp.MockStoreProvider.Store.ErrKey))
@@ -682,7 +689,7 @@ func TestContentStore_GetAll(t *testing.T) {
 
 		contentStore = newContentStore(sp, &profile{ID: uuid.New().String()})
 		require.NotEmpty(t, contentStore)
-		require.NoError(t, contentStore.Open(token, &unlockOpts{}))
+		require.NoError(t, contentStore.Open(keyMgr, &unlockOpts{}))
 
 		require.NoError(t, contentStore.Save(token, Credential, []byte(fmt.Sprintf(vcContent, uuid.New().String()))))
 
@@ -695,7 +702,7 @@ func TestContentStore_GetAll(t *testing.T) {
 
 		contentStore = newContentStore(sp, &profile{ID: uuid.New().String()})
 		require.NotEmpty(t, contentStore)
-		require.NoError(t, contentStore.Open(token, &unlockOpts{}))
+		require.NoError(t, contentStore.Open(keyMgr, &unlockOpts{}))
 
 		allVcs, err = contentStore.GetAll(token, Credential)
 		require.True(t, errors.Is(err, sp.MockStoreProvider.Store.ErrQuery))
@@ -704,16 +711,17 @@ func TestContentStore_GetAll(t *testing.T) {
 }
 
 func TestContentDIDResolver(t *testing.T) {
-	token := uuid.New().String()
+	keyMgr := &mockkms.KeyManager{}
 
-	require.NoError(t, keyManager().saveKeyManger(uuid.New().String(), token, &mockkms.KeyManager{}, 500*time.Millisecond))
+	token, err := sessionManager().createSession(uuid.New().String(), keyMgr, 500*time.Millisecond)
+	require.NoError(t, err)
 
 	t.Run("create new content store - success", func(t *testing.T) {
 		sp := getMockStorageProvider()
 
 		contentStore := newContentStore(sp, &profile{ID: uuid.New().String()})
 		require.NotEmpty(t, contentStore)
-		require.NoError(t, contentStore.Open(token, &unlockOpts{}))
+		require.NoError(t, contentStore.Open(keyMgr, &unlockOpts{}))
 
 		// save custom DID
 		err := contentStore.Save(token, DIDResolutionResponse, testdata.SampleDocResolutionResponse)
@@ -749,7 +757,7 @@ func TestContentDIDResolver(t *testing.T) {
 		require.Empty(t, didDoc)
 
 		// open store
-		require.NoError(t, contentStore.Open(token, &unlockOpts{}))
+		require.NoError(t, contentStore.Open(keyMgr, &unlockOpts{}))
 
 		// DID not found
 		didDoc, err = contentVDR.Resolve("did:key:invalid")
@@ -827,16 +835,17 @@ func TestContentStore_Collections(t *testing.T) {
 
 	const collectionID = "did:example:acme123456789abcdefghi"
 
-	token := uuid.New().String()
+	keyMgr := &mockkms.KeyManager{}
 
-	require.NoError(t, keyManager().saveKeyManger(uuid.New().String(), token, &mockkms.KeyManager{}, 500*time.Millisecond))
+	token, err := sessionManager().createSession(uuid.New().String(), keyMgr, 500*time.Millisecond)
+	require.NoError(t, err)
 
 	t.Run("contents by collection - success", func(t *testing.T) {
 		sp := getMockStorageProvider()
 
 		contentStore := newContentStore(sp, &profile{ID: uuid.New().String()})
 		require.NotEmpty(t, contentStore)
-		require.NoError(t, contentStore.Open(token, &unlockOpts{}))
+		require.NoError(t, contentStore.Open(keyMgr, &unlockOpts{}))
 
 		// save a collection
 		require.NoError(t, contentStore.Save(token, Collection, []byte(orgCollection)))
@@ -902,7 +911,7 @@ func TestContentStore_Collections(t *testing.T) {
 
 		contentStore := newContentStore(sp, &profile{ID: uuid.New().String()})
 		require.NotEmpty(t, contentStore)
-		require.NoError(t, contentStore.Open(token, &unlockOpts{}))
+		require.NoError(t, contentStore.Open(keyMgr, &unlockOpts{}))
 
 		err := contentStore.Save(token,
 			DIDResolutionResponse, []byte(didResolutionResult), AddByCollection(collectionID+"invalid"))
@@ -924,7 +933,7 @@ func TestContentStore_Collections(t *testing.T) {
 
 		contentStore = newContentStore(sp, &profile{ID: uuid.New().String()})
 		require.NotEmpty(t, contentStore)
-		require.NoError(t, contentStore.Open(token, &unlockOpts{}))
+		require.NoError(t, contentStore.Open(keyMgr, &unlockOpts{}))
 
 		allVcs, err := contentStore.GetAllByCollection(token, collectionID, Credential)
 		require.True(t, errors.Is(err, sp.MockStoreProvider.Store.ErrGet))
@@ -935,7 +944,7 @@ func TestContentStore_Collections(t *testing.T) {
 
 		contentStore = newContentStore(sp, &profile{ID: uuid.New().String()})
 		require.NotEmpty(t, contentStore)
-		require.NoError(t, contentStore.Open(token, &unlockOpts{}))
+		require.NoError(t, contentStore.Open(keyMgr, &unlockOpts{}))
 
 		allVcs, err = contentStore.GetAllByCollection(token, collectionID, Credential)
 		require.True(t, errors.Is(err, sp.MockStoreProvider.Store.ErrValue))
@@ -946,7 +955,7 @@ func TestContentStore_Collections(t *testing.T) {
 
 		contentStore = newContentStore(sp, &profile{ID: uuid.New().String()})
 		require.NotEmpty(t, contentStore)
-		require.NoError(t, contentStore.Open(token, &unlockOpts{}))
+		require.NoError(t, contentStore.Open(keyMgr, &unlockOpts{}))
 
 		allVcs, err = contentStore.GetAllByCollection(token, collectionID, Credential)
 		require.True(t, errors.Is(err, sp.MockStoreProvider.Store.ErrKey))
@@ -957,7 +966,7 @@ func TestContentStore_Collections(t *testing.T) {
 
 		contentStore = newContentStore(sp, &profile{ID: uuid.New().String()})
 		require.NotEmpty(t, contentStore)
-		require.NoError(t, contentStore.Open(token, &unlockOpts{}))
+		require.NoError(t, contentStore.Open(keyMgr, &unlockOpts{}))
 
 		allVcs, err = contentStore.GetAllByCollection(token, collectionID, Credential)
 		require.True(t, errors.Is(err, sp.MockStoreProvider.Store.ErrNext))
@@ -968,7 +977,7 @@ func TestContentStore_Collections(t *testing.T) {
 
 		contentStore = newContentStore(sp, &profile{ID: uuid.New().String()})
 		require.NotEmpty(t, contentStore)
-		require.NoError(t, contentStore.Open(token, &unlockOpts{}))
+		require.NoError(t, contentStore.Open(keyMgr, &unlockOpts{}))
 
 		allVcs, err = contentStore.GetAllByCollection(token, collectionID, Credential)
 		require.True(t, errors.Is(err, sp.MockStoreProvider.Store.ErrQuery))
