@@ -113,8 +113,10 @@ func populateRawServicesInterop(services []Service, didID, baseURI string) []map
 			rawService[jsonldID] = makeRelativeDIDURL(services[i].ID, baseURI, didID)
 		}
 
+		uri, _ := services[i].ServiceEndpoint.URI()
+
 		rawService[jsonldType] = services[i].Type
-		rawService[jsonldServicePoint] = services[i].ServiceEndpoint
+		rawService[jsonldServicePoint] = uri
 		rawService[jsonldRecipientKeys] = recipientKeys
 		rawService[jsonldRoutingKeys] = routingKeys
 		rawService[jsonldPriority] = services[i].Priority

@@ -13,7 +13,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -27,8 +26,6 @@ const (
 	jsonWebKey2020             = "JsonWebKey2020"
 	x25519KeyAgreementKey2019  = "X25519KeyAgreementKey2019"
 )
-
-var logger = log.New("aries-framework/pkg/vdr/peer")
 
 // Create create new DID Document.
 // TODO https://github.com/hyperledger/aries-framework-go/issues/2466
@@ -95,15 +92,12 @@ func build(didDoc *did.Doc, docOpts *vdrapi.DIDMethodOpts) (*did.DocResolution, 
 			didDoc.Service[i].Type = v
 		}
 
-		uri, e := didDoc.Service[i].ServiceEndpoint.URI()
-		if e != nil {
-			logger.Debugf("service endpoint URI returned error %w, ignoring..", e)
-		}
+		uri, _ := didDoc.Service[i].ServiceEndpoint.URI() // nolint:errcheck
 
 		// nolint:nestif
 		if uri == "" && docOpts.Values[DefaultServiceEndpoint] != nil {
 			switch didDoc.Service[i].Type {
-			case vdrapi.DIDCommServiceType:
+			case vdrapi.DIDCommServiceType, "IndyAgent":
 				v, ok := docOpts.Values[DefaultServiceEndpoint].(string)
 				if !ok {
 					return nil, fmt.Errorf("defaultServiceEndpoint not string")
