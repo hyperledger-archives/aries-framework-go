@@ -141,7 +141,7 @@ func processPOSTSealOpenRequest(w http.ResponseWriter, r *http.Request, recipien
 	destination := "https://" + r.Host + r.URL.Path
 
 	// nolint:nestif // test code
-	if strings.LastIndex(r.URL.Path, sealOpenURL) == len(r.URL.Path)-len(sealOpenURL) {
+	if strings.LastIndex(r.URL.Path, unwrapURL) == len(r.URL.Path)-len(unwrapURL) {
 		reqBody, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			return fmt.Errorf("read ciphertext request for SealOpen failed [%s, %w]", destination, err)
@@ -323,7 +323,7 @@ func processPOSTEasyOpenRequest(w http.ResponseWriter, r *http.Request, recPrivK
 	destination := "https://" + r.Host + r.URL.Path
 
 	// nolint:nestif // test code
-	if strings.LastIndex(r.URL.Path, easyURL) == len(r.URL.Path)-len(easyURL) {
+	if strings.LastIndex(r.URL.Path, wrapURL) == len(r.URL.Path)-len(wrapURL) {
 		reqBody, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			return fmt.Errorf("read ciphertext request for EasyOpen failed [%s, %w]", destination, err)
@@ -376,7 +376,7 @@ func processPOSTEasyOpenRequest(w http.ResponseWriter, r *http.Request, recPrivK
 	}
 
 	// nolint:nestif // test code
-	if strings.LastIndex(r.URL.Path, easyOpenURL) == len(r.URL.Path)-len(easyOpenURL) {
+	if strings.LastIndex(r.URL.Path, unwrapURL) == len(r.URL.Path)-len(unwrapURL) {
 		reqBody, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			return fmt.Errorf("read ciphertext request for EasyOpen failed [%s, %w]", destination, err)

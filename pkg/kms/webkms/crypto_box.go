@@ -53,9 +53,8 @@ type sealOpenResp struct {
 }
 
 const (
-	easyURL     = "/easy"
-	easyOpenURL = "/easyopen"
-	sealOpenURL = "/sealopen"
+	wrapURL   = "/wrap"
+	unwrapURL = "/unwrap"
 )
 
 // CryptoBox provides an elliptic-curve-based authenticated encryption scheme executed on a remote key server
@@ -87,7 +86,7 @@ func (b *CryptoBox) Easy(payload, nonce, theirPub []byte, myKID string) ([]byte,
 	easyStart := time.Now()
 	keyURL := b.km.buildKIDURL(myKID)
 
-	destination := keyURL + easyURL
+	destination := keyURL + wrapURL
 
 	httpReqJSON := &easyReq{
 		Payload:  payload,
@@ -134,7 +133,7 @@ func (b *CryptoBox) Easy(payload, nonce, theirPub []byte, myKID string) ([]byte,
 // theirPub is the public key used to decrypt directly, while myPub is used to identify the private key to be used.
 func (b *CryptoBox) EasyOpen(cipherText, nonce, theirPub, myPub []byte) ([]byte, error) {
 	easyOpenStart := time.Now()
-	destination := b.km.keystoreURL + easyOpenURL
+	destination := b.km.keystoreURL + unwrapURL
 
 	httpReqJSON := &easyOpenReq{
 		Ciphertext: cipherText,
@@ -214,7 +213,7 @@ func (b *CryptoBox) Seal(payload, theirEncPub []byte, randSource io.Reader) ([]b
 // and uses that along with the recipient private key corresponding to myPub to decrypt the message.
 func (b *CryptoBox) SealOpen(cipherText, myPub []byte) ([]byte, error) {
 	sealOpenStart := time.Now()
-	destination := b.km.keystoreURL + sealOpenURL
+	destination := b.km.keystoreURL + unwrapURL
 
 	httpReqJSON := &sealOpenReq{
 		Ciphertext: cipherText,
