@@ -89,31 +89,32 @@ Feature: Decentralized Identifier(DID) exchange between the agents using SDK
     When  "Baha" unwrap wrapped key from "Andrii" with sender key
     Then  "Baha" gets the same CEK as "Andrii"
 
-  Scenario: User A anonymously encrypts ("easy") a payload for User B, User B decrypts ("easy open") it
-    Given "Andrii" agent is running on "localhost" port "random" with "http" as the transport provider using webkms with key server at "https://localhost:8076" URL, using "did:key:dummy-sample:sudesh" controller
-    And   "Andrii" create and export "ED25519" key
-
-    Given "Baha" agent is running on "localhost" port "random" with "http" as the transport provider using webkms with key server at "https://localhost:8076" URL, using "did:key:dummy-sample:sudesh" controller
-    And   "Baha" create and export "ED25519" key
-
-    When  "Andrii" easy "test payload" for "Baha"
-    Then  "Andrii" gets non-empty ciphertext
-
-    When  "Baha" easyOpen ciphertext from "Andrii"
-    Then  "Baha" gets plaintext with value "test payload"
-
-  Scenario: User B decrypts ("seal open") a payload that was encrypted ("seal") by User A
-    Given "Andrii" agent is running on "localhost" port "random" with "http" as the transport provider using webkms with key server at "https://localhost:8076" URL, using "did:key:dummy-sample:sudesh" controller
-    And   "Andrii" create and export "ED25519" key
-
-    Given "Baha" agent is running on "localhost" port "random" with "http" as the transport provider using webkms with key server at "https://localhost:8076" URL, using "did:key:dummy-sample:sudesh" controller
-    And   "Baha" create "ED25519" key
-
-    When  "Baha" has sealed "test payload 2" for "Andrii"
-    Then  "Baha" gets non-empty ciphertext
-
-    When  "Andrii" sealOpen ciphertext from "Baha"
-    Then  "Andrii" gets plaintext with value "test payload 2"
+    #TODO uncomment and rename easy with wrap and easyOpen with unwrap when kms server switches easy to wrap and easyOpen to unwrap.
+#  Scenario: User A anonymously encrypts ("easy") a payload for User B, User B decrypts ("easy open") it
+#    Given "Andrii" agent is running on "localhost" port "random" with "http" as the transport provider using webkms with key server at "https://localhost:8076" URL, using "did:key:dummy-sample:sudesh" controller
+#    And   "Andrii" create and export "ED25519" key
+#
+#    Given "Baha" agent is running on "localhost" port "random" with "http" as the transport provider using webkms with key server at "https://localhost:8076" URL, using "did:key:dummy-sample:sudesh" controller
+#    And   "Baha" create and export "ED25519" key
+#
+#    When  "Andrii" easy "test payload" for "Baha"
+#    Then  "Andrii" gets non-empty ciphertext
+#
+#    When  "Baha" easyOpen ciphertext from "Andrii"
+#    Then  "Baha" gets plaintext with value "test payload"
+  # TODO uncomment test and rename sealOpen with unwrap when kms server switches sealOpen with unwrap.
+#  Scenario: User B decrypts ("seal open") a payload that was encrypted ("seal") by User A
+#    Given "Andrii" agent is running on "localhost" port "random" with "http" as the transport provider using webkms with key server at "https://localhost:8076" URL, using "did:key:dummy-sample:sudesh" controller
+#    And   "Andrii" create and export "ED25519" key
+#
+#    Given "Baha" agent is running on "localhost" port "random" with "http" as the transport provider using webkms with key server at "https://localhost:8076" URL, using "did:key:dummy-sample:sudesh" controller
+#    And   "Baha" create "ED25519" key
+#
+#    When  "Baha" has sealed "test payload 2" for "Andrii"
+#    Then  "Baha" gets non-empty ciphertext
+#
+#    When  "Andrii" sealOpen ciphertext from "Baha"
+#    Then  "Andrii" gets plaintext with value "test payload 2"
 
   @webkms_interop_localkms
   Scenario: User A with webkms wraps A256GCM key for User B with localkms, User B successfully unwraps it
