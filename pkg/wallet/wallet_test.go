@@ -721,7 +721,7 @@ func TestWallet_OpenClose(t *testing.T) {
 		// corrupt content store
 		wallet.contents = newContentStore(&mockstorage.MockStoreProvider{
 			ErrOpenStoreHandle: fmt.Errorf(sampleWalletErr),
-		}, wallet.profile)
+		}, createTestDocumentLoader(t), wallet.profile)
 
 		// get token
 		token, err := wallet.Open(WithUnlockByAuthorizationToken(sampleRemoteKMSAuth))

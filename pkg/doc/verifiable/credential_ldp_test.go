@@ -33,6 +33,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
 	sigverifier "github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
+	jsonutil "github.com/hyperledger/aries-framework-go/pkg/doc/util/json"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 )
@@ -419,7 +420,7 @@ func TestExtraContextWithLDP(t *testing.T) {
 
 	// Drop https://trustbloc.github.io/context/vc/examples-v1.jsonld context where
 	// SupportingActivity and CredentialStatusList2017 are defined.
-	vcMap, err := toMap(vcBytes)
+	vcMap, err := jsonutil.ToMap(vcBytes)
 	r.NoError(err)
 
 	vcMap["@context"] = baseContext
@@ -1217,7 +1218,7 @@ func TestCredential_AddLinkedDataProof(t *testing.T) {
 		vc, err := parseTestCredential(t, []byte(validCredential))
 		r.NoError(err)
 
-		originalVCMap, err := toMap(vc)
+		originalVCMap, err := jsonutil.ToMap(vc)
 		r.NoError(err)
 
 		err = vc.AddLinkedDataProof(&LinkedDataProofContext{
@@ -1231,7 +1232,7 @@ func TestCredential_AddLinkedDataProof(t *testing.T) {
 		}, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
 		r.NoError(err)
 
-		vcMap, err := toMap(vc)
+		vcMap, err := jsonutil.ToMap(vc)
 		r.NoError(err)
 
 		r.Contains(vcMap, "proof")

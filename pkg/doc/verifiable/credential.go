@@ -19,9 +19,11 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	docjsonld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
+	jsonutil "github.com/hyperledger/aries-framework-go/pkg/doc/util/json"
 )
 
 var logger = log.New("aries-framework/doc/verifiable")
@@ -408,7 +410,7 @@ func (i *Issuer) MarshalJSON() ([]byte, error) {
 
 	alias := Alias(*i)
 
-	data, err := marshalWithCustomFields(alias, i.CustomFields)
+	data, err := jsonutil.MarshalWithCustomFields(alias, i.CustomFields)
 	if err != nil {
 		return nil, fmt.Errorf("marshal Issuer: %w", err)
 	}
@@ -433,7 +435,7 @@ func (i *Issuer) UnmarshalJSON(bytes []byte) error {
 
 	i.CustomFields = make(CustomFields)
 
-	err := unmarshalWithCustomFields(bytes, alias, i.CustomFields)
+	err := jsonutil.UnmarshalWithCustomFields(bytes, alias, i.CustomFields)
 	if err != nil {
 		return fmt.Errorf("unmarshal Issuer: %w", err)
 	}
@@ -463,7 +465,7 @@ func (s *Subject) MarshalJSON() ([]byte, error) {
 
 	alias := Alias(*s)
 
-	data, err := marshalWithCustomFields(alias, s.CustomFields)
+	data, err := jsonutil.MarshalWithCustomFields(alias, s.CustomFields)
 	if err != nil {
 		return nil, fmt.Errorf("marshal Subject: %w", err)
 	}
@@ -487,7 +489,7 @@ func (s *Subject) UnmarshalJSON(bytes []byte) error {
 
 	s.CustomFields = make(CustomFields)
 
-	err := unmarshalWithCustomFields(bytes, alias, s.CustomFields)
+	err := jsonutil.UnmarshalWithCustomFields(bytes, alias, s.CustomFields)
 	if err != nil {
 		return fmt.Errorf("unmarshal Subject: %w", err)
 	}
@@ -542,7 +544,7 @@ func (rc *rawCredential) MarshalJSON() ([]byte, error) {
 
 	alias := (*Alias)(rc)
 
-	return marshalWithCustomFields(alias, rc.CustomFields)
+	return jsonutil.MarshalWithCustomFields(alias, rc.CustomFields)
 }
 
 // UnmarshalJSON defines custom unmarshalling of rawCredential from JSON.
@@ -552,7 +554,7 @@ func (rc *rawCredential) UnmarshalJSON(data []byte) error {
 	alias := (*Alias)(rc)
 	rc.CustomFields = make(CustomFields)
 
-	err := unmarshalWithCustomFields(data, alias, rc.CustomFields)
+	err := jsonutil.UnmarshalWithCustomFields(data, alias, rc.CustomFields)
 	if err != nil {
 		return err
 	}
@@ -885,7 +887,11 @@ func (vc *Credential) validateBaseContextWithExtendedValidation(vcOpts *credenti
 }
 
 func (vc *Credential) validateJSONLD(vcBytes []byte, vcOpts *credentialOpts) error {
-	return compactJSONLD(string(vcBytes), &vcOpts.jsonldCredentialOpts, vcOpts.strictValidation)
+	return docjsonld.ValidateJSONLD(string(vcBytes),
+		docjsonld.WithDocumentLoader(vcOpts.jsonldCredentialOpts.jsonldDocumentLoader),
+		docjsonld.WithExternalContext(vcOpts.jsonldCredentialOpts.externalContext),
+		docjsonld.WithStrictValidation(vcOpts.strictValidation),
+	)
 }
 
 // CustomCredentialProducer is a factory for Credentials with extended data model.
@@ -1135,7 +1141,7 @@ func subjectStructToRaw(subject interface{}) (json.RawMessage, error) {
 			subjects[i] = sValue.Index(i).Interface()
 		}
 
-		sMaps, err := toMaps(subjects)
+		sMaps, err := jsonutil.ToMaps(subjects)
 		if err != nil {
 			return nil, errors.New("subject of unknown structure")
 		}
@@ -1144,7 +1150,7 @@ func subjectStructToRaw(subject interface{}) (json.RawMessage, error) {
 	}
 
 	// convert to map and try once again
-	sMap, err := toMap(subject)
+	sMap, err := jsonutil.ToMap(subject)
 	if err != nil {
 		return nil, errors.New("subject of unknown structure")
 	}
@@ -1367,7 +1373,7 @@ func SubjectID(subject interface{}) (string, error) { // nolint:gocyclo
 
 	default:
 		// convert to map and try once again
-		sMap, err := toMap(subject)
+		sMap, err := jsonutil.ToMap(subject)
 		if err != nil {
 			return "", errors.New("subject of unknown structure")
 		}

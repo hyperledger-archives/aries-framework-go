@@ -209,7 +209,7 @@ func New(userID string, ctx provider) (*Wallet, error) {
 		profile:               profile,
 		storeProvider:         ctx.StorageProvider(),
 		walletCrypto:          ctx.Crypto(),
-		contents:              newContentStore(ctx.StorageProvider(), profile),
+		contents:              newContentStore(ctx.StorageProvider(), ctx.JSONLDDocumentLoader(), profile),
 		vdr:                   ctx.VDRegistry(),
 		jsonldDocumentLoader:  ctx.JSONLDDocumentLoader(),
 		presentProofClient:    presentProofClient,

@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
+	jsonutil "github.com/hyperledger/aries-framework-go/pkg/doc/util/json"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -1622,7 +1623,7 @@ func TestParseCredentialFromRaw(t *testing.T) {
 }
 
 func TestParseCredentialFromRaw_PreserveDates(t *testing.T) {
-	vcMap, err := toMap(validCredential)
+	vcMap, err := jsonutil.ToMap(validCredential)
 	require.NoError(t, err)
 
 	vcMap["issuanceDate"] = "2020-01-01T00:00:00.000Z"
@@ -1639,7 +1640,7 @@ func TestParseCredentialFromRaw_PreserveDates(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check that the dates formatting is not corrupted.
-	rawMap, err := toMap(vcBytes)
+	rawMap, err := jsonutil.ToMap(vcBytes)
 	require.NoError(t, err)
 
 	require.Contains(t, rawMap, "issuanceDate")
@@ -1960,7 +1961,7 @@ func TestMarshalCredential(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, vc)
 
-		vcMap, err := toMap(vc)
+		vcMap, err := jsonutil.ToMap(vc)
 		require.NoError(t, err)
 		require.Empty(t, vcMap["credentialSchema"])
 		require.NotEmpty(t, vcMap["@context"])
@@ -1971,7 +1972,7 @@ func TestMarshalCredential(t *testing.T) {
 		// now set schema and try again
 		vc.Schemas = []TypedID{{ID: "test1"}, {ID: "test2"}}
 
-		vcMap, err = toMap(vc)
+		vcMap, err = jsonutil.ToMap(vc)
 		require.NoError(t, err)
 		require.NotEmpty(t, vcMap["credentialSchema"])
 		require.NotEmpty(t, vcMap["@context"])

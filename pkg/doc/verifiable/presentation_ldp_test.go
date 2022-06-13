@@ -14,6 +14,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
+	jsonutil "github.com/hyperledger/aries-framework-go/pkg/doc/util/json"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -81,7 +82,7 @@ func TestPresentation_AddLinkedDataProof(t *testing.T) {
 		vpJSON, err := vp.MarshalJSON()
 		r.NoError(err)
 
-		vpMap, err := toMap(vpJSON)
+		vpMap, err := jsonutil.ToMap(vpJSON)
 		r.NoError(err)
 
 		r.Contains(vpMap, "proof")

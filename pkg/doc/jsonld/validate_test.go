@@ -3,7 +3,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package verifiable
+package jsonld
 
 import (
 	_ "embed"
@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 )
@@ -26,9 +27,12 @@ var (
 	context5 []byte
 	//go:embed testdata/context/context6.jsonld
 	context6 []byte
+
+	//go:embed testdata/context/wallet_v1.jsonld
+	walletV1Context []byte
 )
 
-func Test_compactJSONLD(t *testing.T) {
+func Test_ValidateJSONLD(t *testing.T) {
 	t.Run("Extended both basic VC and subject model", func(t *testing.T) {
 		contextURL := "http://127.0.0.1?context=3"
 
@@ -101,9 +105,7 @@ func Test_compactJSONLD(t *testing.T) {
 			Content: context3,
 		})
 
-		opts := &jsonldCredentialOpts{jsonldDocumentLoader: loader}
-
-		err := compactJSONLD(vc, opts, true)
+		err := ValidateJSONLD(vc, WithDocumentLoader(loader))
 		require.NoError(t, err)
 	})
 
@@ -136,14 +138,12 @@ func Test_compactJSONLD(t *testing.T) {
 			Content: context4,
 		})
 
-		opts := &jsonldCredentialOpts{jsonldDocumentLoader: loader}
-
-		err := compactJSONLD(vcJSON, opts, true)
+		err := ValidateJSONLD(vcJSON, WithDocumentLoader(loader))
 		require.NoError(t, err)
 	})
 }
 
-func Test_compactJSONLDWithExtraUndefinedFields(t *testing.T) {
+func Test_ValidateJSONLDWithExtraUndefinedFields(t *testing.T) {
 	contextURL := "http://127.0.0.1?context=5"
 
 	vcJSONTemplate := `
@@ -171,14 +171,12 @@ func Test_compactJSONLDWithExtraUndefinedFields(t *testing.T) {
 		Content: context5,
 	})
 
-	opts := &jsonldCredentialOpts{jsonldDocumentLoader: loader}
-
-	err := compactJSONLD(vc, opts, true)
+	err := ValidateJSONLD(vc, WithDocumentLoader(loader))
 	require.Error(t, err)
 	require.EqualError(t, err, "JSON-LD doc has different structure after compaction")
 }
 
-func Test_compactJSONLDWithExtraUndefinedSubjectFields(t *testing.T) {
+func Test_ValidateJSONLDWithExtraUndefinedSubjectFields(t *testing.T) {
 	contextURL := "http://127.0.0.1?context=6"
 
 	loader := createTestDocumentLoader(t, ldcontext.Document{
@@ -214,9 +212,8 @@ func Test_compactJSONLDWithExtraUndefinedSubjectFields(t *testing.T) {
 `
 
 			vcJSON := fmt.Sprintf(vcJSONTemplate, contextURL)
-			opts := &jsonldCredentialOpts{jsonldDocumentLoader: loader}
 
-			err := compactJSONLD(vcJSON, opts, true)
+			err := ValidateJSONLD(vcJSON, WithDocumentLoader(loader))
 			require.Error(t, err)
 			require.EqualError(t, err, "JSON-LD doc has different structure after compaction")
 		})
@@ -248,15 +245,14 @@ func Test_compactJSONLDWithExtraUndefinedSubjectFields(t *testing.T) {
 `
 
 		vcJSON := fmt.Sprintf(vcJSONTemplate, contextURL)
-		opts := &jsonldCredentialOpts{jsonldDocumentLoader: loader}
 
-		err := compactJSONLD(vcJSON, opts, true)
+		err := ValidateJSONLD(vcJSON, WithDocumentLoader(loader))
 		require.Error(t, err)
 		require.EqualError(t, err, "JSON-LD doc has different structure after compaction")
 	})
 }
 
-func Test_compactJSONLD_WithExtraUndefinedFieldsInProof(t *testing.T) {
+func Test_ValidateJSONLD_WithExtraUndefinedFieldsInProof(t *testing.T) {
 	vcJSONWithValidProof := `
 {
   "@context": [
@@ -283,7 +279,7 @@ func Test_compactJSONLD_WithExtraUndefinedFieldsInProof(t *testing.T) {
 }
 `
 
-	err := compactJSONLD(vcJSONWithValidProof, defaultOpts(t), true)
+	err := ValidateJSONLD(vcJSONWithValidProof, WithDocumentLoader(createTestDocumentLoader(t)))
 	require.NoError(t, err)
 
 	// "newProp" field is present in the proof
@@ -312,14 +308,15 @@ func Test_compactJSONLD_WithExtraUndefinedFieldsInProof(t *testing.T) {
   }
 }`
 
-	err = compactJSONLD(vcJSONWithInvalidProof, defaultOpts(t), true)
+	err = ValidateJSONLD(vcJSONWithInvalidProof, WithDocumentLoader(createTestDocumentLoader(t)))
+
 	require.Error(t, err)
 	require.EqualError(t, err, "JSON-LD doc has different structure after compaction")
 }
 
-func Test_compactJSONLD_CornerErrorCases(t *testing.T) {
+func Test_ValidateJSONLD_CornerErrorCases(t *testing.T) {
 	t.Run("Invalid JSON input", func(t *testing.T) {
-		err := compactJSONLD("not a json", defaultOpts(t), true)
+		err := ValidateJSONLD("not a json", WithDocumentLoader(createTestDocumentLoader(t)))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "convert JSON-LD doc to map")
 	})
@@ -340,25 +337,16 @@ func Test_compactJSONLD_CornerErrorCases(t *testing.T) {
 }
 `
 
-		err := compactJSONLD(vcJSONTemplate, defaultOpts(t), true)
+		err := ValidateJSONLD(vcJSONTemplate, WithDocumentLoader(createTestDocumentLoader(t)))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "compact JSON-LD document")
 	})
 }
 
-func defaultOpts(t *testing.T) *jsonldCredentialOpts {
-	t.Helper()
-
-	loader, err := ldtestutil.DocumentLoader()
-	require.NoError(t, err)
-
-	return &jsonldCredentialOpts{jsonldDocumentLoader: loader}
-}
-
 // nolint:gochecknoglobals // needed to avoid Go compiler perf optimizations for benchmarks.
 var MajorSink string
 
-func Benchmark_compactJSONLD(b *testing.B) {
+func Benchmark_ValidateJSONLD(b *testing.B) {
 	var sink string
 
 	b.Run("Extended both basic VC and subject model", func(b *testing.B) {
@@ -439,9 +427,7 @@ func Benchmark_compactJSONLD(b *testing.B) {
 				})
 				require.NoError(b, err)
 
-				opts := &jsonldCredentialOpts{jsonldDocumentLoader: loader}
-
-				err = compactJSONLD(vc, opts, true)
+				err = ValidateJSONLD(vc, WithDocumentLoader(loader))
 				require.NoError(b, err)
 
 				sink = "basic_compact_test"
@@ -485,9 +471,7 @@ func Benchmark_compactJSONLD(b *testing.B) {
 				})
 				require.NoError(b, err)
 
-				opts := &jsonldCredentialOpts{jsonldDocumentLoader: loader}
-
-				err = compactJSONLD(vcJSON, opts, true)
+				err = ValidateJSONLD(vcJSON, WithDocumentLoader(loader))
 				require.NoError(b, err)
 
 				sink = "extended_compact_test"
@@ -496,4 +480,43 @@ func Benchmark_compactJSONLD(b *testing.B) {
 			MajorSink = sink
 		})
 	})
+
+	b.Run("Extended both basic VC and subject model", func(b *testing.B) {
+		const testMetadata = `{
+  			"@context": ["https://w3id.org/wallet/v1"],
+  		  	"id": "test-id",
+    		"type": "Person",
+    		"name": "John Smith",
+    		"image": "https://via.placeholder.com/150",
+    		"description" : "Professional software developer for Acme Corp."
+  		}`
+
+		b.RunParallel(func(pb *testing.PB) {
+			b.ResetTimer()
+
+			for pb.Next() {
+				loader, err := ldtestutil.DocumentLoader(ldcontext.Document{
+					URL:     "https://w3id.org/wallet/v1",
+					Content: walletV1Context,
+				})
+				require.NoError(b, err)
+
+				err = ValidateJSONLD(testMetadata, WithDocumentLoader(loader))
+				require.NoError(b, err)
+
+				sink = "basic_compact_test"
+			}
+
+			MajorSink = sink
+		})
+	})
+}
+
+func createTestDocumentLoader(t *testing.T, extraContexts ...ldcontext.Document) *ld.DocumentLoader {
+	t.Helper()
+
+	loader, err := ldtestutil.DocumentLoader(extraContexts...)
+	require.NoError(t, err)
+
+	return loader
 }

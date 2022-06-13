@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignatureproof2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
+	jsonutil "github.com/hyperledger/aries-framework-go/pkg/doc/util/json"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -101,7 +102,7 @@ func TestCredential_GenerateBBSSelectiveDisclosure(t *testing.T) {
 }
 `
 
-	revealDoc, err := toMap(revealJSON)
+	revealDoc, err := jsonutil.ToMap(revealJSON)
 	require.NoError(t, err)
 
 	nonce := []byte("nonce")
@@ -178,7 +179,7 @@ func TestCredential_GenerateBBSSelectiveDisclosure(t *testing.T) {
 }
 `
 
-		revealDoc, err = toMap(revealJSONWithMissingIssuer)
+		revealDoc, err = jsonutil.ToMap(revealJSONWithMissingIssuer)
 		require.NoError(t, err)
 
 		vcWithSelectiveDisclosure, err = vc.GenerateBBSSelectiveDisclosure(revealDoc, nonce, vcOptions...)

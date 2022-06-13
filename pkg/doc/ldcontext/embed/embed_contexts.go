@@ -24,6 +24,8 @@ var (
 	w3idDIDv1 []byte
 	//go:embed third_party/w3c-ccg.github.io/did_docres_v1.jsonld
 	w3idDIDDocRes []byte
+	//go:embed third_party/w3c-ccg.github.io/wallet-v1.jsonld
+	w3idWalletV1 []byte
 	//go:embed third_party/w3c-ccg.github.io/ldp-bbs2020_v1.jsonld
 	ldpBBS2020 []byte
 	//go:embed third_party/w3c-ccg.github.io/lds-jws2020_v1.jsonld
@@ -78,6 +80,11 @@ var Contexts = []ldcontext.Document{ //nolint:gochecknoglobals
 		URL:         "https://w3id.org/did-resolution/v1",
 		DocumentURL: "https://w3c-ccg.github.io/did-resolution/contexts/did-resolution-v1.json",
 		Content:     w3idDIDDocRes,
+	},
+	{
+		URL:         "https://w3id.org/wallet/v1",
+		DocumentURL: "https://w3c-ccg.github.io/universal-wallet-interop-spec/contexts/wallet-v1.json",
+		Content:     w3idWalletV1,
 	},
 	{
 		URL:         "https://w3id.org/security/bbs/v1",
