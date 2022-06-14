@@ -14,6 +14,7 @@ import (
 
 	"golang.org/x/crypto/nacl/box"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/jwkkid"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
@@ -133,7 +134,11 @@ func (b *CryptoBox) Easy(payload, nonce, theirPub []byte, myKID string) ([]byte,
 // theirPub is the public key used to decrypt directly, while myPub is used to identify the private key to be used.
 func (b *CryptoBox) EasyOpen(cipherText, nonce, theirPub, myPub []byte) ([]byte, error) {
 	easyOpenStart := time.Now()
-	destination := b.km.keystoreURL + unwrapURL
+
+	destination, err := b.buildUnwrapURL(myPub)
+	if err != nil {
+		return nil, err
+	}
 
 	httpReqJSON := &easyOpenReq{
 		Ciphertext: cipherText,
@@ -213,7 +218,11 @@ func (b *CryptoBox) Seal(payload, theirEncPub []byte, randSource io.Reader) ([]b
 // and uses that along with the recipient private key corresponding to myPub to decrypt the message.
 func (b *CryptoBox) SealOpen(cipherText, myPub []byte) ([]byte, error) {
 	sealOpenStart := time.Now()
-	destination := b.km.keystoreURL + unwrapURL
+
+	destination, err := b.buildUnwrapURL(myPub)
+	if err != nil {
+		return nil, err
+	}
 
 	httpReqJSON := &sealOpenReq{
 		Ciphertext: cipherText,
@@ -253,4 +262,16 @@ func (b *CryptoBox) SealOpen(cipherText, myPub []byte) ([]byte, error) {
 	logger.Debugf("overall SealOpen duration: %s", time.Since(sealOpenStart))
 
 	return httpResp.Plaintext, nil
+}
+
+func (b *CryptoBox) buildUnwrapURL(myPub []byte) (string, error) {
+	// remote kms requires keyID in the keyURL for unwrapURL.
+	kid, err := jwkkid.CreateKID(myPub, kms.ED25519Type)
+	if err != nil {
+		return "", err
+	}
+
+	keyURL := b.km.buildKIDURL(kid)
+
+	return keyURL + unwrapURL, nil
 }
