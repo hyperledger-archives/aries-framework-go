@@ -716,8 +716,8 @@ func TestCommand_AddRemoveGetGetAll(t *testing.T) {
 		require.NoError(t, cmdErr)
 	})
 
-	t.Run("add a metadata to wallet", func(t *testing.T) {
-		cmd := New(mockctx, &Config{})
+	t.Run("add a metadata to wallet with validation", func(t *testing.T) {
+		cmd := New(mockctx, &Config{ValidateDataModel: true})
 
 		var b bytes.Buffer
 
@@ -777,6 +777,31 @@ func TestCommand_AddRemoveGetGetAll(t *testing.T) {
 		require.NoError(t, json.NewDecoder(&b).Decode(&response))
 		require.NotEmpty(t, response)
 		require.Len(t, response.Contents, count)
+	})
+
+	t.Run("add a collection to wallet with validation failed", func(t *testing.T) {
+		const orgCollectionWithInvalidStructure = `{
+                    "@context": ["https://w3id.org/wallet/v1"],
+                    "id": "did:example:acme123456789abcdefghi",
+                    "type": "Organization",
+                    "name": "Acme Corp.",
+                    "image": "https://via.placeholder.com/150",
+                    "description" : "A software company.",
+                    "tags": ["professional", "organization"],
+					"incorrectProp": "incorrectProp",
+                    "correlation": ["4058a72a-9523-11ea-bb37-0242ac130002"]
+                }`
+
+		cmd := New(mockctx, &Config{ValidateDataModel: true})
+
+		var b bytes.Buffer
+
+		cmdErr := cmd.Add(&b, getReader(t, &AddContentRequest{
+			Content:     []byte(orgCollectionWithInvalidStructure),
+			ContentType: wallet.Collection,
+			WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token1},
+		}))
+		require.Contains(t, cmdErr.Error(), "JSON-LD doc has different structure after compaction")
 	})
 
 	t.Run("get all credentials from wallet by collection ID", func(t *testing.T) {

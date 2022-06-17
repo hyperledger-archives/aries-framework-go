@@ -172,6 +172,8 @@ type Config struct {
 	// Default token expiry for all wallet profiles created.
 	// Will be used only if wallet unlock request doesn't supply default timeout value.
 	DefaultTokenExpiry time.Duration
+	// Indicate if a data model of json-ld content stored in the wallet should be validated.
+	ValidateDataModel bool
 }
 
 // provider contains dependencies for the verifiable credential wallet command controller
@@ -415,7 +417,15 @@ func (o *Command) Add(rw io.Writer, req io.Reader) command.Error {
 		return command.NewExecuteError(AddToWalletErrorCode, err)
 	}
 
-	err = vcWallet.Add(request.Auth, request.ContentType, request.Content, wallet.AddByCollection(request.CollectionID))
+	addOpts := []wallet.AddContentOptions{
+		wallet.AddByCollection(request.CollectionID),
+	}
+
+	if o.config.ValidateDataModel {
+		addOpts = append(addOpts, wallet.ValidateContent())
+	}
+
+	err = vcWallet.Add(request.Auth, request.ContentType, request.Content, addOpts...)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, AddMethod, err.Error())
 
