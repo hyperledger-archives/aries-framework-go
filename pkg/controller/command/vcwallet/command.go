@@ -1023,7 +1023,8 @@ func prepareUnlockOptions(rqst *UnlockWalletRequest, conf *Config) ([]wallet.Unl
 	if rqst.WebKMSAuth != nil {
 		var webKMSHeader func(*http.Request) (*http.Header, error)
 
-		if rqst.WebKMSAuth.Capability != "" { // zcap ld signing
+		switch {
+		case rqst.WebKMSAuth.Capability != "": // zcap ld signing
 			if conf.WebKMSAuthzProvider == nil {
 				return nil, fmt.Errorf("authorization capability for WebKMS is not configured")
 			}
@@ -1034,9 +1035,15 @@ func prepareUnlockOptions(rqst *UnlockWalletRequest, conf *Config) ([]wallet.Unl
 			webKMSHeader = func(req *http.Request) (*http.Header, error) {
 				return signer.SignHeader(req, []byte(rqst.WebKMSAuth.Capability))
 			}
-		} else if rqst.WebKMSAuth.AuthToken != "" { // auth token
+		case rqst.WebKMSAuth.AuthToken != "": // auth token
 			webKMSHeader = func(req *http.Request) (*http.Header, error) {
-				req.Header.Set("authorization", fmt.Sprintf("Bearer %s", rqst.EDVUnlock.AuthToken))
+				req.Header.Set("authorization", fmt.Sprintf("Bearer %s", rqst.WebKMSAuth.AuthToken))
+
+				return &req.Header, nil
+			}
+		case rqst.WebKMSAuth.GNAPToken != "": // GNAP token
+			webKMSHeader = func(req *http.Request) (*http.Header, error) {
+				req.Header.Set("authorization", fmt.Sprintf("GNAP %s", rqst.WebKMSAuth.GNAPToken))
 
 				return &req.Header, nil
 			}
@@ -1054,7 +1061,8 @@ func prepareUnlockOptions(rqst *UnlockWalletRequest, conf *Config) ([]wallet.Unl
 	if rqst.EDVUnlock != nil {
 		var edvHeader func(*http.Request) (*http.Header, error)
 
-		if rqst.EDVUnlock.Capability != "" { // zcap ld signing
+		switch {
+		case rqst.EDVUnlock.Capability != "": // zcap ld signing
 			if conf.EdvAuthzProvider == nil {
 				return nil, fmt.Errorf("authorization capability for EDV is not configured")
 			}
@@ -1065,9 +1073,15 @@ func prepareUnlockOptions(rqst *UnlockWalletRequest, conf *Config) ([]wallet.Unl
 			edvHeader = func(req *http.Request) (*http.Header, error) {
 				return signer.SignHeader(req, []byte(rqst.EDVUnlock.Capability))
 			}
-		} else if rqst.EDVUnlock.AuthToken != "" { // auth token
+		case rqst.EDVUnlock.AuthToken != "": // auth token
 			edvHeader = func(req *http.Request) (*http.Header, error) {
 				req.Header.Set("authorization", fmt.Sprintf("Bearer %s", rqst.EDVUnlock.AuthToken))
+
+				return &req.Header, nil
+			}
+		case rqst.EDVUnlock.GNAPToken != "": // GNAP token
+			edvHeader = func(req *http.Request) (*http.Header, error) {
+				req.Header.Set("authorization", fmt.Sprintf("GNAP %s", rqst.EDVUnlock.GNAPToken))
 
 				return &req.Header, nil
 			}
