@@ -81,6 +81,10 @@ type UnlockAuth struct {
 	// Optional, only if required by wallet user (for webkms or edv).
 	AuthToken string `json:"authToken,omitempty"`
 
+	// Http header 'authorization' GNAP token to be used.
+	// Optional, only if required by wallet user (for webkms or edv).
+	GNAPToken string `json:"gnapToken,omitempty"`
+
 	// Capability if ZCAP sign header feature to be used for authorizing access.
 	// Optional, can be used only if ZCAP sign header feature is configured with command controller.
 	Capability string `json:"capability,omitempty"`
