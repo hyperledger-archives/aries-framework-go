@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/model"
@@ -44,6 +45,38 @@ func TestNewOutbound(t *testing.T) {
 			mediaTypeProfiles: []string{transport.MediaTypeDIDCommV2Profile},
 		})
 		require.ErrorIs(t, err, expected)
+	})
+}
+
+func TestOutBoundDispatcher_createPackedNestedForwards(t *testing.T) {
+	t.Run("test send with nested forward message - success", func(t *testing.T) {
+		data := "data"
+		recKey1 := "recKey1"
+		rtKey1 := "rtKey1"
+		rtKey2 := "rtKey2"
+		packager := &mockPackager{}
+		expectedRequest := `{"protected":"","iv":"","ciphertext":"","tag":""}`
+
+		o, err := NewOutbound(&mockProvider{
+			packagerValue:           packager,
+			outboundTransportsValue: []transport.OutboundTransport{&mockOutboundTransport{expectedRequest: expectedRequest}},
+			storageProvider:         mockstore.NewMockStoreProvider(),
+			protoStorageProvider:    mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:       []string{transport.MediaTypeDIDCommV2Profile},
+		})
+		require.NoError(t, err)
+
+		packager.On("PackMessage", []string{recKey1}).Return([]byte(expectedRequest))
+		packager.On("PackMessage", []string{rtKey1}).Return([]byte(expectedRequest))
+		packager.On("PackMessage", []string{rtKey2}).Return([]byte(expectedRequest))
+
+		require.NoError(t, o.Send(data, "", &service.Destination{
+			ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
+				{URI: "url", RoutingKeys: []string{rtKey1, rtKey2}},
+			}),
+			RecipientKeys: []string{recKey1},
+		}))
+		packager.AssertExpectations(t)
 	})
 }
 
@@ -690,7 +723,7 @@ func TestOutboundDispatcher_Forward(t *testing.T) {
 }
 
 func createPackedMsgForForward(_ *testing.T) []byte {
-	return []byte("")
+	return []byte("{}")
 }
 
 // mockProvider mock provider.
@@ -778,9 +811,21 @@ func (o *mockOutboundTransport) Accept(url string) bool {
 }
 
 // mockPackager mock packager.
-type mockPackager struct{}
+type mockPackager struct {
+	mock.Mock
+}
 
 func (m *mockPackager) PackMessage(e *transport.Envelope) ([]byte, error) {
+	if len(m.ExpectedCalls) > 0 {
+		args := m.Called(e.ToKeys)
+		switch v := args.Get(0).(type) {
+		case []byte:
+			return v, nil
+		default:
+			return e.Message, nil
+		}
+	}
+
 	return e.Message, nil
 }
 
