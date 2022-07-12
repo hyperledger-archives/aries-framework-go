@@ -25,10 +25,10 @@ type Packer struct {
 // encodingType is the `typ` string identifier in a message that identifies the format as being legacy.
 const encodingType string = "JWM/1.0"
 
-// Anoncrypt type
+// Anoncrypt type.
 const anonCrypt string = "Anoncrypt"
 
-// Anoncrypt encryption type format
+// Anoncrypt encryption type format.
 const anonCryptEncType string = "chacha20poly1305_ietf"
 
 // New will create a Packer that encrypts messages using the legacy Aries format.

@@ -370,11 +370,11 @@ func TestDecrypt(t *testing.T) {
 	})
 
 	t.Run("Test unpacking envelope", func(t *testing.T) {
-		env := `{"protected":"eyJlbmMiOiJjaGFjaGEyMHBvbHkxMzA1X2lldGYiLCJ0eXAiOiJKV00vMS4wIiwiYWxnIjoiQW5vbmNyeXB0IiwicmVjaXBpZW50cyI6W3siZW5jcnlwdGVkX2tleSI6IkgwY09vVk5pT3FybTZPUFR1YzJ4cnBYaTRrTm1kSnhZV3haOE1iRWVOU0pYMENkR3EzaWRpQmtibjVYSDBTWjBtNEpfa0NYUFJaYVNqYjhLMVB3X0s5NnYzTFBjVzVPWjhWVkNKYkhHRUU0PSIsImhlYWRlciI6eyJraWQiOiJGN21OdEYyZnJMdVJ1MmNNRWpYQm5XZFljVFpBWE5QOWpFa3ByWHhpYVppMSJ9fV19","iv":"6cVlG23Fhy9oXB2h","ciphertext":"8vMl1QjgbCHreGCe","tag":"-VYChuk4kmnTk8Kz0Kz3Pg=="}`
+		env := `{"protected":"eyJlbmMiOiJjaGFjaGEyMHBvbHkxMzA1X2lldGYiLCJ0eXAiOiJKV00vMS4wIiwiYWxnIjoiQW5vbmNyeXB0IiwicmVjaXBpZW50cyI6W3siZW5jcnlwdGVkX2tleSI6IjN3eFg1UUYybmVuYzUwUlRmSG10TmpQcVdieVhsOURseXhvRHlOYWx2a3U4MUhQdDVGanNrS3JpR1A1dE9FaHhYNmNyT3E2bjcxZXJRMU5zdWhGcm43VXVTUll3anRucmt1bmFaMjNaOWxZPSIsImhlYWRlciI6eyJraWQiOiI0U1B0ckRIMVpIOFpzaDZ1cGJVRzNUYmdYalliVzFDRUJSbk5ZNmlNdWRYOSJ9fV19","iv":"_Bp1NvfmNZ5Qe3iH","ciphertext":"eyETwK9I4NNPyitd","tag":"M8tMmORU7k11SvB_vStMpA=="}`
 		msg := "Hello World!"
 
-		recPub := "F7mNtF2frLuRu2cMEjXBnWdYcTZAXNP9jEkprXxiaZi1"
-		recPriv := "2nYsWTQ1ZguQ7G2HYfMWjMNqWagBQfaKB9GLbsFk7Z7tKVBEr2arwpVKDwgLUbaxguUzQuf7o67aWKzgtHmKaypM"
+		recPub := "4SPtrDH1ZH8Zsh6upbUG3TbgXjYbW1CEBRnNY6iMudX9"
+		recPriv := "5MF9crszXCvzh9tWUWQwAuydh6tY2J5ErsaebwRzTsbNXx74mfaJXaKq7oTkoN4VMc2RtKktjMpPoU7vti9UnrdZ"
 
 		recKMS, _ := newKMS(t)
 		require.NoError(t, persistKey(t, recPub, recPriv, recKMS))
@@ -519,7 +519,7 @@ func TestUnpackComponents(t *testing.T) {
 
 	t.Run("Fail: no recipients in header", func(t *testing.T) {
 		unpackComponentFailureTest(t,
-			`{"enc": "xchacha20poly1305_ietf", "typ": "JWM/1.0", "alg": "Anoncrypt", "recipients": []}`, // nolint: lll
+			`{"enc": "xchacha20poly1305_ietf", "typ": "JWM/1.0", "alg": "Anoncrypt", "recipients": []}`,
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`, // nolint: lll
 			recKeyPub, recKeyPriv,
 			"no key accessible")
@@ -567,14 +567,14 @@ func TestUnpackComponents(t *testing.T) {
 	t.Run("Ciphertext nonce not valid b64 data", func(t *testing.T) {
 		unpackComponentFailureTest(t,
 			prot,
-			`"iv":"!!!","ciphertext":"8vMl1QjgbCHreGCe","tag":"-VYChuk4kmnTk8Kz0Kz3Pg=="}`, // nolint: lll
+			`"iv":"!!!","ciphertext":"8vMl1QjgbCHreGCe","tag":"-VYChuk4kmnTk8Kz0Kz3Pg=="}`,
 			recKeyPub, recKeyPriv,
 			"illegal base64 data at input byte 0")
 	})
 
 	t.Run("Ciphertext not valid b64 data", func(t *testing.T) {
 		unpackComponentFailureTest(t,
-			prot, `"iv":"6cVlG23Fhy9oXB2h","ciphertext":"-","tag":"-VYChuk4kmnTk8Kz0Kz3Pg=="}`, // nolint: lll,
+			prot, `"iv":"6cVlG23Fhy9oXB2h","ciphertext":"-","tag":"-VYChuk4kmnTk8Kz0Kz3Pg=="}`,
 			recKeyPub, recKeyPriv,
 			"illegal base64 data at input byte 0")
 	})
@@ -582,7 +582,7 @@ func TestUnpackComponents(t *testing.T) {
 	t.Run("Ciphertext tag not valid b64 data", func(t *testing.T) {
 		unpackComponentFailureTest(t,
 			prot,
-			`"iv":"6cVlG23Fhy9oXB2h","ciphertext":"8vMl1QjgbCHreGCe","tag":"-"}`, // nolint: lll
+			`"iv":"6cVlG23Fhy9oXB2h","ciphertext":"8vMl1QjgbCHreGCe","tag":"-"}`,
 			recKeyPub, recKeyPriv,
 			"illegal base64 data at input byte 0")
 	})
@@ -593,7 +593,7 @@ func TestUnpackComponents(t *testing.T) {
 	t.Run("Recipient Key not valid key", func(t *testing.T) {
 		unpackComponentFailureTest(t,
 			prot,
-			`"iv":"6cVlG23Fhy9oXB2h","ciphertext":"8vMl1QjgbCHreGCe","tag":"-VYChuk4kmnTk8Kz0Kz3Pg=="}`, // nolint: lll
+			`"iv":"6cVlG23Fhy9oXB2h","ciphertext":"8vMl1QjgbCHreGCe","tag":"-VYChuk4kmnTk8Kz0Kz3Pg=="}`,
 			badKeyPub, badKeyPriv,
 			"createKID: empty key")
 	})
