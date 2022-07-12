@@ -761,7 +761,14 @@ func (o *Command) Connect(rw io.Writer, req io.Reader) command.Error {
 		return command.NewExecuteError(DIDConnectErrorCode, err)
 	}
 
-	connectionID, err := vcWallet.Connect(request.Auth, request.Invitation,
+	didComm, err := wallet.NewDidComm(vcWallet, o.ctx)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, ConnectMethod, err.Error())
+
+		return command.NewExecuteError(DIDConnectErrorCode, err)
+	}
+
+	connectionID, err := didComm.Connect(request.Auth, request.Invitation,
 		wallet.WithConnectTimeout(request.Timeout), wallet.WithReuseDID(request.ReuseConnection),
 		wallet.WithReuseAnyConnection(request.ReuseAnyConnection), wallet.WithMyLabel(request.MyLabel),
 		wallet.WithRouterConnections(request.RouterConnections...))
@@ -805,7 +812,14 @@ func (o *Command) ProposePresentation(rw io.Writer, req io.Reader) command.Error
 		return command.NewExecuteError(ProposePresentationErrorCode, err)
 	}
 
-	msg, err := vcWallet.ProposePresentation(request.Auth, request.Invitation,
+	didComm, err := wallet.NewDidComm(vcWallet, o.ctx)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, ProposePresentationMethod, err.Error())
+
+		return command.NewExecuteError(ProposePresentationErrorCode, err)
+	}
+
+	msg, err := didComm.ProposePresentation(request.Auth, request.Invitation,
 		wallet.WithFromDID(request.FromDID), wallet.WithInitiateTimeout(request.Timeout),
 		wallet.WithConnectOptions(wallet.WithConnectTimeout(request.ConnectionOpts.Timeout),
 			wallet.WithReuseDID(request.ConnectionOpts.ReuseConnection),
@@ -849,7 +863,14 @@ func (o *Command) PresentProof(rw io.Writer, req io.Reader) command.Error {
 		return command.NewExecuteError(PresentProofErrorCode, err)
 	}
 
-	status, err := vcWallet.PresentProof(request.Auth, request.ThreadID,
+	didComm, err := wallet.NewDidComm(vcWallet, o.ctx)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, PresentProofMethod, err.Error())
+
+		return command.NewExecuteError(PresentProofErrorCode, err)
+	}
+
+	status, err := didComm.PresentProof(request.Auth, request.ThreadID,
 		prepareConcludeInteractionOpts(request.WaitForDone, request.Timeout, request.Presentation)...)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, PresentProofMethod, err.Error())
@@ -888,7 +909,14 @@ func (o *Command) ProposeCredential(rw io.Writer, req io.Reader) command.Error {
 		return command.NewExecuteError(ProposeCredentialErrorCode, err)
 	}
 
-	msg, err := vcWallet.ProposeCredential(request.Auth, request.Invitation,
+	didComm, err := wallet.NewDidComm(vcWallet, o.ctx)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, ProposeCredentialMethod, err.Error())
+
+		return command.NewExecuteError(ProposeCredentialErrorCode, err)
+	}
+
+	msg, err := didComm.ProposeCredential(request.Auth, request.Invitation,
 		wallet.WithFromDID(request.FromDID), wallet.WithInitiateTimeout(request.Timeout),
 		wallet.WithConnectOptions(wallet.WithConnectTimeout(request.ConnectionOpts.Timeout),
 			wallet.WithReuseDID(request.ConnectionOpts.ReuseConnection),
@@ -933,7 +961,14 @@ func (o *Command) RequestCredential(rw io.Writer, req io.Reader) command.Error {
 		return command.NewExecuteError(RequestCredentialErrorCode, err)
 	}
 
-	status, err := vcWallet.RequestCredential(request.Auth, request.ThreadID,
+	didComm, err := wallet.NewDidComm(vcWallet, o.ctx)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, RequestCredentialMethod, err.Error())
+
+		return command.NewExecuteError(RequestCredentialErrorCode, err)
+	}
+
+	status, err := didComm.RequestCredential(request.Auth, request.ThreadID,
 		prepareConcludeInteractionOpts(request.WaitForDone, request.Timeout, request.Presentation)...)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, RequestCredentialMethod, err.Error())
