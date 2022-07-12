@@ -123,8 +123,7 @@ func (p *Packer) buildRecipients(cek *[chacha.KeySize]byte, recPubKeys [][]byte)
 
 // buildRecipient encodes the necessary data for the recipient to decrypt the message
 // encrypting the CEK.
-func (p *Packer) buildRecipient(cek *[chacha.KeySize]byte, recKey []byte) (*recipient, error) { // nolint: lll
-
+func (p *Packer) buildRecipient(cek *[chacha.KeySize]byte, recKey []byte) (*recipient, error) {
 	recEncKey, err := cryptoutil.PublicEd25519toCurve25519(recKey)
 	if err != nil {
 		return nil, fmt.Errorf("buildRecipient: failed to convert public Ed25519 to Curve25519: %w", err)

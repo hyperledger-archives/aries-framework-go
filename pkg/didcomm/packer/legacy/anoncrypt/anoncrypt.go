@@ -8,12 +8,12 @@ package anoncryt
 
 import (
 	"crypto/rand"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
 	"io"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
 )
 
 // Packer represents an Anoncrypt Pack/Unpacker that outputs/reads legacy Aries envelopes.

@@ -223,7 +223,7 @@ func TestEncrypt(t *testing.T) {
 		require.Equal(t, test, base64.URLEncoding.EncodeToString(enc))
 	})
 
-	t.Run("Success: pack payload using deterministic random source for multiple recipients, verify result", func(t *testing.T) {
+	t.Run("Success: pack payload using deterministic random source for multiple recipients, verify result", func(t *testing.T) { // nolint: lll
 		senderPub := "9NKZ9pHL9YVS7BzqJsz3e9uVvk44rJodKfLKbq4hmeUw"
 		senderPriv := "2VZLugb22G3iovUvGrecKj3VHFUNeCetkApeB4Fn4zkgBqYaMSFTW2nvF395voJ76vHkfnUXH2qvJoJnFydRoQBR"
 		senderKMS, _ := newKMS(t)
@@ -370,7 +370,7 @@ func TestDecrypt(t *testing.T) {
 	})
 
 	t.Run("Test unpacking envelope", func(t *testing.T) {
-		env := `{"protected":"eyJlbmMiOiJjaGFjaGEyMHBvbHkxMzA1X2lldGYiLCJ0eXAiOiJKV00vMS4wIiwiYWxnIjoiQW5vbmNyeXB0IiwicmVjaXBpZW50cyI6W3siZW5jcnlwdGVkX2tleSI6IjN3eFg1UUYybmVuYzUwUlRmSG10TmpQcVdieVhsOURseXhvRHlOYWx2a3U4MUhQdDVGanNrS3JpR1A1dE9FaHhYNmNyT3E2bjcxZXJRMU5zdWhGcm43VXVTUll3anRucmt1bmFaMjNaOWxZPSIsImhlYWRlciI6eyJraWQiOiI0U1B0ckRIMVpIOFpzaDZ1cGJVRzNUYmdYalliVzFDRUJSbk5ZNmlNdWRYOSJ9fV19","iv":"_Bp1NvfmNZ5Qe3iH","ciphertext":"eyETwK9I4NNPyitd","tag":"M8tMmORU7k11SvB_vStMpA=="}`
+		env := `{"protected":"eyJlbmMiOiJjaGFjaGEyMHBvbHkxMzA1X2lldGYiLCJ0eXAiOiJKV00vMS4wIiwiYWxnIjoiQW5vbmNyeXB0IiwicmVjaXBpZW50cyI6W3siZW5jcnlwdGVkX2tleSI6IjN3eFg1UUYybmVuYzUwUlRmSG10TmpQcVdieVhsOURseXhvRHlOYWx2a3U4MUhQdDVGanNrS3JpR1A1dE9FaHhYNmNyT3E2bjcxZXJRMU5zdWhGcm43VXVTUll3anRucmt1bmFaMjNaOWxZPSIsImhlYWRlciI6eyJraWQiOiI0U1B0ckRIMVpIOFpzaDZ1cGJVRzNUYmdYalliVzFDRUJSbk5ZNmlNdWRYOSJ9fV19","iv":"_Bp1NvfmNZ5Qe3iH","ciphertext":"eyETwK9I4NNPyitd","tag":"M8tMmORU7k11SvB_vStMpA=="}` // nolint: lll
 		msg := "Hello World!"
 
 		recPub := "4SPtrDH1ZH8Zsh6upbUG3TbgXjYbW1CEBRnNY6iMudX9"
@@ -391,7 +391,7 @@ func TestDecrypt(t *testing.T) {
 	})
 
 	t.Run("Test unpacking envelope with multiple recipients", func(t *testing.T) {
-		env := `{"protected":"eyJlbmMiOiJjaGFjaGEyMHBvbHkxMzA1X2lldGYiLCJ0eXAiOiJKV00vMS4wIiwiYWxnIjoiQW5vbmNyeXB0IiwicmVjaXBpZW50cyI6W3siZW5jcnlwdGVkX2tleSI6ImZDMzgxN05OUWVCSTBtODNGOVlwbXdCWE5VNlRkX2V5WWdfSHI1WW41Z1ZlclliZmlHUXFTdGlZVmRBSUc4RlgwclJKd1c3SVBtYUcyTDY3dmQwSXZwWFowQ2sydjlfSldDbjNjSWkwa3Y0PSIsImhlYWRlciI6eyJraWQiOiJGN21OdEYyZnJMdVJ1MmNNRWpYQm5XZFljVFpBWE5QOWpFa3ByWHhpYVppMSJ9fSx7ImVuY3J5cHRlZF9rZXkiOiJKTjdaN3ZhOHc0T05iQkVnczI1bTdYbVFRM2NqTGo0WkZrRzBSOVc5SndVX1RsV3g5Q1pvb3lrZDZ4SWZBZk1tNVJjTjZIaGZKdEg5enpiVlVuVTlObF8wck9MVm96WEVIUGF1R2Vkc25uOD0iLCJoZWFkZXIiOnsia2lkIjoiQVE5bkh0TG5tdUc4MXB5NjRZRzVnZUYydmQ1aFFDS0hpNU1ycVExTFlDWEUifX1dfQ==","iv":"s5LdqRVlm23pxhxq","ciphertext":"HiMHFMlk6nwg7F6Q","tag":"tqPiHBpA2h4TeZFB9wNnyw=="}`
+		env := `{"protected":"eyJlbmMiOiJjaGFjaGEyMHBvbHkxMzA1X2lldGYiLCJ0eXAiOiJKV00vMS4wIiwiYWxnIjoiQW5vbmNyeXB0IiwicmVjaXBpZW50cyI6W3siZW5jcnlwdGVkX2tleSI6ImZDMzgxN05OUWVCSTBtODNGOVlwbXdCWE5VNlRkX2V5WWdfSHI1WW41Z1ZlclliZmlHUXFTdGlZVmRBSUc4RlgwclJKd1c3SVBtYUcyTDY3dmQwSXZwWFowQ2sydjlfSldDbjNjSWkwa3Y0PSIsImhlYWRlciI6eyJraWQiOiJGN21OdEYyZnJMdVJ1MmNNRWpYQm5XZFljVFpBWE5QOWpFa3ByWHhpYVppMSJ9fSx7ImVuY3J5cHRlZF9rZXkiOiJKTjdaN3ZhOHc0T05iQkVnczI1bTdYbVFRM2NqTGo0WkZrRzBSOVc5SndVX1RsV3g5Q1pvb3lrZDZ4SWZBZk1tNVJjTjZIaGZKdEg5enpiVlVuVTlObF8wck9MVm96WEVIUGF1R2Vkc25uOD0iLCJoZWFkZXIiOnsia2lkIjoiQVE5bkh0TG5tdUc4MXB5NjRZRzVnZUYydmQ1aFFDS0hpNU1ycVExTFlDWEUifX1dfQ==","iv":"s5LdqRVlm23pxhxq","ciphertext":"HiMHFMlk6nwg7F6Q","tag":"tqPiHBpA2h4TeZFB9wNnyw=="}` // nolint: lll
 		msg := "Hello World!"
 
 		rec1Pub := "F7mNtF2frLuRu2cMEjXBnWdYcTZAXNP9jEkprXxiaZi1"
@@ -423,11 +423,10 @@ func TestDecrypt(t *testing.T) {
 		require.Empty(t, envOut.FromKey)
 		require.NotEmpty(t, envOut.ToKey)
 		require.Equal(t, rec2Pub, base58.Encode(envOut.ToKey))
-
 	})
 
 	t.Run("Test unpacking envelope with invalid recipient", func(t *testing.T) {
-		env := `{"protected":"eyJlbmMiOiJjaGFjaGEyMHBvbHkxMzA1X2lldGYiLCJ0eXAiOiJKV00vMS4wIiwiYWxnIjoiQW5vbmNyeXB0IiwicmVjaXBpZW50cyI6W3siZW5jcnlwdGVkX2tleSI6IkgwY09vVk5pT3FybTZPUFR1YzJ4cnBYaTRrTm1kSnhZV3haOE1iRWVOU0pYMENkR3EzaWRpQmtibjVYSDBTWjBtNEpfa0NYUFJaYVNqYjhLMVB3X0s5NnYzTFBjVzVPWjhWVkNKYkhHRUU0PSIsImhlYWRlciI6eyJraWQiOiJGN21OdEYyZnJMdVJ1MmNNRWpYQm5XZFljVFpBWE5QOWpFa3ByWHhpYVppMSJ9fV19","iv":"6cVlG23Fhy9oXB2h","ciphertext":"8vMl1QjgbCHreGCe","tag":"-VYChuk4kmnTk8Kz0Kz3Pg=="}`
+		env := `{"protected":"eyJlbmMiOiJjaGFjaGEyMHBvbHkxMzA1X2lldGYiLCJ0eXAiOiJKV00vMS4wIiwiYWxnIjoiQW5vbmNyeXB0IiwicmVjaXBpZW50cyI6W3siZW5jcnlwdGVkX2tleSI6IkgwY09vVk5pT3FybTZPUFR1YzJ4cnBYaTRrTm1kSnhZV3haOE1iRWVOU0pYMENkR3EzaWRpQmtibjVYSDBTWjBtNEpfa0NYUFJaYVNqYjhLMVB3X0s5NnYzTFBjVzVPWjhWVkNKYkhHRUU0PSIsImhlYWRlciI6eyJraWQiOiJGN21OdEYyZnJMdVJ1MmNNRWpYQm5XZFljVFpBWE5QOWpFa3ByWHhpYVppMSJ9fV19","iv":"6cVlG23Fhy9oXB2h","ciphertext":"8vMl1QjgbCHreGCe","tag":"-VYChuk4kmnTk8Kz0Kz3Pg=="}` // nolint: lll
 
 		recPub := "A3KnccxQu27yWQrSLwA2YFbfoSs4CHo3q6LjvhmpKz9h"
 		recPriv := "49Y63zwonNoj2jEhMYE22TDwQCn7RLKMqNeSkSoBBucbAWceJuXXNCACXfpbXD7PHKM13SWaySyDukEakPVn5sWs"
@@ -503,16 +502,16 @@ func TestUnpackComponents(t *testing.T) {
 
 	t.Run("Fail: bad 'typ' field", func(t *testing.T) {
 		unpackComponentFailureTest(t,
-			`{"enc":"chacha20poly1305_ietf","typ":"JSON","alg":"Anoncrypt","recipients":[{"encrypted_key":"H0cOoVNiOqrm6OPTuc2xrpXi4kNmdJxYWxZ8MbEeNSJX0CdGq3idiBkbn5XH0SZ0m4J_kCXPRZaSjb8K1Pw_K96v3LPcW5OZ8VVCJbHGEE4=","header":{"kid":"F7mNtF2frLuRu2cMEjXBnWdYcTZAXNP9jEkprXxiaZi1"}}]}`,
-			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`, // nolint: lll
+			`{"enc":"chacha20poly1305_ietf","typ":"JSON","alg":"Anoncrypt","recipients":[{"encrypted_key":"H0cOoVNiOqrm6OPTuc2xrpXi4kNmdJxYWxZ8MbEeNSJX0CdGq3idiBkbn5XH0SZ0m4J_kCXPRZaSjb8K1Pw_K96v3LPcW5OZ8VVCJbHGEE4=","header":{"kid":"F7mNtF2frLuRu2cMEjXBnWdYcTZAXNP9jEkprXxiaZi1"}}]}`, // nolint: lll
+			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`,                                 // nolint: lll
 			recKeyPub, recKeyPriv,
 			"message type JSON not supported")
 	})
 
 	t.Run("Fail: authcrypt not supported", func(t *testing.T) {
 		unpackComponentFailureTest(t,
-			`{"enc":"chacha20poly1305_ietf","typ":"JWM/1.0","alg":"Authcrypt","recipients":[{"encrypted_key":"H0cOoVNiOqrm6OPTuc2xrpXi4kNmdJxYWxZ8MbEeNSJX0CdGq3idiBkbn5XH0SZ0m4J_kCXPRZaSjb8K1Pw_K96v3LPcW5OZ8VVCJbHGEE4=","header":{"kid":"F7mNtF2frLuRu2cMEjXBnWdYcTZAXNP9jEkprXxiaZi1"}}]}`,
-			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`, //nolint: lll
+			`{"enc":"chacha20poly1305_ietf","typ":"JWM/1.0","alg":"Authcrypt","recipients":[{"encrypted_key":"H0cOoVNiOqrm6OPTuc2xrpXi4kNmdJxYWxZ8MbEeNSJX0CdGq3idiBkbn5XH0SZ0m4J_kCXPRZaSjb8K1Pw_K96v3LPcW5OZ8VVCJbHGEE4=","header":{"kid":"F7mNtF2frLuRu2cMEjXBnWdYcTZAXNP9jEkprXxiaZi1"}}]}`, // nolint: lll
+			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`,                                    // nolint: lll
 			recKeyPub, recKeyPriv,
 			"message format Authcrypt not supported")
 	})
@@ -529,8 +528,8 @@ func TestUnpackComponents(t *testing.T) {
 		recPub := "6ZAQ7QpmR9EqhJdwx1jQsjq6nnpehwVqUbhVxiEiYEV7" // invalid key, won't convert
 
 		unpackComponentFailureTest(t,
-			`{"enc":"chacha20poly1305_ietf","typ":"JWM/1.0","alg":"Anoncrypt","recipients":[{"encrypted_key":"H0cOoVNiOqrm6OPTuc2xrpXi4kNmdJxYWxZ8MbEeNSJX0CdGq3idiBkbn5XH0SZ0m4J_kCXPRZaSjb8K1Pw_K96v3LPcW5OZ8VVCJbHGEE4=","header":{"kid":"6ZAQ7QpmR9EqhJdwx1jQsjq6nnpehwVqUbhVxiEiYEV7"}}]}`,
-			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`, // nolint: lll
+			`{"enc":"chacha20poly1305_ietf","typ":"JWM/1.0","alg":"Anoncrypt","recipients":[{"encrypted_key":"H0cOoVNiOqrm6OPTuc2xrpXi4kNmdJxYWxZ8MbEeNSJX0CdGq3idiBkbn5XH0SZ0m4J_kCXPRZaSjb8K1Pw_K96v3LPcW5OZ8VVCJbHGEE4=","header":{"kid":"6ZAQ7QpmR9EqhJdwx1jQsjq6nnpehwVqUbhVxiEiYEV7"}}]}`, // nolint: lll
+			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`,                                    // nolint: lll
 			recPub, recKeyPriv,
 			"sealOpen: failed to convert pub Ed25519 to X25519 key: error converting public key")
 	})
@@ -539,15 +538,15 @@ func TestUnpackComponents(t *testing.T) {
 		recPub := "57N4aoQKaxUGNeEn3ETnTKgeD1L5Wm3U3Vb8qi3hupLn" // mismatched keypair, won't decrypt
 
 		unpackComponentFailureTest(t,
-			`{"enc":"chacha20poly1305_ietf","typ":"JWM/1.0","alg":"Anoncrypt","recipients":[{"encrypted_key":"H0cOoVNiOqrm6OPTuc2xrpXi4kNmdJxYWxZ8MbEeNSJX0CdGq3idiBkbn5XH0SZ0m4J_kCXPRZaSjb8K1Pw_K96v3LPcW5OZ8VVCJbHGEE4=","header":{"kid":"57N4aoQKaxUGNeEn3ETnTKgeD1L5Wm3U3Vb8qi3hupLn"}}]}`,
-			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`, // nolint: lll
+			`{"enc":"chacha20poly1305_ietf","typ":"JWM/1.0","alg":"Anoncrypt","recipients":[{"encrypted_key":"H0cOoVNiOqrm6OPTuc2xrpXi4kNmdJxYWxZ8MbEeNSJX0CdGq3idiBkbn5XH0SZ0m4J_kCXPRZaSjb8K1Pw_K96v3LPcW5OZ8VVCJbHGEE4=","header":{"kid":"57N4aoQKaxUGNeEn3ETnTKgeD1L5Wm3U3Vb8qi3hupLn"}}]}`, // nolint: lll
+			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`,                                    // nolint: lll
 			recPub, recKeyPriv,
 			"failed to unpack")
 	})
 
 	t.Run("Encrypted CEK is invalid base64 data", func(t *testing.T) {
 		unpackComponentFailureTest(t,
-			`{"enc":"chacha20poly1305_ietf","typ":"JWM/1.0","alg":"Anoncrypt","recipients":[{"encrypted_key":"-","header":{"kid":"F7mNtF2frLuRu2cMEjXBnWdYcTZAXNP9jEkprXxiaZi1"}}]}`,
+			`{"enc":"chacha20poly1305_ietf","typ":"JWM/1.0","alg":"Anoncrypt","recipients":[{"encrypted_key":"-","header":{"kid":"F7mNtF2frLuRu2cMEjXBnWdYcTZAXNP9jEkprXxiaZi1"}}]}`,                                                                         // nolint: lll
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`, // nolint: lll
 			recKeyPub, recKeyPriv,
 			"illegal base64 data at input byte 0")
@@ -555,14 +554,14 @@ func TestUnpackComponents(t *testing.T) {
 
 	t.Run("Bad encrypted key cannot be decrypted", func(t *testing.T) {
 		unpackComponentFailureTest(t,
-			`{"enc":"chacha20poly1305_ietf","typ":"JWM/1.0","alg":"Anoncrypt","recipients":[{"encrypted_key":"H0cOoVNi","header":{"kid":"F7mNtF2frLuRu2cMEjXBnWdYcTZAXNP9jEkprXxiaZi1"}}]}`,
+			`{"enc":"chacha20poly1305_ietf","typ":"JWM/1.0","alg":"Anoncrypt","recipients":[{"encrypted_key":"H0cOoVNi","header":{"kid":"F7mNtF2frLuRu2cMEjXBnWdYcTZAXNP9jEkprXxiaZi1"}}]}`,                                                                  // nolint: lll
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`, // nolint: lll
 			recKeyPub, recKeyPriv,
 			"failed to decrypt CEK")
 	})
 
 	// valid protected header for envelope being used
-	prot := `{"enc":"chacha20poly1305_ietf","typ":"JWM/1.0","alg":"Anoncrypt","recipients":[{"encrypted_key":"H0cOoVNiOqrm6OPTuc2xrpXi4kNmdJxYWxZ8MbEeNSJX0CdGq3idiBkbn5XH0SZ0m4J_kCXPRZaSjb8K1Pw_K96v3LPcW5OZ8VVCJbHGEE4=","header":{"kid":"F7mNtF2frLuRu2cMEjXBnWdYcTZAXNP9jEkprXxiaZi1"}}]}`
+	prot := `{"enc":"chacha20poly1305_ietf","typ":"JWM/1.0","alg":"Anoncrypt","recipients":[{"encrypted_key":"H0cOoVNiOqrm6OPTuc2xrpXi4kNmdJxYWxZ8MbEeNSJX0CdGq3idiBkbn5XH0SZ0m4J_kCXPRZaSjb8K1Pw_K96v3LPcW5OZ8VVCJbHGEE4=","header":{"kid":"F7mNtF2frLuRu2cMEjXBnWdYcTZAXNP9jEkprXxiaZi1"}}]}` // nolint: lll
 
 	t.Run("Ciphertext nonce not valid b64 data", func(t *testing.T) {
 		unpackComponentFailureTest(t,
