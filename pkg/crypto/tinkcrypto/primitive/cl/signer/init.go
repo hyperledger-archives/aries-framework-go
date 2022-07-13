@@ -7,8 +7,7 @@ Copyright Avast Software. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-
-package issuer
+package signer
 
 import (
 	"fmt"
@@ -20,8 +19,8 @@ import (
 // nolint: gochecknoinits
 func init() {
 	// TODO - avoid the tink registry singleton.
-	err := registry.RegisterKeyManager(newCLIssuerKeyManager())
+	err := registry.RegisterKeyManager(newCLSignerKeyManager())
 	if err != nil {
-		panic(fmt.Sprintf("issuer.init() failed: %v", err))
+		panic(fmt.Sprintf("CL signer.init() failed: %v", err))
 	}
 }

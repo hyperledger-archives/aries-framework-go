@@ -20,7 +20,7 @@ require (
 	github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20220606124520-53422361c38c
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220322085443-50e8f9bd208b
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20220606124520-53422361c38c
-	github.com/hyperledger/ursa-wrapper-go v0.3.0
+	github.com/hyperledger/ursa-wrapper-go v0.3.1
 	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a
 	github.com/kawamuray/jsonpath v0.0.0-20201211160320-7483bafabd7e
 	github.com/kilic/bls12-381 v0.1.1-0.20210503002446-7b7597926c69
@@ -63,7 +63,5 @@ require (
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-// replace github.com/hyperledger/ursa-wrapper-go => github.com/ashcherbakov/ursa-wrapper-go v0.3.1
 
 go 1.17
