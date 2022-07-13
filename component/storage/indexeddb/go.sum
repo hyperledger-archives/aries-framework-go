@@ -224,6 +224,8 @@ github.com/hyperledger/aries-framework-go/test/component v0.0.0-20210820153043-8
 github.com/hyperledger/aries-framework-go/test/component v0.0.0-20220217153004-1622c70e5767/go.mod h1:HojN6OAh8ZtXBe5X2arcSOe1SLo5Dsjqto8ICjSLQ2g=
 github.com/hyperledger/aries-framework-go/test/component v0.0.0-20220322085443-50e8f9bd208b h1:tq8CYv5vCJBSG2CjWKNt4l1BzZVJUy+GGF4U80fJV8o=
 github.com/hyperledger/aries-framework-go/test/component v0.0.0-20220322085443-50e8f9bd208b/go.mod h1:HojN6OAh8ZtXBe5X2arcSOe1SLo5Dsjqto8ICjSLQ2g=
+github.com/hyperledger/ursa-wrapper-go v0.3.0 h1:ZYgPkPqy0AWEoU2Dhiziz91QacNdIX3j21UIOIVCXA8=
+github.com/hyperledger/ursa-wrapper-go v0.3.0/go.mod h1:nPSAuMasIzSVciQo22PedBk4Opph6bJ6ia3ms7BH/mk=
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
 github.com/jessevdk/go-flags v0.0.0-20141203071132-1679536dcc89/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
 github.com/jessevdk/go-flags v1.4.0/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
