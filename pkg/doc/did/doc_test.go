@@ -89,6 +89,10 @@ func TestValidWithDocBase(t *testing.T) {
 		// test doc id
 		require.Equal(t, doc.ID, "did:example:123456789abcdefghi")
 
+		// test alsoKnownAs
+		require.Equal(t, 1, len(doc.AlsoKnownAs))
+		require.Equal(t, "did:example:123", doc.AlsoKnownAs[0])
+
 		hexDecodeValue, err := hex.DecodeString("02b97c30de767f084ce3080168ee293053ba33b235d7116a3263d29f1450936b71")
 		block, _ := pem.Decode([]byte(pemPK))
 		require.NotNil(t, block)
@@ -175,6 +179,8 @@ func TestDocResolution(t *testing.T) {
 		require.Equal(t, 1, len(d.Context))
 		require.Equal(t, "https://w3id.org/did-resolution/v1", d.Context[0])
 		require.Equal(t, "did:example:21tDAKCERh95uGgKbJNHYp", d.DIDDocument.ID)
+		require.Equal(t, 1, len(d.DIDDocument.AlsoKnownAs))
+		require.Equal(t, "did:example:123", d.DIDDocument.AlsoKnownAs[0])
 		require.Equal(t, true, d.DocumentMetadata.Method.Published)
 		require.Equal(t, "did:ex:123333", d.DocumentMetadata.CanonicalID)
 
@@ -187,6 +193,8 @@ func TestDocResolution(t *testing.T) {
 		require.Equal(t, 1, len(d.Context))
 		require.Equal(t, "https://w3id.org/did-resolution/v1", d.Context[0])
 		require.Equal(t, "did:example:21tDAKCERh95uGgKbJNHYp", d.DIDDocument.ID)
+		require.Equal(t, 1, len(d.DIDDocument.AlsoKnownAs))
+		require.Equal(t, "did:example:123", d.DIDDocument.AlsoKnownAs[0])
 		require.Equal(t, true, d.DocumentMetadata.Method.Published)
 		require.Equal(t, "did:ex:123333", d.DocumentMetadata.CanonicalID)
 	})
@@ -208,6 +216,10 @@ func TestValid(t *testing.T) {
 
 		// test doc id
 		require.Equal(t, doc.ID, "did:example:21tDAKCERh95uGgKbJNHYp")
+
+		// test alsoKnownAs
+		require.Equal(t, 1, len(doc.AlsoKnownAs))
+		require.Equal(t, "did:example:123", doc.AlsoKnownAs[0])
 
 		hexDecodeValue, err := hex.DecodeString("02b97c30de767f084ce3080168ee293053ba33b235d7116a3263d29f1450936b71")
 		block, _ := pem.Decode([]byte(pemPK))
@@ -557,6 +569,96 @@ func TestValidateDidDocID(t *testing.T) {
 			err = validate(bytes, raw.schemaLoader())
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "id is required")
+		}
+	})
+}
+
+func TestValidateDidDocAlsoKnownAs(t *testing.T) {
+	t.Run("test did doc with duplicate alsoKnownAs entries", func(t *testing.T) {
+		docs := []string{validDoc, validDocV011}
+		for _, d := range docs {
+			raw := &rawDoc{}
+			require.NoError(t, json.Unmarshal([]byte(d), &raw))
+			raw.AlsoKnownAs = []interface{}{"did:example:123", "did:example:123"}
+			bytes, err := json.Marshal(raw)
+			require.NoError(t, err)
+			err = validate(bytes, raw.schemaLoader())
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "must be unique")
+		}
+	})
+
+	t.Run("test did doc with non-uri alsoKnownAs string", func(t *testing.T) {
+		docs := []string{validDoc, validDocV011}
+		for _, d := range docs {
+			raw := &rawDoc{}
+			require.NoError(t, json.Unmarshal([]byte(d), &raw))
+			raw.AlsoKnownAs = []interface{}{"not.a.valid.uri"}
+			bytes, err := json.Marshal(raw)
+			require.NoError(t, err)
+			err = validate(bytes, raw.schemaLoader())
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "Does not match format 'uri'")
+		}
+	})
+
+	t.Run("test did doc with non-string alsoKnownAs entry", func(t *testing.T) {
+		docs := []string{validDoc, validDocV011}
+		for _, d := range docs {
+			raw := &rawDoc{}
+			require.NoError(t, json.Unmarshal([]byte(d), &raw))
+			raw.AlsoKnownAs = []interface{}{0}
+			bytes, err := json.Marshal(raw)
+			require.NoError(t, err)
+			err = validate(bytes, raw.schemaLoader())
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "Invalid type. Expected: string")
+		}
+	})
+
+	t.Run("test did doc with empty alsoKnownAs", func(t *testing.T) {
+		docs := []string{validDoc, validDocV011}
+		for _, d := range docs {
+			raw := &rawDoc{}
+			require.NoError(t, json.Unmarshal([]byte(d), &raw))
+			raw.AlsoKnownAs = nil
+			bytes, err := json.Marshal(raw)
+			require.NoError(t, err)
+			err = validate(bytes, raw.schemaLoader())
+			require.NoError(t, err)
+		}
+	})
+
+	t.Run("test did doc with zero-length alsoKnownAs", func(t *testing.T) {
+		docs := []string{validDoc, validDocV011}
+		for _, d := range docs {
+			raw := &rawDoc{}
+			require.NoError(t, json.Unmarshal([]byte(d), &raw))
+			raw.AlsoKnownAs = []interface{}{}
+			bytes, err := json.Marshal(raw)
+			require.NoError(t, err)
+			err = validate(bytes, raw.schemaLoader())
+			require.NoError(t, err)
+		}
+	})
+
+	t.Run("test did doc with valid alsoKnownAs entries", func(t *testing.T) {
+		docs := []string{validDoc, validDocV011}
+		valid := []interface{}{
+			"did:example:123",
+			"https://social.example/username",
+			"urn:uuid:1231",
+		}
+		for _, d := range docs {
+			for _, aka := range valid {
+				raw := &rawDoc{}
+				require.NoError(t, json.Unmarshal([]byte(d), &raw))
+				raw.AlsoKnownAs = []interface{}{aka}
+				bytes, err := json.Marshal(raw)
+				require.NoError(t, err)
+				err = validate(bytes, raw.schemaLoader())
+				require.NoError(t, err)
+			}
 		}
 	})
 }
@@ -1498,20 +1600,20 @@ func TestDIDSchemas(t *testing.T) {
 				didStr: `{
         "@context": "https://w3id.org/did/v0.11",
         "id": "did:w123:world",
-        "assertionMethod": ["did:w123:world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN", 
-		"did:w123:world#_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A", 
-		"did:w123:world#_TKzHv2jFIyvdTGF1Dsgwngfdg3SH6TpDv0Ta1aOEkw", 
+        "assertionMethod": ["did:w123:world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN",
+		"did:w123:world#_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A",
+		"did:w123:world#_TKzHv2jFIyvdTGF1Dsgwngfdg3SH6TpDv0Ta1aOEkw",
 		"did:w123:world#NjQ6Y_ZMj6IUK_XkgCDwtKHlNTUTVjEYOWZtxhp1n-E"],
-        "authentication": ["did:w123:world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN", "", 
-		"did:w123:world#_TKzHv2jFIyvdTGF1Dsgwngfdg3SH6TpDv0Ta1aOEkw",  
+        "authentication": ["did:w123:world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN", "",
+		"did:w123:world#_TKzHv2jFIyvdTGF1Dsgwngfdg3SH6TpDv0Ta1aOEkw",
 		"did:w123:world#NjQ6Y_ZMj6IUK_XkgCDwtKHlNTUTVjEYOWZtxhp1n-E"],
-        "capabilityDelegation": ["did:w123:world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN", 
-		"did:w123:world#_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A", 
-		 "did:w123:world#_TKzHv2jFIyvdTGF1Dsgwngfdg3SH6TpDv0Ta1aOEkw", 
+        "capabilityDelegation": ["did:w123:world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN",
+		"did:w123:world#_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A",
+		 "did:w123:world#_TKzHv2jFIyvdTGF1Dsgwngfdg3SH6TpDv0Ta1aOEkw",
 		 "did:w123:world#NjQ6Y_ZMj6IUK_XkgCDwtKHlNTUTVjEYOWZtxhp1n-E"],
-        "capabilityInvocation": ["did:w123:world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN", 
-		"did:w123:world#_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A", 
-		 "did:w123:world#_TKzHv2jFIyvdTGF1Dsgwngfdg3SH6TpDv0Ta1aOEkw", 
+        "capabilityInvocation": ["did:w123:world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN",
+		"did:w123:world#_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A",
+		 "did:w123:world#_TKzHv2jFIyvdTGF1Dsgwngfdg3SH6TpDv0Ta1aOEkw",
 		 "did:w123:world#NjQ6Y_ZMj6IUK_XkgCDwtKHlNTUTVjEYOWZtxhp1n-E"],
         "keyAgreement": [{
             "id": "did:w123:world#zC5iai1sL93gQxn8LKh1i42fTbpfar65dVx4NYznYfG3Y5",

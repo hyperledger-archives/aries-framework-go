@@ -1,6 +1,9 @@
 {
   "@context": ["https://w3id.org/did/v0.11"],
   "id": "did:example:21tDAKCERh95uGgKbJNHYp",
+  "alsoKnownAs": [
+    "did:example:123"
+  ],
   "publicKey": [
     {
       "id": "did:example:123456789abcdefghi#keys-1",
