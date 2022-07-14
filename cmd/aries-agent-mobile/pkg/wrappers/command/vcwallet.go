@@ -11,6 +11,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-mobile/pkg/wrappers/models"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
+	cmddidcommwallet "github.com/hyperledger/aries-framework-go/pkg/controller/command/didcommwallet"
 	cmdvcwallet "github.com/hyperledger/aries-framework-go/pkg/controller/command/vcwallet"
 )
 
@@ -261,13 +262,13 @@ func (v *VCWallet) CreateKeyPair(request *models.RequestEnvelope) *models.Respon
 
 // Connect accepts out-of-band invitations and performs DID exchange.
 func (v *VCWallet) Connect(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	args := cmdvcwallet.ConnectRequest{}
+	args := cmddidcommwallet.ConnectRequest{}
 
 	if err := json.Unmarshal(request.Payload, &args); err != nil {
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
 	}
 
-	response, cmdErr := exec(v.handlers[cmdvcwallet.ConnectMethod], args)
+	response, cmdErr := exec(v.handlers[cmddidcommwallet.ConnectMethod], args)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}
@@ -278,13 +279,13 @@ func (v *VCWallet) Connect(request *models.RequestEnvelope) *models.ResponseEnve
 // ProposePresentation accepts out-of-band invitation and sends message proposing presentation
 // from wallet to relying party.
 func (v *VCWallet) ProposePresentation(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	args := cmdvcwallet.ProposePresentationRequest{}
+	args := cmddidcommwallet.ProposePresentationRequest{}
 
 	if err := json.Unmarshal(request.Payload, &args); err != nil {
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
 	}
 
-	response, cmdErr := exec(v.handlers[cmdvcwallet.ProposePresentationMethod], args)
+	response, cmdErr := exec(v.handlers[cmddidcommwallet.ProposePresentationMethod], args)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}
@@ -294,13 +295,13 @@ func (v *VCWallet) ProposePresentation(request *models.RequestEnvelope) *models.
 
 // PresentProof sends present proof message from wallet to relying party.
 func (v *VCWallet) PresentProof(request *models.RequestEnvelope) *models.ResponseEnvelope {
-	args := cmdvcwallet.PresentProofRequest{}
+	args := cmddidcommwallet.PresentProofRequest{}
 
 	if err := json.Unmarshal(request.Payload, &args); err != nil {
 		return &models.ResponseEnvelope{Error: &models.CommandError{Message: err.Error()}}
 	}
 
-	response, cmdErr := exec(v.handlers[cmdvcwallet.PresentProofMethod], args)
+	response, cmdErr := exec(v.handlers[cmddidcommwallet.PresentProofMethod], args)
 	if cmdErr != nil {
 		return &models.ResponseEnvelope{Error: cmdErr}
 	}

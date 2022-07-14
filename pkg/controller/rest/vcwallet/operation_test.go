@@ -24,6 +24,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/internal/testdata"
 	outofbandClient "github.com/hyperledger/aries-framework-go/pkg/client/outofband"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command/didcommwallet"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/vcwallet"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
@@ -1253,10 +1254,10 @@ func TestOperation_Connect(t *testing.T) {
 		}
 		mockctx.ServiceMap[didexchange.DIDExchange] = didexSvc
 
-		request := &vcwallet.ConnectRequest{
+		request := &didcommwallet.ConnectRequest{
 			WalletAuth: vcwallet.WalletAuth{UserID: sampleDIDCommUser, Auth: token},
 			Invitation: &outofbandClient.Invitation{},
-			ConnectOpts: vcwallet.ConnectOpts{
+			ConnectOpts: didcommwallet.ConnectOpts{
 				MyLabel: "sample-label",
 			},
 		}
@@ -1283,10 +1284,10 @@ func TestOperation_Connect(t *testing.T) {
 		}
 		mockctx.ServiceMap[didexchange.DIDExchange] = didexSvc
 
-		request := &vcwallet.ConnectRequest{
+		request := &didcommwallet.ConnectRequest{
 			WalletAuth: vcwallet.WalletAuth{UserID: sampleDIDCommUser, Auth: token},
 			Invitation: &outofbandClient.Invitation{},
-			ConnectOpts: vcwallet.ConnectOpts{
+			ConnectOpts: didcommwallet.ConnectOpts{
 				MyLabel: "sample-label",
 			},
 		}
@@ -1379,7 +1380,7 @@ func TestOperation_ProposePresentation(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, store.Put(fmt.Sprintf("conn_%s", sampleConnID), recordBytes))
 
-		request := &vcwallet.ProposePresentationRequest{
+		request := &didcommwallet.ProposePresentationRequest{
 			WalletAuth: vcwallet.WalletAuth{UserID: sampleDIDCommUser, Auth: token},
 			Invitation: &wallet.GenericInvitation{},
 		}
@@ -1407,7 +1408,7 @@ func TestOperation_ProposePresentation(t *testing.T) {
 
 		mockctx.ServiceMap[outofbandSvc.Name] = oobSvc
 
-		request := &vcwallet.ProposePresentationRequest{
+		request := &didcommwallet.ProposePresentationRequest{
 			WalletAuth: vcwallet.WalletAuth{UserID: sampleDIDCommUser, Auth: token},
 			Invitation: &wallet.GenericInvitation{},
 		}
@@ -1460,7 +1461,7 @@ func TestOperation_PresentProof(t *testing.T) {
 		}
 		mockctx.ServiceMap[presentproofSvc.Name] = mockPresentProofSvc
 
-		request := &vcwallet.PresentProofRequest{
+		request := &didcommwallet.PresentProofRequest{
 			WalletAuth:   vcwallet.WalletAuth{UserID: sampleDIDCommUser, Auth: token},
 			ThreadID:     thID,
 			Presentation: json.RawMessage{},
@@ -1484,7 +1485,7 @@ func TestOperation_PresentProof(t *testing.T) {
 	})
 
 	t.Run("wallet present proof success", func(t *testing.T) {
-		request := &vcwallet.PresentProofRequest{
+		request := &didcommwallet.PresentProofRequest{
 			WalletAuth:   vcwallet.WalletAuth{UserID: sampleDIDCommUser, Auth: token},
 			ThreadID:     uuid.New().String(),
 			Presentation: json.RawMessage{},
@@ -1507,7 +1508,7 @@ func TestOperation_PresentProof(t *testing.T) {
 
 		mockctx.ServiceMap[presentproofSvc.Name] = ppSvc
 
-		request := &vcwallet.PresentProofRequest{
+		request := &didcommwallet.PresentProofRequest{
 			WalletAuth:   vcwallet.WalletAuth{UserID: sampleDIDCommUser, Auth: token},
 			ThreadID:     uuid.New().String(),
 			Presentation: json.RawMessage{},
@@ -1599,7 +1600,7 @@ func TestOperation_ProposeCredential(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, store.Put(fmt.Sprintf("conn_%s", sampleConnID), recordBytes))
 
-		request := &vcwallet.ProposeCredentialRequest{
+		request := &didcommwallet.ProposeCredentialRequest{
 			WalletAuth: vcwallet.WalletAuth{UserID: sampleDIDCommUser, Auth: token},
 			Invitation: &wallet.GenericInvitation{},
 		}
@@ -1634,7 +1635,7 @@ func TestOperation_ProposeCredential(t *testing.T) {
 
 		mockctx.ServiceMap[outofbandSvc.Name] = oobSvc
 
-		request := &vcwallet.ProposeCredentialRequest{
+		request := &didcommwallet.ProposeCredentialRequest{
 			WalletAuth: vcwallet.WalletAuth{UserID: sampleDIDCommUser, Auth: token},
 			Invitation: &wallet.GenericInvitation{},
 		}
@@ -1690,7 +1691,7 @@ func TestOperation_RequestCredential(t *testing.T) {
 		}
 		mockctx.ServiceMap[issuecredentialsvc.Name] = icSvc
 
-		request := &vcwallet.RequestCredentialRequest{
+		request := &didcommwallet.RequestCredentialRequest{
 			WalletAuth:   vcwallet.WalletAuth{UserID: sampleDIDCommUser, Auth: token},
 			ThreadID:     thID,
 			Presentation: json.RawMessage{},
@@ -1714,7 +1715,7 @@ func TestOperation_RequestCredential(t *testing.T) {
 	})
 
 	t.Run("wallet request credential success", func(t *testing.T) {
-		request := &vcwallet.RequestCredentialRequest{
+		request := &didcommwallet.RequestCredentialRequest{
 			WalletAuth:   vcwallet.WalletAuth{UserID: sampleDIDCommUser, Auth: token},
 			ThreadID:     uuid.New().String(),
 			Presentation: json.RawMessage{},
@@ -1736,7 +1737,7 @@ func TestOperation_RequestCredential(t *testing.T) {
 		}
 		mockctx.ServiceMap[issuecredentialsvc.Name] = icSvc
 
-		request := &vcwallet.PresentProofRequest{
+		request := &didcommwallet.PresentProofRequest{
 			WalletAuth:   vcwallet.WalletAuth{UserID: sampleDIDCommUser, Auth: token},
 			ThreadID:     uuid.New().String(),
 			Presentation: json.RawMessage{},
@@ -1771,7 +1772,7 @@ func TestOperation_ResolveCredentialManifest(t *testing.T) {
 	defer lock()
 
 	t.Run("resolve credential manifest", func(t *testing.T) {
-		request := &vcwallet.ResolveCredentialManifestRequest{
+		request := &didcommwallet.ResolveCredentialManifestRequest{
 			WalletAuth:  vcwallet.WalletAuth{UserID: sampleUser1, Auth: token},
 			Manifest:    testdata.CredentialManifestMultipleVCs,
 			Fulfillment: testdata.CredentialFulfillmentWithMultipleVCs,
@@ -1792,7 +1793,7 @@ func TestOperation_ResolveCredentialManifest(t *testing.T) {
 	})
 
 	t.Run("resolve credential manifest failure", func(t *testing.T) {
-		request := &vcwallet.ResolveCredentialManifestRequest{
+		request := &didcommwallet.ResolveCredentialManifestRequest{
 			WalletAuth: vcwallet.WalletAuth{UserID: sampleUser1, Auth: token},
 			Manifest:   testdata.CredentialManifestMultipleVCs,
 			Credential: testdata.SampleUDCVC,
