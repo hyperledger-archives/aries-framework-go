@@ -263,6 +263,7 @@ func ParseDocumentResolution(data []byte) (*DocResolution, error) {
 type Doc struct {
 	Context              []string
 	ID                   string
+	AlsoKnownAs          []string
 	VerificationMethod   []VerificationMethod
 	Service              []Service
 	Authentication       []Verification
@@ -428,6 +429,7 @@ func NewReferencedVerification(vm *VerificationMethod, r VerificationRelationshi
 type rawDoc struct {
 	Context              interface{}              `json:"@context,omitempty"`
 	ID                   string                   `json:"id,omitempty"`
+	AlsoKnownAs          []interface{}            `json:"alsoKnownAs,omitempty"`
 	VerificationMethod   []map[string]interface{} `json:"verificationMethod,omitempty"`
 	PublicKey            []map[string]interface{} `json:"publicKey,omitempty"`
 	Service              []map[string]interface{} `json:"service,omitempty"`
@@ -489,9 +491,10 @@ func ParseDocument(data []byte) (*Doc, error) {
 	}
 
 	doc := &Doc{
-		ID:      raw.ID,
-		Created: raw.Created,
-		Updated: raw.Updated,
+		ID:          raw.ID,
+		AlsoKnownAs: stringArray(raw.AlsoKnownAs),
+		Created:     raw.Created,
+		Updated:     raw.Updated,
 	}
 
 	context, baseURI := parseContext(raw.Context)
@@ -1114,6 +1117,8 @@ func (doc *Doc) JSONBytes() ([]byte, error) {
 		context = doc.Context[0]
 	}
 
+	aka := populateRawAlsoKnownAs(doc.AlsoKnownAs)
+
 	vm, err := populateRawVM(context, doc.ID, doc.processingMeta.baseURI, doc.VerificationMethod)
 	if err != nil {
 		return nil, fmt.Errorf("JSON unmarshalling of Verification Method failed: %w", err)
@@ -1148,7 +1153,7 @@ func (doc *Doc) JSONBytes() ([]byte, error) {
 	}
 
 	raw := &rawDoc{
-		Context: doc.Context, ID: doc.ID, VerificationMethod: vm,
+		Context: doc.Context, ID: doc.ID, AlsoKnownAs: aka, VerificationMethod: vm,
 		Authentication: auths, AssertionMethod: assertionMethods, CapabilityDelegation: capabilityDelegations,
 		CapabilityInvocation: capabilityInvocations, KeyAgreement: keyAgreements,
 		Service: populateRawServices(doc.Service, doc.ID, doc.processingMeta.baseURI), Created: doc.Created,
@@ -1393,6 +1398,16 @@ func populateRawServices(services []Service, didID, baseURI string) []map[string
 	}
 
 	return rawServices
+}
+
+func populateRawAlsoKnownAs(aka []string) []interface{} {
+	rawAka := make([]interface{}, len(aka))
+
+	for i, v := range aka {
+		rawAka[i] = v
+	}
+
+	return rawAka
 }
 
 func populateRawVM(context, didID, baseURI string, pks []VerificationMethod) ([]map[string]interface{}, error) {

@@ -44,6 +44,14 @@ const (
     "id": {
       "type": "string"
     },
+    "alsoKnownAs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uri"
+      },
+      "uniqueItems": true
+    },
     "publicKey": {
       "type": "array",
       "items": {
@@ -218,6 +226,14 @@ const (
     },
     "id": {
       "type": "string"
+    },
+    "alsoKnownAs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uri"
+      },
+      "uniqueItems": true
     },
     "publicKey": {
       "type": "array",
@@ -405,6 +421,14 @@ const (
     },
     "id": {
       "type": "string"
+    },
+    "alsoKnownAs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uri"
+      },
+      "uniqueItems": true
     },
     "publicKey": {
       "type": "array",
