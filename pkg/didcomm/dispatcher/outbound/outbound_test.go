@@ -206,29 +206,6 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 		}))
 	})
 
-	t.Run("test send with forward message - create key failure", func(t *testing.T) {
-		o, err := NewOutbound(&mockProvider{
-			packagerValue:           &mockpackager.Packager{PackValue: createPackedMsgForForward(t)},
-			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}},
-			kms: &mockkms.KeyManager{
-				CrAndExportPubKeyErr: errors.New("create and export key error"),
-			},
-			storageProvider:      mockstore.NewMockStoreProvider(),
-			protoStorageProvider: mockstore.NewMockStoreProvider(),
-			mediaTypeProfiles:    []string{transport.MediaTypeAIP2RFC0019Profile},
-		})
-		require.NoError(t, err)
-
-		err = o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{
-			ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
-				{URI: "url", RoutingKeys: []string{"xyz"}},
-			}),
-			RecipientKeys: []string{"abc"},
-		})
-		require.EqualError(t, err, "outboundDispatcher.Send: failed to create forward msg: failed Create "+
-			"and export Encryption Key: create and export key error")
-	})
-
 	t.Run("test send with forward message - packer error", func(t *testing.T) {
 		o, err := NewOutbound(&mockProvider{
 			packagerValue:           &mockpackager.Packager{PackErr: errors.New("pack error")},
@@ -723,7 +700,7 @@ func TestOutboundDispatcher_Forward(t *testing.T) {
 }
 
 func createPackedMsgForForward(_ *testing.T) []byte {
-	return []byte("{}")
+	return []byte("")
 }
 
 // mockProvider mock provider.

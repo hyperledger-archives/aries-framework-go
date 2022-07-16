@@ -66,7 +66,7 @@ type Dispatcher struct {
 }
 
 // legacyForward is DIDComm V1 route Forward msg as declared in
-// https://github.com/hyperledger/aries-rfcs/blob/main/concepts/0094-cross-domain-messaging/README.md#corerouting10forward
+// https://github.com/hyperledger/aries-rfcs/blob/main/concepts/0094-cross-domain-messaging/README.md
 type legacyForward struct {
 	Type string          `json:"@type,omitempty"`
 	ID   string          `json:"@id,omitempty"`
