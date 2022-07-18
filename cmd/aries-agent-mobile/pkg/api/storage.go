@@ -112,6 +112,13 @@ type Iterator interface {
 	// aries-framework-go/spi/storage/Tag.
 	Tags() ([]byte, error)
 
+	// TotalItems returns a count of the number of entries (key + value + tags triplets) matched by the query
+	// that generated this Iterator. This count is not affected by the page settings used (i.e. the count is of all
+	// results as if you queried starting from the first page and with an unlimited page size).
+	// Depending on the storage implementation, you may need to ensure that the TagName used in the query is in the
+	// Store's StoreConfiguration before trying to call this method (or it may be optional, but recommended).
+	TotalItems() (int, error)
+
 	// Close closes this iterator object, freeing resources.
 	Close() error
 }
