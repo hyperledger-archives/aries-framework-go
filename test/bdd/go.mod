@@ -74,6 +74,7 @@ require (
 	github.com/sirupsen/logrus v1.7.0 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/square/go-jose/v3 v3.0.0-20200630053402-0a67ce9b0693 // indirect
+	github.com/stretchr/objx v0.4.0 // indirect
 	github.com/stretchr/testify v1.7.2 // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
 	github.com/tidwall/gjson v1.6.7 // indirect

@@ -24,7 +24,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
@@ -64,6 +63,15 @@ type Dispatcher struct {
 	connections          connectionRecorder
 	mediaTypeProfiles    []string
 	didcommV2Handler     *middleware.DIDCommMessageMiddleware
+}
+
+// legacyForward is DIDComm V1 route Forward msg as declared in
+// https://github.com/hyperledger/aries-rfcs/blob/main/concepts/0094-cross-domain-messaging/README.md
+type legacyForward struct {
+	Type string          `json:"@type,omitempty"`
+	ID   string          `json:"@id,omitempty"`
+	To   string          `json:"to,omitempty"`
+	Msg  *model.Envelope `json:"msg,omitempty"`
 }
 
 var logger = log.New("aries-framework/didcomm/dispatcher")
@@ -340,15 +348,12 @@ func (o *Dispatcher) Forward(msg interface{}, des *service.Destination) error {
 	return fmt.Errorf("outboundDispatcher.Forward: no transport found for serviceEndpoint: %s", uri)
 }
 
-//nolint:funlen
 func (o *Dispatcher) createForwardMessage(msg []byte, des *service.Destination) ([]byte, error) {
-	forwardMsgType := service.ForwardMsgType
-
 	mtProfile := o.mediaTypeProfile(des)
 
 	var (
-		senderKey []byte
-		err       error
+		forwardMsgType string
+		err            error
 	)
 
 	switch mtProfile {
@@ -356,16 +361,8 @@ func (o *Dispatcher) createForwardMessage(msg []byte, des *service.Destination) 
 		transport.MediaTypeAIP2RFC0587Profile, transport.MediaTypeV2PlaintextPayload, transport.MediaTypeDIDCommV2Profile:
 		// for DIDComm V2, do not set senderKey to force Anoncrypt packing. Only set the V2 forwardMsgType.
 		forwardMsgType = service.ForwardMsgTypeV2
-	default: // default is DIDComm V1, create a dummy key as senderKey
-		// create key set
-		_, senderKey, err = o.kms.CreateAndExportPubKeyBytes(kms.ED25519Type)
-		if err != nil {
-			return nil, fmt.Errorf("failed Create and export Encryption Key: %w", err)
-		}
-
-		senderDIDKey, _ := fingerprint.CreateDIDKey(senderKey)
-
-		senderKey = []byte(senderDIDKey)
+	default: // default is DIDComm V1
+		forwardMsgType = service.ForwardMsgType
 	}
 
 	routingKeys, err := des.ServiceEndpoint.RoutingKeys()
@@ -382,26 +379,74 @@ func (o *Dispatcher) createForwardMessage(msg []byte, des *service.Destination) 
 		routingKeys = des.RoutingKeys
 	}
 
-	// create forward message
-	forward := &model.Forward{
-		Type: forwardMsgType,
-		ID:   uuid.New().String(),
-		To:   des.RecipientKeys[0],
-		Msg:  msg,
+	fwdKeys := append([]string{des.RecipientKeys[0]}, routingKeys...)
+
+	packedMsg, err := o.createPackedNestedForwards(msg, fwdKeys, forwardMsgType, mtProfile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create packed nested forwards: %w", err)
 	}
 
+	return packedMsg, nil
+}
+
+func (o *Dispatcher) createPackedNestedForwards(msg []byte, routingKeys []string, fwdMsgType, mtProfile string) ([]byte, error) { //nolint: lll
+	for i, key := range routingKeys {
+		if i+1 >= len(routingKeys) {
+			break
+		}
+		// create forward message
+		forward := model.Forward{
+			Type: fwdMsgType,
+			ID:   uuid.New().String(),
+			To:   key,
+			Msg:  msg,
+		}
+
+		var err error
+
+		msg, err = o.packForward(forward, []string{routingKeys[i+1]}, mtProfile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to pack forward msg: %w", err)
+		}
+	}
+
+	return msg, nil
+}
+
+func (o *Dispatcher) packForward(fwd model.Forward, toKeys []string, mtProfile string) ([]byte, error) {
+	env := &model.Envelope{}
+
+	var (
+		forward interface{}
+		err     error
+		req     []byte
+	)
+	// try to convert msg to Envelope
+	err = json.Unmarshal(fwd.Msg, env)
+	if err == nil {
+		forward = legacyForward{
+			Type: fwd.Type,
+			ID:   fwd.ID,
+			To:   fwd.To,
+			Msg:  env,
+		}
+	} else {
+		forward = fwd
+	}
 	// convert forward message to bytes
-	req, err := json.Marshal(forward)
+	req, err = json.Marshal(forward)
 	if err != nil {
 		return nil, fmt.Errorf("failed marshal to bytes: %w", err)
 	}
 
-	packedMsg, err := o.packager.PackMessage(&transport.Envelope{
+	var packedMsg []byte
+	packedMsg, err = o.packager.PackMessage(&transport.Envelope{
 		MediaTypeProfile: mtProfile,
 		Message:          req,
-		FromKey:          senderKey,
-		ToKeys:           routingKeys,
+		FromKey:          []byte{},
+		ToKeys:           toKeys,
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to pack forward msg: %w", err)
 	}

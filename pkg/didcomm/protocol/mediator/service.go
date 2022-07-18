@@ -22,6 +22,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/messagepickup"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/kmsdidkey"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
@@ -391,31 +392,29 @@ func (s *Service) handleInboundRequest(c *callback) error {
 		c.msg.ID(),
 		c.options,
 		s.endpoint,
-		func() ([]string, error) {
-			if len(s.mediaTypeProfiles) > 0 {
-				_, pubKeyBytes, e := s.kms.CreateAndExportPubKeyBytes(s.keyAgreementType)
-				if e != nil {
-					return nil, fmt.Errorf("outboundGrant from handleInboundRequest: kms failed to create "+
-						"and export %v key: %w", s.keyAgreementType, e)
+		func() (string, error) {
+			for _, mtp := range s.mediaTypeProfiles {
+				switch mtp {
+				case transport.MediaTypeDIDCommV2Profile, transport.MediaTypeAIP2RFC0587Profile:
+					_, pubKeyBytes, e := s.kms.CreateAndExportPubKeyBytes(s.keyAgreementType)
+					if e != nil {
+						return "", fmt.Errorf("outboundGrant from handleInboundRequest: kms failed to create "+
+							"and export %v key: %w", s.keyAgreementType, e)
+					}
+
+					return kmsdidkey.BuildDIDKeyByKeyType(pubKeyBytes, s.keyAgreementType)
 				}
-
-				didCommV2Key, errBuild := kmsdidkey.BuildDIDKeyByKeyType(pubKeyBytes, s.keyAgreementType)
-				if errBuild != nil {
-					return nil, errBuild
-				}
-
-				_, pubKeyBytes, er := s.kms.CreateAndExportPubKeyBytes(kms.ED25519Type)
-				if er != nil {
-					return nil, fmt.Errorf("outboundGrant from handleInboundRequest: kms failed to create and "+
-						"export ED25519 key: %w", er)
-				}
-
-				didKey, _ := fingerprint.CreateDIDKey(pubKeyBytes)
-
-				return []string{didKey, didCommV2Key}, nil
 			}
 
-			return nil, nil
+			_, pubKeyBytes, er := s.kms.CreateAndExportPubKeyBytes(kms.ED25519Type)
+			if er != nil {
+				return "", fmt.Errorf("outboundGrant from handleInboundRequest: kms failed to create and "+
+					"export ED25519 key: %w", er)
+			}
+
+			didKey, _ := fingerprint.CreateDIDKey(pubKeyBytes)
+
+			return didKey, er
 		},
 	)
 	if err != nil {
@@ -427,7 +426,7 @@ func (s *Service) handleInboundRequest(c *callback) error {
 
 func outboundGrant(
 	msgID string, opts *Options,
-	defaultEndpoint string, defaultKey func() ([]string, error)) (*Grant, error) {
+	defaultEndpoint string, defaultKey func() (string, error)) (*Grant, error) {
 	grant := &Grant{
 		ID:          msgID,
 		Type:        GrantMsgType,
@@ -445,7 +444,7 @@ func outboundGrant(
 			return nil, fmt.Errorf("outboundGrant: failed to create keys : %w", err)
 		}
 
-		grant.RoutingKeys = keys
+		grant.RoutingKeys = []string{keys}
 	}
 
 	logger.Debugf("outbound grant: %+v", grant)

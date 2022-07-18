@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/model"
@@ -44,6 +45,38 @@ func TestNewOutbound(t *testing.T) {
 			mediaTypeProfiles: []string{transport.MediaTypeDIDCommV2Profile},
 		})
 		require.ErrorIs(t, err, expected)
+	})
+}
+
+func TestOutBoundDispatcher_createPackedNestedForwards(t *testing.T) {
+	t.Run("test send with nested forward message - success", func(t *testing.T) {
+		data := "data"
+		recKey1 := "recKey1"
+		rtKey1 := "rtKey1"
+		rtKey2 := "rtKey2"
+		packager := &mockPackager{}
+		expectedRequest := `{"protected":"","iv":"","ciphertext":"","tag":""}`
+
+		o, err := NewOutbound(&mockProvider{
+			packagerValue:           packager,
+			outboundTransportsValue: []transport.OutboundTransport{&mockOutboundTransport{expectedRequest: expectedRequest}},
+			storageProvider:         mockstore.NewMockStoreProvider(),
+			protoStorageProvider:    mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:       []string{transport.MediaTypeDIDCommV2Profile},
+		})
+		require.NoError(t, err)
+
+		packager.On("PackMessage", []string{recKey1}).Return([]byte(expectedRequest))
+		packager.On("PackMessage", []string{rtKey1}).Return([]byte(expectedRequest))
+		packager.On("PackMessage", []string{rtKey2}).Return([]byte(expectedRequest))
+
+		require.NoError(t, o.Send(data, "", &service.Destination{
+			ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
+				{URI: "url", RoutingKeys: []string{rtKey1, rtKey2}},
+			}),
+			RecipientKeys: []string{recKey1},
+		}))
+		packager.AssertExpectations(t)
 	})
 }
 
@@ -171,29 +204,6 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 			}),
 			RecipientKeys: []string{"abc"},
 		}))
-	})
-
-	t.Run("test send with forward message - create key failure", func(t *testing.T) {
-		o, err := NewOutbound(&mockProvider{
-			packagerValue:           &mockpackager.Packager{PackValue: createPackedMsgForForward(t)},
-			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}},
-			kms: &mockkms.KeyManager{
-				CrAndExportPubKeyErr: errors.New("create and export key error"),
-			},
-			storageProvider:      mockstore.NewMockStoreProvider(),
-			protoStorageProvider: mockstore.NewMockStoreProvider(),
-			mediaTypeProfiles:    []string{transport.MediaTypeAIP2RFC0019Profile},
-		})
-		require.NoError(t, err)
-
-		err = o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{
-			ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
-				{URI: "url", RoutingKeys: []string{"xyz"}},
-			}),
-			RecipientKeys: []string{"abc"},
-		})
-		require.EqualError(t, err, "outboundDispatcher.Send: failed to create forward msg: failed Create "+
-			"and export Encryption Key: create and export key error")
 	})
 
 	t.Run("test send with forward message - packer error", func(t *testing.T) {
@@ -778,9 +788,21 @@ func (o *mockOutboundTransport) Accept(url string) bool {
 }
 
 // mockPackager mock packager.
-type mockPackager struct{}
+type mockPackager struct {
+	mock.Mock
+}
 
 func (m *mockPackager) PackMessage(e *transport.Envelope) ([]byte, error) {
+	if len(m.ExpectedCalls) > 0 {
+		args := m.Called(e.ToKeys)
+		switch v := args.Get(0).(type) {
+		case []byte:
+			return v, nil
+		default:
+			return e.Message, nil
+		}
+	}
+
 	return e.Message, nil
 }
 
