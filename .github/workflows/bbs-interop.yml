@@ -50,7 +50,7 @@ jobs:
       timeout-minutes: 10
       run: npm install -g mocha
 
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - name: Run test suite
       timeout-minutes: 10

@@ -25,7 +25,7 @@ jobs:
         go-version: 1.17
       id: go
 
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - name: Skip tests that require Docker on macOS (issue-2183)
       if: matrix.os == 'macOS-10.15'
@@ -55,7 +55,7 @@ jobs:
           go-version: 1.17
         id: go
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Run unit test (Ursa/CL)
         timeout-minutes: 15
@@ -73,7 +73,7 @@ jobs:
           go-version: 1.17
         id: go
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Run unit test
         timeout-minutes: 15
@@ -91,7 +91,7 @@ jobs:
           go-version: 1.17
         id: go
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Run unit test wasm
         timeout-minutes: 10
@@ -115,7 +115,7 @@ jobs:
           node-version: 12.14.x
           registry-url: "https://npm.pkg.github.com"
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Run BDD test
         timeout-minutes: 45
@@ -131,7 +131,7 @@ jobs:
     name: repolint
     runs-on: ubuntu-18.04
     steps:
-      - uses: actions/checkout@v1.0.0
+      - uses: actions/checkout@v3
       - name: repolinter
         uses: philips-labs/github-action-repolinter@v1.0.0
         env:
@@ -147,7 +147,7 @@ jobs:
         with:
           go-version: 1.17
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Run checks
         timeout-minutes: 10
@@ -172,7 +172,7 @@ jobs:
           node-version: 12.14.x
           registry-url: "https://npm.pkg.github.com"
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Publish docker images
         run: |
