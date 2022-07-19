@@ -14,8 +14,10 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	docjsonld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
+	jsonutil "github.com/hyperledger/aries-framework-go/pkg/doc/util/json"
 )
 
 const basePresentationSchema = `
@@ -315,7 +317,7 @@ func (rp *rawPresentation) MarshalJSON() ([]byte, error) {
 
 	alias := (*Alias)(rp)
 
-	return marshalWithCustomFields(alias, rp.CustomFields)
+	return jsonutil.MarshalWithCustomFields(alias, rp.CustomFields)
 }
 
 // UnmarshalJSON defines custom unmarshalling of rawPresentation from JSON.
@@ -325,7 +327,7 @@ func (rp *rawPresentation) UnmarshalJSON(data []byte) error {
 	alias := (*Alias)(rp)
 	rp.CustomFields = make(CustomFields)
 
-	err := unmarshalWithCustomFields(data, alias, rp.CustomFields)
+	err := jsonutil.UnmarshalWithCustomFields(data, alias, rp.CustomFields)
 	if err != nil {
 		return err
 	}
@@ -536,7 +538,11 @@ func validateVP(data []byte, opts *presentationOpts) error {
 }
 
 func validateVPJSONLD(vpBytes []byte, opts *presentationOpts) error {
-	return compactJSONLD(string(vpBytes), &opts.jsonldCredentialOpts, opts.strictValidation)
+	return docjsonld.ValidateJSONLD(string(vpBytes),
+		docjsonld.WithDocumentLoader(opts.jsonldCredentialOpts.jsonldDocumentLoader),
+		docjsonld.WithExternalContext(opts.jsonldCredentialOpts.externalContext),
+		docjsonld.WithStrictValidation(opts.strictValidation),
+	)
 }
 
 func validateVPJSONSchema(data []byte) error {

@@ -16,7 +16,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/anoncrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/authcrypt"
-	legacy "github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/legacy/authcrypt"
+	legacyAnonCrypt "github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/legacy/anoncrypt"
+	legacyAuthCrypt "github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/legacy/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
@@ -244,13 +245,17 @@ func setAdditionalDefaultOpts(frameworkOpts *Aries) error {
 
 	if frameworkOpts.packerCreator == nil {
 		frameworkOpts.packerCreator = func(provider packer.Provider) (packer.Packer, error) {
-			return legacy.New(provider), nil
+			return legacyAuthCrypt.New(provider), nil
 		}
 
 		frameworkOpts.packerCreators = []packer.Creator{
 			func(provider packer.Provider) (packer.Packer, error) {
-				return legacy.New(provider), nil
+				return legacyAuthCrypt.New(provider), nil
 			},
+			func(provider packer.Provider) (packer.Packer, error) {
+				return legacyAnonCrypt.New(provider), nil
+			},
+
 			func(provider packer.Provider) (packer.Packer, error) {
 				return authcrypt.New(provider, jose.A256CBCHS512)
 			},

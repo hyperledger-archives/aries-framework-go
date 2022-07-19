@@ -56,7 +56,7 @@ func TestOutOfBandV2_CreateInvitation(t *testing.T) {
 
 		mockResponse := `{"invitation":{"@id":"2429a5d3-c500-4647-9bb5-e34207bce406",
 "@type":"https://didcomm.org/out-of-band/2.0/invitation","label":"label","body":{
-"goal":"goal","goal-code":"goal_code","accept":["didcomm/v2"]}}}
+"goal":"goal","goal_code":"goal_code","accept":["didcomm/v2"]}}}
 `
 		fakeHandler := mockCommandRunner{data: []byte(mockResponse)}
 		controller.handlers[outofbandv2.CreateInvitation] = fakeHandler.exec

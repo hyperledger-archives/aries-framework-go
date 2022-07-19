@@ -1,3 +1,4 @@
+//go:build ACAPyInterop
 // +build ACAPyInterop
 
 /*
@@ -14,6 +15,7 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
@@ -34,19 +36,19 @@ func CreateDestination(didDoc *diddoc.Doc) (*Destination, error) {
 			return nil, fmt.Errorf("create destination: missing DID doc service")
 		}
 	}
-
-	if didCommService.ServiceEndpoint == "" {
-		return nil, fmt.Errorf("create destination: no service endpoint on didcomm service block in diddoc: %+v", didDoc)
+	uri, err := didCommService.ServiceEndpoint.URI()
+	if uri == "" || err != nil {
+		return nil, fmt.Errorf("create destination: no service endpoint on didcomm service block in diddoc: %#v", didDoc)
 	}
 
 	if len(didCommService.RecipientKeys) == 0 {
-		return nil, fmt.Errorf("create destination: no recipient keys on didcomm service block in diddoc: %+v", didDoc)
+		return nil, fmt.Errorf("create destination: no recipient keys on didcomm service block in diddoc: %#v", didDoc)
 	}
 
 	// Interop: service keys that are raw base58 public keys should be converted to did:key format
 	return &Destination{
 		RecipientKeys:     convertAnyB58Keys(didCommService.RecipientKeys),
-		ServiceEndpoint:   didCommService.ServiceEndpoint,
+		ServiceEndpoint:   model.NewDIDCommV1Endpoint(uri),
 		RoutingKeys:       convertAnyB58Keys(didCommService.RoutingKeys),
 		MediaTypeProfiles: didCommService.Accept,
 	}, nil

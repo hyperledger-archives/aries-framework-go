@@ -41,7 +41,7 @@ type KeyManager interface {
 	// Returns:
 	//  - marshalled public key []byte
 	//  - error if it fails to export the public key bytes
-	ExportPubKeyBytes(keyID string) ([]byte, error)
+	ExportPubKeyBytes(keyID string) ([]byte, KeyType, error)
 	// CreateAndExportPubKeyBytes will create a key of type kt and export its public key in raw bytes and returns it.
 	// The key must be an asymmetric key.
 	// Returns:

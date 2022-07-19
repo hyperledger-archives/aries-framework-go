@@ -36,8 +36,8 @@ func TestBaseConnectionStore(t *testing.T) {
 	prov := ctx{
 		store: mockstorage.NewMockStoreProvider(),
 		vdr: &mockvdr.MockVDRegistry{
-			CreateValue:  mockdiddoc.GetMockDIDDoc(t),
-			ResolveValue: mockdiddoc.GetMockDIDDoc(t),
+			CreateValue:  mockdiddoc.GetMockDIDDoc(t, false),
+			ResolveValue: mockdiddoc.GetMockDIDDoc(t, false),
 		},
 	}
 
@@ -63,8 +63,8 @@ func TestBaseConnectionStore(t *testing.T) {
 				},
 			},
 			vdr: &mockvdr.MockVDRegistry{
-				CreateValue:  mockdiddoc.GetMockDIDDoc(t),
-				ResolveValue: mockdiddoc.GetMockDIDDoc(t),
+				CreateValue:  mockdiddoc.GetMockDIDDoc(t, false),
+				ResolveValue: mockdiddoc.GetMockDIDDoc(t, false),
 			},
 		})
 		require.NoError(t, err)
@@ -123,7 +123,7 @@ func TestBaseConnectionStore(t *testing.T) {
 		cs, err := NewConnectionStore(&prov)
 		require.NoError(t, err)
 
-		err = cs.SaveDIDByResolving(mockdiddoc.GetMockDIDDoc(t).ID)
+		err = cs.SaveDIDByResolving(mockdiddoc.GetMockDIDDoc(t, false).ID)
 		require.NoError(t, err)
 	})
 

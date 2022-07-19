@@ -32,6 +32,9 @@ import (
 //go:embed testdata/valid_credential.jsonld
 var validCredential string //nolint:gochecknoglobals
 
+//go:embed testdata/credential_without_issuancedate.jsonld
+var credentialWithoutIssuanceDate string //nolint:gochecknoglobals
+
 func (rc *rawCredential) stringJSON(t *testing.T) string {
 	bytes, err := json.Marshal(rc)
 	require.NoError(t, err)

@@ -18,10 +18,14 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/multiformats/go-multibase"
 	"github.com/xeipuuv/gojsonschema"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
+	sigproof "github.com/hyperledger/aries-framework-go/pkg/doc/signature/proof"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 )
 
@@ -51,16 +55,18 @@ const (
 	jsonldProofPurpose   = "proofPurpose"
 
 	// various public key encodings.
-	jsonldPublicKeyBase58 = "publicKeyBase58"
-	jsonldPublicKeyHex    = "publicKeyHex"
-	jsonldPublicKeyPem    = "publicKeyPem"
-	jsonldPublicKeyjwk    = "publicKeyJwk"
+	jsonldPublicKeyBase58    = "publicKeyBase58"
+	jsonldPublicKeyMultibase = "publicKeyMultibase"
+	jsonldPublicKeyHex       = "publicKeyHex"
+	jsonldPublicKeyPem       = "publicKeyPem"
+	jsonldPublicKeyjwk       = "publicKeyJwk"
 )
 
 var (
 	schemaLoaderV1     = gojsonschema.NewStringLoader(schemaV1)     //nolint:gochecknoglobals
 	schemaLoaderV011   = gojsonschema.NewStringLoader(schemaV011)   //nolint:gochecknoglobals
 	schemaLoaderV12019 = gojsonschema.NewStringLoader(schemaV12019) //nolint:gochecknoglobals
+	logger             = log.New("aries-framework/doc/did")         //nolint:gochecknoglobals
 )
 
 // ErrDIDDocumentNotExist error did doc not exist.
@@ -178,15 +184,15 @@ type MethodMetadata struct {
 	// AnchorOrigin is anchor origin.
 	AnchorOrigin string `json:"anchorOrigin,omitempty"`
 	// UnpublishedOperations unpublished operations
-	UnpublishedOperations []*Operations `json:"unpublishedOperations,omitempty"`
+	UnpublishedOperations []*ProtocolOperation `json:"unpublishedOperations,omitempty"`
 	// PublishedOperations published operations
-	PublishedOperations []*Operations `json:"publishedOperations,omitempty"`
+	PublishedOperations []*ProtocolOperation `json:"publishedOperations,omitempty"`
 }
 
-// Operations info.
-type Operations struct {
-	// OperationRequest is operation request.
-	OperationRequest string `json:"operationRequest,omitempty"`
+// ProtocolOperation info.
+type ProtocolOperation struct {
+	// Operation is operation request.
+	Operation string `json:"operation,omitempty"`
 	// ProtocolVersion is protocol version.
 	ProtocolVersion int `json:"protocolVersion,omitempty"`
 	// TransactionNumber is transaction number.
@@ -205,6 +211,8 @@ type Operations struct {
 
 // DocumentMetadata document metadata.
 type DocumentMetadata struct {
+	// VersionID is version ID key.
+	VersionID string `json:"versionId,omitempty"`
 	// Deactivated is deactivated flag key.
 	Deactivated bool `json:"deactivated,omitempty"`
 	// CanonicalID is canonical ID key.
@@ -255,6 +263,7 @@ func ParseDocumentResolution(data []byte) (*DocResolution, error) {
 type Doc struct {
 	Context              []string
 	ID                   string
+	AlsoKnownAs          []string
 	VerificationMethod   []VerificationMethod
 	Service              []Service
 	Authentication       []Verification
@@ -283,8 +292,28 @@ type VerificationMethod struct {
 
 	Value []byte
 
-	jsonWebKey  *jwk.JWK
-	relativeURL bool
+	jsonWebKey        *jwk.JWK
+	relativeURL       bool
+	multibaseEncoding multibase.Encoding
+}
+
+// NewVerificationMethodFromBytesWithMultibase creates a new VerificationMethod based on
+// raw public key bytes with multibase.
+func NewVerificationMethodFromBytesWithMultibase(id, keyType, controller string, value []byte,
+	encoding multibase.Encoding) *VerificationMethod {
+	relativeURL := false
+	if strings.HasPrefix(id, "#") {
+		relativeURL = true
+	}
+
+	return &VerificationMethod{
+		ID:                id,
+		Type:              keyType,
+		Controller:        controller,
+		Value:             value,
+		relativeURL:       relativeURL,
+		multibaseEncoding: encoding,
+	}
 }
 
 // NewVerificationMethodFromBytes creates a new VerificationMethod based on raw public key bytes.
@@ -292,6 +321,10 @@ func NewVerificationMethodFromBytes(id, keyType, controller string, value []byte
 	relativeURL := false
 	if strings.HasPrefix(id, "#") {
 		relativeURL = true
+	}
+
+	if keyType == "Ed25519VerificationKey2020" {
+		return NewVerificationMethodFromBytesWithMultibase(id, keyType, controller, value, multibase.Base58BTC)
 	}
 
 	return &VerificationMethod{
@@ -337,7 +370,7 @@ type Service struct {
 	Priority                 uint                   `json:"priority,omitempty"`
 	RecipientKeys            []string               `json:"recipientKeys,omitempty"`
 	RoutingKeys              []string               `json:"routingKeys,omitempty"`
-	ServiceEndpoint          string                 `json:"serviceEndpoint"`
+	ServiceEndpoint          model.Endpoint         `json:"serviceEndpoint"`
 	Accept                   []string               `json:"accept,omitempty"`
 	Properties               map[string]interface{} `json:"properties,omitempty"`
 	recipientKeysRelativeURL map[string]bool
@@ -396,6 +429,7 @@ func NewReferencedVerification(vm *VerificationMethod, r VerificationRelationshi
 type rawDoc struct {
 	Context              interface{}              `json:"@context,omitempty"`
 	ID                   string                   `json:"id,omitempty"`
+	AlsoKnownAs          []interface{}            `json:"alsoKnownAs,omitempty"`
 	VerificationMethod   []map[string]interface{} `json:"verificationMethod,omitempty"`
 	PublicKey            []map[string]interface{} `json:"publicKey,omitempty"`
 	Service              []map[string]interface{} `json:"service,omitempty"`
@@ -457,9 +491,10 @@ func ParseDocument(data []byte) (*Doc, error) {
 	}
 
 	doc := &Doc{
-		ID:      raw.ID,
-		Created: raw.Created,
-		Updated: raw.Updated,
+		ID:          raw.ID,
+		AlsoKnownAs: stringArray(raw.AlsoKnownAs),
+		Created:     raw.Created,
+		Updated:     raw.Updated,
 	}
 
 	context, baseURI := parseContext(raw.Context)
@@ -570,9 +605,9 @@ func populateProofs(context, didID, baseURI string, rawProofs []interface{}) ([]
 			proofKey = jsonldSignatureValue
 		}
 
-		proofValue, err := base64.RawURLEncoding.DecodeString(stringEntry(emap[proofKey]))
+		proofValue, err := sigproof.DecodeProofValue(stringEntry(emap[proofKey]), stringEntry(emap[jsonldType]))
 		if err != nil {
-			return nil, err
+			return nil, errors.New("unsupported encoding")
 		}
 
 		nonce, err := base64.RawURLEncoding.DecodeString(stringEntry(emap[jsonldNonce]))
@@ -606,13 +641,14 @@ func populateProofs(context, didID, baseURI string, rawProofs []interface{}) ([]
 	return proofs, nil
 }
 
+//nolint:funlen,gocyclo
 func populateServices(didID, baseURI string, rawServices []map[string]interface{}) []Service {
 	services := make([]Service, 0, len(rawServices))
 
 	for _, rawService := range rawServices {
 		id := stringEntry(rawService[jsonldID])
 		recipientKeys := stringArray(rawService[jsonldRecipientKeys])
-		routingKeys := stringArray(rawService[jsonldRoutingKeys])
+		routingKeys := stringArray(rawService[jsonldRoutingKeys]) // routingkeys here for DIDComm V1 only.
 
 		var recipientKeysRelativeURL map[string]bool
 
@@ -633,10 +669,36 @@ func populateServices(didID, baseURI string, rawServices []map[string]interface{
 			routingKeys, routingKeysRelativeURL = populateKeys(routingKeys, didID, baseURI)
 		}
 
+		var sp model.Endpoint
+
+		//nolint:nestif
+		if epEntry, ok := rawService[jsonldServicePoint]; ok {
+			uriStr, ok := epEntry.(string)
+			// for now handling DIDComm V1 or V2 only.
+			if ok { // DIDComm V1 format.
+				sp = model.NewDIDCommV1Endpoint(uriStr)
+			} else if epEntry != nil { // DIDComm V2 format (first valid entry for now).
+				entries, ok := epEntry.([]interface{})
+				if ok && len(entries) > 0 {
+					firstEntry, ok := entries[0].(map[string]interface{})
+					if ok {
+						epURI := stringEntry(firstEntry["uri"])
+						epAccept := stringArray(firstEntry["accept"])
+						epRoutingKeys := stringArray(firstEntry["routingKeys"])
+						sp = model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
+							{URI: epURI, Accept: epAccept, RoutingKeys: epRoutingKeys},
+						})
+					}
+				}
+			}
+		}
+
 		service := Service{
 			ID: id, Type: stringEntry(rawService[jsonldType]), relativeURL: isRelative,
-			ServiceEndpoint: stringEntry(rawService[jsonldServicePoint]), RecipientKeys: recipientKeys,
-			RoutingKeys: routingKeys, Priority: uintEntry(rawService[jsonldPriority]),
+			ServiceEndpoint:          sp,
+			RecipientKeys:            recipientKeys,
+			Priority:                 uintEntry(rawService[jsonldPriority]),
+			RoutingKeys:              routingKeys,
 			recipientKeysRelativeURL: recipientKeysRelativeURL, routingKeysRelativeURL: routingKeysRelativeURL,
 		}
 
@@ -825,6 +887,18 @@ func decodeVM(vm *VerificationMethod, rawPK map[string]interface{}) error {
 		return nil
 	}
 
+	if stringEntry(rawPK[jsonldPublicKeyMultibase]) != "" {
+		multibaseEncoding, value, err := multibase.Decode(stringEntry(rawPK[jsonldPublicKeyMultibase]))
+		if err != nil {
+			return err
+		}
+
+		vm.Value = value
+		vm.multibaseEncoding = multibaseEncoding
+
+		return nil
+	}
+
 	if stringEntry(rawPK[jsonldPublicKeyHex]) != "" {
 		value, err := hex.DecodeString(stringEntry(rawPK[jsonldPublicKeyHex]))
 		if err != nil {
@@ -958,7 +1032,11 @@ func stringEntry(entry interface{}) string {
 		return ""
 	}
 
-	return entry.(string)
+	if e, ok := entry.(string); ok {
+		return e
+	}
+
+	return ""
 }
 
 // uintEntry.
@@ -1039,6 +1117,8 @@ func (doc *Doc) JSONBytes() ([]byte, error) {
 		context = doc.Context[0]
 	}
 
+	aka := populateRawAlsoKnownAs(doc.AlsoKnownAs)
+
 	vm, err := populateRawVM(context, doc.ID, doc.processingMeta.baseURI, doc.VerificationMethod)
 	if err != nil {
 		return nil, fmt.Errorf("JSON unmarshalling of Verification Method failed: %w", err)
@@ -1073,7 +1153,7 @@ func (doc *Doc) JSONBytes() ([]byte, error) {
 	}
 
 	raw := &rawDoc{
-		Context: doc.Context, ID: doc.ID, VerificationMethod: vm,
+		Context: doc.Context, ID: doc.ID, AlsoKnownAs: aka, VerificationMethod: vm,
 		Authentication: auths, AssertionMethod: assertionMethods, CapabilityDelegation: capabilityDelegations,
 		CapabilityInvocation: capabilityInvocations, KeyAgreement: keyAgreements,
 		Service: populateRawServices(doc.Service, doc.ID, doc.processingMeta.baseURI), Created: doc.Created,
@@ -1217,6 +1297,7 @@ func (r *didKeyResolver) Resolve(id string) (*verifier.PublicKey, error) {
 // ErrKeyNotFound is returned when key is not found.
 var ErrKeyNotFound = errors.New("key not found")
 
+// nolint:funlen,gocognit,gocyclo
 func populateRawServices(services []Service, didID, baseURI string) []map[string]interface{} {
 	var rawServices []map[string]interface{}
 
@@ -1238,6 +1319,38 @@ func populateRawServices(services []Service, didID, baseURI string) []map[string
 			routingKeys = append(routingKeys, v)
 		}
 
+		sepRoutingKeys, err := services[i].ServiceEndpoint.RoutingKeys()
+		if err == nil && len(sepRoutingKeys) > 0 {
+			var tmpRoutingKeys []string
+
+			for _, v := range sepRoutingKeys {
+				if services[i].routingKeysRelativeURL[v] {
+					tmpRoutingKeys = append(tmpRoutingKeys, makeRelativeDIDURL(v, baseURI, didID))
+					continue
+				}
+
+				tmpRoutingKeys = append(tmpRoutingKeys, v)
+			}
+
+			sepRoutingKeys = tmpRoutingKeys
+		}
+
+		sepAccept, err := services[i].ServiceEndpoint.Accept()
+		if err != nil {
+			logger.Debugf("accept field of DIDComm V2 endpoint missing or invalid, it will be ignored: %w", err)
+		}
+
+		sepURI, err := services[i].ServiceEndpoint.URI()
+		if err != nil {
+			logger.Debugf("URI field of DIDComm V2 endpoint missing or invalid, it will be ignored: %w", err)
+		}
+
+		if services[i].ServiceEndpoint.Type() == model.DIDCommV2 {
+			services[i].ServiceEndpoint = model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
+				{URI: sepURI, Accept: sepAccept, RoutingKeys: sepRoutingKeys},
+			})
+		}
+
 		recipientKeys := make([]string, 0)
 
 		for _, v := range services[i].RecipientKeys {
@@ -1255,7 +1368,22 @@ func populateRawServices(services []Service, didID, baseURI string) []map[string
 		}
 
 		rawService[jsonldType] = services[i].Type
-		rawService[jsonldServicePoint] = services[i].ServiceEndpoint
+
+		if services[i].ServiceEndpoint.Type() == model.DIDCommV2 { // DIDComm V2
+			serviceEndpointMap := []map[string]interface{}{{"uri": sepURI}}
+			if len(sepAccept) > 0 {
+				serviceEndpointMap[0]["accept"] = sepAccept
+			}
+
+			if len(sepRoutingKeys) > 0 {
+				serviceEndpointMap[0]["routingKeys"] = sepRoutingKeys
+			}
+
+			rawService[jsonldServicePoint] = serviceEndpointMap
+		} else { // DIDComm V1, default is generic endpoint as string URI
+			rawService[jsonldServicePoint] = sepURI
+		}
+
 		rawService[jsonldPriority] = services[i].Priority
 
 		if len(recipientKeys) > 0 {
@@ -1270,6 +1398,16 @@ func populateRawServices(services []Service, didID, baseURI string) []map[string
 	}
 
 	return rawServices
+}
+
+func populateRawAlsoKnownAs(aka []string) []interface{} {
+	rawAka := make([]interface{}, len(aka))
+
+	for i, v := range aka {
+		rawAka[i] = v
+	}
+
+	return rawAka
 }
 
 func populateRawVM(context, didID, baseURI string, pks []VerificationMethod) ([]map[string]interface{}, error) {
@@ -1307,13 +1445,20 @@ func populateRawVerificationMethod(context, didID, baseURI string,
 		}
 	}
 
-	if vm.jsonWebKey != nil {
+	if vm.jsonWebKey != nil { //nolint: gocritic
 		jwkBytes, err := json.Marshal(vm.jsonWebKey)
 		if err != nil {
 			return nil, err
 		}
 
 		rawVM[jsonldPublicKeyjwk] = json.RawMessage(jwkBytes)
+	} else if vm.Type == "Ed25519VerificationKey2020" {
+		var err error
+
+		rawVM[jsonldPublicKeyMultibase], err = multibase.Encode(vm.multibaseEncoding, vm.Value)
+		if err != nil {
+			return nil, err
+		}
 	} else if vm.Value != nil {
 		rawVM[jsonldPublicKeyBase58] = base58.Encode(vm.Value)
 	}
@@ -1364,7 +1509,7 @@ func populateRawProofs(context, didID, baseURI string, proofs []Proof) []interfa
 			jsonldType:         p.Type,
 			jsonldCreated:      p.Created,
 			jsonldCreator:      creator,
-			k:                  base64.RawURLEncoding.EncodeToString(p.ProofValue),
+			k:                  sigproof.EncodeProofValue(p.ProofValue, p.Type),
 			jsonldDomain:       p.Domain,
 			jsonldNonce:        base64.RawURLEncoding.EncodeToString(p.Nonce),
 			jsonldProofPurpose: p.ProofPurpose,

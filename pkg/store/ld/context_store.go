@@ -209,27 +209,15 @@ func getRemoteDocumentBytes(d ldcontext.Document) ([]byte, error) {
 
 // save stores contexts into the underlying storage.
 func save(store storage.Store, contexts []ldcontext.Document) error {
-	var ops []storage.Operation
-
 	for _, c := range contexts {
 		b, err := getRemoteDocumentBytes(c)
 		if err != nil {
 			return fmt.Errorf("get remote document bytes: %w", err)
 		}
 
-		ops = append(ops, storage.Operation{
-			Key:   c.URL,
-			Value: b,
-			Tags:  []storage.Tag{{Name: ContextRecordTag}},
-		})
-	}
-
-	if len(ops) == 0 {
-		return nil
-	}
-
-	if err := store.Batch(ops); err != nil {
-		return fmt.Errorf("store batch of contexts: %w", err)
+		if err := store.Put(c.URL, b, storage.Tag{Name: ContextRecordTag}); err != nil {
+			return fmt.Errorf("store context: %w", err)
+		}
 	}
 
 	return nil

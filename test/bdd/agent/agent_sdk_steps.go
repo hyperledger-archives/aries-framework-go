@@ -470,6 +470,7 @@ func withDynamicEnvelopeParams() createAgentOption {
 
 func (a *SDKSteps) getStoreProvider(agentID string) storage.Provider {
 	storeProv := leveldb.NewProvider(dbPath + "/" + agentID + uuid.New().String())
+
 	return storeProv
 }
 

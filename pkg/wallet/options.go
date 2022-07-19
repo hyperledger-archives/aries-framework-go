@@ -272,12 +272,22 @@ type AddContentOptions func(opts *addContentOpts)
 type addContentOpts struct {
 	// ID of the collection to which the content belongs.
 	collectionID string
+
+	// indicated if the model of data saved into the wallet should be validated.
+	validateDataModel bool
 }
 
 // AddByCollection option for grouping wallet contents by collection ID.
 func AddByCollection(collectionID string) AddContentOptions {
 	return func(opts *addContentOpts) {
 		opts.collectionID = collectionID
+	}
+}
+
+// ValidateContent enables data model validations of adding content.
+func ValidateContent() AddContentOptions {
+	return func(opts *addContentOpts) {
+		opts.validateDataModel = true
 	}
 }
 

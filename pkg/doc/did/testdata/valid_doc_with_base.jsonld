@@ -2,6 +2,9 @@
   "@context": ["https://www.w3.org/ns/did/v1",
    { "@base": "did:example:123456789abcdefghi"}],
   "id": "did:example:123456789abcdefghi",
+  "alsoKnownAs": [
+    "did:example:123"
+  ],
   "verificationMethod": [
     {
       "id": "#keys-1",

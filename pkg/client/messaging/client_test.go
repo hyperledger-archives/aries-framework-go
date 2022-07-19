@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -172,7 +173,7 @@ func TestCommand_Send(t *testing.T) { // nolint: gocognit, gocyclo
 				name: "send message to destination",
 				option: SendByDestination(&service.Destination{
 					RecipientKeys:   []string{"test"},
-					ServiceEndpoint: "sdfsdf",
+					ServiceEndpoint: model.NewDIDCommV1Endpoint("dfsdf"),
 					RoutingKeys:     []string{"test"},
 				}),
 			},
@@ -267,7 +268,7 @@ func TestCommand_Send(t *testing.T) { // nolint: gocognit, gocyclo
 				option: []SendMessageOpions{
 					SendByDestination(&service.Destination{
 						RecipientKeys:   []string{"test"},
-						ServiceEndpoint: "sdfsdf",
+						ServiceEndpoint: model.NewDIDCommV1Endpoint("sdfsdf"),
 						RoutingKeys:     []string{"test"},
 					}),
 					WaitForResponse(context.Background(), "sample-response-type"),
@@ -418,7 +419,7 @@ func TestCommand_Send(t *testing.T) { // nolint: gocognit, gocyclo
 				name: "send message to destination - failure 1",
 				option: SendByDestination(&service.Destination{
 					RecipientKeys:   []string{"test"},
-					ServiceEndpoint: "sdfsdf",
+					ServiceEndpoint: model.NewDIDCommV1Endpoint("sdfsdf"),
 					RoutingKeys:     []string{"test"},
 				}),
 				messenger: &mocksvc.MockMessenger{ErrSendToDestination: fmt.Errorf("sample-err-01")},
@@ -429,7 +430,7 @@ func TestCommand_Send(t *testing.T) { // nolint: gocognit, gocyclo
 				kms:  &mockkms.KeyManager{CrAndExportPubKeyErr: fmt.Errorf("sample-kmserr-01")},
 				option: SendByDestination(&service.Destination{
 					RecipientKeys:   []string{"test"},
-					ServiceEndpoint: "sdfsdf",
+					ServiceEndpoint: model.NewDIDCommV1Endpoint("sdfsdf"),
 					RoutingKeys:     []string{"test"},
 				}),
 				errorMsg: "sample-kmserr-01",
@@ -445,7 +446,7 @@ func TestCommand_Send(t *testing.T) { // nolint: gocognit, gocyclo
 				option: SendByTheirDID("theirDID-001"),
 				vdr: &mockvdr.MockVDRegistry{
 					ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (doc *did.DocResolution, e error) {
-						return &did.DocResolution{DIDDocument: mockdiddoc.GetMockDIDDoc(t)}, nil
+						return &did.DocResolution{DIDDocument: mockdiddoc.GetMockDIDDoc(t, false)}, nil
 					},
 				},
 				errorMsg: "invalid payload data format",

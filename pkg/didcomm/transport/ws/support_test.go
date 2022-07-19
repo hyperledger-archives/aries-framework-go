@@ -21,6 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"nhooyr.io/websocket"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
@@ -66,13 +67,15 @@ func websocketClient(t *testing.T, port string) (*websocket.Conn, func()) {
 
 func prepareDestination(endPoint string) *service.Destination {
 	return &service.Destination{
-		ServiceEndpoint: endPoint,
+		ServiceEndpoint: model.NewDIDCommV1Endpoint(endPoint),
 	}
 }
 
-func prepareDestinationWithTransport(endPoint, returnRoute string, recipientKeys []string) *service.Destination {
+func prepareDestinationWithTransport(endPoint, returnRoute string,
+	recipientKeys, routingKeys []string) *service.Destination {
 	return &service.Destination{
-		ServiceEndpoint:      endPoint,
+		ServiceEndpoint:      model.NewDIDCommV1Endpoint(endPoint),
+		RoutingKeys:          routingKeys,
 		RecipientKeys:        recipientKeys,
 		TransportReturnRoute: returnRoute,
 	}

@@ -25,7 +25,6 @@ import (
 const (
 	samplePassPhrase    = "fakepassphrase"
 	sampleRemoteKMSAuth = "sample-auth-token"
-	keyNotFoundErr      = "Key not found."
 	sampleKeyMgrErr     = "sample-keymgr-err"
 )
 
@@ -51,22 +50,10 @@ func TestKeyManager(t *testing.T) {
 			MasterLockCipher: masterLockCipherText,
 		}
 
-		tkn, err := keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
+		kmgr, err := keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
 			&unlockOpts{passphrase: samplePassPhrase})
-		require.NoError(t, err)
-		require.NotEmpty(t, tkn)
-
-		// get key manager
-		kmgr, err := keyManager().getKeyManger(tkn)
 		require.NoError(t, err)
 		require.NotEmpty(t, kmgr)
-
-		// try to create again before expiry
-		tkn, err = keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
-			&unlockOpts{passphrase: samplePassPhrase})
-		require.Error(t, err)
-		require.Equal(t, err, ErrAlreadyUnlocked)
-		require.Empty(t, tkn)
 	})
 
 	t.Run("create key manager for localkms - with secret lock service", func(t *testing.T) {
@@ -83,22 +70,10 @@ func TestKeyManager(t *testing.T) {
 			MasterLockCipher: masterLockCipherText,
 		}
 
-		tkn, err := keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
+		kmgr, err := keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
 			&unlockOpts{secretLockSvc: masterLock})
-		require.NoError(t, err)
-		require.NotEmpty(t, tkn)
-
-		// get key manager
-		kmgr, err := keyManager().getKeyManger(tkn)
 		require.NoError(t, err)
 		require.NotEmpty(t, kmgr)
-
-		// try to create again before expiry
-		tkn, err = keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
-			&unlockOpts{secretLockSvc: masterLock})
-		require.Error(t, err)
-		require.Equal(t, err, ErrAlreadyUnlocked)
-		require.Empty(t, tkn)
 	})
 
 	t.Run("create key manager for localkms - passphrase missmatch", func(t *testing.T) {
@@ -116,17 +91,11 @@ func TestKeyManager(t *testing.T) {
 		}
 
 		// use wrong passphrase
-		tkn, err := keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
+		kmgr, err := keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
 			&unlockOpts{passphrase: samplePassPhrase + "wrong"})
-		require.Empty(t, tkn)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "message authentication failed")
-
-		// get key manager
-		kmgr, err := keyManager().getKeyManger(tkn)
 		require.Empty(t, kmgr)
 		require.Error(t, err)
-		require.EqualError(t, err, keyNotFoundErr)
+		require.Contains(t, err.Error(), "message authentication failed")
 	})
 
 	t.Run("create key manager for localkms - secret lock service missmatch", func(t *testing.T) {
@@ -147,17 +116,11 @@ func TestKeyManager(t *testing.T) {
 		masterLockBad, err := pbkdf2.NewMasterLock(samplePassPhrase+"wrong", sha256.New, 0, nil)
 		require.NoError(t, err)
 
-		tkn, err := keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
+		kmgr, err := keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
 			&unlockOpts{secretLockSvc: masterLockBad})
-		require.Empty(t, tkn)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "message authentication failed")
-
-		// get key manager
-		kmgr, err := keyManager().getKeyManger(tkn)
 		require.Empty(t, kmgr)
 		require.Error(t, err)
-		require.EqualError(t, err, keyNotFoundErr)
+		require.Contains(t, err.Error(), "message authentication failed")
 	})
 
 	t.Run("create key manager for remotekms", func(t *testing.T) {
@@ -167,25 +130,13 @@ func TestKeyManager(t *testing.T) {
 			KeyServerURL: sampleKeyServerURL,
 		}
 
-		tkn, err := keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
+		kmgr, err := keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
 			&unlockOpts{authToken: sampleRemoteKMSAuth})
-		require.NoError(t, err)
-		require.NotEmpty(t, tkn)
-
-		// get key manager
-		kmgr, err := keyManager().getKeyManger(tkn)
 		require.NoError(t, err)
 		require.NotEmpty(t, kmgr)
 
 		_, _, err = kmgr.Create(kmsapi.ED25519Type)
 		require.Error(t, err)
-
-		// try to create again before expiry
-		tkn, err = keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
-			&unlockOpts{authToken: sampleRemoteKMSAuth})
-		require.Error(t, err)
-		require.Equal(t, err, ErrAlreadyUnlocked)
-		require.Empty(t, tkn)
 	})
 
 	t.Run("create key manager for failure - invalid profile", func(t *testing.T) {
@@ -193,63 +144,11 @@ func TestKeyManager(t *testing.T) {
 			User: uuid.New().String(),
 		}
 
-		tkn, err := keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
+		kmgr, err := keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
 			&unlockOpts{authToken: sampleRemoteKMSAuth})
-		require.Empty(t, tkn)
+		require.Empty(t, kmgr)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid wallet profile")
-
-		// get key manager
-		kmgr, err := keyManager().getKeyManger(tkn)
-		require.Empty(t, kmgr)
-		require.Error(t, err)
-		require.EqualError(t, err, keyNotFoundErr)
-	})
-
-	t.Run("test remove key manager", func(t *testing.T) {
-		sampleUser := uuid.New().String()
-		profileInfo := &profile{
-			User:         sampleUser,
-			KeyServerURL: sampleKeyServerURL,
-		}
-
-		tkn, err := keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
-			&unlockOpts{authToken: sampleRemoteKMSAuth})
-		require.NoError(t, err)
-		require.NotEmpty(t, tkn)
-
-		// get key manager
-		kmgr, err := keyManager().getKeyManger(tkn)
-		require.NoError(t, err)
-		require.NotEmpty(t, kmgr)
-
-		// try to create again before expiry
-		tkn, err = keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
-			&unlockOpts{authToken: sampleRemoteKMSAuth})
-		require.Error(t, err)
-		require.Equal(t, err, ErrAlreadyUnlocked)
-		require.Empty(t, tkn)
-
-		// remove key manager
-		require.True(t, keyManager().removeKeyManager(profileInfo.User))
-		require.False(t, keyManager().removeKeyManager(profileInfo.User))
-
-		// try to get key manager
-		kmgr, err = keyManager().getKeyManger(tkn)
-		require.Empty(t, kmgr)
-		require.Error(t, err)
-		require.EqualError(t, err, keyNotFoundErr)
-
-		// try again to create
-		tkn, err = keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
-			&unlockOpts{authToken: sampleRemoteKMSAuth})
-		require.NoError(t, err)
-		require.NotEmpty(t, tkn)
-
-		// get key manager
-		kmgr, err = keyManager().getKeyManger(tkn)
-		require.NoError(t, err)
-		require.NotEmpty(t, kmgr)
 	})
 }
 
@@ -267,10 +166,13 @@ func TestImportKeyJWK(t *testing.T) {
 		MasterLockCipher: masterLockCipherText,
 	}
 
-	tkn, err := keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
+	kmgr, err := keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
 		&unlockOpts{passphrase: samplePassPhrase})
 	require.NoError(t, err)
-	require.NotEmpty(t, tkn)
+	require.NotEmpty(t, kmgr)
+
+	tkn, err := sessionManager().createSession(uuid.New().String(), kmgr, 0)
+	require.NoError(t, err)
 
 	t.Run("test successful jwk key imports", func(t *testing.T) {
 		tests := []struct {
@@ -372,9 +274,6 @@ func TestImportKeyJWK(t *testing.T) {
 				err := importKeyJWK(tkn, &keyContent{PrivateKeyJwk: tc.sampleJWK, ID: tc.ID})
 				require.NoError(t, err)
 
-				kmgr, err := keyManager().getKeyManger(tkn)
-				require.NoError(t, err)
-
 				handle, err := kmgr.Get(getKID(tc.ID))
 				require.NoError(t, err)
 				require.NotEmpty(t, handle)
@@ -451,8 +350,12 @@ func TestImportKeyBase58(t *testing.T) {
 		MasterLockCipher: masterLockCipherText,
 	}
 
-	tkn, e := keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
+	kmgr, e := keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
 		&unlockOpts{passphrase: samplePassPhrase})
+	require.NoError(t, e)
+	require.NotEmpty(t, kmgr)
+
+	tkn, e := sessionManager().createSession(uuid.New().String(), kmgr, 0)
 	require.NoError(t, e)
 	require.NotEmpty(t, tkn)
 
@@ -516,9 +419,6 @@ func TestImportKeyBase58(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				kmgr, err := keyManager().getKeyManger(tkn)
-				require.NoError(t, err)
-
 				handle, err := kmgr.Get(getKID(tc.ID))
 				require.NoError(t, err)
 				require.NotEmpty(t, handle)
@@ -553,15 +453,16 @@ func TestImportKeyBase58(t *testing.T) {
 	})
 
 	t.Run("test import errors", func(t *testing.T) {
-		mockToken := "mock-token"
-
 		sampleErr := errors.New(sampleKeyMgrErr)
-		wkmgr := keyManager()
-		err := wkmgr.saveKeyManger(uuid.New().String(), mockToken,
+
+		tkn, err := sessionManager().createSession(uuid.New().String(),
 			&mockkms.KeyManager{ImportPrivateKeyErr: sampleErr}, 0)
 		require.NoError(t, err)
+		require.NotEmpty(t, tkn)
 
-		err = importKeyBase58(mockToken, &keyContent{
+		require.NoError(t, err)
+
+		err = importKeyBase58(tkn, &keyContent{
 			ID:               "did:example:123#z6MkiEh8RQL83nkPo8ehDeE5",
 			PrivateKeyBase58: "zJRjGFZydU5DBdS2p5qbiUzDFAxbXTkjiDuGPksMBbY5TNyEsGfK4a4WGKjBCh1zeNryeuKtPotp8W1ESnwP71y",
 			KeyType:          "Ed25519VerificationKey2018",
@@ -569,7 +470,7 @@ func TestImportKeyBase58(t *testing.T) {
 		require.Error(t, err)
 		require.True(t, errors.Is(err, sampleErr))
 
-		err = importKeyBase58(mockToken, &keyContent{
+		err = importKeyBase58(tkn, &keyContent{
 			ID:               "did:example:123#z6MkiEh8RQL83nkPo8ehDeE5",
 			PrivateKeyBase58: "6gsgGpdx7p1nYoKJ4b5fKt1xEomWdnemg9nJFX6mqNCh",
 			KeyType:          "Bls12381G1Key2020",
@@ -580,9 +481,9 @@ func TestImportKeyBase58(t *testing.T) {
 }
 
 func TestKMSSigner(t *testing.T) {
-	token := uuid.New().String()
-
-	require.NoError(t, keyManager().saveKeyManger(uuid.New().String(), token, &mockkms.KeyManager{}, 500*time.Millisecond))
+	token, err := sessionManager().createSession(uuid.New().String(),
+		&mockkms.KeyManager{}, 500*time.Millisecond)
+	require.NoError(t, err)
 
 	t.Run("test kms signer errors", func(t *testing.T) {
 		// invalid auth

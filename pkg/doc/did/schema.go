@@ -44,6 +44,14 @@ const (
     "id": {
       "type": "string"
     },
+    "alsoKnownAs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uri"
+      },
+      "uniqueItems": true
+    },
     "publicKey": {
       "type": "array",
       "items": {
@@ -135,6 +143,32 @@ const (
         }
       }
     },
+    "serviceEndpoint": {
+      "type": "object",
+	  "minProperties": 1,
+	  "properties": {
+		"uri": {
+		   "type": "string",
+		   "format": "uri"
+		},
+		"accept": {
+		   "type": "array",
+		   "items": [
+			  {
+				 "type": "string"
+			  }
+		   ]
+		},
+		"routingKeys": {
+		   "type": "array",
+		   "items": [
+			  {
+				 "type": "string"
+			  }
+		   ]
+		}
+	  }
+    },
     "service": {
       "required": [
         "id",
@@ -150,8 +184,21 @@ const (
           "type": "string"
         },
         "serviceEndpoint": {
-          "type": "string",
-          "format": "uri"
+           "oneOf": [
+            {
+              "type": "array",
+			  "items": {
+				"$ref": "#/definitions/serviceEndpoint"
+			  }
+            },
+            {
+              "type": "object"
+            },
+            {
+              "type": "string",
+              "format": "uri"
+            }
+          ]
         }
       }
     }
@@ -179,6 +226,14 @@ const (
     },
     "id": {
       "type": "string"
+    },
+    "alsoKnownAs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uri"
+      },
+      "uniqueItems": true
     },
     "publicKey": {
       "type": "array",
@@ -284,6 +339,32 @@ const (
         }
       }
     },
+    "serviceEndpoint": {
+      "type": "object",
+	  "minProperties": 1,
+	  "properties": {
+		"uri": {
+		   "type": "string",
+		   "format": "uri"
+		},
+		"accept": {
+		   "type": "array",
+		   "items": [
+			  {
+				 "type": "string"
+			  }
+		   ]
+		},
+		"routingKeys": {
+		   "type": "array",
+		   "items": [
+			  {
+				 "type": "string"
+			  }
+		   ]
+		}
+	  }
+    },
     "service": {
       "required": [
         "id",
@@ -299,8 +380,21 @@ const (
           "type": "string"
         },
         "serviceEndpoint": {
-          "type": "string",
-          "format": "uri"
+           "oneOf": [
+            {
+              "type": "array",
+			  "items": {
+				"$ref": "#/definitions/serviceEndpoint"
+			  }
+            },
+            {
+              "type": "object"
+            },
+            {
+              "type": "string",
+              "format": "uri"
+            }
+          ]
         }
       }
     }
@@ -327,6 +421,14 @@ const (
     },
     "id": {
       "type": "string"
+    },
+    "alsoKnownAs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uri"
+      },
+      "uniqueItems": true
     },
     "publicKey": {
       "type": "array",
@@ -404,6 +506,32 @@ const (
         }
       }
     },
+    "serviceEndpoint": {
+      "type": "object",
+	  "minProperties": 1,
+	  "properties": {
+		"uri": {
+		   "type": "string",
+		   "format": "uri"
+		},
+		"accept": {
+		   "type": "array",
+		   "items": [
+			  {
+				 "type": "string"
+			  }
+		   ]
+		},
+		"routingKeys": {
+		   "type": "array",
+		   "items": [
+			  {
+				 "type": "string"
+			  }
+		   ]
+		}
+	  }
+    },
     "service": {
       "required": [
         "type",
@@ -418,8 +546,21 @@ const (
           "type": "string"
         },
         "serviceEndpoint": {
-          "type": "string",
-          "format": "uri"
+           "oneOf": [
+            {
+              "type": "array",
+			  "items": {
+				"$ref": "#/definitions/serviceEndpoint"
+			  }
+            },
+            {
+              "type": "object"
+            },
+            {
+              "type": "string",
+              "format": "uri"
+            }
+          ]
         }
       }
     }

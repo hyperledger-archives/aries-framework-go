@@ -438,6 +438,7 @@ func (c *Client) CreateConnection(myDID string, theirDID *did.Doc, options ...Co
 	conn.ServiceEndPoint = destination.ServiceEndpoint
 	conn.RecipientKeys = destination.RecipientKeys
 	conn.RoutingKeys = destination.RoutingKeys
+	conn.MediaTypeProfiles = destination.MediaTypeProfiles
 
 	err = c.didexchangeSvc.CreateConnection(conn.Record, theirDID)
 	if err != nil {

@@ -120,12 +120,13 @@ func (mr *MockKeyManagerMockRecorder) CreateAndExportPubKeyBytes(arg0 interface{
 }
 
 // ExportPubKeyBytes mocks base method.
-func (m *MockKeyManager) ExportPubKeyBytes(arg0 string) ([]byte, error) {
+func (m *MockKeyManager) ExportPubKeyBytes(arg0 string) ([]byte, kms.KeyType, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ExportPubKeyBytes", arg0)
 	ret0, _ := ret[0].([]byte)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(kms.KeyType)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // ExportPubKeyBytes indicates an expected call of ExportPubKeyBytes.

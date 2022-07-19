@@ -42,6 +42,25 @@ jobs:
       with:
         file: ./coverage.out
 
+  unitTestUrsa:
+    name: Unit test (Ursa/CL)
+    runs-on: ubuntu-18.04
+    container:
+      image: ghcr.io/hyperledger/ursa-wrapper-go/uwg-build # a container with libursa installed
+    timeout-minutes: 15
+    steps:
+      - name: Setup Go 1.17
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.17
+        id: go
+
+      - uses: actions/checkout@v2
+
+      - name: Run unit test (Ursa/CL)
+        timeout-minutes: 15
+        run: make unit-test-ursa
+
   unitTestMobile:
     name: Unit test (mobile)
     runs-on: ubuntu-18.04

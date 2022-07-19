@@ -55,7 +55,7 @@ func NewCryptoSigner(crypto cryptoapi.Crypto, kms kmsapi.KeyManager, keyType kms
 		return nil, err
 	}
 
-	pubKeyBytes, err := kms.ExportPubKeyBytes(kid)
+	pubKeyBytes, _, err := kms.ExportPubKeyBytes(kid)
 	if err != nil {
 		return nil, err
 	}

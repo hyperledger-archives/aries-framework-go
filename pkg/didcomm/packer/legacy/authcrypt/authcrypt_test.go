@@ -169,8 +169,7 @@ func TestEncrypt(t *testing.T) {
 		badKey := "6ZAQ7QpmR9EqhJdwx1jQsjq6nnpehwVqUbhVxiEiYEV7"
 
 		_, err := packer.Pack("", []byte("Test Message"), senderKey, [][]byte{base58.Decode(badKey)})
-		require.EqualError(t, err, "pack: failed to build recipients: buildRecipients: failed to build "+
-			"recipient: buildRecipient: failed to convert public Ed25519 to Curve25519: error converting public key")
+		require.EqualError(t, err, "pack: failed to build recipients: recipients keys are empty")
 	})
 
 	recipientKey := createKey(t, testingKMS)
@@ -181,8 +180,7 @@ func TestEncrypt(t *testing.T) {
 
 		_, err := packer.Pack("", []byte("Test Message"), []byte{1, 2, 3}, [][]byte{recipientKey})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "getKeySet: failed to read json keyset from reader: cannot read data"+
-			" for keysetID")
+		require.Contains(t, err.Error(), "recipients keys are empty")
 	})
 
 	t.Run("Success test case: given keys, generate envelope", func(t *testing.T) {
@@ -306,8 +304,7 @@ func TestEncryptComponents(t *testing.T) {
 			"", []byte(
 				"Lorem Ipsum Dolor Sit Amet Consectetur Adispici Elit"),
 			base58.Decode(senderPub), [][]byte{base58.Decode(rec1Pub)})
-		require.EqualError(t, err, "pack: failed to build recipients: buildRecipients: failed to build "+
-			"recipient: buildRecipient: failed to generate random nonce: mock Reader has failed intentionally")
+		require.EqualError(t, err, "pack: failed to build recipients: recipients keys are empty")
 	})
 
 	t.Run("Failure: recipient sodiumBoxSeal nonce generation fails", func(t *testing.T) {
@@ -318,8 +315,7 @@ func TestEncryptComponents(t *testing.T) {
 			"",
 			[]byte("Lorem Ipsum Dolor Sit Amet Consectetur Adispici Elit"),
 			base58.Decode(senderPub), [][]byte{base58.Decode(rec1Pub)})
-		require.EqualError(t, err, "pack: failed to build recipients: buildRecipients: failed to build"+
-			" recipient: buildRecipient: failed to encrypt sender key: mock Reader has failed intentionally")
+		require.EqualError(t, err, "pack: failed to build recipients: recipients keys are empty")
 	})
 
 	t.Run("Success: 4 reads necessary for pack", func(t *testing.T) {
@@ -679,7 +675,8 @@ func Test_getCEK(t *testing.T) {
 	}
 
 	_, err := getCEK(recs, &k)
-	require.EqualError(t, err, "getCEK: no key accessible none of the recipient keys were found in kms")
+	require.EqualError(t, err, "getCEK: no key accessible none of the recipient keys were found in kms: "+
+		"[mock error]")
 }
 
 func Test_newCryptoBox(t *testing.T) {

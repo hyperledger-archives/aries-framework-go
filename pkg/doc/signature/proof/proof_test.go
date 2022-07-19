@@ -10,12 +10,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/multiformats/go-multibase"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 )
 
-const proofValueBase64 = "6mdES87erjP5r1qCSRW__otj-A_Rj0YgRO7XU_0Amhwdfa7AAmtGUSFGflR_fZqPYrY9ceLRVQCJ49s0q7-LBA"
+const (
+	proofValueBase64    = "6mdES87erjP5r1qCSRW__otj-A_Rj0YgRO7XU_0Amhwdfa7AAmtGUSFGflR_fZqPYrY9ceLRVQCJ49s0q7-LBA"
+	proofValueMultibase = "z5gpJQZoaLUXevXk2mYYbQE9krfaJYBBwQcJhhAvX3zs6daJ2Eb6VJoU46WkUYN8R1vgX7o8ktuUkzpRJS5aJRQyh"
+)
 
 func TestProof(t *testing.T) {
 	p, err := NewProof(map[string]interface{}{
@@ -37,6 +41,33 @@ func TestProof(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, "type", p.Type)
+	require.Equal(t, "didID", p.Creator)
+	require.Equal(t, "did:example:123456#key1", p.VerificationMethod)
+	require.Equal(t, created, p.Created.Time)
+	require.Equal(t, "abc.com", p.Domain)
+	require.Equal(t, []byte(""), p.Nonce)
+	require.Equal(t, proofValueBytes, p.ProofValue)
+
+	// test proof with multibase encoding
+	p, err = NewProof(map[string]interface{}{
+		"type":               "Ed25519Signature2020",
+		"creator":            "didID",
+		"verificationMethod": "did:example:123456#key1",
+		"created":            "2018-03-15T00:00:00Z",
+		"domain":             "abc.com",
+		"nonce":              "",
+		"proofValue":         proofValueMultibase,
+	})
+	require.NoError(t, err)
+
+	// test proof
+	created, err = time.Parse(time.RFC3339, "2018-03-15T00:00:00Z")
+	require.NoError(t, err)
+
+	_, proofValueBytes, err = multibase.Decode(proofValueMultibase)
+	require.NoError(t, err)
+
+	require.Equal(t, "Ed25519Signature2020", p.Type)
 	require.Equal(t, "didID", p.Creator)
 	require.Equal(t, "did:example:123456#key1", p.VerificationMethod)
 	require.Equal(t, created, p.Created.Time)
@@ -164,7 +195,7 @@ func TestInvalidNonce(t *testing.T) {
 func TestProof_JSONLdObject(t *testing.T) {
 	r := require.New(t)
 
-	proofValueBytes, err := base64.RawURLEncoding.DecodeString(proofValueBase64)
+	_, proofValueBytes, err := multibase.Decode(proofValueMultibase)
 	r.NoError(err)
 
 	nonceBase64, err := base64.RawURLEncoding.DecodeString("abc")
@@ -174,7 +205,7 @@ func TestProof_JSONLdObject(t *testing.T) {
 	r.NoError(err)
 
 	p := &Proof{
-		Type:         "Ed25519Signature2018",
+		Type:         "Ed25519Signature2020",
 		Created:      util.NewTime(created),
 		Creator:      "creator",
 		ProofValue:   proofValueBytes,
@@ -186,10 +217,10 @@ func TestProof_JSONLdObject(t *testing.T) {
 	}
 
 	pJSONLd := p.JSONLdObject()
-	r.Equal("Ed25519Signature2018", pJSONLd["type"])
+	r.Equal("Ed25519Signature2020", pJSONLd["type"])
 	r.Equal("2018-03-15T00:00:00Z", pJSONLd["created"])
 	r.Equal("creator", pJSONLd["creator"])
-	r.Equal(proofValueBase64, pJSONLd["proofValue"])
+	r.Equal(proofValueMultibase, pJSONLd["proofValue"])
 	r.Equal("test.jws.value", pJSONLd["jws"])
 	r.Equal("assertionMethod", pJSONLd["proofPurpose"])
 	r.Equal("internal", pJSONLd["domain"])

@@ -23,10 +23,12 @@ import (
 	gojose "github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 )
@@ -42,10 +44,12 @@ FQIDAQAB
 -----END PUBLIC KEY-----`
 
 const (
-	did           = "did:method:abc"
-	creator       = did + "#key-1"
-	keyType       = "Ed25519VerificationKey2018"
-	signatureType = "Ed25519Signature2018"
+	did               = "did:method:abc"
+	creator           = did + "#key-1"
+	keyType           = "Ed25519VerificationKey2018"
+	keyType2020       = "Ed25519VerificationKey2020"
+	signatureType     = "Ed25519Signature2018"
+	signatureType2020 = "Ed25519Signature2020"
 )
 
 const (
@@ -84,6 +88,10 @@ func TestValidWithDocBase(t *testing.T) {
 
 		// test doc id
 		require.Equal(t, doc.ID, "did:example:123456789abcdefghi")
+
+		// test alsoKnownAs
+		require.Equal(t, 1, len(doc.AlsoKnownAs))
+		require.Equal(t, "did:example:123", doc.AlsoKnownAs[0])
 
 		hexDecodeValue, err := hex.DecodeString("02b97c30de767f084ce3080168ee293053ba33b235d7116a3263d29f1450936b71")
 		block, _ := pem.Decode([]byte(pemPK))
@@ -140,7 +148,7 @@ func TestValidWithDocBase(t *testing.T) {
 				ID:              "did:example:123456789abcdefghi#inbox",
 				Type:            "SocialWebInboxService",
 				relativeURL:     true,
-				ServiceEndpoint: "https://social.example.com/83hfh37dj",
+				ServiceEndpoint: model.NewDIDCommV1Endpoint("https://social.example.com/83hfh37dj"),
 				Properties:      map[string]interface{}{"spamCost": map[string]interface{}{"amount": "0.50", "currency": "USD"}},
 			},
 			{
@@ -150,7 +158,7 @@ func TestValidWithDocBase(t *testing.T) {
 				relativeURL:              true,
 				RecipientKeys:            []string{"did:example:123456789abcdefghi#key2"},
 				RoutingKeys:              []string{"did:example:123456789abcdefghi#key2"},
-				ServiceEndpoint:          "https://agent.example.com/",
+				ServiceEndpoint:          model.NewDIDCommV1Endpoint("https://agent.example.com/"),
 				Properties:               map[string]interface{}{},
 				recipientKeysRelativeURL: map[string]bool{"did:example:123456789abcdefghi#key2": true},
 				routingKeysRelativeURL:   map[string]bool{"did:example:123456789abcdefghi#key2": true},
@@ -171,6 +179,8 @@ func TestDocResolution(t *testing.T) {
 		require.Equal(t, 1, len(d.Context))
 		require.Equal(t, "https://w3id.org/did-resolution/v1", d.Context[0])
 		require.Equal(t, "did:example:21tDAKCERh95uGgKbJNHYp", d.DIDDocument.ID)
+		require.Equal(t, 1, len(d.DIDDocument.AlsoKnownAs))
+		require.Equal(t, "did:example:123", d.DIDDocument.AlsoKnownAs[0])
 		require.Equal(t, true, d.DocumentMetadata.Method.Published)
 		require.Equal(t, "did:ex:123333", d.DocumentMetadata.CanonicalID)
 
@@ -183,6 +193,8 @@ func TestDocResolution(t *testing.T) {
 		require.Equal(t, 1, len(d.Context))
 		require.Equal(t, "https://w3id.org/did-resolution/v1", d.Context[0])
 		require.Equal(t, "did:example:21tDAKCERh95uGgKbJNHYp", d.DIDDocument.ID)
+		require.Equal(t, 1, len(d.DIDDocument.AlsoKnownAs))
+		require.Equal(t, "did:example:123", d.DIDDocument.AlsoKnownAs[0])
 		require.Equal(t, true, d.DocumentMetadata.Method.Published)
 		require.Equal(t, "did:ex:123333", d.DocumentMetadata.CanonicalID)
 	})
@@ -204,6 +216,10 @@ func TestValid(t *testing.T) {
 
 		// test doc id
 		require.Equal(t, doc.ID, "did:example:21tDAKCERh95uGgKbJNHYp")
+
+		// test alsoKnownAs
+		require.Equal(t, 1, len(doc.AlsoKnownAs))
+		require.Equal(t, "did:example:123", doc.AlsoKnownAs[0])
 
 		hexDecodeValue, err := hex.DecodeString("02b97c30de767f084ce3080168ee293053ba33b235d7116a3263d29f1450936b71")
 		block, _ := pem.Decode([]byte(pemPK))
@@ -247,7 +263,7 @@ func TestValid(t *testing.T) {
 			{
 				ID:              "did:example:123456789abcdefghi#inbox",
 				Type:            "SocialWebInboxService",
-				ServiceEndpoint: "https://social.example.com/83hfh37dj",
+				ServiceEndpoint: model.NewDIDCommV1Endpoint("https://social.example.com/83hfh37dj"),
 				Properties:      map[string]interface{}{"spamCost": map[string]interface{}{"amount": "0.50", "currency": "USD"}},
 			},
 			{
@@ -256,10 +272,23 @@ func TestValid(t *testing.T) {
 				Priority:                 0,
 				RecipientKeys:            []string{"did:example:123456789abcdefghi#key2"},
 				RoutingKeys:              []string{"did:example:123456789abcdefghi#key2"},
-				ServiceEndpoint:          "https://agent.example.com/",
+				ServiceEndpoint:          model.NewDIDCommV1Endpoint("https://agent.example.com/"),
 				Properties:               map[string]interface{}{},
 				recipientKeysRelativeURL: map[string]bool{"did:example:123456789abcdefghi#key2": false},
 				routingKeysRelativeURL:   map[string]bool{"did:example:123456789abcdefghi#key2": false},
+			},
+			{
+				ID:            "did:example:123456789abcdefghi#DIDCommMessaging",
+				Type:          "DIDCommMessaging",
+				Priority:      0,
+				RecipientKeys: []string{"did:example:123456789abcdefghi#key2"},
+				ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{{
+					URI:         "https://agent.example.com/",
+					Accept:      []string{"didcomm/v2"},
+					RoutingKeys: []string{"did:example:123456789abcdefghi#key2"},
+				}}),
+				Properties:               map[string]interface{}{},
+				recipientKeysRelativeURL: map[string]bool{"did:example:123456789abcdefghi#key2": false},
 			},
 		}
 		require.EqualValues(t, eServices, doc.Service)
@@ -349,7 +378,7 @@ func TestInvalidEncodingInProof(t *testing.T) {
 		doc, err = populateProofs(c, "", "", rawProofs)
 		require.NotNil(t, err)
 		require.Nil(t, doc)
-		require.Contains(t, err.Error(), "illegal base64 data")
+		require.Contains(t, err.Error(), "unsupported encoding")
 	}
 }
 
@@ -479,10 +508,10 @@ func TestPublicKeys(t *testing.T) {
 
 			if len(raw.PublicKey) != 0 {
 				delete(raw.PublicKey[1], jsonldPublicKeyPem)
-				raw.PublicKey[1]["publicKeyMultibase"] = wrongDataMsg
+				raw.PublicKey[1]["publicKeyMultibase1"] = wrongDataMsg
 			} else {
 				delete(raw.VerificationMethod[1], jsonldPublicKeyPem)
-				raw.VerificationMethod[1]["publicKeyMultibase"] = wrongDataMsg
+				raw.VerificationMethod[1]["publicKeyMultibase1"] = wrongDataMsg
 			}
 
 			bytes, err := json.Marshal(raw)
@@ -540,6 +569,96 @@ func TestValidateDidDocID(t *testing.T) {
 			err = validate(bytes, raw.schemaLoader())
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "id is required")
+		}
+	})
+}
+
+func TestValidateDidDocAlsoKnownAs(t *testing.T) {
+	t.Run("test did doc with duplicate alsoKnownAs entries", func(t *testing.T) {
+		docs := []string{validDoc, validDocV011}
+		for _, d := range docs {
+			raw := &rawDoc{}
+			require.NoError(t, json.Unmarshal([]byte(d), &raw))
+			raw.AlsoKnownAs = []interface{}{"did:example:123", "did:example:123"}
+			bytes, err := json.Marshal(raw)
+			require.NoError(t, err)
+			err = validate(bytes, raw.schemaLoader())
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "must be unique")
+		}
+	})
+
+	t.Run("test did doc with non-uri alsoKnownAs string", func(t *testing.T) {
+		docs := []string{validDoc, validDocV011}
+		for _, d := range docs {
+			raw := &rawDoc{}
+			require.NoError(t, json.Unmarshal([]byte(d), &raw))
+			raw.AlsoKnownAs = []interface{}{"not.a.valid.uri"}
+			bytes, err := json.Marshal(raw)
+			require.NoError(t, err)
+			err = validate(bytes, raw.schemaLoader())
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "Does not match format 'uri'")
+		}
+	})
+
+	t.Run("test did doc with non-string alsoKnownAs entry", func(t *testing.T) {
+		docs := []string{validDoc, validDocV011}
+		for _, d := range docs {
+			raw := &rawDoc{}
+			require.NoError(t, json.Unmarshal([]byte(d), &raw))
+			raw.AlsoKnownAs = []interface{}{0}
+			bytes, err := json.Marshal(raw)
+			require.NoError(t, err)
+			err = validate(bytes, raw.schemaLoader())
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "Invalid type. Expected: string")
+		}
+	})
+
+	t.Run("test did doc with empty alsoKnownAs", func(t *testing.T) {
+		docs := []string{validDoc, validDocV011}
+		for _, d := range docs {
+			raw := &rawDoc{}
+			require.NoError(t, json.Unmarshal([]byte(d), &raw))
+			raw.AlsoKnownAs = nil
+			bytes, err := json.Marshal(raw)
+			require.NoError(t, err)
+			err = validate(bytes, raw.schemaLoader())
+			require.NoError(t, err)
+		}
+	})
+
+	t.Run("test did doc with zero-length alsoKnownAs", func(t *testing.T) {
+		docs := []string{validDoc, validDocV011}
+		for _, d := range docs {
+			raw := &rawDoc{}
+			require.NoError(t, json.Unmarshal([]byte(d), &raw))
+			raw.AlsoKnownAs = []interface{}{}
+			bytes, err := json.Marshal(raw)
+			require.NoError(t, err)
+			err = validate(bytes, raw.schemaLoader())
+			require.NoError(t, err)
+		}
+	})
+
+	t.Run("test did doc with valid alsoKnownAs entries", func(t *testing.T) {
+		docs := []string{validDoc, validDocV011}
+		valid := []interface{}{
+			"did:example:123",
+			"https://social.example/username",
+			"urn:uuid:1231",
+		}
+		for _, d := range docs {
+			for _, aka := range valid {
+				raw := &rawDoc{}
+				require.NoError(t, json.Unmarshal([]byte(d), &raw))
+				raw.AlsoKnownAs = []interface{}{aka}
+				bytes, err := json.Marshal(raw)
+				require.NoError(t, err)
+				err = validate(bytes, raw.schemaLoader())
+				require.NoError(t, err)
+			}
 		}
 	})
 }
@@ -1138,6 +1257,46 @@ func TestVerifyProof(t *testing.T) {
 	}
 }
 
+func TestVerifyProofWithEd25519signature2020(t *testing.T) {
+	docs := []string{validDoc}
+	for _, d := range docs {
+		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+		if err != nil {
+			panic(err)
+		}
+
+		signedDoc := createSignedDidDocumentWithEd25519signature2020(t, privKey, pubKey)
+
+		s := ed25519signature2020.New(suite.WithVerifier(ed25519signature2020.NewPublicKeyVerifier()))
+
+		// happy path - valid signed document
+		doc, err := ParseDocument(signedDoc)
+		require.Nil(t, err)
+		require.NotNil(t, doc)
+		err = doc.VerifyProof([]verifier.SignatureSuite{s}, ldtestutil.WithDocumentLoader(t))
+		require.NoError(t, err)
+
+		// error - no suites are passed, verifier is not created
+		err = doc.VerifyProof([]verifier.SignatureSuite{}, ldtestutil.WithDocumentLoader(t))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "create verifier")
+
+		// error - doc with invalid proof value
+		doc.Proof[0].ProofValue = []byte("invalid")
+		err = doc.VerifyProof([]verifier.SignatureSuite{s}, ldtestutil.WithDocumentLoader(t))
+		require.NotNil(t, err)
+		require.Contains(t, err.Error(), "ed25519: invalid signature")
+
+		// error - doc with no proof
+		doc, err = ParseDocument([]byte(d))
+		require.NoError(t, err)
+		require.NotNil(t, doc)
+		err = doc.VerifyProof([]verifier.SignatureSuite{s}, ldtestutil.WithDocumentLoader(t))
+		require.Equal(t, ErrProofNotFound, err)
+		require.Contains(t, err.Error(), "proof not found")
+	}
+}
+
 func TestDidKeyResolver_Resolve(t *testing.T) {
 	// error - key not found
 	keyResolver := didKeyResolver{}
@@ -1441,20 +1600,20 @@ func TestDIDSchemas(t *testing.T) {
 				didStr: `{
         "@context": "https://w3id.org/did/v0.11",
         "id": "did:w123:world",
-        "assertionMethod": ["did:w123:world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN", 
-		"did:w123:world#_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A", 
-		"did:w123:world#_TKzHv2jFIyvdTGF1Dsgwngfdg3SH6TpDv0Ta1aOEkw", 
+        "assertionMethod": ["did:w123:world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN",
+		"did:w123:world#_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A",
+		"did:w123:world#_TKzHv2jFIyvdTGF1Dsgwngfdg3SH6TpDv0Ta1aOEkw",
 		"did:w123:world#NjQ6Y_ZMj6IUK_XkgCDwtKHlNTUTVjEYOWZtxhp1n-E"],
-        "authentication": ["did:w123:world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN", "", 
-		"did:w123:world#_TKzHv2jFIyvdTGF1Dsgwngfdg3SH6TpDv0Ta1aOEkw",  
+        "authentication": ["did:w123:world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN", "",
+		"did:w123:world#_TKzHv2jFIyvdTGF1Dsgwngfdg3SH6TpDv0Ta1aOEkw",
 		"did:w123:world#NjQ6Y_ZMj6IUK_XkgCDwtKHlNTUTVjEYOWZtxhp1n-E"],
-        "capabilityDelegation": ["did:w123:world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN", 
-		"did:w123:world#_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A", 
-		 "did:w123:world#_TKzHv2jFIyvdTGF1Dsgwngfdg3SH6TpDv0Ta1aOEkw", 
+        "capabilityDelegation": ["did:w123:world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN",
+		"did:w123:world#_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A",
+		 "did:w123:world#_TKzHv2jFIyvdTGF1Dsgwngfdg3SH6TpDv0Ta1aOEkw",
 		 "did:w123:world#NjQ6Y_ZMj6IUK_XkgCDwtKHlNTUTVjEYOWZtxhp1n-E"],
-        "capabilityInvocation": ["did:w123:world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN", 
-		"did:w123:world#_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A", 
-		 "did:w123:world#_TKzHv2jFIyvdTGF1Dsgwngfdg3SH6TpDv0Ta1aOEkw", 
+        "capabilityInvocation": ["did:w123:world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN",
+		"did:w123:world#_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A",
+		 "did:w123:world#_TKzHv2jFIyvdTGF1Dsgwngfdg3SH6TpDv0Ta1aOEkw",
 		 "did:w123:world#NjQ6Y_ZMj6IUK_XkgCDwtKHlNTUTVjEYOWZtxhp1n-E"],
         "keyAgreement": [{
             "id": "did:w123:world#zC5iai1sL93gQxn8LKh1i42fTbpfar65dVx4NYznYfG3Y5",
@@ -1661,25 +1820,13 @@ func TestDoc_SerializeInterop(t *testing.T) {
 	require.Equal(t, docJSON, docInteropJSON)
 }
 
-func createDidDocumentWithSigningKey(pubKey []byte) *Doc {
-	const (
-		didContext      = "https://w3id.org/did/v1"
-		securityContext = "https://w3id.org/security/v1"
-	)
-
-	signingKey := VerificationMethod{
-		ID:         creator,
-		Type:       keyType,
-		Controller: did,
-		Value:      pubKey,
-	}
-
+func createDidDocumentWithSigningKey(vm VerificationMethod, context []string) *Doc { //nolint: gocritic
 	createdTime := time.Now()
 
 	didDoc := &Doc{
-		Context:            []string{didContext, securityContext},
+		Context:            context,
 		ID:                 did,
-		VerificationMethod: []VerificationMethod{signingKey},
+		VerificationMethod: []VerificationMethod{vm},
 		Created:            &createdTime,
 	}
 
@@ -1687,7 +1834,19 @@ func createDidDocumentWithSigningKey(pubKey []byte) *Doc {
 }
 
 func createSignedDidDocument(t *testing.T, privKey, pubKey []byte) []byte {
-	didDoc := createDidDocumentWithSigningKey(pubKey)
+	const (
+		didContext      = "https://w3id.org/did/v1"
+		securityContext = "https://w3id.org/security/v1"
+	)
+
+	vm := VerificationMethod{
+		ID:         creator,
+		Type:       keyType,
+		Controller: did,
+		Value:      pubKey,
+	}
+
+	didDoc := createDidDocumentWithSigningKey(vm, []string{didContext, securityContext})
 
 	jsonDoc, err := didDoc.JSONBytes()
 	require.NoError(t, err)
@@ -1698,6 +1857,33 @@ func createSignedDidDocument(t *testing.T, privKey, pubKey []byte) []byte {
 	}
 
 	s := signer.New(ed25519signature2018.New(
+		suite.WithSigner(getSigner(privKey))))
+
+	signedDoc, err := s.Sign(context, jsonDoc, ldtestutil.WithDocumentLoader(t))
+	require.NoError(t, err)
+
+	return signedDoc
+}
+
+func createSignedDidDocumentWithEd25519signature2020(t *testing.T, privKey, pubKey []byte) []byte {
+	const (
+		didContext      = "https://w3id.org/did/v1"
+		securityContext = "https://w3id.org/security/suites/ed25519-2020/v1"
+	)
+
+	vm := NewVerificationMethodFromBytes(creator, keyType2020, did, pubKey)
+
+	didDoc := createDidDocumentWithSigningKey(*vm, []string{didContext, securityContext})
+
+	jsonDoc, err := didDoc.JSONBytes()
+	require.NoError(t, err)
+
+	context := &signer.Context{
+		Creator:       creator,
+		SignatureType: signatureType2020,
+	}
+
+	s := signer.New(ed25519signature2020.New(
 		suite.WithSigner(getSigner(privKey))))
 
 	signedDoc, err := s.Sign(context, jsonDoc, ldtestutil.WithDocumentLoader(t))
