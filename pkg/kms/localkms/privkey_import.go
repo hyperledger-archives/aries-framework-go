@@ -20,7 +20,9 @@ import (
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
 	bbspb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/bbs_go_proto"
+	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -28,6 +30,8 @@ const (
 	ecdsaSignerTypeURL   = "type.googleapis.com/google.crypto.tink.EcdsaPrivateKey"
 	ed25519SignerTypeURL = "type.googleapis.com/google.crypto.tink.Ed25519PrivateKey"
 	bbsSignerKeyTypeURL  = "type.hyperledger.org/hyperledger.aries.crypto.tink.BBSPrivateKey"
+
+	nistpECDHKWPrivateKeyTypeURL = "type.hyperledger.org/hyperledger.aries.crypto.tink.NistPEcdhKwPrivateKey"
 )
 
 func (l *LocalKMS) importECDSAKey(privKey *ecdsa.PrivateKey, kt kms.KeyType,
@@ -40,6 +44,8 @@ func (l *LocalKMS) importECDSAKey(privKey *ecdsa.PrivateKey, kt kms.KeyType,
 	}
 
 	switch kt {
+	case kms.NISTP256ECDHKWType, kms.NISTP384ECDHKWType, kms.NISTP521ECDHKWType:
+		return l.buildAndImportECDSAPrivateKeyAsECDHKW(privKey, kt, opts...)
 	case kms.ECDSAP256TypeDER:
 		params = &ecdsapb.EcdsaParams{
 			Curve:    commonpb.EllipticCurveType_NIST_P256,
@@ -86,6 +92,47 @@ func (l *LocalKMS) importECDSAKey(privKey *ecdsa.PrivateKey, kt kms.KeyType,
 	}
 
 	ks := newKeySet(ecdsaSignerTypeURL, mKeyValue, tinkpb.KeyData_ASYMMETRIC_PRIVATE)
+
+	return l.importKeySet(ks, opts...)
+}
+
+func (l *LocalKMS) buildAndImportECDSAPrivateKeyAsECDHKW(privKey *ecdsa.PrivateKey, kt kms.KeyType,
+	opts ...kms.PrivateKeyOpts) (string, *keyset.Handle, error) {
+	var keyTemplate *tinkpb.KeyTemplate
+
+	switch kt {
+	case kms.NISTP256ECDHKWType:
+		keyTemplate = ecdh.NISTP256ECDHKWKeyTemplate()
+	case kms.NISTP384ECDHKWType:
+		keyTemplate = ecdh.NISTP384ECDHKWKeyTemplate()
+	case kms.NISTP521ECDHKWType:
+		keyTemplate = ecdh.NISTP521ECDHKWKeyTemplate()
+	}
+
+	keyFormat := new(ecdhpb.EcdhAeadKeyFormat)
+
+	err := proto.Unmarshal(keyTemplate.Value, keyFormat)
+	if err != nil {
+		return "", nil, fmt.Errorf("invalid key format")
+	}
+
+	priv := &ecdhpb.EcdhAeadPrivateKey{
+		Version:  0,
+		KeyValue: privKey.D.Bytes(),
+		PublicKey: &ecdhpb.EcdhAeadPublicKey{
+			Version: 0,
+			Params:  keyFormat.Params,
+			X:       privKey.PublicKey.X.Bytes(),
+			Y:       privKey.PublicKey.Y.Bytes(),
+		},
+	}
+
+	privBytes, err := proto.Marshal(priv)
+	if err != nil {
+		return "", nil, fmt.Errorf("marshal protobuf: %w", err)
+	}
+
+	ks := newKeySet(nistpECDHKWPrivateKeyTypeURL, privBytes, tinkpb.KeyData_ASYMMETRIC_PRIVATE)
 
 	return l.importKeySet(ks, opts...)
 }

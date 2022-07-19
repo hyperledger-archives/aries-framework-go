@@ -3,16 +3,16 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package verifiable
+package json
 
 import (
 	"encoding/json"
 )
 
-// marshalWithCustomFields marshals value merged with custom fields defined in the map into JSON bytes.
-func marshalWithCustomFields(v interface{}, cf map[string]interface{}) ([]byte, error) {
+// MarshalWithCustomFields marshals value merged with custom fields defined in the map into JSON bytes.
+func MarshalWithCustomFields(v interface{}, cf map[string]interface{}) ([]byte, error) {
 	// Merge value and custom fields into the joint map.
-	vm, err := mergeCustomFields(v, cf)
+	vm, err := MergeCustomFields(v, cf)
 	if err != nil {
 		return nil, err
 	}
@@ -21,9 +21,9 @@ func marshalWithCustomFields(v interface{}, cf map[string]interface{}) ([]byte, 
 	return json.Marshal(vm)
 }
 
-// unmarshalWithCustomFields unmarshals JSON into value v and puts all JSON fields which do not belong to value
+// UnmarshalWithCustomFields unmarshals JSON into value v and puts all JSON fields which do not belong to value
 // into custom fields map cf.
-func unmarshalWithCustomFields(data []byte, v interface{}, cf map[string]interface{}) error {
+func UnmarshalWithCustomFields(data []byte, v interface{}, cf map[string]interface{}) error {
 	err := json.Unmarshal(data, v)
 	if err != nil {
 		return err
@@ -60,9 +60,9 @@ func unmarshalWithCustomFields(data []byte, v interface{}, cf map[string]interfa
 	return nil
 }
 
-// mergeCustomFields converts value to the JSON-like map and merges it with custom fields map cf.
-func mergeCustomFields(v interface{}, cf map[string]interface{}) (map[string]interface{}, error) {
-	kf, err := toMap(v)
+// MergeCustomFields converts value to the JSON-like map and merges it with custom fields map cf.
+func MergeCustomFields(v interface{}, cf map[string]interface{}) (map[string]interface{}, error) {
+	kf, err := ToMap(v)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +77,8 @@ func mergeCustomFields(v interface{}, cf map[string]interface{}) (map[string]int
 	return kf, nil
 }
 
-func toMap(v interface{}) (map[string]interface{}, error) {
+// ToMap convert object, string or bytes to json object represented by map.
+func ToMap(v interface{}) (map[string]interface{}, error) {
 	var (
 		b   []byte
 		err error
@@ -105,11 +106,12 @@ func toMap(v interface{}) (map[string]interface{}, error) {
 	return m, nil
 }
 
-func toMaps(v []interface{}) ([]map[string]interface{}, error) {
+// ToMaps convert array to array of json objects.
+func ToMaps(v []interface{}) ([]map[string]interface{}, error) {
 	maps := make([]map[string]interface{}, len(v))
 
 	for i := range v {
-		m, err := toMap(v[i])
+		m, err := ToMap(v[i])
 		if err != nil {
 			return nil, err
 		}

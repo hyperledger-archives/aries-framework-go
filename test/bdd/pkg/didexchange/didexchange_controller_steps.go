@@ -20,6 +20,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	didexcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	cmdkms "github.com/hyperledger/aries-framework-go/pkg/controller/command/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
@@ -657,13 +658,16 @@ func (a *ControllerSteps) CreatePublicDIDWithKeyType( // nolint:funlen,gocyclo
 		JWK:             j,
 		RecoveryJWK:     recoveryJWK,
 		UpdateJWK:       updateJWK,
-		ServiceEndpoint: a.agentServiceEndpoints[destination],
+		ServiceEndpoint: model.NewDIDCommV1Endpoint(a.agentServiceEndpoints[destination]),
 	}
 
 	if isDIDCommV2 {
 		params.ServiceType = vdr.DIDCommV2ServiceType
 		params.EncryptionKey = encKey
 		params.EncKeyType = kms.KeyType(encKeyType)
+		params.ServiceEndpoint = model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
+			{URI: a.agentServiceEndpoints[destination], Accept: []string{"didcomm/v2"}},
+		})
 	}
 
 	doc, err := sidetree.CreateDID(&params)

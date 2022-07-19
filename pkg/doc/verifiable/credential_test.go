@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
+	jsonutil "github.com/hyperledger/aries-framework-go/pkg/doc/util/json"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -65,6 +66,7 @@ func TestParseCredential(t *testing.T) {
 			"https://www.w3.org/2018/credentials/examples/v1",
 			"https://w3id.org/security/jws/v1",
 			"https://trustbloc.github.io/context/vc/examples-v1.jsonld",
+			"https://w3id.org/security/suites/ed25519-2020/v1",
 		}, vc.Context)
 
 		// validate id
@@ -119,6 +121,22 @@ func TestParseCredential(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "new credential")
 		require.Nil(t, vc)
+	})
+}
+
+func TestParseCredentialWithoutIssuanceDate(t *testing.T) {
+	t.Run("test creation of new Verifiable Credential with disabled issuance date check", func(t *testing.T) {
+		schema := JSONSchemaLoader(WithDisableRequiredField("issuanceDate"))
+
+		vc, err := parseTestCredential(t, []byte(credentialWithoutIssuanceDate), WithStrictValidation(),
+			WithSchema(schema))
+		require.NoError(t, err)
+		require.NotNil(t, vc)
+	})
+
+	t.Run("'issuanceDate is required' error", func(t *testing.T) {
+		_, err := parseTestCredential(t, []byte(credentialWithoutIssuanceDate), WithStrictValidation())
+		require.Error(t, err)
 	})
 }
 
@@ -765,7 +783,7 @@ func TestWithDisabledProofCheck(t *testing.T) {
 
 func TestWithCredentialSchemaLoader(t *testing.T) {
 	httpClient := &http.Client{}
-	jsonSchemaLoader := gojsonschema.NewStringLoader(DefaultSchema)
+	jsonSchemaLoader := gojsonschema.NewStringLoader(JSONSchemaLoader())
 	cache := NewExpirableSchemaCache(100, 10*time.Minute)
 
 	credentialOpt := WithCredentialSchemaLoader(
@@ -876,7 +894,7 @@ func TestWithEmbeddedSignatureSuites(t *testing.T) {
 func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 	testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		rawMap := make(map[string]interface{})
-		require.NoError(t, json.Unmarshal([]byte(DefaultSchema), &rawMap))
+		require.NoError(t, json.Unmarshal([]byte(JSONSchemaLoader()), &rawMap))
 
 		// extend default schema to require new referenceNumber field to be mandatory
 		required, success := rawMap["required"].([]interface{})
@@ -927,6 +945,7 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 			"https://www.w3.org/2018/credentials/examples/v1",
 			"https://w3id.org/security/jws/v1",
 			"https://trustbloc.github.io/context/vc/examples-v1.jsonld",
+			"https://w3id.org/security/suites/ed25519-2020/v1",
 		}, []string{
 			"VerifiableCredential",
 			"UniversityDegreeCredential",
@@ -993,7 +1012,7 @@ func TestDownloadCustomSchema(t *testing.T) {
 	noCacheOpts := &credentialOpts{schemaLoader: newDefaultSchemaLoader()}
 	withCacheOpts := &credentialOpts{schemaLoader: &CredentialSchemaLoader{
 		schemaDownloadClient: httpClient,
-		jsonLoader:           gojsonschema.NewStringLoader(DefaultSchema),
+		jsonLoader:           gojsonschema.NewStringLoader(JSONSchemaLoader()),
 		cache:                NewExpirableSchemaCache(32*1024*1024, time.Hour),
 	}}
 
@@ -1035,7 +1054,7 @@ func TestDownloadCustomSchema(t *testing.T) {
 		// Check for cache expiration.
 		withCacheOpts = &credentialOpts{schemaLoader: &CredentialSchemaLoader{
 			schemaDownloadClient: httpClient,
-			jsonLoader:           gojsonschema.NewStringLoader(DefaultSchema),
+			jsonLoader:           gojsonschema.NewStringLoader(JSONSchemaLoader()),
 			cache:                NewExpirableSchemaCache(32*1024*1024, time.Second),
 		}}
 		loadsCount = 0
@@ -1604,7 +1623,7 @@ func TestParseCredentialFromRaw(t *testing.T) {
 }
 
 func TestParseCredentialFromRaw_PreserveDates(t *testing.T) {
-	vcMap, err := toMap(validCredential)
+	vcMap, err := jsonutil.ToMap(validCredential)
 	require.NoError(t, err)
 
 	vcMap["issuanceDate"] = "2020-01-01T00:00:00.000Z"
@@ -1621,7 +1640,7 @@ func TestParseCredentialFromRaw_PreserveDates(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check that the dates formatting is not corrupted.
-	rawMap, err := toMap(vcBytes)
+	rawMap, err := jsonutil.ToMap(vcBytes)
 	require.NoError(t, err)
 
 	require.Contains(t, rawMap, "issuanceDate")
@@ -1942,7 +1961,7 @@ func TestMarshalCredential(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, vc)
 
-		vcMap, err := toMap(vc)
+		vcMap, err := jsonutil.ToMap(vc)
 		require.NoError(t, err)
 		require.Empty(t, vcMap["credentialSchema"])
 		require.NotEmpty(t, vcMap["@context"])
@@ -1953,7 +1972,7 @@ func TestMarshalCredential(t *testing.T) {
 		// now set schema and try again
 		vc.Schemas = []TypedID{{ID: "test1"}, {ID: "test2"}}
 
-		vcMap, err = toMap(vc)
+		vcMap, err = jsonutil.ToMap(vc)
 		require.NoError(t, err)
 		require.NotEmpty(t, vcMap["credentialSchema"])
 		require.NotEmpty(t, vcMap["@context"])

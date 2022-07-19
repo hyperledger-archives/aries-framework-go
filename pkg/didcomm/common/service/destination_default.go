@@ -1,3 +1,4 @@
+//go:build !ACAPyInterop
 // +build !ACAPyInterop
 
 /*
@@ -12,13 +13,21 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 )
 
 // CreateDestination makes a DIDComm Destination object from a DID Doc as per the DIDComm service conventions:
 // https://github.com/hyperledger/aries-rfcs/blob/master/features/0067-didcomm-diddoc-conventions/README.md.
-//nolint:gocyclo
+//nolint:gocyclo,funlen,gocognit
 func CreateDestination(didDoc *diddoc.Doc) (*Destination, error) {
+	var (
+		sp                  model.Endpoint
+		accept, routingKeys []string
+		uri                 string
+		err                 error
+	)
+
 	// try DIDComm V2 and use it if found, else use default DIDComm v1 bloc.
 	didCommService, ok := diddoc.LookupService(didDoc, didCommV2ServiceType)
 	if ok { //nolint:nestif
@@ -42,17 +51,32 @@ func CreateDestination(didDoc *diddoc.Doc) (*Destination, error) {
 		didCommService.RecipientKeys = recKeys
 
 		// if Accept is missing, ensure DIDCommV2 is at least added for packer selection based on MediaTypeProfile.
-		if len(didCommService.Accept) == 0 {
-			didCommService.Accept = []string{defaultDIDCommV2Profile}
+		if accept, err = didCommService.ServiceEndpoint.Accept(); len(accept) == 0 || err != nil {
+			accept = []string{defaultDIDCommV2Profile}
 		}
-	} else {
+
+		uri, err = didCommService.ServiceEndpoint.URI()
+		if err != nil { // uri is required.
+			return nil, fmt.Errorf("create destination: service endpoint URI for didcomm v2 service block "+
+				"error: %+v, %w", didDoc, err)
+		}
+
+		routingKeys, err = didCommService.ServiceEndpoint.RoutingKeys()
+		if err != nil { // routingKeys can be optional.
+			routingKeys = nil
+		}
+
+		sp = model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{{URI: uri, Accept: accept, RoutingKeys: routingKeys}})
+	} else { // didcomm v1 service
 		didCommService, ok = diddoc.LookupService(didDoc, didCommServiceType)
 		if !ok {
 			return nil, fmt.Errorf("create destination: missing DID doc service")
 		}
 
-		if didCommService.ServiceEndpoint == "" {
-			return nil, fmt.Errorf("create destination: no service endpoint on didcomm service block in diddoc: %+v", didDoc)
+		uri, err = didCommService.ServiceEndpoint.URI()
+		if err != nil { // uri is required.
+			return nil, fmt.Errorf("create destination: service endpoint URI on didcomm v1 service block "+
+				"in diddoc error: %+v, %w", didDoc, err)
 		}
 
 		if len(didCommService.RecipientKeys) == 0 {
@@ -70,11 +94,13 @@ func CreateDestination(didDoc *diddoc.Doc) (*Destination, error) {
 		if len(didCommService.Accept) == 0 {
 			didCommService.Accept = []string{defaultDIDCommProfile}
 		}
+
+		sp = model.NewDIDCommV1Endpoint(uri)
 	}
 
 	return &Destination{
 		RecipientKeys:     didCommService.RecipientKeys,
-		ServiceEndpoint:   didCommService.ServiceEndpoint,
+		ServiceEndpoint:   sp,
 		RoutingKeys:       didCommService.RoutingKeys,
 		MediaTypeProfiles: didCommService.Accept,
 		DIDDoc:            didDoc,

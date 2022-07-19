@@ -225,8 +225,9 @@ func TestSignVerify(t *testing.T) {
 				kid2, kh2, err2 := k.ImportPrivateKey(priv, testCase.keyType)
 				require.NoError(t, err2)
 
-				pub, err2 := k.ExportPubKeyBytes(kid2)
+				pub, kt, err2 := k.ExportPubKeyBytes(kid2)
 				require.NoError(t, err2)
+				require.Equal(t, testCase.keyType, kt)
 
 				data := mockAttachmentData()
 

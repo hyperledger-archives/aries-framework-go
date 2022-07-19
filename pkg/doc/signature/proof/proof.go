@@ -10,6 +10,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/multiformats/go-multibase"
+
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 )
 
@@ -36,6 +38,8 @@ const (
 	jsonldChallenge = "challenge"
 	// jsonldCapabilityChain is a key for capabilityChain.
 	jsonldCapabilityChain = "capabilityChain"
+
+	ed25519Signature2020 = "Ed25519Signature2020"
 )
 
 // Proof is cryptographic proof of the integrity of the DID Document.
@@ -71,7 +75,7 @@ func NewProof(emap map[string]interface{}) (*Proof, error) {
 	)
 
 	if generalProof, ok := emap[jsonldProofValue]; ok {
-		proofValue, err = decodeBase64(stringEntry(generalProof))
+		proofValue, err = DecodeProofValue(stringEntry(generalProof), stringEntry(emap[jsonldType]))
 		if err != nil {
 			return nil, err
 		}
@@ -143,6 +147,20 @@ func decodeBase64(s string) ([]byte, error) {
 	return nil, errors.New("unsupported encoding")
 }
 
+// DecodeProofValue decodes proofValue basing on proof type.
+func DecodeProofValue(s, proofType string) ([]byte, error) {
+	if proofType == ed25519Signature2020 {
+		_, value, err := multibase.Decode(s)
+		if err == nil {
+			return value, nil
+		}
+
+		return nil, errors.New("unsupported encoding")
+	}
+
+	return decodeBase64(s)
+}
+
 // stringEntry.
 func stringEntry(entry interface{}) string {
 	if entry == nil {
@@ -170,7 +188,7 @@ func (p *Proof) JSONLdObject() map[string]interface{} { // nolint:gocyclo
 	}
 
 	if len(p.ProofValue) > 0 {
-		emap[jsonldProofValue] = base64.RawURLEncoding.EncodeToString(p.ProofValue)
+		emap[jsonldProofValue] = EncodeProofValue(p.ProofValue, p.Type)
 	}
 
 	if len(p.JWS) > 0 {
@@ -198,6 +216,16 @@ func (p *Proof) JSONLdObject() map[string]interface{} { // nolint:gocyclo
 	}
 
 	return emap
+}
+
+// EncodeProofValue decodes proofValue basing on proof type.
+func EncodeProofValue(proofValue []byte, proofType string) string {
+	if proofType == ed25519Signature2020 {
+		encoded, _ := multibase.Encode(multibase.Base58BTC, proofValue) //nolint: errcheck
+		return encoded
+	}
+
+	return base64.RawURLEncoding.EncodeToString(proofValue)
 }
 
 // PublicKeyID provides ID of public key to be used to independently verify the proof.

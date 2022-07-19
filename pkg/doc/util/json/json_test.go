@@ -3,7 +3,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package verifiable
+package json
 
 import (
 	"encoding/json"
@@ -33,7 +33,7 @@ func Test_marshalJSON(t *testing.T) {
 			"boolValue": false,
 			"intValue":  8,
 		}
-		actual, err := marshalWithCustomFields(&v, cf)
+		actual, err := MarshalWithCustomFields(&v, cf)
 		require.NoError(t, err)
 
 		expectedMap := map[string]interface{}{
@@ -49,7 +49,7 @@ func Test_marshalJSON(t *testing.T) {
 
 	t.Run("Failed JSON marshall", func(t *testing.T) {
 		// artificial example - pass smth which cannot be marshalled
-		jsonBytes, err := marshalWithCustomFields(make(chan int), map[string]interface{}{})
+		jsonBytes, err := MarshalWithCustomFields(make(chan int), map[string]interface{}{})
 		require.Error(t, err)
 		require.Nil(t, jsonBytes)
 	})
@@ -68,7 +68,7 @@ func Test_unmarshalJSON(t *testing.T) {
 	t.Run("Successful JSON unmarshalling", func(t *testing.T) {
 		v := new(testJSON)
 		cf := make(map[string]interface{})
-		err := unmarshalWithCustomFields(data, v, cf)
+		err := UnmarshalWithCustomFields(data, v, cf)
 		require.NoError(t, err)
 
 		expectedV := testJSON{
@@ -86,15 +86,15 @@ func Test_unmarshalJSON(t *testing.T) {
 		cf := make(map[string]interface{})
 
 		// invalid JSON
-		err := unmarshalWithCustomFields([]byte("not JSON"), "", cf)
+		err := UnmarshalWithCustomFields([]byte("not JSON"), "", cf)
 		require.Error(t, err)
 
 		// unmarshallable value
-		err = unmarshalWithCustomFields(data, make(chan int), cf)
+		err = UnmarshalWithCustomFields(data, make(chan int), cf)
 		require.Error(t, err)
 
 		// incompatible structure of value
-		err = unmarshalWithCustomFields(data, new(testJSONInvalid), cf)
+		err = UnmarshalWithCustomFields(data, new(testJSONInvalid), cf)
 		require.Error(t, err)
 	})
 }
@@ -111,7 +111,7 @@ func Test_toMaps(t *testing.T) {
 		},
 	}
 
-	maps, err := toMaps(v)
+	maps, err := ToMaps(v)
 	require.NoError(t, err)
 	require.Len(t, maps, 2)
 	require.Equal(t, []map[string]interface{}{
@@ -119,7 +119,7 @@ func Test_toMaps(t *testing.T) {
 		{"a": "b"},
 	}, maps)
 
-	maps, err = toMaps([]interface{}{make(chan int)})
+	maps, err = ToMaps([]interface{}{make(chan int)})
 	require.Error(t, err)
 	require.Empty(t, maps)
 }

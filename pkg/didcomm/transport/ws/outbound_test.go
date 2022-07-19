@@ -93,7 +93,7 @@ func TestClient(t *testing.T) {
 		addr := startWebSocketServer(t, echo)
 
 		resp, err := outbound.Send(createTransportDecRequest(t, decorator.TransportReturnRouteAll),
-			prepareDestinationWithTransport("ws://"+addr, decorator.TransportReturnRouteAll, recKey))
+			prepareDestinationWithTransport("ws://"+addr, decorator.TransportReturnRouteAll, recKey, nil))
 		require.NoError(t, err)
 		require.Equal(t, "", resp)
 
@@ -125,8 +125,7 @@ func TestClient(t *testing.T) {
 
 		addr := startWebSocketServer(t, echo)
 
-		des := prepareDestinationWithTransport("ws://"+addr, decorator.TransportReturnRouteAll, recKey)
-		des.RoutingKeys = routingKeys
+		des := prepareDestinationWithTransport("ws://"+addr, decorator.TransportReturnRouteAll, recKey, routingKeys)
 
 		data := "didcomm-message"
 		resp, err := outbound.Send([]byte(data), des)
@@ -146,7 +145,7 @@ func TestClient(t *testing.T) {
 		addr := startWebSocketServer(t, echo)
 
 		resp, err := outbound.Send(createTransportDecRequest(t, decorator.TransportReturnRouteAll),
-			prepareDestinationWithTransport("ws://"+addr, decorator.TransportReturnRouteAll, nil))
+			prepareDestinationWithTransport("ws://"+addr, decorator.TransportReturnRouteAll, nil, nil))
 		require.NoError(t, err)
 		require.Equal(t, "", resp)
 	})
@@ -163,7 +162,7 @@ func TestClient(t *testing.T) {
 		addr := startWebSocketServer(t, echo)
 
 		resp, err := outbound.Send(createTransportDecRequest(t, decorator.TransportReturnRouteNone),
-			prepareDestinationWithTransport("ws://"+addr, decorator.TransportReturnRouteNone, nil))
+			prepareDestinationWithTransport("ws://"+addr, decorator.TransportReturnRouteNone, nil, nil))
 		require.NoError(t, err)
 		require.Equal(t, "", resp)
 	})
@@ -213,7 +212,7 @@ func TestClient(t *testing.T) {
 		require.NoError(t, err)
 
 		resp, err := outboundClient.Send([]byte("data"),
-			prepareDestinationWithTransport("ws://"+addr, decorator.TransportReturnRouteAll, nil))
+			prepareDestinationWithTransport("ws://"+addr, decorator.TransportReturnRouteAll, nil, nil))
 		require.NoError(t, err)
 		require.Equal(t, "", resp)
 

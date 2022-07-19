@@ -172,6 +172,8 @@ type Config struct {
 	// Default token expiry for all wallet profiles created.
 	// Will be used only if wallet unlock request doesn't supply default timeout value.
 	DefaultTokenExpiry time.Duration
+	// Indicate if a data model of json-ld content stored in the wallet should be validated.
+	ValidateDataModel bool
 }
 
 // provider contains dependencies for the verifiable credential wallet command controller
@@ -415,7 +417,15 @@ func (o *Command) Add(rw io.Writer, req io.Reader) command.Error {
 		return command.NewExecuteError(AddToWalletErrorCode, err)
 	}
 
-	err = vcWallet.Add(request.Auth, request.ContentType, request.Content, wallet.AddByCollection(request.CollectionID))
+	addOpts := []wallet.AddContentOptions{
+		wallet.AddByCollection(request.CollectionID),
+	}
+
+	if o.config.ValidateDataModel {
+		addOpts = append(addOpts, wallet.ValidateContent())
+	}
+
+	err = vcWallet.Add(request.Auth, request.ContentType, request.Content, addOpts...)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, AddMethod, err.Error())
 
@@ -751,7 +761,14 @@ func (o *Command) Connect(rw io.Writer, req io.Reader) command.Error {
 		return command.NewExecuteError(DIDConnectErrorCode, err)
 	}
 
-	connectionID, err := vcWallet.Connect(request.Auth, request.Invitation,
+	didComm, err := wallet.NewDidComm(vcWallet, o.ctx)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, ConnectMethod, err.Error())
+
+		return command.NewExecuteError(DIDConnectErrorCode, err)
+	}
+
+	connectionID, err := didComm.Connect(request.Auth, request.Invitation,
 		wallet.WithConnectTimeout(request.Timeout), wallet.WithReuseDID(request.ReuseConnection),
 		wallet.WithReuseAnyConnection(request.ReuseAnyConnection), wallet.WithMyLabel(request.MyLabel),
 		wallet.WithRouterConnections(request.RouterConnections...))
@@ -795,7 +812,14 @@ func (o *Command) ProposePresentation(rw io.Writer, req io.Reader) command.Error
 		return command.NewExecuteError(ProposePresentationErrorCode, err)
 	}
 
-	msg, err := vcWallet.ProposePresentation(request.Auth, request.Invitation,
+	didComm, err := wallet.NewDidComm(vcWallet, o.ctx)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, ProposePresentationMethod, err.Error())
+
+		return command.NewExecuteError(ProposePresentationErrorCode, err)
+	}
+
+	msg, err := didComm.ProposePresentation(request.Auth, request.Invitation,
 		wallet.WithFromDID(request.FromDID), wallet.WithInitiateTimeout(request.Timeout),
 		wallet.WithConnectOptions(wallet.WithConnectTimeout(request.ConnectionOpts.Timeout),
 			wallet.WithReuseDID(request.ConnectionOpts.ReuseConnection),
@@ -839,7 +863,14 @@ func (o *Command) PresentProof(rw io.Writer, req io.Reader) command.Error {
 		return command.NewExecuteError(PresentProofErrorCode, err)
 	}
 
-	status, err := vcWallet.PresentProof(request.Auth, request.ThreadID,
+	didComm, err := wallet.NewDidComm(vcWallet, o.ctx)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, PresentProofMethod, err.Error())
+
+		return command.NewExecuteError(PresentProofErrorCode, err)
+	}
+
+	status, err := didComm.PresentProof(request.Auth, request.ThreadID,
 		prepareConcludeInteractionOpts(request.WaitForDone, request.Timeout, request.Presentation)...)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, PresentProofMethod, err.Error())
@@ -878,7 +909,14 @@ func (o *Command) ProposeCredential(rw io.Writer, req io.Reader) command.Error {
 		return command.NewExecuteError(ProposeCredentialErrorCode, err)
 	}
 
-	msg, err := vcWallet.ProposeCredential(request.Auth, request.Invitation,
+	didComm, err := wallet.NewDidComm(vcWallet, o.ctx)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, ProposeCredentialMethod, err.Error())
+
+		return command.NewExecuteError(ProposeCredentialErrorCode, err)
+	}
+
+	msg, err := didComm.ProposeCredential(request.Auth, request.Invitation,
 		wallet.WithFromDID(request.FromDID), wallet.WithInitiateTimeout(request.Timeout),
 		wallet.WithConnectOptions(wallet.WithConnectTimeout(request.ConnectionOpts.Timeout),
 			wallet.WithReuseDID(request.ConnectionOpts.ReuseConnection),
@@ -923,7 +961,14 @@ func (o *Command) RequestCredential(rw io.Writer, req io.Reader) command.Error {
 		return command.NewExecuteError(RequestCredentialErrorCode, err)
 	}
 
-	status, err := vcWallet.RequestCredential(request.Auth, request.ThreadID,
+	didComm, err := wallet.NewDidComm(vcWallet, o.ctx)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, RequestCredentialMethod, err.Error())
+
+		return command.NewExecuteError(RequestCredentialErrorCode, err)
+	}
+
+	status, err := didComm.RequestCredential(request.Auth, request.ThreadID,
 		prepareConcludeInteractionOpts(request.WaitForDone, request.Timeout, request.Presentation)...)
 	if err != nil {
 		logutil.LogInfo(logger, CommandName, RequestCredentialMethod, err.Error())
@@ -1013,7 +1058,8 @@ func prepareUnlockOptions(rqst *UnlockWalletRequest, conf *Config) ([]wallet.Unl
 	if rqst.WebKMSAuth != nil {
 		var webKMSHeader func(*http.Request) (*http.Header, error)
 
-		if rqst.WebKMSAuth.Capability != "" { // zcap ld signing
+		switch {
+		case rqst.WebKMSAuth.Capability != "": // zcap ld signing
 			if conf.WebKMSAuthzProvider == nil {
 				return nil, fmt.Errorf("authorization capability for WebKMS is not configured")
 			}
@@ -1024,9 +1070,15 @@ func prepareUnlockOptions(rqst *UnlockWalletRequest, conf *Config) ([]wallet.Unl
 			webKMSHeader = func(req *http.Request) (*http.Header, error) {
 				return signer.SignHeader(req, []byte(rqst.WebKMSAuth.Capability))
 			}
-		} else if rqst.WebKMSAuth.AuthToken != "" { // auth token
+		case rqst.WebKMSAuth.AuthToken != "": // auth token
 			webKMSHeader = func(req *http.Request) (*http.Header, error) {
-				req.Header.Set("authorization", fmt.Sprintf("Bearer %s", rqst.EDVUnlock.AuthToken))
+				req.Header.Set("authorization", fmt.Sprintf("Bearer %s", rqst.WebKMSAuth.AuthToken))
+
+				return &req.Header, nil
+			}
+		case rqst.WebKMSAuth.GNAPToken != "": // GNAP token
+			webKMSHeader = func(req *http.Request) (*http.Header, error) {
+				req.Header.Set("authorization", fmt.Sprintf("GNAP %s", rqst.WebKMSAuth.GNAPToken))
 
 				return &req.Header, nil
 			}
@@ -1044,7 +1096,8 @@ func prepareUnlockOptions(rqst *UnlockWalletRequest, conf *Config) ([]wallet.Unl
 	if rqst.EDVUnlock != nil {
 		var edvHeader func(*http.Request) (*http.Header, error)
 
-		if rqst.EDVUnlock.Capability != "" { // zcap ld signing
+		switch {
+		case rqst.EDVUnlock.Capability != "": // zcap ld signing
 			if conf.EdvAuthzProvider == nil {
 				return nil, fmt.Errorf("authorization capability for EDV is not configured")
 			}
@@ -1055,9 +1108,15 @@ func prepareUnlockOptions(rqst *UnlockWalletRequest, conf *Config) ([]wallet.Unl
 			edvHeader = func(req *http.Request) (*http.Header, error) {
 				return signer.SignHeader(req, []byte(rqst.EDVUnlock.Capability))
 			}
-		} else if rqst.EDVUnlock.AuthToken != "" { // auth token
+		case rqst.EDVUnlock.AuthToken != "": // auth token
 			edvHeader = func(req *http.Request) (*http.Header, error) {
 				req.Header.Set("authorization", fmt.Sprintf("Bearer %s", rqst.EDVUnlock.AuthToken))
+
+				return &req.Header, nil
+			}
+		case rqst.EDVUnlock.GNAPToken != "": // GNAP token
+			edvHeader = func(req *http.Request) (*http.Header, error) {
+				req.Header.Set("authorization", fmt.Sprintf("GNAP %s", rqst.EDVUnlock.GNAPToken))
 
 				return &req.Header, nil
 			}

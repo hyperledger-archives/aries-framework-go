@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
@@ -125,7 +126,7 @@ func TestFramework(t *testing.T) {
 		e := ctx.OutboundDispatcher().Send(
 			[]byte("Hello World"),
 			mockdiddoc.MockDIDKey(t),
-			&service.Destination{ServiceEndpoint: serverURL},
+			&service.Destination{ServiceEndpoint: model.NewDIDCommV1Endpoint(serverURL)},
 		)
 		require.NoError(t, e)
 	})
@@ -582,10 +583,12 @@ func TestFramework(t *testing.T) {
 			&didcomm.MockOutboundTransport{ExpectedResponse: "data1"}))
 		require.NoError(t, err)
 		require.Equal(t, 2, len(aries.outboundTransports))
-		r, err := aries.outboundTransports[0].Send([]byte("data"), &service.Destination{ServiceEndpoint: "url"})
+		r, err := aries.outboundTransports[0].Send([]byte("data"),
+			&service.Destination{ServiceEndpoint: model.NewDIDCommV1Endpoint("url")})
 		require.NoError(t, err)
 		require.Equal(t, "data", r)
-		r, err = aries.outboundTransports[1].Send([]byte("data1"), &service.Destination{ServiceEndpoint: "url"})
+		r, err = aries.outboundTransports[1].Send([]byte("data1"),
+			&service.Destination{ServiceEndpoint: model.NewDIDCommV1Endpoint("url")})
 		require.NoError(t, err)
 		require.Equal(t, "data1", r)
 		require.NoError(t, aries.Close())

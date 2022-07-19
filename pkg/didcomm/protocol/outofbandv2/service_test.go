@@ -226,7 +226,7 @@ func TestAcceptInvitation(t *testing.T) {
 		s.vdrRegistry = &mockvdr.MockVDRegistry{
 			ResolveFunc: func(id string, _ ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 				return &did.DocResolution{
-					DIDDocument: mockdiddoc.GetMockDIDDoc(t),
+					DIDDocument: mockdiddoc.GetMockDIDDoc(t, true),
 				}, nil
 			},
 		}
@@ -267,7 +267,7 @@ func TestAcceptInvitation(t *testing.T) {
 			},
 			ResolveFunc: func(id string, _ ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 				return &did.DocResolution{
-					DIDDocument: mockdiddoc.GetMockDIDDoc(t),
+					DIDDocument: mockdiddoc.GetMockDIDDoc(t, true),
 				}, nil
 			},
 		}
@@ -280,8 +280,11 @@ func TestAcceptInvitation(t *testing.T) {
 		docSvc, ok := did.LookupService(createdDoc, vdrapi.DIDCommV2ServiceType)
 		require.True(t, ok)
 
-		require.Len(t, docSvc.RoutingKeys, 1)
-		require.Equal(t, testKey, docSvc.RoutingKeys[0])
+		routingKeys, err := docSvc.ServiceEndpoint.RoutingKeys()
+		require.NoError(t, err)
+
+		require.Len(t, routingKeys, 1)
+		require.Equal(t, testKey, routingKeys[0])
 	})
 
 	t.Run("error fetching mediator config", func(t *testing.T) {
@@ -338,7 +341,7 @@ func TestAcceptInvitation(t *testing.T) {
 			},
 			ResolveFunc: func(id string, _ ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 				return &did.DocResolution{
-					DIDDocument: mockdiddoc.GetMockDIDDoc(t),
+					DIDDocument: mockdiddoc.GetMockDIDDoc(t, true),
 				}, nil
 			},
 		}
@@ -387,7 +390,7 @@ func TestAcceptInvitation(t *testing.T) {
 		s.vdrRegistry = &mockvdr.MockVDRegistry{
 			ResolveFunc: func(id string, _ ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 				return &did.DocResolution{
-					DIDDocument: mockdiddoc.GetMockDIDDoc(t),
+					DIDDocument: mockdiddoc.GetMockDIDDoc(t, true),
 				}, nil
 			},
 		}

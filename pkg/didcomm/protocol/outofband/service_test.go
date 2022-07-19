@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	commonmodel "github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
@@ -141,6 +142,40 @@ func TestHandleInbound(t *testing.T) {
 		_, err := s.HandleInbound(service.NewDIDCommMsgMap(newInvitation()), service.NewDIDCommContext(myDID, theirDID, nil))
 		require.NoError(t, err)
 	})
+
+	t.Run("accepts out-of-band invitation messages with service as map[string]interface{} and serviceEndpoint as "+
+		"string (DIDCommV1)", func(t *testing.T) {
+		s := newAutoService(t, testProvider())
+		customServiceMap := map[string]interface{}{
+			"recipientKeys":   []string{"did:key:123"},
+			"serviceEndpoint": "http://user.agent.aries.js.example.com:10081",
+			"type":            "did-communication",
+		}
+		_, err := s.HandleInbound(service.NewDIDCommMsgMap(newInvitationWithService(customServiceMap)),
+			service.NewDIDCommContext(myDID, theirDID, nil))
+		require.NoError(t, err)
+	})
+
+	t.Run("accepts out-of-band invitation messages with service as map[string]interface{} and serviceEndpoint as "+
+		"list (DIDCommV2)", func(t *testing.T) {
+		s := newAutoService(t, testProvider())
+		customServiceMap := map[string]interface{}{
+			"recipientKeys": []string{"did:key:123"},
+			"serviceEndpoint": []interface{}{
+				map[string]interface{}{
+					"accept": []interface{}{
+						"didcomm/v2", "didcomm/aip2;env=rfc19", "didcomm/aip2;env=rfc587",
+					},
+					"uri": "https://alice.aries.example.com:8081",
+				},
+			},
+			"type": "DIDCommMessaging",
+		}
+		_, err := s.HandleInbound(service.NewDIDCommMsgMap(newInvitationWithService(customServiceMap)),
+			service.NewDIDCommContext(myDID, theirDID, nil))
+		require.NoError(t, err)
+	})
+
 	t.Run("rejects unsupported message types", func(t *testing.T) {
 		s, err := New(testProvider())
 		require.NoError(t, err)
@@ -981,8 +1016,8 @@ func TestChooseTarget(t *testing.T) {
 			Type:            "did-communication",
 			Priority:        0,
 			RecipientKeys:   []string{"my ver key"},
+			ServiceEndpoint: commonmodel.NewDIDCommV1Endpoint("my service endpoint"),
 			RoutingKeys:     []string{"my routing key"},
-			ServiceEndpoint: "my service endpoint",
 		}
 		result, err := chooseTarget([]interface{}{expected})
 		require.NoError(t, err)
@@ -994,8 +1029,8 @@ func TestChooseTarget(t *testing.T) {
 			"type":            "did-communication",
 			"priority":        uint(0),
 			"recipientKeys":   []string{"my ver key"},
-			"routingKeys":     []string{"my routing key"},
-			"serviceEndpoint": "my service endpoint",
+			"serviceEndpoint": commonmodel.NewDIDCommV1Endpoint("my service endpoint"),
+			"RoutingKeys":     []string{"my routing key"},
 		}
 		svc, err := chooseTarget([]interface{}{expected})
 		require.NoError(t, err)
@@ -1005,7 +1040,6 @@ func TestChooseTarget(t *testing.T) {
 		require.Equal(t, expected["type"], result.Type)
 		require.Equal(t, expected["priority"], result.Priority)
 		require.Equal(t, expected["recipientKeys"], result.RecipientKeys)
-		require.Equal(t, expected["routingKeys"], result.RoutingKeys)
 		require.Equal(t, expected["serviceEndpoint"], result.ServiceEndpoint)
 	})
 	t.Run("fails if not services are specified", func(t *testing.T) {
@@ -1025,13 +1059,17 @@ func testProvider() *protocol.MockProvider {
 }
 
 func newInvitation() *Invitation {
+	return newInvitationWithService("did:example:1235")
+}
+
+func newInvitationWithService(svc interface{}) *Invitation {
 	return &Invitation{
 		ID:        uuid.New().String(),
 		Type:      InvitationMsgType,
 		Label:     "test",
 		Goal:      "test",
 		GoalCode:  "test",
-		Services:  []interface{}{"did:example:1235"},
+		Services:  []interface{}{svc},
 		Protocols: []string{didexchange.PIURI},
 		Requests: []*decorator.Attachment{
 			{

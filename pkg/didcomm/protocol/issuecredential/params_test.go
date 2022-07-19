@@ -18,7 +18,7 @@ import (
 
 const (
 	commentText   = "this is a comment"
-	goalCodeText  = "goal-code"
+	goalCodeText  = "goal_code"
 	messageIDText = "message-id-123"
 )
 
@@ -47,7 +47,7 @@ func previewCredV3(t *testing.T) map[string]interface{} {
 		Type: CredentialPreviewMsgTypeV3,
 		ID:   "bar-baz-qux",
 		Body: IssueCredentialV3Body{
-			GoalCode:      "goal-code",
+			GoalCode:      "goal_code",
 			ReplacementID: "blah-id",
 			Comment:       commentText,
 		},

@@ -21,6 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	mockwebhook "github.com/hyperledger/aries-framework-go/pkg/controller/internal/mocks/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/webnotifier"
@@ -989,7 +990,7 @@ func newPeerDID(t *testing.T) *did.Doc {
 	d, err := ctx.VDRegistry().Create(
 		peer.DIDMethod, &did.Doc{Service: []did.Service{{
 			Type:            vdr.DIDCommServiceType,
-			ServiceEndpoint: "http://agent.example.com/didcomm",
+			ServiceEndpoint: model.NewDIDCommV1Endpoint("http://agent.example.com/didcomm"),
 		}}, VerificationMethod: []did.VerificationMethod{getSigningKey()}},
 	)
 	require.NoError(t, err)

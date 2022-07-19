@@ -18,9 +18,12 @@ import (
 	"time"
 
 	"github.com/bluele/gcache"
+	"github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
@@ -103,17 +106,24 @@ var (
 
 // contentStore is store for wallet contents for given user profile.
 type contentStore struct {
-	storeID  string
-	provider *storageProvider
-	open     storeOpenHandle
-	close    storeCloseHandle
-	lock     sync.RWMutex
+	storeID              string
+	provider             *storageProvider
+	open                 storeOpenHandle
+	close                storeCloseHandle
+	lock                 sync.RWMutex
+	jsonldDocumentLoader ld.DocumentLoader
 }
 
 // newContentStore returns new wallet content store instance.
 // will use underlying storage provider as content storage if profile doesn't have edv settings.
-func newContentStore(p storage.Provider, pr *profile) *contentStore {
-	contents := &contentStore{open: storeLocked, close: noOp, provider: newWalletStorageProvider(pr, p), storeID: pr.ID}
+func newContentStore(p storage.Provider, jsonldDocumentLoader ld.DocumentLoader, pr *profile) *contentStore {
+	contents := &contentStore{
+		open:                 storeLocked,
+		close:                noOp,
+		provider:             newWalletStorageProvider(pr, p),
+		storeID:              pr.ID,
+		jsonldDocumentLoader: jsonldDocumentLoader,
+	}
 
 	if store, err := storeManager().get(pr.ID); err == nil {
 		contents.updateStoreHandles(store)
@@ -122,8 +132,8 @@ func newContentStore(p storage.Provider, pr *profile) *contentStore {
 	return contents
 }
 
-func (cs *contentStore) Open(auth string, opts *unlockOpts) error {
-	store, err := cs.provider.OpenStore(auth, opts, storage.StoreConfiguration{TagNames: []string{
+func (cs *contentStore) Open(keyMgr kms.KeyManager, opts *unlockOpts) error {
+	store, err := cs.provider.OpenStore(keyMgr, opts, storage.StoreConfiguration{TagNames: []string{
 		Collection.Name(), Credential.Name(), Connection.Name(), DIDResolutionResponse.Name(), Connection.Name(), Key.Name(),
 	}})
 	if err != nil {
@@ -146,9 +156,9 @@ func (cs *contentStore) Open(auth string, opts *unlockOpts) error {
 func (cs *contentStore) updateStoreHandles(store storage.Store) {
 	// give access to store only when auth is valid & not expired.
 	cs.open = func(auth string) (storage.Store, error) {
-		_, err := keyManager().getKeyManger(auth)
+		_, err := sessionManager().getSession(auth)
 		if err != nil {
-			return nil, ErrInvalidAuthToken
+			return nil, err
 		}
 
 		return store, nil
@@ -177,7 +187,7 @@ func (cs *contentStore) Close() bool {
 // if content document id is missing from content, then system generated id will be used as key for storage.
 // returns error if content with same ID already exists in store.
 // For replacing already existing content, use 'Remove() + Add()'.
-func (cs *contentStore) Save(auth string, ct ContentType, content []byte, options ...AddContentOptions) error {
+func (cs *contentStore) Save(auth string, ct ContentType, content []byte, options ...AddContentOptions) error { //nolint:lll,gocyclo
 	opts := &addContentOpts{}
 
 	for _, option := range options {
@@ -186,6 +196,10 @@ func (cs *contentStore) Save(auth string, ct ContentType, content []byte, option
 
 	switch ct {
 	case Collection, Metadata, Connection, Credential:
+		if err := cs.checkDataModel(content, opts); err != nil {
+			return err
+		}
+
 		key, err := getContentID(content)
 		if err != nil {
 			return err
@@ -211,6 +225,10 @@ func (cs *contentStore) Save(auth string, ct ContentType, content []byte, option
 
 		return cs.safeSave(auth, getContentKeyPrefix(ct, docRes.DIDDocument.ID), content, storage.Tag{Name: ct.Name()})
 	case Key:
+		if err := cs.checkDataModel(content, opts); err != nil {
+			return err
+		}
+
 		// never save keys in store, just import them into kms
 		var key keyContent
 
@@ -420,6 +438,17 @@ func (cs *contentStore) GetAllByCollection(auth,
 	}
 
 	return result, nil
+}
+
+func (cs *contentStore) checkDataModel(content []byte, opts *addContentOpts) error {
+	if opts.validateDataModel {
+		err := jsonld.ValidateJSONLD(string(content), jsonld.WithDocumentLoader(cs.jsonldDocumentLoader))
+		if err != nil {
+			return fmt.Errorf("incorrect document structure: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func getContentID(content []byte) (string, error) {

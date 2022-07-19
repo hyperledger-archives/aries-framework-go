@@ -13,8 +13,10 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/middleware"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
@@ -46,6 +48,38 @@ func TestNewOutbound(t *testing.T) {
 	})
 }
 
+func TestOutBoundDispatcher_createPackedNestedForwards(t *testing.T) {
+	t.Run("test send with nested forward message - success", func(t *testing.T) {
+		data := "data"
+		recKey1 := "recKey1"
+		rtKey1 := "rtKey1"
+		rtKey2 := "rtKey2"
+		packager := &mockPackager{}
+		expectedRequest := `{"protected":"","iv":"","ciphertext":"","tag":""}`
+
+		o, err := NewOutbound(&mockProvider{
+			packagerValue:           packager,
+			outboundTransportsValue: []transport.OutboundTransport{&mockOutboundTransport{expectedRequest: expectedRequest}},
+			storageProvider:         mockstore.NewMockStoreProvider(),
+			protoStorageProvider:    mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:       []string{transport.MediaTypeDIDCommV2Profile},
+		})
+		require.NoError(t, err)
+
+		packager.On("PackMessage", []string{recKey1}).Return([]byte(expectedRequest))
+		packager.On("PackMessage", []string{rtKey1}).Return([]byte(expectedRequest))
+		packager.On("PackMessage", []string{rtKey2}).Return([]byte(expectedRequest))
+
+		require.NoError(t, o.Send(data, "", &service.Destination{
+			ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
+				{URI: "url", RoutingKeys: []string{rtKey1, rtKey2}},
+			}),
+			RecipientKeys: []string{recKey1},
+		}))
+		packager.AssertExpectations(t)
+	})
+}
+
 func TestOutboundDispatcher_Send(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		o, err := NewOutbound(&mockProvider{
@@ -56,7 +90,9 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 			mediaTypeProfiles:       []string{transport.MediaTypeV1PlaintextPayload},
 		})
 		require.NoError(t, err)
-		require.NoError(t, o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{ServiceEndpoint: "url"}))
+		require.NoError(t, o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{
+			ServiceEndpoint: model.NewDIDCommV1Endpoint("url"),
+		}))
 	})
 
 	t.Run("test success", func(t *testing.T) {
@@ -73,9 +109,11 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 		toDIDDoc := mockdiddoc.GetMockDIDDocWithDIDCommV2Bloc(t, "bob")
 
 		require.NoError(t, o.Send("data", fromDIDDoc.KeyAgreement[0].VerificationMethod.ID, &service.Destination{
-			RecipientKeys:     []string{toDIDDoc.KeyAgreement[0].VerificationMethod.ID},
-			ServiceEndpoint:   "url",
-			MediaTypeProfiles: []string{transport.MediaTypeDIDCommV2Profile},
+			RecipientKeys: []string{toDIDDoc.KeyAgreement[0].VerificationMethod.ID},
+			ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{{
+				URI:    "url",
+				Accept: []string{transport.MediaTypeDIDCommV2Profile},
+			}}),
 		}))
 	})
 
@@ -88,7 +126,9 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 			mediaTypeProfiles:       []string{transport.MediaTypeDIDCommV2Profile},
 		})
 		require.NoError(t, err)
-		err = o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{ServiceEndpoint: "url"})
+		err = o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{
+			ServiceEndpoint: model.NewDIDCommV1Endpoint("url"),
+		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "outboundDispatcher.Send: no transport found for destination")
 	})
@@ -102,7 +142,9 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 			mediaTypeProfiles:       []string{transport.MediaTypeDIDCommV2Profile},
 		})
 		require.NoError(t, err)
-		err = o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{ServiceEndpoint: "url"})
+		err = o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{
+			ServiceEndpoint: model.NewDIDCommV1Endpoint("url"),
+		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "pack error")
 	})
@@ -118,7 +160,8 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 			mediaTypeProfiles:    []string{transport.MediaTypeDIDCommV2Profile},
 		})
 		require.NoError(t, err)
-		err = o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{ServiceEndpoint: "url"})
+		err = o.Send("data", mockdiddoc.MockDIDKey(t),
+			&service.Destination{ServiceEndpoint: model.NewDIDCommV1Endpoint("url")})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "send error")
 	})
@@ -134,9 +177,10 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 		require.NoError(t, err)
 
 		require.NoError(t, o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{
-			ServiceEndpoint: "url",
-			RecipientKeys:   []string{"abc"},
-			RoutingKeys:     []string{"xyz"},
+			ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
+				{URI: "url", RoutingKeys: []string{"xyz"}},
+			}),
+			RecipientKeys: []string{"abc"},
 		}))
 	})
 
@@ -155,32 +199,11 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 		require.NoError(t, err)
 
 		require.NoError(t, o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{
-			ServiceEndpoint: "url",
-			RecipientKeys:   []string{"abc"},
-			RoutingKeys:     []string{"xyz"},
+			ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
+				{URI: "url", RoutingKeys: []string{"xyz"}},
+			}),
+			RecipientKeys: []string{"abc"},
 		}))
-	})
-
-	t.Run("test send with forward message - create key failure", func(t *testing.T) {
-		o, err := NewOutbound(&mockProvider{
-			packagerValue:           &mockpackager.Packager{PackValue: createPackedMsgForForward(t)},
-			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}},
-			kms: &mockkms.KeyManager{
-				CrAndExportPubKeyErr: errors.New("create and export key error"),
-			},
-			storageProvider:      mockstore.NewMockStoreProvider(),
-			protoStorageProvider: mockstore.NewMockStoreProvider(),
-			mediaTypeProfiles:    []string{transport.MediaTypeAIP2RFC0019Profile},
-		})
-		require.NoError(t, err)
-
-		err = o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{
-			ServiceEndpoint: "url",
-			RecipientKeys:   []string{"abc"},
-			RoutingKeys:     []string{"xyz"},
-		})
-		require.EqualError(t, err, "outboundDispatcher.Send: failed to create forward msg: failed Create "+
-			"and export Encryption Key: create and export key error")
 	})
 
 	t.Run("test send with forward message - packer error", func(t *testing.T) {
@@ -194,9 +217,10 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = o.createForwardMessage(createPackedMsgForForward(t), &service.Destination{
-			ServiceEndpoint: "url",
-			RecipientKeys:   []string{"abc"},
-			RoutingKeys:     []string{"xyz"},
+			ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
+				{URI: "url", RoutingKeys: []string{"xyz"}},
+			}),
+			RecipientKeys: []string{"abc"},
 		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "pack forward msg")
@@ -210,7 +234,7 @@ type mockMessage struct {
 }
 
 func TestOutboundDispatcher_SendToDID(t *testing.T) {
-	mockDoc := mockdiddoc.GetMockDIDDoc(t)
+	mockDoc := mockdiddoc.GetMockDIDDoc(t, false)
 
 	t.Run("success with existing connection record", func(t *testing.T) {
 		o, err := NewOutbound(&mockProvider{
@@ -536,7 +560,8 @@ func TestOutboundDispatcherTransportReturnRoute(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		require.NoError(t, o.Send(req, mockdiddoc.MockDIDKey(t), &service.Destination{ServiceEndpoint: "url"}))
+		require.NoError(t, o.Send(req, mockdiddoc.MockDIDKey(t),
+			&service.Destination{ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{{URI: "url"}})}))
 	})
 
 	t.Run("transport route option - value set thread", func(t *testing.T) {
@@ -570,7 +595,8 @@ func TestOutboundDispatcherTransportReturnRoute(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		require.NoError(t, o.Send(req, mockdiddoc.MockDIDKey(t), &service.Destination{ServiceEndpoint: "url"}))
+		require.NoError(t, o.Send(req, mockdiddoc.MockDIDKey(t),
+			&service.Destination{ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{{URI: "url"}})}))
 	})
 
 	t.Run("transport route option - no value set", func(t *testing.T) {
@@ -596,7 +622,8 @@ func TestOutboundDispatcherTransportReturnRoute(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		require.NoError(t, o.Send(req, mockdiddoc.MockDIDKey(t), &service.Destination{ServiceEndpoint: "url"}))
+		require.NoError(t, o.Send(req, mockdiddoc.MockDIDKey(t),
+			&service.Destination{ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{{URI: "url"}})}))
 	})
 
 	t.Run("transport route option - forward message", func(t *testing.T) {
@@ -612,7 +639,10 @@ func TestOutboundDispatcherTransportReturnRoute(t *testing.T) {
 
 		testData := []byte("testData")
 
-		data, err := o.addTransportRouteOptions(testData, &service.Destination{RoutingKeys: []string{"abc"}})
+		data, err := o.addTransportRouteOptions(testData,
+			&service.Destination{ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
+				{RoutingKeys: []string{"abc"}},
+			})})
 		require.NoError(t, err)
 		require.Equal(t, testData, data)
 	})
@@ -621,14 +651,18 @@ func TestOutboundDispatcherTransportReturnRoute(t *testing.T) {
 func TestOutboundDispatcher_Forward(t *testing.T) {
 	t.Run("test forward - success", func(t *testing.T) {
 		o, err := NewOutbound(&mockProvider{
-			packagerValue:           &mockpackager.Packager{},
-			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}},
-			storageProvider:         mockstore.NewMockStoreProvider(),
-			protoStorageProvider:    mockstore.NewMockStoreProvider(),
-			mediaTypeProfiles:       []string{transport.MediaTypeDIDCommV2Profile},
+			packagerValue: &mockpackager.Packager{},
+			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{
+				AcceptValue: true,
+			}},
+			storageProvider:      mockstore.NewMockStoreProvider(),
+			protoStorageProvider: mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:    []string{transport.MediaTypeDIDCommV2Profile},
 		})
 		require.NoError(t, err)
-		require.NoError(t, o.Forward("data", &service.Destination{ServiceEndpoint: "url"}))
+		require.NoError(t, o.Forward("data", &service.Destination{
+			ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{{URI: "url"}}),
+		}))
 	})
 
 	t.Run("test forward - no outbound transport found", func(t *testing.T) {
@@ -640,7 +674,9 @@ func TestOutboundDispatcher_Forward(t *testing.T) {
 			mediaTypeProfiles:       []string{transport.MediaTypeDIDCommV2Profile},
 		})
 		require.NoError(t, err)
-		err = o.Forward("data", &service.Destination{ServiceEndpoint: "url"})
+		err = o.Forward("data", &service.Destination{
+			ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{{URI: "url"}}),
+		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "outboundDispatcher.Forward: no transport found for serviceEndpoint: url")
 	})
@@ -656,7 +692,8 @@ func TestOutboundDispatcher_Forward(t *testing.T) {
 			mediaTypeProfiles:    []string{transport.MediaTypeDIDCommV2Profile},
 		})
 		require.NoError(t, err)
-		err = o.Forward("data", &service.Destination{ServiceEndpoint: "url"})
+		err = o.Forward("data", &service.Destination{ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.
+			DIDCommV2Endpoint{{URI: "url"}})})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "send error")
 	})
@@ -751,9 +788,21 @@ func (o *mockOutboundTransport) Accept(url string) bool {
 }
 
 // mockPackager mock packager.
-type mockPackager struct{}
+type mockPackager struct {
+	mock.Mock
+}
 
 func (m *mockPackager) PackMessage(e *transport.Envelope) ([]byte, error) {
+	if len(m.ExpectedCalls) > 0 {
+		args := m.Called(e.ToKeys)
+		switch v := args.Get(0).(type) {
+		case []byte:
+			return v, nil
+		default:
+			return e.Message, nil
+		}
+	}
+
 	return e.Message, nil
 }
 

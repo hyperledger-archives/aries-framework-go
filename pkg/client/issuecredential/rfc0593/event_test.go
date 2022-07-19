@@ -789,8 +789,9 @@ func newVCWithProof(t *testing.T, agent rfc0593.Provider, spec *rfc0593.Credenti
 	keyID, kh, err := agent.KMS().Create(kms.ED25519Type)
 	require.NoError(t, err)
 
-	keyBytes, err := agent.KMS().ExportPubKeyBytes(keyID)
+	keyBytes, kt, err := agent.KMS().ExportPubKeyBytes(keyID)
 	require.NoError(t, err)
+	require.Equal(t, kms.ED25519Type, kt)
 
 	_, verificationMethod := fingerprint.CreateDIDKeyByCode(fingerprint.ED25519PubKeyMultiCodec, keyBytes)
 

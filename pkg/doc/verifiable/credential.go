@@ -19,21 +19,27 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	docjsonld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
+	jsonutil "github.com/hyperledger/aries-framework-go/pkg/doc/util/json"
 )
 
 var logger = log.New("aries-framework/doc/verifiable")
 
-// DefaultSchema describes default schema.
-const DefaultSchema = `{
+const (
+	schemaPropertyType              = "type"
+	schemaPropertyCredentialSubject = "credentialSubject"
+	schemaPropertyIssuer            = "issuer"
+	schemaPropertyIssuanceDate      = "issuanceDate"
+)
+
+// DefaultSchemaTemplate describes default schema.
+const DefaultSchemaTemplate = `{
   "required": [
-    "@context",
-    "type",
-    "credentialSubject",
-    "issuer",
-    "issuanceDate"
+    "@context"
+    %s    
   ],
   "properties": {
     "@context": {
@@ -404,7 +410,7 @@ func (i *Issuer) MarshalJSON() ([]byte, error) {
 
 	alias := Alias(*i)
 
-	data, err := marshalWithCustomFields(alias, i.CustomFields)
+	data, err := jsonutil.MarshalWithCustomFields(alias, i.CustomFields)
 	if err != nil {
 		return nil, fmt.Errorf("marshal Issuer: %w", err)
 	}
@@ -429,7 +435,7 @@ func (i *Issuer) UnmarshalJSON(bytes []byte) error {
 
 	i.CustomFields = make(CustomFields)
 
-	err := unmarshalWithCustomFields(bytes, alias, i.CustomFields)
+	err := jsonutil.UnmarshalWithCustomFields(bytes, alias, i.CustomFields)
 	if err != nil {
 		return fmt.Errorf("unmarshal Issuer: %w", err)
 	}
@@ -459,7 +465,7 @@ func (s *Subject) MarshalJSON() ([]byte, error) {
 
 	alias := Alias(*s)
 
-	data, err := marshalWithCustomFields(alias, s.CustomFields)
+	data, err := jsonutil.MarshalWithCustomFields(alias, s.CustomFields)
 	if err != nil {
 		return nil, fmt.Errorf("marshal Subject: %w", err)
 	}
@@ -483,7 +489,7 @@ func (s *Subject) UnmarshalJSON(bytes []byte) error {
 
 	s.CustomFields = make(CustomFields)
 
-	err := unmarshalWithCustomFields(bytes, alias, s.CustomFields)
+	err := jsonutil.UnmarshalWithCustomFields(bytes, alias, s.CustomFields)
 	if err != nil {
 		return fmt.Errorf("unmarshal Subject: %w", err)
 	}
@@ -538,7 +544,7 @@ func (rc *rawCredential) MarshalJSON() ([]byte, error) {
 
 	alias := (*Alias)(rc)
 
-	return marshalWithCustomFields(alias, rc.CustomFields)
+	return jsonutil.MarshalWithCustomFields(alias, rc.CustomFields)
 }
 
 // UnmarshalJSON defines custom unmarshalling of rawCredential from JSON.
@@ -548,7 +554,7 @@ func (rc *rawCredential) UnmarshalJSON(data []byte) error {
 	alias := (*Alias)(rc)
 	rc.CustomFields = make(CustomFields)
 
-	err := unmarshalWithCustomFields(data, alias, rc.CustomFields)
+	err := jsonutil.UnmarshalWithCustomFields(data, alias, rc.CustomFields)
 	if err != nil {
 		return err
 	}
@@ -574,6 +580,7 @@ type credentialOpts struct {
 	disabledProofCheck    bool
 	strictValidation      bool
 	ldpSuites             []verifier.SignatureSuite
+	defaultSchema         string
 
 	jsonldCredentialOpts
 }
@@ -585,6 +592,13 @@ type CredentialOpt func(opts *credentialOpts)
 func WithDisabledProofCheck() CredentialOpt {
 	return func(opts *credentialOpts) {
 		opts.disabledProofCheck = true
+	}
+}
+
+// WithSchema option to set custom schema.
+func WithSchema(schema string) CredentialOpt {
+	return func(opts *credentialOpts) {
+		opts.defaultSchema = schema
 	}
 }
 
@@ -873,7 +887,11 @@ func (vc *Credential) validateBaseContextWithExtendedValidation(vcOpts *credenti
 }
 
 func (vc *Credential) validateJSONLD(vcBytes []byte, vcOpts *credentialOpts) error {
-	return compactJSONLD(string(vcBytes), &vcOpts.jsonldCredentialOpts, vcOpts.strictValidation)
+	return docjsonld.ValidateJSONLD(string(vcBytes),
+		docjsonld.WithDocumentLoader(vcOpts.jsonldCredentialOpts.jsonldDocumentLoader),
+		docjsonld.WithExternalContext(vcOpts.jsonldCredentialOpts.externalContext),
+		docjsonld.WithStrictValidation(vcOpts.strictValidation),
+	)
 }
 
 // CustomCredentialProducer is a factory for Credentials with extended data model.
@@ -1123,7 +1141,7 @@ func subjectStructToRaw(subject interface{}) (json.RawMessage, error) {
 			subjects[i] = sValue.Index(i).Interface()
 		}
 
-		sMaps, err := toMaps(subjects)
+		sMaps, err := jsonutil.ToMaps(subjects)
 		if err != nil {
 			return nil, errors.New("subject of unknown structure")
 		}
@@ -1132,7 +1150,7 @@ func subjectStructToRaw(subject interface{}) (json.RawMessage, error) {
 	}
 
 	// convert to map and try once again
-	sMap, err := toMap(subject)
+	sMap, err := jsonutil.ToMap(subject)
 	if err != nil {
 		return nil, errors.New("subject of unknown structure")
 	}
@@ -1179,7 +1197,7 @@ func validateCredentialUsingJSONSchema(data []byte, schemas []TypedID, opts *cre
 
 func getSchemaLoader(schemas []TypedID, opts *credentialOpts) (gojsonschema.JSONLoader, error) {
 	if opts.disabledCustomSchema {
-		return defaultSchemaLoader(), nil
+		return defaultSchemaLoaderWithOpts(opts), nil
 	}
 
 	for _, schema := range schemas {
@@ -1197,11 +1215,67 @@ func getSchemaLoader(schemas []TypedID, opts *credentialOpts) (gojsonschema.JSON
 	}
 
 	// If no custom schema is chosen, use default one
-	return defaultSchemaLoader(), nil
+	return defaultSchemaLoaderWithOpts(opts), nil
+}
+
+type schemaOpts struct {
+	disabledChecks []string
+}
+
+// SchemaOpt is create default schema options.
+type SchemaOpt func(*schemaOpts)
+
+// WithDisableRequiredField disabled check of required field in default schema.
+func WithDisableRequiredField(fieldName string) SchemaOpt {
+	return func(opts *schemaOpts) {
+		opts.disabledChecks = append(opts.disabledChecks, fieldName)
+	}
+}
+
+// JSONSchemaLoader creates default schema with the option to disable the check of specific properties.
+func JSONSchemaLoader(opts ...SchemaOpt) string {
+	defaultRequired := []string{
+		schemaPropertyType,
+		schemaPropertyCredentialSubject,
+		schemaPropertyIssuer,
+		schemaPropertyIssuanceDate,
+	}
+
+	dsOpts := &schemaOpts{}
+	for _, opt := range opts {
+		opt(dsOpts)
+	}
+
+	required := ""
+
+	for _, prop := range defaultRequired {
+		filterOut := false
+
+		for _, d := range dsOpts.disabledChecks {
+			if prop == d {
+				filterOut = true
+				break
+			}
+		}
+
+		if !filterOut {
+			required += fmt.Sprintf(",%q", prop)
+		}
+	}
+
+	return fmt.Sprintf(DefaultSchemaTemplate, required)
+}
+
+func defaultSchemaLoaderWithOpts(opts *credentialOpts) gojsonschema.JSONLoader {
+	if opts.defaultSchema != "" {
+		return gojsonschema.NewStringLoader(opts.defaultSchema)
+	}
+
+	return defaultSchemaLoader()
 }
 
 func defaultSchemaLoader() gojsonschema.JSONLoader {
-	return gojsonschema.NewStringLoader(DefaultSchema)
+	return gojsonschema.NewStringLoader(JSONSchemaLoader())
 }
 
 func getJSONSchema(url string, opts *credentialOpts) ([]byte, error) {
@@ -1299,7 +1373,7 @@ func SubjectID(subject interface{}) (string, error) { // nolint:gocyclo
 
 	default:
 		// convert to map and try once again
-		sMap, err := toMap(subject)
+		sMap, err := jsonutil.ToMap(subject)
 		if err != nil {
 			return "", errors.New("subject of unknown structure")
 		}
