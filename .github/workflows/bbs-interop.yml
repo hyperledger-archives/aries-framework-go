@@ -41,7 +41,7 @@ jobs:
       id: go
 
     - name: Setup Node.js
-      uses: actions/setup-node@v2.4.0
+      uses: actions/setup-node@v3.4.1
       with:
         node-version: 12.14.x
         registry-url: "https://npm.pkg.github.com"
@@ -50,7 +50,7 @@ jobs:
       timeout-minutes: 10
       run: npm install -g mocha
 
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - name: Run test suite
       timeout-minutes: 10
