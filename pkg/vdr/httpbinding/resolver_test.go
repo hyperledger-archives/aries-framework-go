@@ -131,6 +131,58 @@ func TestRead_DIDDoc(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, didDoc.ID, gotDocument.DIDDocument.ID)
 	})
+
+	t.Run("test success version id", func(t *testing.T) {
+		testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+			require.Equal(t, "/did:example:334455?versionId=v1", req.URL.String())
+			res.Header().Add("Content-type", "application/did+ld+json")
+			res.WriteHeader(http.StatusOK)
+			_, err := res.Write([]byte(didResolutionData))
+			require.NoError(t, err)
+		}))
+
+		defer func() { testServer.Close() }()
+
+		resolver, err := New(testServer.URL)
+		require.NoError(t, err)
+		gotDocument, err := resolver.Read("did:example:334455", vdrapi.WithOption(VersionIDOpt, "v1"))
+		require.NoError(t, err)
+		didDoc, err := did.ParseDocument([]byte(doc))
+		require.NoError(t, err)
+		require.Equal(t, didDoc.ID, gotDocument.DIDDocument.ID)
+	})
+
+	t.Run("test set version id and version time", func(t *testing.T) {
+		resolver, err := New("https://localhost")
+		require.NoError(t, err)
+		_, err = resolver.Read("did:example:334455",
+			vdrapi.WithOption(VersionIDOpt, "v1"),
+			vdrapi.WithOption(VersionTimeOpt, "2021-05-10T17:00:00Z"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "versionID and versionTime can not set at same time")
+	})
+
+	t.Run("test success version time", func(t *testing.T) {
+		testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+			require.Equal(t, "/did:example:334455?versionTime=2021-05-10T17:00:00Z", req.URL.String())
+			res.Header().Add("Content-type", "application/did+ld+json")
+			res.WriteHeader(http.StatusOK)
+			_, err := res.Write([]byte(didResolutionData))
+			require.NoError(t, err)
+		}))
+
+		defer func() { testServer.Close() }()
+
+		resolver, err := New(testServer.URL)
+		require.NoError(t, err)
+		gotDocument, err := resolver.Read("did:example:334455",
+			vdrapi.WithOption(VersionTimeOpt, "2021-05-10T17:00:00Z"))
+		require.NoError(t, err)
+		didDoc, err := did.ParseDocument([]byte(doc))
+		require.NoError(t, err)
+		require.Equal(t, didDoc.ID, gotDocument.DIDDocument.ID)
+	})
+
 	t.Run("test empty doc", func(t *testing.T) {
 		testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			require.Equal(t, "/did:example:334455", req.URL.String())

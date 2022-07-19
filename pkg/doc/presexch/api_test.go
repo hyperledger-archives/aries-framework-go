@@ -406,8 +406,9 @@ func newSignedVC(t *testing.T,
 	signer := suite.NewCryptoSigner(agent.Crypto(), kh)
 	now := time.Now()
 
-	pubKey, err := agent.KMS().ExportPubKeyBytes(keyID)
+	pubKey, kt, err := agent.KMS().ExportPubKeyBytes(keyID)
 	require.NoError(t, err)
+	require.Equal(t, kms.ED25519Type, kt)
 
 	_, verMethod := fingerprint.CreateDIDKeyByCode(fingerprint.ED25519PubKeyMultiCodec, pubKey)
 

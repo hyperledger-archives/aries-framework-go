@@ -6,11 +6,9 @@ SPDX-License-Identifier: Apache-2.0
 package edv_test
 
 import (
-	"bytes"
 	"encoding/json"
 	"testing"
 
-	"github.com/google/tink/go/keyset"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/component/storage/edv"
@@ -19,10 +17,12 @@ import (
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	storagetest "github.com/hyperledger/aries-framework-go/test/component/storage"
 )
 
@@ -87,7 +87,8 @@ func TestEncryptedFormatter_Deformat(t *testing.T) {
 }
 
 func createValidEncryptedFormatter(t *testing.T, options ...edv.EncryptedFormatterOption) *edv.EncryptedFormatter {
-	encrypter, decrypter := createEncrypterAndDecrypter(t)
+	kmsSvc, cryptoSvc := createKMSAndCrypto(t)
+	encrypter, decrypter, _ := createEncrypterAndDecrypter(t, kmsSvc, cryptoSvc)
 
 	formatter := edv.NewEncryptedFormatter(encrypter, decrypter, createValidMACCrypto(t),
 		options...)
@@ -96,29 +97,25 @@ func createValidEncryptedFormatter(t *testing.T, options ...edv.EncryptedFormatt
 	return formatter
 }
 
-func createEncrypterAndDecrypter(t *testing.T) (*jose.JWEEncrypt, *jose.JWEDecrypt) {
+func createKMSAndCrypto(t *testing.T) (kms.KeyManager, cryptoapi.Crypto) {
+	p := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
+	kmsSvc, err := localkms.New("local-lock://test/master/key/", p)
+	require.NoError(t, err)
+
 	cryptoSvc, err := tinkcrypto.New()
 	require.NoError(t, err)
 
-	keyHandle, err := keyset.NewHandle(ecdh.NISTP256ECDHKWKeyTemplate())
-	require.NoError(t, err)
+	return kmsSvc, cryptoSvc
+}
 
-	kmsSvc := &mockkms.KeyManager{
-		GetKeyValue: keyHandle,
-	}
-
-	pubKH, err := keyHandle.Public()
-	require.NoError(t, err)
-
-	buf := new(bytes.Buffer)
-	pubKeyWriter := keyio.NewWriter(buf)
-
-	err = pubKH.WriteWithNoSecrets(pubKeyWriter)
+func createEncrypterAndDecrypter(t *testing.T, kmsSvc kms.KeyManager,
+	cryptoSvc cryptoapi.Crypto) (*jose.JWEEncrypt, *jose.JWEDecrypt, string) {
+	kid, ecPubKeyBytes, err := kmsSvc.CreateAndExportPubKeyBytes(kms.NISTP256ECDHKWType)
 	require.NoError(t, err)
 
 	ecPubKey := new(cryptoapi.PublicKey)
 
-	err = json.Unmarshal(buf.Bytes(), ecPubKey)
+	err = json.Unmarshal(ecPubKeyBytes, ecPubKey)
 	require.NoError(t, err)
 
 	encrypter, err := jose.NewJWEEncrypt(jose.A256GCM, "application/JSON",
@@ -127,5 +124,5 @@ func createEncrypterAndDecrypter(t *testing.T) (*jose.JWEEncrypt, *jose.JWEDecry
 
 	decrypter := jose.NewJWEDecrypt(nil, cryptoSvc, kmsSvc)
 
-	return encrypter, decrypter
+	return encrypter, decrypter, kid
 }

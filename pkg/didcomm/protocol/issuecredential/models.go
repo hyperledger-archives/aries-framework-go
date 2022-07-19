@@ -164,7 +164,7 @@ type IssueCredentialV3 struct { //nolint: golint
 	ID   string                `json:"id,omitempty"`
 	Body IssueCredentialV3Body `json:"body,omitempty"`
 	// WebRedirect contains optional web redirect info to be sent to holder for redirect.
-	WebRedirect *decorator.WebRedirect `json:"web-redirect,omitempty"`
+	WebRedirect *decorator.WebRedirect `json:"web_redirect,omitempty"`
 	// Attachments is an array of attachments containing the presentation in the requested format(s).
 	// Accepted values for the format attribute of each attachment are provided in the per format Attachment
 	// registry immediately below.

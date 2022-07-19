@@ -94,102 +94,46 @@ func (c *restClient) readDocument(vaultID, docID string) ([]byte, error) {
 	}
 }
 
-// If value is blank, then we will do a "has" query instead which will match any documents tagged with the index name
-// regardless of value.
-func (c *restClient) queryVault(vaultID, name, value string) ([]string, error) {
-	var jsonToSend []byte
-
-	var err error
-
-	if value == "" {
-		query := hasQuery{
-			Has: name,
-		}
-
-		jsonToSend, err = json.Marshal(query)
-		if err != nil {
-			return nil, fmt.Errorf(`failed to marshal name-only "has" query: %w`, err)
-		}
-	} else {
-		query := nameAndValueQuery{
-			Name:  name,
-			Value: value,
-		}
-
-		jsonToSend, err = json.Marshal(query)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal name + value query: %w", err)
-		}
+// Queries the given vault and returns all documents that contain all the given tags. If a tag value is blank,
+// then it acts as a wildcard, where any tag value for the associated tag name will match.
+// If query.ReturnFullDocuments is false, then only the document locations will be returned via the first return value.
+// If query.ReturnFullDocuments is true, then the full documents will be returned via the second return value.
+func (c *restClient) query(vaultID string, edvQuery query) ([]string, []encryptedDocument, error) {
+	jsonToSend, err := json.Marshal(edvQuery)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	endpoint := fmt.Sprintf("%s/%s/query", c.edvServerURL, url.PathEscape(vaultID))
 
 	statusCode, _, respBytes, err := c.sendHTTPRequest(http.MethodPost, endpoint, jsonToSend, c.headersFunc)
 	if err != nil {
-		return nil, fmt.Errorf(failSendPOSTRequest, err)
+		return nil, nil, fmt.Errorf(failSendPOSTRequest, err)
 	}
 
 	if statusCode == http.StatusOK {
-		var docLocations []string
+		if edvQuery.ReturnFullDocuments {
+			var documents []encryptedDocument
 
-		err = json.Unmarshal(respBytes, &docLocations)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal response bytes into document locations: %w", err)
+			err = json.Unmarshal(respBytes, &documents)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			return nil, documents, nil
 		}
 
-		return docLocations, nil
+		var docURLs []string
+
+		err = json.Unmarshal(respBytes, &docURLs)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		return docURLs, nil, nil
 	}
 
-	return nil, fmt.Errorf(failResponseFromEDVServer, statusCode, respBytes)
-}
-
-func (c *restClient) queryVaultForFullDocuments(vaultID, name, value string) ([]encryptedDocument, error) {
-	var jsonToSend []byte
-
-	var err error
-
-	if value == "" {
-		query := hasQuery{
-			ReturnFullDocuments: true,
-			Has:                 name,
-		}
-
-		jsonToSend, err = json.Marshal(query)
-		if err != nil {
-			return nil, fmt.Errorf(`failed to marshal name-only "has" query: %w`, err)
-		}
-	} else {
-		query := nameAndValueQuery{
-			ReturnFullDocuments: true,
-			Name:                name,
-			Value:               value,
-		}
-
-		jsonToSend, err = json.Marshal(query)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal name + value query: %w", err)
-		}
-	}
-
-	endpoint := fmt.Sprintf("%s/%s/query", c.edvServerURL, url.PathEscape(vaultID))
-
-	statusCode, _, respBytes, err := c.sendHTTPRequest(http.MethodPost, endpoint, jsonToSend, c.headersFunc)
-	if err != nil {
-		return nil, fmt.Errorf(failSendPOSTRequest, err)
-	}
-
-	if statusCode == http.StatusOK {
-		var documents []encryptedDocument
-
-		err = json.Unmarshal(respBytes, &documents)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal encrypted documents: %w", err)
-		}
-
-		return documents, nil
-	}
-
-	return nil, fmt.Errorf(failResponseFromEDVServer, statusCode, respBytes)
+	return nil, nil, fmt.Errorf(failResponseFromEDVServer, statusCode, respBytes)
 }
 
 func (c *restClient) batch(vaultID string, vaultOperations []vaultOperation) error {

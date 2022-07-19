@@ -17,12 +17,14 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignatureproof2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ecdsasecp256k1signature2019"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 )
 
 const (
 	ed25519Signature2018        = "Ed25519Signature2018"
+	ed25519Signature2020        = "Ed25519Signature2020"
 	jsonWebSignature2020        = "JsonWebSignature2020"
 	ecdsaSecp256k1Signature2019 = "EcdsaSecp256k1Signature2019"
 	bbsBlsSignature2020         = "BbsBlsSignature2020"
@@ -38,7 +40,7 @@ func getProofType(proofMap map[string]interface{}) (string, error) {
 	proofTypeStr := safeStringValue(proofType)
 	switch proofTypeStr {
 	case ed25519Signature2018, jsonWebSignature2020, ecdsaSecp256k1Signature2019,
-		bbsBlsSignature2020, bbsBlsSignatureProof2020:
+		bbsBlsSignature2020, bbsBlsSignatureProof2020, ed25519Signature2020:
 		return proofTypeStr, nil
 	default:
 		return "", fmt.Errorf("unsupported proof type: %s", proofType)
@@ -101,6 +103,7 @@ func checkEmbeddedProof(docBytes []byte, opts *embeddedProofCheckOpts) ([]byte, 
 	return docBytes, nil
 }
 
+// nolint:gocyclo
 func getSuites(proofs []map[string]interface{}, opts *embeddedProofCheckOpts) ([]verifier.SignatureSuite, error) {
 	ldpSuites := opts.ldpSuites
 
@@ -115,6 +118,9 @@ func getSuites(proofs []map[string]interface{}, opts *embeddedProofCheckOpts) ([
 			case ed25519Signature2018:
 				ldpSuites = append(ldpSuites, ed25519signature2018.New(
 					suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier())))
+			case ed25519Signature2020:
+				ldpSuites = append(ldpSuites, ed25519signature2020.New(
+					suite.WithVerifier(ed25519signature2020.NewPublicKeyVerifier())))
 			case jsonWebSignature2020:
 				ldpSuites = append(ldpSuites, jsonwebsignature2020.New(
 					suite.WithVerifier(jsonwebsignature2020.NewPublicKeyVerifier())))

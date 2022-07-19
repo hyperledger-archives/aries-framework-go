@@ -1,0 +1,50 @@
+/*
+Copyright SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+// Definitions for BBS+.
+syntax = "proto3";
+
+package google.crypto.tink;
+import "proto/common.proto";
+
+option java_package = "com.google.crypto.tink.proto";
+option java_multiple_files = true;
+option objc_class_prefix = "TINKPB";
+option go_package = "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/cl_go_proto";
+
+// Protos CL Credential Definition keys  
+
+// Parameters of CL Cred Def keys.
+message CLCredDefParams {
+  repeated string attrs = 1;
+}
+
+// Cred Def Public Key
+message CLCredDefPublicKey {
+  uint32 version = 1;
+  bytes key_value = 2; // json marshalled CL Cred Def public key value.
+  bytes key_correctness_proof = 3; // json marshalled CL Cred Def correctness proof value.
+  CLCredDefParams params = 4;
+}
+
+// Cred Def Private Key
+message CLCredDefPrivateKey {
+  uint32 version = 1;
+  CLCredDefPublicKey public_key = 2;
+  bytes key_value = 3; // json marshalled CL Cred Def private key value.
+}
+
+message CLCredDefKeyFormat {
+  CLCredDefParams params = 1;
+}
+
+message CLMasterSecret {
+  uint32 version = 1;
+  bytes key_value = 2;
+}
+
+message CLMasterSecretKeyFormat {
+}

@@ -14,6 +14,7 @@ import (
 	josejwt "github.com/square/go-jose/v3/jwt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
+	jsonutil "github.com/hyperledger/aries-framework-go/pkg/doc/util/json"
 )
 
 const (
@@ -69,7 +70,7 @@ func newJWTCredClaims(vc *Credential, minimizeVC bool) (*JWTCredClaims, error) {
 		return nil, err
 	}
 
-	vcMap, err := mergeCustomFields(raw, raw.CustomFields)
+	vcMap, err := jsonutil.MergeCustomFields(raw, raw.CustomFields)
 	if err != nil {
 		return nil, err
 	}

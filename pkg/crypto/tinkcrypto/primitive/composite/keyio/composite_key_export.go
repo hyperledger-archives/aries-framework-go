@@ -26,6 +26,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/aead"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 // Package keyio supports exporting of Composite keys (aka Write) and converting the public key part of the a composite
@@ -38,6 +39,13 @@ const (
 	x25519ECDHKWPrivateKeyTypeURL = "type.hyperledger.org/hyperledger.aries.crypto.tink.X25519EcdhKwPrivateKey"
 )
 
+//nolint:gochecknoglobals
+var ecdhKeyTypes = map[string]kms.KeyType{
+	"NIST_P256": kms.NISTP256ECDHKWType,
+	"NIST_P384": kms.NISTP384ECDHKWType,
+	"NIST_P521": kms.NISTP521ECDHKWType,
+}
+
 // PubKeyWriter will write the raw bytes of a Tink KeySet's primary public key. The raw bytes are a marshaled
 // composite.VerificationMethod type.
 // The keyset must have a keyURL value equal to either one of the public key URLs:
@@ -47,7 +55,9 @@ const (
 // Note: This writer should be used only for ECDH public key exports. Other export of public keys should be
 //       called via localkms package.
 type PubKeyWriter struct {
-	w io.Writer
+	// KeyType is Key Type of the written key. It's needed as Write() is an interface function and can't return it.
+	KeyType kms.KeyType
+	w       io.Writer
 }
 
 // NewWriter creates a new PubKeyWriter instance.
@@ -59,7 +69,7 @@ func NewWriter(w io.Writer) *PubKeyWriter {
 
 // Write writes the public keyset to the underlying w.Writer.
 func (p *PubKeyWriter) Write(ks *tinkpb.Keyset) error {
-	return write(p.w, ks)
+	return p.write(ks)
 }
 
 // WriteEncrypted writes the encrypted keyset to the underlying w.Writer.
@@ -67,7 +77,7 @@ func (p *PubKeyWriter) WriteEncrypted(_ *tinkpb.EncryptedKeyset) error {
 	return fmt.Errorf("write encrypted function not supported")
 }
 
-func write(w io.Writer, msg *tinkpb.Keyset) error {
+func (p *PubKeyWriter) write(msg *tinkpb.Keyset) error {
 	ks := msg.Key
 	primaryKID := msg.PrimaryKeyId
 	created := false
@@ -76,7 +86,7 @@ func write(w io.Writer, msg *tinkpb.Keyset) error {
 
 	for _, key := range ks {
 		if key.KeyId == primaryKID && key.Status == tinkpb.KeyStatusType_ENABLED {
-			created, err = writePubKey(w, key)
+			created, err = p.writePubKey(key)
 			if err != nil {
 				return err
 			}
@@ -92,8 +102,8 @@ func write(w io.Writer, msg *tinkpb.Keyset) error {
 	return nil
 }
 
-func writePubKey(w io.Writer, key *tinkpb.Keyset_Key) (bool, error) {
-	pubKey, err := protoToCompositeKey(key.KeyData)
+func (p *PubKeyWriter) writePubKey(key *tinkpb.Keyset_Key) (bool, error) {
+	pubKey, kt, err := protoToCompositeKey(key.KeyData)
 	if err != nil {
 		return false, err
 	}
@@ -103,15 +113,17 @@ func writePubKey(w io.Writer, key *tinkpb.Keyset_Key) (bool, error) {
 		return false, err
 	}
 
-	n, err := w.Write(mPubKey)
+	n, err := p.w.Write(mPubKey)
 	if err != nil {
 		return false, err
 	}
 
+	p.KeyType = kt
+
 	return n > 0, nil
 }
 
-func protoToCompositeKey(keyData *tinkpb.KeyData) (*cryptoapi.PublicKey, error) {
+func protoToCompositeKey(keyData *tinkpb.KeyData) (*cryptoapi.PublicKey, kms.KeyType, error) {
 	var (
 		cKey compositeKeyGetter
 		err  error
@@ -121,40 +133,45 @@ func protoToCompositeKey(keyData *tinkpb.KeyData) (*cryptoapi.PublicKey, error) 
 	case nistPECDHKWPublicKeyTypeURL, x25519ECDHKWPublicKeyTypeURL:
 		cKey, err = newECDHKey(keyData.Value)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 	default:
-		return nil, fmt.Errorf("can't export key with keyURL:%s", keyData.TypeUrl)
+		return nil, "", fmt.Errorf("can't export key with keyURL:%s", keyData.TypeUrl)
 	}
 
 	return buildKey(cKey)
 }
 
-func buildKey(c compositeKeyGetter) (*cryptoapi.PublicKey, error) {
+func buildKey(c compositeKeyGetter) (*cryptoapi.PublicKey, kms.KeyType, error) {
 	curveName := c.curveName()
 	keyTypeName := c.keyType()
 
 	return buildCompositeKey(c.kid(), keyTypeName, curveName, c.x(), c.y())
 }
 
-func buildCompositeKey(kid, keyType, curve string, x, y []byte) (*cryptoapi.PublicKey, error) {
+func buildCompositeKey(kid, keyType, curve string, x, y []byte) (*cryptoapi.PublicKey, kms.KeyType, error) {
+	var kt kms.KeyType
+
 	// validate keyType and curve
 	switch keyType {
 	case ecdhpb.KeyType_EC.String():
 		// validate NIST P curves
 		_, err := hybrid.GetCurve(curve)
 		if err != nil {
-			return nil, fmt.Errorf("undefined EC curve: %w", err)
+			return nil, "", fmt.Errorf("undefined EC curve: %w", err)
 		}
+
+		kt = ecdhKeyTypes[curve]
 	case ecdhpb.KeyType_OKP.String():
 		if curve != commonpb.EllipticCurveType_CURVE25519.String() {
-			return nil, fmt.Errorf("invalid OKP curve: %s", curve)
+			return nil, "", fmt.Errorf("invalid OKP curve: %s", curve)
 		}
 
 		// use JWK curve name when exporting the key.
 		curve = "X25519"
+		kt = kms.X25519ECDHKWType
 	default:
-		return nil, fmt.Errorf("invalid keyType: %s", keyType)
+		return nil, "", fmt.Errorf("invalid keyType: %s", keyType)
 	}
 
 	return &cryptoapi.PublicKey{
@@ -163,7 +180,7 @@ func buildCompositeKey(kid, keyType, curve string, x, y []byte) (*cryptoapi.Publ
 		Curve: curve,
 		X:     x,
 		Y:     y,
-	}, nil
+	}, kt, nil
 }
 
 type compositeKeyGetter interface {

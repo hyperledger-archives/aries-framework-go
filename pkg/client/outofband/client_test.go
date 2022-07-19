@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	commonmodel "github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
@@ -78,8 +79,8 @@ func TestCreateInvitation(t *testing.T) {
 			Type:            uuid.New().String(),
 			Priority:        0,
 			RecipientKeys:   []string{uuid.New().String()},
+			ServiceEndpoint: commonmodel.NewDIDCommV1Endpoint(uuid.New().String()),
 			RoutingKeys:     []string{uuid.New().String()},
-			ServiceEndpoint: uuid.New().String(),
 			Properties:      nil,
 		}
 		c, err := New(withTestProvider())
@@ -126,20 +127,31 @@ func TestCreateInvitation(t *testing.T) {
 		c.didDocSvcFunc = func(conn string, accept []string) (*did.Service, error) {
 			require.Equal(t, expectedConn, conn)
 
-			var serviceType string
+			var svc *did.Service
 
 			if isDIDCommV2(accept) {
-				serviceType = vdr.DIDCommV2ServiceType
+				svc = &did.Service{
+					ServiceEndpoint: commonmodel.NewDIDCommV2Endpoint([]commonmodel.DIDCommV2Endpoint{
+						{URI: expectedConn, Accept: accept},
+					}),
+					Type: vdr.DIDCommV2ServiceType,
+				}
 			} else {
-				serviceType = vdr.DIDCommServiceType
+				svc = &did.Service{
+					ServiceEndpoint: commonmodel.NewDIDCommV1Endpoint(expectedConn),
+					Accept:          accept,
+					Type:            vdr.DIDCommServiceType,
+				}
 			}
 
-			return &did.Service{ServiceEndpoint: expectedConn, Type: serviceType}, nil
+			return svc, nil
 		}
 
 		inv, err := c.CreateInvitation(nil, WithRouterConnections(expectedConn))
 		require.NoError(t, err)
-		require.Equal(t, expectedConn, inv.Services[0].(*did.Service).ServiceEndpoint)
+		uri, err := inv.Services[0].(*did.Service).ServiceEndpoint.URI()
+		require.NoError(t, err)
+		require.Equal(t, expectedConn, uri)
 	})
 	t.Run("WithGoal", func(t *testing.T) {
 		c, err := New(withTestProvider())
@@ -159,8 +171,8 @@ func TestCreateInvitation(t *testing.T) {
 			Type:            uuid.New().String(),
 			Priority:        0,
 			RecipientKeys:   []string{uuid.New().String()},
+			ServiceEndpoint: commonmodel.NewDIDCommV1Endpoint(uuid.New().String()),
 			RoutingKeys:     []string{uuid.New().String()},
-			ServiceEndpoint: uuid.New().String(),
 			Properties:      nil,
 		}
 		inv, err := c.CreateInvitation([]interface{}{expected})
@@ -186,8 +198,8 @@ func TestCreateInvitation(t *testing.T) {
 			Type:            uuid.New().String(),
 			Priority:        0,
 			RecipientKeys:   []string{uuid.New().String()},
+			ServiceEndpoint: commonmodel.NewDIDCommV1Endpoint(uuid.New().String()),
 			RoutingKeys:     []string{uuid.New().String()},
-			ServiceEndpoint: uuid.New().String(),
 			Properties:      nil,
 		}
 		inv, err := c.CreateInvitation([]interface{}{svc, didRef})

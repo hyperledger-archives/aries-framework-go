@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	expressionTagNameOnlyLength     = 1
-	expressionTagNameAndValueLength = 2
+	criterionTagNameOnlyLength     = 1
+	criterionTagNameAndValueLength = 2
 
 	invalidTagName  = `"%s" is an invalid tag name since it contains one or more ':' characters`
 	invalidTagValue = `"%s" is an invalid tag value since it contains one or more ':' characters`
@@ -29,7 +29,8 @@ const (
 var (
 	errEmptyKey                     = errors.New("key cannot be empty")
 	errInvalidQueryExpressionFormat = errors.New("invalid expression format. " +
-		"it must be in the following format: TagName:TagValue")
+		"it must be in the following format: " +
+		"[Criterion1][Operator][Criterion2][Operator]...[CriterionN] (without square brackets)")
 )
 
 // RESTProviderOption allows for configuration of a RESTProvider.
@@ -332,7 +333,15 @@ func (r *restStore) GetBulk(keys ...string) ([][]byte, error) {
 	return values, nil
 }
 
-// EDV doesn't support any of the current query options.
+// Expression format: [Criterion1][Operator][Criterion2][Operator]...[CriterionN]. Square brackets are used here for
+// visual clarity. Omit them from the actual expression string.
+// Each Criterion can be in one of either two formats: Either "TagName" or "TagName:TagValue" (without quotes).
+// If only using TagName, then the tag value will be treated as a wildcard, so any data tagged with the given TagName
+// will be matched regardless of tag value. There must be at least one Criterion in the expression.
+// Each operator must be either "&&" or "||" (without quotes). "&&" indicates an AND operator while "||"
+// indicates an OR operator. For AND operations, tag names must be unique. e.g. TagName1:TagValue1&&TagName1:TagValue2
+// will not work - the second criterion will overwrite the first. The order of operations are ANDs followed by ORs.
+// Note that EDV doesn't support sorting or pagination.
 // spi.WithPageSize will simply be ignored since it only relates to performance and not the actual end result.
 // spi.WithInitialPageNum and spi.WithSortOrder will result in an error being returned since those options do
 // affect the results that the Iterator returns.
@@ -342,18 +351,12 @@ func (r *restStore) Query(expression string, options ...spi.QueryOption) (spi.It
 		return nil, err
 	}
 
-	expressionTagName, expressionTagValue, err := parseQueryExpression(expression)
+	edvQuery, err := r.generateEDVQuery(expression)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse query expression: %w", err)
+		return nil, err
 	}
 
-	tag, err := r.formatter.formatTag(r.name,
-		spi.Tag{Name: expressionTagName, Value: expressionTagValue})
-	if err != nil {
-		return nil, fmt.Errorf("failed to format tag for querying: %w", err)
-	}
-
-	return r.query(tag)
+	return r.query(edvQuery)
 }
 
 func (r *restStore) Delete(key string) error {
@@ -587,8 +590,12 @@ func (r *restStore) getFullDocumentViaKeyTagQuery(key string) ([]byte, error) {
 		return nil, fmt.Errorf("failed to format key tag: %w", err)
 	}
 
-	matchingDocuments, err := r.restClient.queryVaultForFullDocuments(r.vaultID,
-		formattedKeyTag.Name, formattedKeyTag.Value)
+	edvQuery := query{
+		Equals:              []map[string]string{{formattedKeyTag.Name: formattedKeyTag.Value}},
+		ReturnFullDocuments: true,
+	}
+
+	_, matchingDocuments, err := r.restClient.query(r.vaultID, edvQuery)
 	if err != nil {
 		return nil, fmt.Errorf("failure while querying vault: %w", err)
 	}
@@ -608,45 +615,39 @@ func (r *restStore) getFullDocumentViaKeyTagQuery(key string) ([]byte, error) {
 	return encryptedDocumentBytes, nil
 }
 
-func (r *restStore) query(encryptedIndexTag spi.Tag) (spi.Iterator, error) {
-	if r.returnFullDocumentsOnQuery {
-		documents, err :=
-			r.restClient.queryVaultForFullDocuments(r.vaultID, encryptedIndexTag.Name, encryptedIndexTag.Value)
-		if err != nil {
-			return nil, fmt.Errorf("failure while querying vault: %w", err)
-		}
+func (r *restStore) query(edvQuery query) (spi.Iterator, error) {
+	documentURLs, documents, err := r.restClient.query(r.vaultID, edvQuery)
+	if err != nil {
+		return nil, fmt.Errorf("failure while querying vault: %w", err)
+	}
 
-		allDocumentsBytes := make([][]byte, len(documents))
+	if documentURLs != nil {
+		documentIDs := make([]string, len(documentURLs))
 
-		for i, document := range documents {
-			documentBytes, err := json.Marshal(document)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal document into bytes: %w", err)
-			}
-
-			allDocumentsBytes[i] = documentBytes
+		for i, documentURL := range documentURLs {
+			documentIDs[i] = getDocIDFromURL(documentURL)
 		}
 
 		return &restIterator{
 			vaultID: r.vaultID, restClient: r.restClient, formatter: r.formatter,
-			documents: allDocumentsBytes,
+			documentIDs: documentIDs,
 		}, nil
 	}
 
-	documentURLs, err := r.restClient.queryVault(r.vaultID, encryptedIndexTag.Name, encryptedIndexTag.Value)
-	if err != nil {
-		return nil, fmt.Errorf("failure while querying EDV server: %w", err)
-	}
+	allDocumentsBytes := make([][]byte, len(documents))
 
-	documentIDs := make([]string, len(documentURLs))
+	for i, document := range documents {
+		documentBytes, err := json.Marshal(document)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal document into bytes: %w", err)
+		}
 
-	for i, documentURL := range documentURLs {
-		documentIDs[i] = getDocIDFromURL(documentURL)
+		allDocumentsBytes[i] = documentBytes
 	}
 
 	return &restIterator{
 		vaultID: r.vaultID, restClient: r.restClient, formatter: r.formatter,
-		documentIDs: documentIDs,
+		documents: allDocumentsBytes,
 	}, nil
 }
 
@@ -1026,7 +1027,12 @@ func (r *restStore) getDocumentIDViaKeyTagQuery(key string) (string, error) {
 		return "", fmt.Errorf("failed to format key tag: %w", err)
 	}
 
-	matchingDocumentsURLs, err := r.restClient.queryVault(r.vaultID, formattedKeyTag.Name, formattedKeyTag.Value)
+	edvQuery := query{
+		Equals:              []map[string]string{{formattedKeyTag.Name: formattedKeyTag.Value}},
+		ReturnFullDocuments: false,
+	}
+
+	matchingDocumentsURLs, _, err := r.restClient.query(r.vaultID, edvQuery)
 	if err != nil {
 		return "", fmt.Errorf("failure while querying EDV server: %w", err)
 	}
@@ -1039,6 +1045,79 @@ func (r *restStore) getDocumentIDViaKeyTagQuery(key string) (string, error) {
 	}
 
 	return getDocIDFromURL(matchingDocumentsURLs[0]), nil
+}
+
+func (r *restStore) generateEDVQuery(expression string) (query, error) {
+	if expression == "" {
+		return query{}, errInvalidQueryExpressionFormat
+	}
+
+	orCriteria := strings.Split(expression, "||")
+
+	edvQuery := query{
+		Equals:              make([]map[string]string, len(orCriteria)),
+		Has:                 "",
+		ReturnFullDocuments: r.returnFullDocumentsOnQuery,
+	}
+
+	for i, orCriterion := range orCriteria {
+		edvQuerySubfilter, err := r.generateEDVQuerySubfilter(orCriterion)
+		if err != nil {
+			return query{}, err
+		}
+
+		edvQuery.Equals[i] = edvQuerySubfilter
+	}
+
+	// See comments above the generateEDVQuerySubfilter method for an explanation of the code below.
+	if len(edvQuery.Equals) == 1 && len(edvQuery.Equals[0]) == 1 {
+		for formattedTagName, formattedTagValue := range edvQuery.Equals[0] {
+			if formattedTagValue == "" {
+				edvQuery.Equals = nil
+				edvQuery.Has = formattedTagName
+			}
+		}
+	}
+
+	return edvQuery, nil
+}
+
+// As of writing, the EDV spec does not have an official way to do an attribute name (tag name/"has") only query when
+// doing a multiple attribute query. I have an open PR in the spec to address this. In the meantime, the TrustBloc EDV
+// implementation interprets a blank attribute value as behaving like an attribute name only (tag name/"has") query,
+// so that's what this method does.
+// In the case of the overall query being just a single attribute name only, the method that calls this will ensure that
+// a "has" query is used in order to ensure maximum compatibility.
+func (r *restStore) generateEDVQuerySubfilter(expression string) (map[string]string, error) {
+	subfilter := make(map[string]string)
+
+	andCriteria := strings.Split(expression, "&&")
+
+	for _, andCriterion := range andCriteria {
+		criterionSplitByTagNameAndValue := strings.Split(andCriterion, ":")
+
+		switch len(criterionSplitByTagNameAndValue) {
+		case criterionTagNameOnlyLength:
+			formattedTag, err := r.formatter.formatTag(r.name, spi.Tag{Name: criterionSplitByTagNameAndValue[0]})
+			if err != nil {
+				return nil, fmt.Errorf("failed to format tag for querying: %w", err)
+			}
+
+			subfilter[formattedTag.Name] = ""
+		case criterionTagNameAndValueLength:
+			formattedTag, err := r.formatter.formatTag(r.name,
+				spi.Tag{Name: criterionSplitByTagNameAndValue[0], Value: criterionSplitByTagNameAndValue[1]})
+			if err != nil {
+				return nil, fmt.Errorf("failed to format tag for querying: %w", err)
+			}
+
+			subfilter[formattedTag.Name] = formattedTag.Value
+		default:
+			return nil, errInvalidQueryExpressionFormat
+		}
+	}
+
+	return subfilter, nil
 }
 
 type restIterator struct {
@@ -1173,28 +1252,6 @@ func checkForUnsupportedQueryOptions(options []spi.QueryOption) error {
 	}
 
 	return nil
-}
-
-func parseQueryExpression(expression string) (string, string, error) {
-	if expression == "" {
-		return "", "", errInvalidQueryExpressionFormat
-	}
-
-	expressionSplit := strings.Split(expression, ":")
-
-	var expressionTagName, expressionTagValue string
-
-	switch len(expressionSplit) {
-	case expressionTagNameOnlyLength:
-		expressionTagName = expressionSplit[0]
-	case expressionTagNameAndValueLength:
-		expressionTagName = expressionSplit[0]
-		expressionTagValue = expressionSplit[1]
-	default:
-		return "", "", errInvalidQueryExpressionFormat
-	}
-
-	return expressionTagName, expressionTagValue, nil
 }
 
 func getDocIDFromURL(docURL string) string {

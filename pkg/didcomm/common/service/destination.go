@@ -9,6 +9,7 @@ package service
 import (
 	"fmt"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 )
@@ -16,7 +17,7 @@ import (
 // Destination provides the recipientKeys, routingKeys, and serviceEndpoint for an outbound message.
 type Destination struct {
 	RecipientKeys        []string
-	ServiceEndpoint      string
+	ServiceEndpoint      model.Endpoint
 	RoutingKeys          []string
 	TransportReturnRoute string
 	MediaTypeProfiles    []string

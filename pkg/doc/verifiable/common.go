@@ -23,6 +23,7 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
+	jsonutil "github.com/hyperledger/aries-framework-go/pkg/doc/util/json"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 )
 
@@ -133,7 +134,7 @@ func (tid TypedID) MarshalJSON() ([]byte, error) {
 
 	alias := Alias(tid)
 
-	data, err := marshalWithCustomFields(alias, tid.CustomFields)
+	data, err := jsonutil.MarshalWithCustomFields(alias, tid.CustomFields)
 	if err != nil {
 		return nil, fmt.Errorf("marshal TypedID: %w", err)
 	}
@@ -150,7 +151,7 @@ func (tid *TypedID) UnmarshalJSON(data []byte) error {
 
 	tid.CustomFields = make(CustomFields)
 
-	err := unmarshalWithCustomFields(data, alias, tid.CustomFields)
+	err := jsonutil.UnmarshalWithCustomFields(data, alias, tid.CustomFields)
 	if err != nil {
 		return fmt.Errorf("unmarshal TypedID: %w", err)
 	}

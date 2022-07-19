@@ -184,6 +184,7 @@ type Store interface {
 	// with data put in and data retrieved, as the marshalled representation may be different - always unmarshal data
 	// first before comparing.
 	// If key is empty or value is nil, then an error will be returned.
+	// A single key-value pair cannot have multiple tags that share the same tag name.
 	Put(key string, value []byte, tags ...Tag) error
 
 	// Get fetches the value associated with the given key.
@@ -194,6 +195,7 @@ type Store interface {
 	// GetTags fetches all tags associated with the given key.
 	// If key cannot be found, then an error wrapping ErrDataNotFound will be returned.
 	// If key is empty, then an error will be returned.
+	// As of writing, aries-framework-go code does not use this, but it may be useful for custom solutions.
 	GetTags(key string) ([]Tag, error)
 
 	// GetBulk fetches the values associated with the given keys.
@@ -203,13 +205,16 @@ type Store interface {
 	// As of writing, aries-framework-go code does not use this, but it may be useful for custom solutions.
 	GetBulk(keys ...string) ([][]byte, error)
 
-	// Query returns all data that satisfies the expression. Expression format: TagName:TagValue.
+	// Query returns all data that satisfies the expression. Basic expression format: TagName:TagValue.
 	// If TagValue is not provided, then all data associated with the TagName will be returned, regardless of their
 	// tag values.
-	// At a minimum, a store implementation must be able to support querying with a single TagName:TagValue pair, but a
-	// store implementation may also support querying for multiple TagName:TagValue pairs by separating them with an
-	// && to specify an AND operation or a || to specify an OR operation. For example, a query for
-	// TagName1:TagValue1&&TagName2:TagValue2 will return only data that has been tagged with both pairs.
+	// At a minimum, a store implementation must be able to support querying with a single basic expression, but a
+	// store implementation may also support a more advanced expression format.
+	// Advanced expression format: [Criterion1][Operator][Criterion2][Operator]...[CriterionN]. Square brackets are
+	// used here for visual clarity. Omit them from the actual expression string.
+	// Each Criterion follows the rules for the basic expression format described above.
+	// Each operator must be either "&&" or "||" (without quotes). "&&" indicates an AND operator while "||"
+	// indicates an OR operator. The order of operations are ANDs followed by ORs.
 	// This method also supports a number of QueryOptions. If none are provided, then defaults will be used.
 	// If your store contains a large amount of data, then it's recommended calling Provider.SetStoreConfig at some
 	// point before calling this method in order to create indexes which will speed up queries.
@@ -225,6 +230,7 @@ type Store interface {
 	// enabled and a key is used that already exists in the database.
 	// Depending on the implementation, this method may be faster than repeated Put and/or Delete calls.
 	// If any of the given keys are empty, or the operations slice is empty or nil, then an error will be returned.
+	// As of writing, aries-framework-go code does not use this, but it may be useful for custom solutions.
 	Batch(operations []Operation) error
 
 	// Flush forces any queued up Put and/or Delete operations to execute.

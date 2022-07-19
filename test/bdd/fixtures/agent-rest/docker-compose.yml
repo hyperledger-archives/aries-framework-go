@@ -313,7 +313,7 @@ services:
       - KMS_CACHE_EXPIRATION=10m
       - KMS_SECRET_LOCK_TYPE=local
       - KMS_SECRET_LOCK_KEY_PATH=/etc/tls/secret-lock.key
-      - KMS_ZCAP_ENABLE=false
+      - KMS_AUTH_DISABLE=true
       - KMS_LOG_LEVEL=debug
     ports:
       - 8076:8076

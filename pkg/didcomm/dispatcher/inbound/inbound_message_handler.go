@@ -108,6 +108,8 @@ func (handler *MessageHandler) HandleInboundEnvelope(envelope *transport.Envelop
 		return err
 	}
 
+	isDIDEx := (&didexchange.Service{}).Accept(msg.Type())
+
 	isV2, err := service.IsDIDCommV2(&msg)
 	if err != nil {
 		return err
@@ -124,11 +126,11 @@ func (handler *MessageHandler) HandleInboundEnvelope(envelope *transport.Envelop
 		return fmt.Errorf("handling inbound peer DID: %w", err)
 	}
 
-	// if msg is a didcomm v2 message, do additional handling
-	if isV2 {
+	// if msg is not a didexchange message, do additional handling
+	if !isDIDEx {
 		myDID, theirDID, err = handler.getDIDs(envelope, msg)
 		if err != nil {
-			return fmt.Errorf("get DIDs for didcomm/v2 message: %w", err)
+			return fmt.Errorf("get DIDs for message: %w", err)
 		}
 
 		gotDIDs = true
@@ -189,7 +191,7 @@ func (handler *MessageHandler) HandleInboundEnvelope(envelope *transport.Envelop
 
 		if foundMessageService != nil {
 			if !gotDIDs {
-				myDID, theirDID, err = handler.getDIDs(envelope, nil)
+				myDID, theirDID, err = handler.getDIDs(envelope, msg)
 				if err != nil {
 					return fmt.Errorf("inbound message handler: %w", err)
 				}

@@ -324,7 +324,7 @@ func (s *SDKSteps) createKeyPair(agent, proofType string) error {
 		return err
 	}
 
-	pubKeyBytes, err := localKMS.ExportPubKeyBytes(kid)
+	pubKeyBytes, _, err := localKMS.ExportPubKeyBytes(kid)
 	if err != nil {
 		return err
 	}

@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/authcrypt"
+	legacyAuthCrypt "github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/legacy/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
@@ -83,8 +84,10 @@ func New(ctx Provider) (*Packager, error) {
 func (bp *Packager) addPacker(pack packer.Packer) {
 	packerID := pack.EncodingType()
 
-	_, ok := pack.(*authcrypt.Packer)
-	if ok {
+	_, isAuthCrypt := pack.(*authcrypt.Packer)
+	_, isLegacyAuthCrypt := pack.(*legacyAuthCrypt.Packer)
+
+	if isAuthCrypt || isLegacyAuthCrypt {
 		// anoncrypt and authcrypt have the same encoding type
 		// so authcrypt will have an appended suffix
 		packerID += authSuffix
@@ -276,6 +279,7 @@ type envelopeStub struct {
 type headerStub struct {
 	Type string `json:"typ,omitempty"`
 	SKID string `json:"skid,omitempty"`
+	Alg  string `json:"alg,omitempty"`
 }
 
 //nolint:funlen, gocyclo
@@ -349,7 +353,7 @@ func getEncodingType(encMessage []byte) (string, []byte, error) {
 
 	packerID := prot.Type
 
-	if prot.SKID != "" {
+	if prot.SKID != "" || prot.Alg == "Authcrypt" {
 		// since Type protected header is the same for authcrypt and anoncrypt, the differentiating factor is SKID.
 		// If it is present, then it's authcrypt.
 		packerID += authSuffix
@@ -385,22 +389,20 @@ func (bp *Packager) UnpackMessage(encMessage []byte) (*transport.Envelope, error
 func (bp *Packager) getCTYAndPacker(envelope *transport.Envelope) (string, packer.Packer, error) {
 	switch envelope.MediaTypeProfile {
 	case transport.MediaTypeAIP2RFC0019Profile, transport.MediaTypeProfileDIDCommAIP1:
-		return transport.MediaTypeRFC0019EncryptedEnvelope, bp.packers[transport.MediaTypeRFC0019EncryptedEnvelope], nil
+		packerName := addAuthcryptSuffix(envelope.FromKey, transport.MediaTypeRFC0019EncryptedEnvelope)
+
+		return transport.MediaTypeRFC0019EncryptedEnvelope, bp.packers[packerName], nil
 	case transport.MediaTypeRFC0019EncryptedEnvelope:
-		return envelope.MediaTypeProfile, bp.packers[transport.MediaTypeRFC0019EncryptedEnvelope], nil
+		packerName := addAuthcryptSuffix(envelope.FromKey, transport.MediaTypeRFC0019EncryptedEnvelope)
+
+		return envelope.MediaTypeProfile, bp.packers[packerName], nil
 	case transport.MediaTypeV2EncryptedEnvelope, transport.MediaTypeV2PlaintextPayload,
 		transport.MediaTypeAIP2RFC0587Profile, transport.MediaTypeDIDCommV2Profile:
-		packerName := transport.MediaTypeV2EncryptedEnvelope
-		if len(envelope.FromKey) > 0 {
-			packerName += authSuffix
-		}
+		packerName := addAuthcryptSuffix(envelope.FromKey, transport.MediaTypeV2EncryptedEnvelope)
 
 		return transport.MediaTypeV2PlaintextPayload, bp.packers[packerName], nil
 	case transport.MediaTypeV2EncryptedEnvelopeV1PlaintextPayload, transport.MediaTypeV1PlaintextPayload:
-		packerName := transport.MediaTypeV2EncryptedEnvelope
-		if len(envelope.FromKey) > 0 {
-			packerName += authSuffix
-		}
+		packerName := addAuthcryptSuffix(envelope.FromKey, transport.MediaTypeV2EncryptedEnvelope)
 
 		return transport.MediaTypeV1PlaintextPayload, bp.packers[packerName], nil
 	default:
@@ -413,6 +415,14 @@ func (bp *Packager) getCTYAndPacker(envelope *transport.Envelope) (string, packe
 	// this should never happen since outbound calls use the framework's default media type profile (unless the default
 	// was overridden with an empty value during framework instance creation).
 	return "", nil, fmt.Errorf("no packer found for mediatype profile: '%v'", envelope.MediaTypeProfile)
+}
+
+func addAuthcryptSuffix(fromKey []byte, packerName string) string {
+	if len(fromKey) > 0 {
+		packerName += authSuffix
+	}
+
+	return packerName
 }
 
 func (bp *Packager) resolveKeyAgreementFromDIDDoc(keyAgrID string) (*crypto.PublicKey, error) {

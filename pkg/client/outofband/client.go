@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
@@ -369,12 +370,13 @@ func validateServices(svcs ...interface{}) error {
 
 // DidDocServiceFunc returns a function that returns a DID doc `service` entry.
 // Used when no service entries are specified when creating messages.
-//nolint:funlen
+//nolint:funlen,gocyclo
 func (c *Client) didServiceBlockFunc(p Provider) func(routerConnID string, accept []string) (*did.Service, error) {
 	return func(routerConnID string, accept []string) (*did.Service, error) {
 		var (
 			keyType            kms.KeyType
 			didCommServiceType string
+			sp                 model.Endpoint
 		)
 
 		useDIDCommV2 := isDIDCommV2(accept)
@@ -383,9 +385,14 @@ func (c *Client) didServiceBlockFunc(p Provider) func(routerConnID string, accep
 		if useDIDCommV2 {
 			keyType = p.KeyAgreementType()
 			didCommServiceType = vdr.DIDCommV2ServiceType
+			sp = model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{{
+				URI:    p.ServiceEndpoint(),
+				Accept: p.MediaTypeProfiles(),
+			}})
 		} else {
 			keyType = p.KeyType()
 			didCommServiceType = vdr.DIDCommServiceType
+			sp = model.NewDIDCommV1Endpoint(p.ServiceEndpoint())
 		}
 
 		if string(keyType) == "" {
@@ -417,7 +424,7 @@ func (c *Client) didServiceBlockFunc(p Provider) func(routerConnID string, accep
 				ID:              uuid.New().String(),
 				Type:            didCommServiceType,
 				RecipientKeys:   []string{didKey},
-				ServiceEndpoint: p.ServiceEndpoint(),
+				ServiceEndpoint: sp,
 			}, nil
 		}
 
@@ -431,13 +438,33 @@ func (c *Client) didServiceBlockFunc(p Provider) func(routerConnID string, accep
 			return nil, fmt.Errorf("didServiceBlockFunc: create invitation - failed to add key to the router : %w", err)
 		}
 
-		return &did.Service{
-			ID:              uuid.New().String(),
-			Type:            didCommServiceType,
-			RecipientKeys:   []string{didKey},
-			RoutingKeys:     routingKeys,
-			ServiceEndpoint: serviceEndpoint,
-		}, nil
+		var svc *did.Service
+
+		if useDIDCommV2 {
+			sp = model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{{
+				URI:         serviceEndpoint,
+				Accept:      accept,
+				RoutingKeys: routingKeys,
+			}})
+			svc = &did.Service{
+				ID:              uuid.New().String(),
+				Type:            didCommServiceType,
+				RecipientKeys:   []string{didKey},
+				ServiceEndpoint: sp,
+			}
+		} else {
+			sp = model.NewDIDCommV1Endpoint(serviceEndpoint)
+			svc = &did.Service{
+				ID:              uuid.New().String(),
+				Type:            didCommServiceType,
+				RecipientKeys:   []string{didKey},
+				ServiceEndpoint: sp,
+				RoutingKeys:     routingKeys,
+				Accept:          accept,
+			}
+		}
+
+		return svc, nil
 	}
 }
 

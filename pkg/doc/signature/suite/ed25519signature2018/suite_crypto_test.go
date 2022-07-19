@@ -47,7 +47,7 @@ func TestNewCryptoSignerAndVerifier(t *testing.T) {
 		panic("failed to create a signature")
 	}
 
-	pubKeyBytes, err := lKMS.ExportPubKeyBytes(kid)
+	pubKeyBytes, _, err := lKMS.ExportPubKeyBytes(kid)
 	if err != nil {
 		panic("failed to export public key bytes")
 	}

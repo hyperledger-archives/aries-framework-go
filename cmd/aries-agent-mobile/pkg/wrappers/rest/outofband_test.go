@@ -136,7 +136,7 @@ func TestOutOfBand_CreateInvitation(t *testing.T) {
 		reqData := `{"label":"label","goal":"goal","goal_code":"goal_code","service":["s1"],"protocols":["s1"]}`
 		mockResponse := `{"invitation":{"@id":"2429a5d3-c500-4647-9bb5-e34207bce406",
 "@type":"https://didcomm.org/out-of-band/1.0/invitation","label":"label","goal":"goal",
-"goal-code":"goal_code","service":["s1"],"protocols":["s1"]}}
+"goal_code":"goal_code","service":["s1"],"protocols":["s1"]}}
 `
 
 		controller.httpClient = &mockHTTPClient{
@@ -160,7 +160,7 @@ func TestOutOfBand_CreateRequest(t *testing.T) {
 		reqData := `{"label":"label","goal":"goal","goal_code":"goal_code","service":["s1"],
 "attachments":[{"lastmod_time":"0001-01-01T00:00:00Z","data":{}}]}`
 		mockResponse := `{"invitation":{"@id":"26169718-f261-48f1-addd-67018977a89f",
-"@type":"https://didcomm.org/out-of-band/1.0/invitation","label":"label","goal":"goal","goal-code":"goal_code",
+"@type":"https://didcomm.org/out-of-band/1.0/invitation","label":"label","goal":"goal","goal_code":"goal_code",
 "request~attach":[{"lastmod_time":"0001-01-01T00:00:00Z","data":{}}],"service":["s1"]}}`
 
 		controller.httpClient = &mockHTTPClient{

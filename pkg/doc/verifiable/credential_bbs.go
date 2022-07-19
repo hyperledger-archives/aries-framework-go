@@ -11,6 +11,7 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignatureproof2020"
+	jsonutil "github.com/hyperledger/aries-framework-go/pkg/doc/util/json"
 )
 
 // GenerateBBSSelectiveDisclosure generate BBS+ selective disclosure from one BBS+ signature.
@@ -29,7 +30,7 @@ func (vc *Credential) GenerateBBSSelectiveDisclosure(revealDoc map[string]interf
 
 	suite := bbsblssignatureproof2020.New()
 
-	vcDoc, err := toMap(vc)
+	vcDoc, err := jsonutil.ToMap(vc)
 	if err != nil {
 		return nil, err
 	}

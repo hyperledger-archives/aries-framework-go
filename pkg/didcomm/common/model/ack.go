@@ -29,7 +29,7 @@ type Ack struct {
 type AckV2 struct {
 	ID          string      `json:"id,omitempty"`
 	Type        string      `json:"type,omitempty"`
-	WebRedirect interface{} `json:"web-redirect,omitempty"`
+	WebRedirect interface{} `json:"web_redirect,omitempty"`
 	Body        AckV2Body   `json:"body,omitempty"`
 }
 

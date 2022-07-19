@@ -15,6 +15,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/messaging"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
@@ -185,11 +186,23 @@ func (o *Command) Send(rw io.Writer, req io.Reader) command.Error {
 	}
 
 	var destination *service.Destination
+
 	if request.ServiceEndpointDestination != nil {
-		destination = &service.Destination{
-			RoutingKeys:     request.ServiceEndpointDestination.RoutingKeys,
-			ServiceEndpoint: request.ServiceEndpointDestination.ServiceEndpoint,
-			RecipientKeys:   request.ServiceEndpointDestination.RecipientKeys,
+		routingKeys := request.ServiceEndpointDestination.RoutingKeys
+		if len(routingKeys) > 0 {
+			destination = &service.Destination{
+				ServiceEndpoint: model.NewDIDCommV1Endpoint(request.ServiceEndpointDestination.ServiceEndpoint),
+				RoutingKeys:     routingKeys,
+				RecipientKeys:   request.ServiceEndpointDestination.RecipientKeys,
+			}
+		} else {
+			destination = &service.Destination{
+				ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{{
+					URI:         request.ServiceEndpointDestination.ServiceEndpoint,
+					RoutingKeys: routingKeys,
+				}}),
+				RecipientKeys: request.ServiceEndpointDestination.RecipientKeys,
+			}
 		}
 	}
 

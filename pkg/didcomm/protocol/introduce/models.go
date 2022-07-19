@@ -17,7 +17,7 @@ type Proposal struct {
 	Thread   *decorator.Thread `json:"~thread,omitempty"`
 	Timing   *decorator.Timing `json:"~timing,omitempty"`
 	Goal     string            `json:"goal,omitempty"`
-	GoalCode string            `json:"goal-code,omitempty"`
+	GoalCode string            `json:"goal_code,omitempty"`
 }
 
 // To introducee descriptor keeps information about the introduction
