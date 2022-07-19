@@ -5,14 +5,17 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 package fingerprint
+package main
 
 import (
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/elliptic"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
+	
 
 	"github.com/btcsuite/btcutil/base58"
 
@@ -143,6 +146,17 @@ func KeyFingerprint(code uint64, pubKeyValue []byte) string {
 	copy(buf[mcLength:], pubKeyValue)
 
 	return fmt.Sprintf("z%s", base58.Encode(buf))
+}
+
+func encryptValue(v interface{}) ([]byte, error) {
+	jsonData, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	size := len(jsonData) + (len(jsonData) % 16)
+	buffer := make([]byte, size)
+	copy(buffer, jsonData)
+	return encryptBuffer(buffer)
 }
 
 func multicodec(code uint64) []byte {
