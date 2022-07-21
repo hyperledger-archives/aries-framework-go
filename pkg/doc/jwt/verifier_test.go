@@ -36,7 +36,7 @@ func TestNewVerifier(t *testing.T) {
 		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 		r.NoError(err)
 
-		signer := newEd25519Signer(privKey)
+		signer := NewEd25519Signer(privKey)
 
 		token, err := NewSigned(&Claims{Issuer: "Mike"}, nil, signer)
 		r.NoError(err)
@@ -58,7 +58,7 @@ func TestNewVerifier(t *testing.T) {
 
 		pubKey := &privKey.PublicKey
 
-		signer := newRS256Signer(privKey, nil)
+		signer := NewRS256Signer(privKey, nil)
 
 		token, err := NewSigned(&Claims{Issuer: "Mike"}, nil, signer)
 		r.NoError(err)

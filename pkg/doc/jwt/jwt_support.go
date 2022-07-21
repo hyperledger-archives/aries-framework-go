@@ -16,31 +16,37 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 )
 
-type ed25519Signer struct {
+// JoseED25519Signer is a Jose compliant signer.
+type JoseED25519Signer struct {
 	privKey []byte
 	headers map[string]interface{}
 }
 
-func (s ed25519Signer) Sign(data []byte) ([]byte, error) {
+// Sign data.
+func (s JoseED25519Signer) Sign(data []byte) ([]byte, error) {
 	return ed25519.Sign(s.privKey, data), nil
 }
 
-func (s ed25519Signer) Headers() jose.Headers {
+// Headers returns the signer's headers map.
+func (s JoseED25519Signer) Headers() jose.Headers {
 	return s.headers
 }
 
-func newEd25519Signer(privKey []byte) *ed25519Signer {
-	return &ed25519Signer{
+// NewEd25519Signer returns a Jose compliant signer that can be passed as a signer to jwt.NewSigned().
+func NewEd25519Signer(privKey []byte) *JoseED25519Signer {
+	return &JoseED25519Signer{
 		privKey: privKey,
 		headers: prepareJWSHeaders(nil, signatureEdDSA),
 	}
 }
 
-type ed25519Verifier struct {
+// JoseEd25519Verifier is a Jose compliant verifier.
+type JoseEd25519Verifier struct {
 	pubKey []byte
 }
 
-func (v ed25519Verifier) Verify(joseHeaders jose.Headers, _, signingInput, signature []byte) error {
+// Verify signingInput against signature. it validates that joseHeaders contains EdDSA alg for this implementation.
+func (v JoseEd25519Verifier) Verify(joseHeaders jose.Headers, _, signingInput, signature []byte) error {
 	alg, ok := joseHeaders.Algorithm()
 	if !ok {
 		return errors.New("alg is not defined")
@@ -57,27 +63,31 @@ func (v ed25519Verifier) Verify(joseHeaders jose.Headers, _, signingInput, signa
 	return nil
 }
 
-func newEd25519Verifier(pubKey []byte) (*ed25519Verifier, error) {
+// NewEd25519Verifier returns a Jose compliant verifier that can be passed as a verifier option to jwt.Parse().
+func NewEd25519Verifier(pubKey []byte) (*JoseEd25519Verifier, error) {
 	if l := len(pubKey); l != ed25519.PublicKeySize {
 		return nil, errors.New("bad ed25519 public key length")
 	}
 
-	return &ed25519Verifier{pubKey: pubKey}, nil
+	return &JoseEd25519Verifier{pubKey: pubKey}, nil
 }
 
-type rs256Signer struct {
+// RS256Signer is a Jose complient signer.
+type RS256Signer struct {
 	privKey *rsa.PrivateKey
 	headers map[string]interface{}
 }
 
-func newRS256Signer(privKey *rsa.PrivateKey, headers map[string]interface{}) *rs256Signer {
-	return &rs256Signer{
+// NewRS256Signer returns a Jose compliant signer that can be passed as a signer to jwt.NewSigned().
+func NewRS256Signer(privKey *rsa.PrivateKey, headers map[string]interface{}) *RS256Signer {
+	return &RS256Signer{
 		privKey: privKey,
 		headers: prepareJWSHeaders(headers, signatureRS256),
 	}
 }
 
-func (s rs256Signer) Sign(data []byte) ([]byte, error) {
+// Sign data.
+func (s RS256Signer) Sign(data []byte) ([]byte, error) {
 	hash := crypto.SHA256.New()
 
 	_, err := hash.Write(data)
@@ -90,19 +100,23 @@ func (s rs256Signer) Sign(data []byte) ([]byte, error) {
 	return rsa.SignPKCS1v15(rand.Reader, s.privKey, crypto.SHA256, hashed)
 }
 
-func (s rs256Signer) Headers() jose.Headers {
+// Headers returns the signer's headers map.
+func (s RS256Signer) Headers() jose.Headers {
 	return s.headers
 }
 
-type rs256Verifier struct {
+// RS256Verifier is a Jose compliant verifier.
+type RS256Verifier struct {
 	pubKey *rsa.PublicKey
 }
 
-func newRS256Verifier(pubKey *rsa.PublicKey) *rs256Verifier {
-	return &rs256Verifier{pubKey: pubKey}
+// NewRS256Verifier returns a Jose compliant verifier that can be passed as a verifier option to jwt.Parse().
+func NewRS256Verifier(pubKey *rsa.PublicKey) *RS256Verifier {
+	return &RS256Verifier{pubKey: pubKey}
 }
 
-func (v rs256Verifier) Verify(joseHeaders jose.Headers, _, signingInput, signature []byte) error {
+// Verify signingInput against the signature. It also validates that joseHeaders includes the right alg.
+func (v RS256Verifier) Verify(joseHeaders jose.Headers, _, signingInput, signature []byte) error {
 	alg, ok := joseHeaders.Algorithm()
 	if !ok {
 		return errors.New("alg is not defined")
@@ -125,7 +139,7 @@ func (v rs256Verifier) Verify(joseHeaders jose.Headers, _, signingInput, signatu
 }
 
 func verifyEd25519(jws string, pubKey ed25519.PublicKey) error {
-	verifier, err := newEd25519Verifier(pubKey)
+	verifier, err := NewEd25519Verifier(pubKey)
 	if err != nil {
 		return err
 	}
@@ -148,7 +162,7 @@ func verifyEd25519(jws string, pubKey ed25519.PublicKey) error {
 }
 
 func verifyRS256(jws string, pubKey *rsa.PublicKey) error {
-	verifier := newRS256Verifier(pubKey)
+	verifier := NewRS256Verifier(pubKey)
 
 	sVerifier := jose.NewCompositeAlgSigVerifier(jose.AlgSignatureVerifier{
 		Alg:      "RS256",
