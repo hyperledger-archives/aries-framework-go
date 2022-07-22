@@ -563,6 +563,104 @@ func TestCommand_OpenAndClose(t *testing.T) {
 		b.Reset()
 	})
 
+	t.Run("successfully unlock & lock wallet (gnap auth, no custom header func)", func(t *testing.T) {
+		cmd := New(mockctx, &Config{
+			WebKMSCacheSize: 99,
+		})
+
+		request := &UnlockWalletRequest{
+			UserID: sampleUser2,
+			WebKMSAuth: &UnlockAuth{
+				GNAPToken: sampleFakeTkn,
+			},
+			EDVUnlock: &UnlockAuth{
+				GNAPToken: sampleFakeTkn,
+			},
+			Expiry: 10 * time.Second,
+		}
+
+		// unlock wallet
+		var b bytes.Buffer
+		cmdErr := cmd.Open(&b, getReader(t, &request))
+		require.NoError(t, cmdErr)
+		require.NotEmpty(t, getUnlockToken(t, b))
+		b.Reset()
+
+		// try again, should get error, wallet already unlocked
+		cmdErr = cmd.Open(&b, getReader(t, &request))
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), wallet.ErrAlreadyUnlocked.Error())
+		require.Empty(t, b.Len())
+		b.Reset()
+
+		// lock wallet
+		cmdErr = cmd.Close(&b, getReader(t, &LockWalletRequest{UserID: sampleUser2}))
+		require.NoError(t, cmdErr)
+		var lockResponse LockWalletResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&lockResponse))
+		require.True(t, lockResponse.Closed)
+		b.Reset()
+
+		// lock wallet again
+		cmdErr = cmd.Close(&b, getReader(t, &LockWalletRequest{UserID: sampleUser2}))
+		require.NoError(t, cmdErr)
+		require.NoError(t, json.NewDecoder(&b).Decode(&lockResponse))
+		require.False(t, lockResponse.Closed)
+		b.Reset()
+	})
+
+	t.Run("successfully unlock & lock wallet (gnap auth, with custom header func)", func(t *testing.T) {
+		headerFunc := func(r *http.Request) (*http.Header, error) {
+			return &r.Header, nil
+		}
+
+		cmd := New(mockctx, &Config{
+			WebKMSCacheSize:  99,
+			WebKMSGNAPSigner: headerFunc,
+			EDVGNAPSigner:    headerFunc,
+		})
+
+		request := &UnlockWalletRequest{
+			UserID: sampleUser2,
+			WebKMSAuth: &UnlockAuth{
+				GNAPToken: sampleFakeTkn,
+			},
+			EDVUnlock: &UnlockAuth{
+				GNAPToken: sampleFakeTkn,
+			},
+			Expiry: 10 * time.Second,
+		}
+
+		// unlock wallet
+		var b bytes.Buffer
+		cmdErr := cmd.Open(&b, getReader(t, &request))
+		require.NoError(t, cmdErr)
+		require.NotEmpty(t, getUnlockToken(t, b))
+		b.Reset()
+
+		// try again, should get error, wallet already unlocked
+		cmdErr = cmd.Open(&b, getReader(t, &request))
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), wallet.ErrAlreadyUnlocked.Error())
+		require.Empty(t, b.Len())
+		b.Reset()
+
+		// lock wallet
+		cmdErr = cmd.Close(&b, getReader(t, &LockWalletRequest{UserID: sampleUser2}))
+		require.NoError(t, cmdErr)
+		var lockResponse LockWalletResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&lockResponse))
+		require.True(t, lockResponse.Closed)
+		b.Reset()
+
+		// lock wallet again
+		cmdErr = cmd.Close(&b, getReader(t, &LockWalletRequest{UserID: sampleUser2}))
+		require.NoError(t, cmdErr)
+		require.NoError(t, json.NewDecoder(&b).Decode(&lockResponse))
+		require.False(t, lockResponse.Closed)
+		b.Reset()
+	})
+
 	t.Run("successfully unlock & lock wallet (local kms, edv capability user)", func(t *testing.T) {
 		cmd := New(mockctx, &Config{
 			EDVReturnFullDocumentsOnQuery:    true,

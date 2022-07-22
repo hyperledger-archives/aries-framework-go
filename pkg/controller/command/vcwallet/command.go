@@ -155,6 +155,9 @@ type HTTPHeaderSigner interface {
 	SignHeader(req *http.Request, capabilityBytes []byte) (*http.Header, error)
 }
 
+// GNAPHeaderSigner signs a request using GNAP, for resource server access authorization.
+type GNAPHeaderSigner func(req *http.Request) (*http.Header, error)
+
 // Config contains properties to customize verifiable credential wallet controller.
 // All properties of this config are optional, but they can be used to customize wallet's webkms and edv client's.
 type Config struct {
@@ -162,6 +165,10 @@ type Config struct {
 	EdvAuthzProvider AuthCapabilityProvider
 	// Web KMS header signer, typically used for introducing zcapld feature.
 	WebKMSAuthzProvider AuthCapabilityProvider
+	// Web KMS header signer for GNAP authorization.
+	WebKMSGNAPSigner GNAPHeaderSigner
+	// EDV header signer for GNAP authorization.
+	EDVGNAPSigner GNAPHeaderSigner
 	// option is a performance optimization that speeds up queries by getting full documents from
 	// the EDV server instead of only document locations.
 	EDVReturnFullDocumentsOnQuery bool
@@ -1077,10 +1084,14 @@ func prepareUnlockOptions(rqst *UnlockWalletRequest, conf *Config) ([]wallet.Unl
 				return &req.Header, nil
 			}
 		case rqst.WebKMSAuth.GNAPToken != "": // GNAP token
-			webKMSHeader = func(req *http.Request) (*http.Header, error) {
-				req.Header.Set("authorization", fmt.Sprintf("GNAP %s", rqst.WebKMSAuth.GNAPToken))
+			if conf.WebKMSGNAPSigner != nil {
+				webKMSHeader = conf.WebKMSGNAPSigner
+			} else {
+				webKMSHeader = func(req *http.Request) (*http.Header, error) {
+					req.Header.Set("authorization", fmt.Sprintf("GNAP %s", rqst.WebKMSAuth.GNAPToken))
 
-				return &req.Header, nil
+					return &req.Header, nil
+				}
 			}
 		}
 
@@ -1115,10 +1126,14 @@ func prepareUnlockOptions(rqst *UnlockWalletRequest, conf *Config) ([]wallet.Unl
 				return &req.Header, nil
 			}
 		case rqst.EDVUnlock.GNAPToken != "": // GNAP token
-			edvHeader = func(req *http.Request) (*http.Header, error) {
-				req.Header.Set("authorization", fmt.Sprintf("GNAP %s", rqst.EDVUnlock.GNAPToken))
+			if conf.EDVGNAPSigner != nil {
+				edvHeader = conf.EDVGNAPSigner
+			} else {
+				edvHeader = func(req *http.Request) (*http.Header, error) {
+					req.Header.Set("authorization", fmt.Sprintf("GNAP %s", rqst.EDVUnlock.GNAPToken))
 
-				return &req.Header, nil
+					return &req.Header, nil
+				}
 			}
 		}
 
