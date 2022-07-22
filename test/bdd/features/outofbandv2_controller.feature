@@ -6,7 +6,6 @@
 
 # Reference : https://identity.foundation/didcomm-messaging/spec/#out-of-band-messages
 
-@all
 @controller
 @outofbandv2
 @outofbandv2_controller
