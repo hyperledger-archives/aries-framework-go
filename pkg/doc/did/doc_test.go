@@ -84,7 +84,10 @@ func TestValidWithDocBase(t *testing.T) {
 		doc, err := ParseDocument([]byte(d))
 		require.NoError(t, err)
 		require.NotNil(t, doc)
-		require.Contains(t, doc.Context[0], "https://www.w3.org/ns/did/v")
+
+		context, ok := doc.Context.([]string)
+		require.True(t, ok)
+		require.Contains(t, context[0], "https://www.w3.org/ns/did/v")
 
 		// test doc id
 		require.Equal(t, doc.ID, "did:example:123456789abcdefghi")
@@ -176,8 +179,7 @@ func TestDocResolution(t *testing.T) {
 		d, err := ParseDocumentResolution([]byte(validDocResolution))
 		require.NoError(t, err)
 
-		require.Equal(t, 1, len(d.Context))
-		require.Equal(t, "https://w3id.org/did-resolution/v1", d.Context[0])
+		require.Equal(t, "https://w3id.org/did-resolution/v1", d.Context.(string))
 		require.Equal(t, "did:example:21tDAKCERh95uGgKbJNHYp", d.DIDDocument.ID)
 		require.Equal(t, 1, len(d.DIDDocument.AlsoKnownAs))
 		require.Equal(t, "did:example:123", d.DIDDocument.AlsoKnownAs[0])
@@ -190,8 +192,7 @@ func TestDocResolution(t *testing.T) {
 		d, err = ParseDocumentResolution(bytes)
 		require.NoError(t, err)
 
-		require.Equal(t, 1, len(d.Context))
-		require.Equal(t, "https://w3id.org/did-resolution/v1", d.Context[0])
+		require.Equal(t, "https://w3id.org/did-resolution/v1", d.Context.(string))
 		require.Equal(t, "did:example:21tDAKCERh95uGgKbJNHYp", d.DIDDocument.ID)
 		require.Equal(t, 1, len(d.DIDDocument.AlsoKnownAs))
 		require.Equal(t, "did:example:123", d.DIDDocument.AlsoKnownAs[0])
@@ -206,13 +207,156 @@ func TestDocResolution(t *testing.T) {
 	})
 }
 
+func TestContextVariations(t *testing.T) {
+	var (
+		Base                = "did:example:123456789abcdefghi"
+		Vocab               = "https://www.w3.org/ns/did/#"
+		ContextDIDv1        = "https://www.w3.org/ns/did/v1"
+		ContextTraceability = "https://w3id.org/traceability/v1"
+		ContextBase         = map[string]interface{}{"@base": Base}
+		ContextVocab        = map[string]interface{}{"@vocab": Vocab}
+		ContextMixed        = map[string]interface{}{"@base": Base, "@vocab": Vocab}
+	)
+
+	tests := map[string]struct {
+		input   Context
+		context Context
+		base    string
+	}{
+		"'string'": {
+			input:   ContextDIDv1,
+			context: ContextDIDv1,
+			base:    "",
+		},
+		"'string' empty": {
+			input:   "",
+			context: "",
+			base:    "",
+		},
+		"'[]string' empty": {
+			input:   []string{""},
+			context: []string{""},
+			base:    "",
+		},
+		"'[]string' single": {
+			input:   []string{ContextDIDv1},
+			context: []string{ContextDIDv1},
+			base:    "",
+		},
+		"'[]string' multiple": {
+			input:   []string{ContextDIDv1, ContextTraceability},
+			context: []string{ContextDIDv1, ContextTraceability},
+			base:    "",
+		},
+		"'[]interface{}' empty string": {
+			input:   []interface{}{""},
+			context: []string{""},
+			base:    "",
+		},
+		"'[]interface{}' single string": {
+			input:   []interface{}{ContextDIDv1},
+			context: []string{ContextDIDv1},
+			base:    "",
+		},
+		"'[]interface{}' multiple string": {
+			input:   []interface{}{ContextDIDv1, ContextTraceability},
+			context: []string{ContextDIDv1, ContextTraceability},
+			base:    "",
+		},
+		"'[]interface{}' string + base": {
+			input:   []interface{}{ContextDIDv1, ContextBase},
+			context: []string{ContextDIDv1},
+			base:    Base,
+		},
+		"'[]interface{}' string + vocab": {
+			input:   []interface{}{ContextDIDv1, ContextVocab},
+			context: []interface{}{ContextDIDv1, ContextVocab},
+			base:    "",
+		},
+		"'[]interface{}' string + vocab + base": {
+			input:   []interface{}{ContextDIDv1, ContextVocab, ContextBase},
+			context: []interface{}{ContextDIDv1, ContextVocab},
+			base:    Base,
+		},
+		"'[]interface{}' string + mixed": {
+			input:   []interface{}{ContextDIDv1, ContextMixed},
+			context: []interface{}{ContextDIDv1, ContextVocab},
+			base:    Base,
+		},
+		"'[]interface{}' base": {
+			input:   []interface{}{ContextBase},
+			context: "",
+			base:    Base,
+		},
+		"'[]interface{}' vocab": {
+			input:   []interface{}{ContextVocab},
+			context: []interface{}{ContextVocab},
+			base:    "",
+		},
+		"'[]interface{}' base + vocab": {
+			input:   []interface{}{ContextBase, ContextVocab},
+			context: []interface{}{ContextVocab},
+			base:    Base,
+		},
+		"'[]interface{}' mixed": {
+			input:   []interface{}{ContextMixed},
+			context: []interface{}{ContextVocab},
+			base:    Base,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			context, base := parseContext(tc.input)
+			require.Equal(t, tc.context, context)
+			require.Equal(t, tc.base, base)
+		})
+	}
+}
+
+func TestContextMutationPrevention(t *testing.T) {
+	t.Run("string array mutation", func(t *testing.T) {
+		oldContext := []string{"stringval"}
+		newContext, _ := parseContext(oldContext)
+
+		a0, ok := newContext.([]string)
+		require.True(t, ok)
+
+		a0[0] = "mutated_stringval"
+		require.Equal(t, []string{"stringval"}, oldContext)
+	})
+
+	t.Run("map element mutation (@base)", func(t *testing.T) {
+		oldContext := []interface{}{map[string]interface{}{"@base": "baseval"}}
+		_, _ = parseContext(oldContext)
+		require.Equal(t, []interface{}{map[string]interface{}{"@base": "baseval"}}, oldContext)
+	})
+
+	t.Run("map element mutation (not @base)", func(t *testing.T) {
+		oldContext := []interface{}{map[string]interface{}{"@key": "keyval"}}
+		newContext, _ := parseContext(oldContext)
+
+		a0, ok := newContext.([]interface{})
+		require.True(t, ok)
+
+		m0, ok := a0[0].(map[string]interface{})
+		require.True(t, ok)
+
+		m0["@key"] = "keyval_mutated"
+		require.Equal(t, []interface{}{map[string]interface{}{"@key": "keyval"}}, oldContext)
+	})
+}
+
 func TestValid(t *testing.T) {
 	docs := []string{validDoc}
 	for _, d := range docs {
 		doc, err := ParseDocument([]byte(d))
 		require.NoError(t, err)
 		require.NotNil(t, doc)
-		require.Contains(t, doc.Context[0], "https://www.w3.org/ns/did/v")
+
+		context, ok := doc.Context.([]string)
+		require.True(t, ok)
+		require.Contains(t, context[0], "https://www.w3.org/ns/did/v")
 
 		// test doc id
 		require.Equal(t, doc.ID, "did:example:21tDAKCERh95uGgKbJNHYp")
