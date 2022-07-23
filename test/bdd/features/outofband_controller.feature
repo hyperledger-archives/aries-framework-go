@@ -6,7 +6,6 @@
 
 # Reference : https://github.com/hyperledger/aries-rfcs/blob/master/features/0434-outofband/README.md
 
-@all
 @controller
 @outofband
 @outofband_controller_sdk
