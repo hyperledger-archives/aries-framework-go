@@ -38,7 +38,7 @@ func TestNewSigned(t *testing.T) {
 		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 		r.NoError(err)
 
-		token, err := NewSigned(claims, nil, newEd25519Signer(privKey))
+		token, err := NewSigned(claims, nil, NewEd25519Signer(privKey))
 		r.NoError(err)
 		jws, err := token.Serialize(false)
 		require.NoError(t, err)
@@ -60,7 +60,7 @@ func TestNewSigned(t *testing.T) {
 
 		pubKey := &privKey.PublicKey
 
-		token, err := NewSigned(claims, nil, newRS256Signer(privKey, nil))
+		token, err := NewSigned(claims, nil, NewRS256Signer(privKey, nil))
 		r.NoError(err)
 		jws, err := token.Serialize(false)
 		require.NoError(t, err)
@@ -130,7 +130,7 @@ func TestParse(t *testing.T) {
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 	r.NoError(err)
 
-	signer := newEd25519Signer(privKey)
+	signer := NewEd25519Signer(privKey)
 	claims := map[string]interface{}{"iss": "Albert"}
 
 	token, err := NewSigned(claims, nil, signer)
@@ -138,7 +138,7 @@ func TestParse(t *testing.T) {
 	jws, err := token.Serialize(false)
 	r.NoError(err)
 
-	verifier, err := newEd25519Verifier(pubKey)
+	verifier, err := NewEd25519Verifier(pubKey)
 	r.NoError(err)
 
 	jsonWebToken, err := Parse(jws, WithSignatureVerifier(verifier))
@@ -466,7 +466,7 @@ func getValidJSONWebToken() (*JSONWebToken, error) {
 		return nil, err
 	}
 
-	signer := newEd25519Signer(privKey)
+	signer := NewEd25519Signer(privKey)
 
 	return NewSigned(claims, headers, signer)
 }

@@ -35,3 +35,9 @@ Feature: Issue Verifiable Credential
   Scenario: Issue University Degree Credential with JWS proof
     When "Berkley" issues credential at "2019-03-15" regarding "Master Degree" to "Bob" with "Ed25519 JWS" proof
     Then "Bob" receives the credential and verifies it
+
+@interop_jwt_verifiable
+  Scenario: Load and verify Interop JWT credentials
+    When loading interop credential number "1" and verify it
+    And  loading interop credential number "2" and verify it
+    And  loading interop credential number "3" and verify it

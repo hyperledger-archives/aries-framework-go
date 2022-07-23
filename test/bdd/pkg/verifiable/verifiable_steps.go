@@ -10,6 +10,8 @@ import (
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/elliptic"
+	_ "embed" //nolint:gci // required for go:embed
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -20,8 +22,10 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
 	jsonldsig "github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
@@ -29,6 +33,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ecdsasecp256k1signature2019"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -41,16 +46,60 @@ import (
 	bddldcontext "github.com/hyperledger/aries-framework-go/test/bdd/pkg/ldcontext"
 )
 
+//go:embed testdata/interop_credential_1.jwt
+//nolint:lll
+// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/spruce/credential-0--key-0-ed25519.vc-jwt.json
+var credential1 string //nolint:gochecknoglobals
+
+//go:embed testdata/interop_credential_2.jwt
+//nolint:lll
+// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/spruce/credential-1--key-0-ed25519.vc-jwt.json
+var credential2 string //nolint:gochecknoglobals
+
+//go:embed testdata/interop_credential_3.jwt
+//nolint:lll
+// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/spruce/credential-2--key-0-ed25519.vc-jwt.json
+var credential3 string //nolint:gochecknoglobals
+
+//go:embed testdata/interop_key.jwk
+// ref https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/keys/key-0-ed25519.json
+var interopKey string //nolint:gochecknoglobals
+
 // SDKSteps is steps for verifiable credentials using client SDK.
 type SDKSteps struct {
 	bddContext       *context.BDDContext
 	issuedVCBytes    []byte
 	secp256k1PrivKey *ecdsa.PrivateKey
+	joseVerifier     jose.SignatureVerifier
+	interopPubKey    *verifier.PublicKey
+	interopCreds     map[string]string
 }
 
 // NewVerifiableCredentialSDKSteps creates steps for verifiable credential with SDK.
 func NewVerifiableCredentialSDKSteps() *SDKSteps {
-	return &SDKSteps{}
+	jwkKey := &jwk.JWK{}
+
+	err := jwkKey.UnmarshalJSON([]byte(interopKey))
+	if err != nil {
+		panic(err)
+	}
+
+	pubKey := &verifier.PublicKey{
+		Type:  "ed25519",
+		Value: jwkKey.JSONWebKey.Key.(ed25519.PublicKey),
+		JWK:   jwkKey,
+	}
+
+	v, err := jwt.NewEd25519Verifier(pubKey.Value)
+	if err != nil {
+		return nil
+	}
+
+	return &SDKSteps{
+		joseVerifier:  v,
+		interopPubKey: pubKey,
+		interopCreds:  map[string]string{"1": credential1, "2": credential2, "3": credential3},
+	}
 }
 
 const (
@@ -71,6 +120,7 @@ func (s *SDKSteps) SetContext(ctx *context.BDDContext) {
 // RegisterSteps registers Verifiable Credential steps.
 func (s *SDKSteps) RegisterSteps(gs *godog.Suite) {
 	gs.Step(`^"([^"]*)" issues credential at "([^"]*)" regarding "([^"]*)" to "([^"]*)" with "([^"]*)" proof$`, s.issueCredential) //nolint:lll
+	gs.Step(`^loading interop credential number "([^\"]*)" and verify it$`, s.loadInteropCredentialAndVerify)
 	gs.Step(`^"([^"]*)" receives the credential and verifies it$`, s.verifyCredential)
 }
 
@@ -93,6 +143,27 @@ func (s *SDKSteps) issueCredential(issuer, issuedAt, subject, holder, proofType 
 	s.issuedVCBytes = vcBytes
 
 	return nil
+}
+
+func (s *SDKSteps) loadInteropCredentialAndVerify(claimID string) error {
+	credentialStr := s.interopCreds[claimID]
+	interopCred := &jwtCred{}
+
+	err := json.Unmarshal([]byte(credentialStr), interopCred)
+	if err != nil {
+		return err
+	}
+
+	jwtCred, err := jwt.Parse(interopCred.JWT, jwt.WithSignatureVerifier(s.joseVerifier))
+	if jwtCred == nil {
+		return fmt.Errorf("interop jwt cred was nil, err: %w", err)
+	}
+
+	return err
+}
+
+type jwtCred struct {
+	JWT string `json:"jwt"`
 }
 
 func (s *SDKSteps) createVC(issuedAt, subject, issuer string) (*verifiable.Credential, error) {
@@ -245,7 +316,7 @@ func (s *SDKSteps) verifyCredential(holder string) error {
 		return errors.New("expected Local KMS")
 	}
 
-	verifier := suite.NewCryptoVerifier(newLocalCryptoVerifier(s.bddContext.AgentCtx[holder].Crypto(), localKMS))
+	v := suite.NewCryptoVerifier(newLocalCryptoVerifier(s.bddContext.AgentCtx[holder].Crypto(), localKMS))
 
 	loader, err := CreateDocumentLoader()
 	if err != nil {
@@ -255,7 +326,7 @@ func (s *SDKSteps) verifyCredential(holder string) error {
 	parsedVC, err := verifiable.ParseCredential(s.issuedVCBytes,
 		verifiable.WithPublicKeyFetcher(pKeyFetcher),
 		verifiable.WithEmbeddedSignatureSuites(
-			ed25519signature2018.New(suite.WithVerifier(verifier)),
+			ed25519signature2018.New(suite.WithVerifier(v)),
 			jsonwebsignature2020.New(suite.WithVerifier(jsonwebsignature2020.NewPublicKeyVerifier())),
 			ecdsasecp256k1signature2019.New(suite.WithVerifier(ecdsasecp256k1signature2019.NewPublicKeyVerifier()))),
 		verifiable.WithJSONLDDocumentLoader(loader))
