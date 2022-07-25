@@ -258,8 +258,20 @@ func assertBase58Doc(t *testing.T, doc *did.Doc, didKey, didKeyID, didKeyType, p
 
 func assertDualBase58Doc(t *testing.T, doc *did.Doc, didKey, didKeyID, didKeyType, pubKeyBase58,
 	agreementKeyID, keyAgreementType, keyAgreementBase58 string) {
+	var context string
+	switch ctx := doc.Context.(type) {
+	case string:
+		context = ctx
+	case []string:
+		context = ctx[0]
+	case []interface{}:
+		var ok bool
+		context, ok = ctx[0].(string)
+		require.True(t, ok)
+	}
+
 	// validate @context
-	require.Equal(t, schemaDIDV1, doc.Context[0])
+	require.Equal(t, schemaDIDV1, context)
 
 	// validate id
 	require.Equal(t, didKey, doc.ID)
@@ -332,8 +344,20 @@ func createVerificationMethodFromXAndY(t *testing.T, didKeyID, didKey string,
 func assertDualJSONWebKeyDoc(t *testing.T, doc *did.Doc, didKey, didKeyID string,
 	pubKeyCurve elliptic.Curve, pubKeyX, pubKeyY *big.Int,
 	agreementKeyID string, keyAgreementCurve elliptic.Curve, keyAgreementX, keyAgreementY *big.Int) {
+	var context string
+	switch ctx := doc.Context.(type) {
+	case string:
+		context = ctx
+	case []string:
+		context = ctx[0]
+	case []interface{}:
+		var ok bool
+		context, ok = ctx[0].(string)
+		require.True(t, ok)
+	}
+
 	// validate @context
-	require.Equal(t, schemaDIDV1, doc.Context[0])
+	require.Equal(t, schemaDIDV1, context)
 
 	// validate id
 	require.Equal(t, didKey, doc.ID)

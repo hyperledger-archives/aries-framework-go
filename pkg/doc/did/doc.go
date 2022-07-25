@@ -166,9 +166,13 @@ func ParseDIDURL(didURL string) (*DIDURL, error) {
 	return ret, nil
 }
 
+// Context represents JSON-LD representation-specific DID-core @context, which
+// must be either a string, or a list containing maps and/or strings.
+type Context interface{}
+
 // DocResolution did resolution.
 type DocResolution struct {
-	Context          []string
+	Context          Context
 	DIDDocument      *Doc
 	DocumentMetadata *DocumentMetadata
 }
@@ -224,7 +228,7 @@ type DocumentMetadata struct {
 }
 
 type rawDocResolution struct {
-	Context          interface{}     `json:"@context"`
+	Context          Context         `json:"@context"`
 	DIDDocument      json.RawMessage `json:"didDocument,omitempty"`
 	DocumentMetadata json.RawMessage `json:"didDocumentMetadata,omitempty"`
 }
@@ -261,7 +265,7 @@ func ParseDocumentResolution(data []byte) (*DocResolution, error) {
 
 // Doc DID Document definition.
 type Doc struct {
-	Context              []string
+	Context              Context
 	ID                   string
 	AlsoKnownAs          []string
 	VerificationMethod   []VerificationMethod
@@ -427,7 +431,7 @@ func NewReferencedVerification(vm *VerificationMethod, r VerificationRelationshi
 }
 
 type rawDoc struct {
-	Context              interface{}              `json:"@context,omitempty"`
+	Context              Context                  `json:"@context,omitempty"`
 	ID                   string                   `json:"id,omitempty"`
 	AlsoKnownAs          []interface{}            `json:"alsoKnownAs,omitempty"`
 	VerificationMethod   []map[string]interface{} `json:"verificationMethod,omitempty"`
@@ -507,7 +511,9 @@ func ParseDocument(data []byte) (*Doc, error) {
 		verificationMethod = raw.VerificationMethod
 	}
 
-	vm, err := populateVerificationMethod(context[0], doc.ID, baseURI, verificationMethod)
+	schema, _ := ContextPeekString(context)
+
+	vm, err := populateVerificationMethod(schema, doc.ID, baseURI, verificationMethod)
 	if err != nil {
 		return nil, fmt.Errorf("populate verification method failed: %w", err)
 	}
@@ -519,7 +525,7 @@ func ParseDocument(data []byte) (*Doc, error) {
 		return nil, err
 	}
 
-	proofs, err := populateProofs(context[0], doc.ID, baseURI, raw.Proof)
+	proofs, err := populateProofs(schema, doc.ID, baseURI, raw.Proof)
 	if err != nil {
 		return nil, fmt.Errorf("populate proofs failed: %w", err)
 	}
@@ -530,18 +536,10 @@ func ParseDocument(data []byte) (*Doc, error) {
 }
 
 func requiresLegacyHandling(raw *rawDoc) bool {
-	context, _ := parseContext(raw.Context)
-
-	for _, ctx := range context {
-		if ctx == ContextV1Old {
-			// aca-py issue: https://github.com/hyperledger/aries-cloudagent-python/issues/1048
-			//  old v1 context is (currently) only used by projects like aca-py that
-			//  have not fully updated to latest did spec for aip2.0
-			return true
-		}
-	}
-
-	return false
+	// aca-py issue: https://github.com/hyperledger/aries-cloudagent-python/issues/1048
+	//  old v1 context is (currently) only used by projects like aca-py that
+	//  have not fully updated to latest did spec for aip2.0
+	return ContextContainsString(raw.Context, ContextV1Old)
 }
 
 func populateVerificationRelationships(doc *Doc, raw *rawDoc) error {
@@ -758,7 +756,7 @@ func getVerification(doc *Doc, rawVerification interface{},
 	relationship VerificationRelationship) ([]Verification, error) {
 	// context, docID string
 	vm := doc.VerificationMethod
-	context := doc.Context[0]
+	context, _ := ContextPeekString(doc.Context)
 
 	keyID, keyIDExist := rawVerification.(string)
 	if keyIDExist {
@@ -957,42 +955,45 @@ func decodeVMJwk(jwkMap map[string]interface{}, vm *VerificationMethod) error {
 	return nil
 }
 
-func parseContext(context interface{}) ([]string, string) {
+func parseContext(context Context) (Context, string) {
+	context = ContextCopy(context)
+
 	switch ctx := context.(type) {
+	case string, []string:
+		return ctx, ""
 	case []interface{}:
-		var context []string
+		// copy slice to prevent unexpected mutation
+		var newContext []interface{}
 
 		var base string
 
 		for _, v := range ctx {
 			switch value := v.(type) {
 			case string:
-				context = append(context, value)
+				newContext = append(newContext, value)
 			case map[string]interface{}:
-				baseValue, ok := value["@base"].(string)
-				if ok {
+				// preserve base value if it exists and is a string
+				if baseValue, ok := value["@base"].(string); ok {
 					base = baseValue
+				}
+
+				delete(value, "@base")
+
+				if len(value) > 0 {
+					newContext = append(newContext, value)
 				}
 			}
 		}
 
-		return context, base
-	case []string:
-		return ctx, ""
-	case interface{}:
-		return []string{context.(string)}, ""
+		return ContextCleanup(newContext), base
 	}
 
-	return []string{""}, ""
+	return "", ""
 }
 
 func (r *rawDoc) schemaLoader() gojsonschema.JSONLoader {
-	context, _ := parseContext(r.Context)
-	if len(context) == 0 {
-		return schemaLoaderV1
-	}
-
-	switch context[0] {
+	context, _ := ContextPeekString(r.Context)
+	switch context {
 	case contextV011:
 		return schemaLoaderV011
 	case contextV12019:
@@ -1111,10 +1112,9 @@ func (docResolution *DocResolution) JSONBytes() ([]byte, error) {
 
 // JSONBytes converts document to json bytes.
 func (doc *Doc) JSONBytes() ([]byte, error) {
-	context := ContextV1
-
-	if len(doc.Context) > 0 {
-		context = doc.Context[0]
+	context, ok := ContextPeekString(doc.Context)
+	if !ok {
+		context = ContextV1
 	}
 
 	aka := populateRawAlsoKnownAs(doc.AlsoKnownAs)
@@ -1172,14 +1172,23 @@ func (doc *Doc) JSONBytes() ([]byte, error) {
 	return byteDoc, nil
 }
 
-func contextWithBase(doc *Doc) []interface{} {
+func contextWithBase(doc *Doc) Context {
 	baseObject := make(map[string]interface{})
 	baseObject["@base"] = doc.processingMeta.baseURI
 
 	m := make([]interface{}, 0)
 
-	for _, v := range doc.Context {
-		m = append(m, v)
+	switch ctx := doc.Context.(type) {
+	case string:
+		m = append(m, ctx)
+	case []string:
+		for _, item := range ctx {
+			m = append(m, item)
+		}
+	case []interface{}:
+		if len(ctx) > 0 {
+			m = append(m, ctx...)
+		}
 	}
 
 	m = append(m, baseObject)
