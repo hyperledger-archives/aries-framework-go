@@ -6,7 +6,6 @@
 
 # Reference : https://identity.foundation/didcomm-messaging/spec/#out-of-band-messages
 
-@all
 @outofbandv2
 @outofbandv2_e2e_sdk
 Feature: Out-Of-Band V2 protocol (Go API)
