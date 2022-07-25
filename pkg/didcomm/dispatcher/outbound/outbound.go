@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/kmsdidkey"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
@@ -424,6 +425,14 @@ func (o *Dispatcher) packForward(fwd model.Forward, toKeys []string, mtProfile s
 	// try to convert msg to Envelope
 	err = json.Unmarshal(fwd.Msg, env)
 	if err == nil {
+		// Convert did:key to base58 to support legacy profile type
+		if strings.HasPrefix(fwd.To, "did:key") && mtProfile == transport.LegacyDIDCommV1Profile {
+			fwd.To, err = kmsdidkey.GetBase58PubKeyFromDIDKey(fwd.To)
+			if err != nil {
+				return nil, err
+			}
+		}
+		// create legacy forward
 		forward = legacyForward{
 			Type: fwd.Type,
 			ID:   fwd.ID,
@@ -496,7 +505,8 @@ func (o *Dispatcher) mediaTypeProfile(des *service.Destination) string {
 		for _, mtp := range accept {
 			switch mtp {
 			case transport.MediaTypeV1PlaintextPayload, transport.MediaTypeRFC0019EncryptedEnvelope,
-				transport.MediaTypeAIP2RFC0019Profile, transport.MediaTypeProfileDIDCommAIP1:
+				transport.MediaTypeAIP2RFC0019Profile, transport.MediaTypeProfileDIDCommAIP1,
+				transport.LegacyDIDCommV1Profile:
 				// overridable with higher priority media type.
 				if mt == "" {
 					mt = mtp

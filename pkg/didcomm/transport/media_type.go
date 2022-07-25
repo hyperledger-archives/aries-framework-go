@@ -40,6 +40,9 @@ const (
 
 	// MediaTypeDIDCommV2Profile is the official DIDComm V2 profile.
 	MediaTypeDIDCommV2Profile = "didcomm/v2"
+
+	// LegacyDIDCommV1Profile is the media type used by legacy didcomm agent systems.
+	LegacyDIDCommV1Profile = "IndyAgent"
 )
 
 // MediaTypeProfiles returns the list of accepted mediatype profiles.

@@ -287,3 +287,49 @@ func TestEncryptionPubKeyFromDIDKey(t *testing.T) {
 		})
 	}
 }
+
+func TestGetBase58PubKeyFromDIDKey(t *testing.T) {
+	didKeyED25519 := "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH"
+	pubKey := "B12NYF8RrR3h41TDCTJojY59usg3mbtbjnFs7Eud1Y6u"
+
+	tests := []struct {
+		name   string
+		didKey string
+	}{
+		{
+			name:   "test ED25519 key",
+			didKey: didKeyED25519,
+		},
+		{
+			name:   "invalid did:key code",
+			didKey: "did:key:zabcd",
+		},
+		{
+			name:   "invalid did:key method",
+			didKey: "did:key:invalid",
+		},
+	}
+
+	for _, tt := range tests {
+		tc := tt
+		t.Run(tc.name, func(t *testing.T) {
+			resultKey, err := GetBase58PubKeyFromDIDKey(tc.didKey)
+			switch tc.name {
+			case "invalid did:key code":
+				require.ErrorContains(t, err, "GetBase58PubKeyFromDIDKey: failed to parse public key bytes")
+				require.Empty(t, resultKey)
+
+				return
+			case "invalid did:key method":
+				require.ErrorContains(t, err,
+					"GetBase58PubKeyFromDIDKey: failed to parse public key bytes from did:key:invalid:")
+				require.Empty(t, resultKey)
+
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, pubKey, resultKey)
+		})
+	}
+}

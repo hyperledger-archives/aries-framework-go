@@ -225,6 +225,42 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "pack forward msg")
 	})
+
+	t.Run("test send with legacy forward message - success", func(t *testing.T) {
+		o, err := NewOutbound(&mockProvider{
+			packagerValue:           &mockpackager.Packager{PackValue: createPackedMsgForForward(t)},
+			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}},
+			storageProvider:         mockstore.NewMockStoreProvider(),
+			protoStorageProvider:    mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:       []string{transport.LegacyDIDCommV1Profile},
+		})
+		require.NoError(t, err)
+
+		require.NoError(t, o.Send("data", mockdiddoc.MockDIDKey(t), &service.Destination{
+			ServiceEndpoint: model.NewDIDCommV1Endpoint("url"),
+			RecipientKeys:   []string{"abc"},
+		}))
+	})
+
+	t.Run("test send with legacy forward message - did:key error", func(t *testing.T) {
+		o, err := NewOutbound(&mockProvider{
+			packagerValue:           &mockpackager.Packager{PackValue: createPackedMsgForForward(t)},
+			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}},
+			storageProvider:         mockstore.NewMockStoreProvider(),
+			protoStorageProvider:    mockstore.NewMockStoreProvider(),
+			mediaTypeProfiles:       []string{transport.LegacyDIDCommV1Profile},
+		})
+		require.NoError(t, err)
+
+		env := []byte(`{"protected": "-", "iv": "-", "ciphertext": "-", "tag": "-"}`)
+		_, err = o.createForwardMessage(env, &service.Destination{
+			ServiceEndpoint: model.NewDIDCommV1Endpoint("url"),
+			RecipientKeys:   []string{"did:key:invalid"},
+			RoutingKeys:     []string{"did:key:invalid"},
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "GetBase58PubKeyFromDIDKey: failed to parse public key bytes from")
+	})
 }
 
 const testDID = "did:test:abc"
