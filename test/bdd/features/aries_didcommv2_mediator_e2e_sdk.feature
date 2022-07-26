@@ -75,8 +75,8 @@ Feature: DIDComm v2 Transport between two Agents through DIDComm v2 Routers [SDK
       | keyType    | keyAgreementType   | mediaTypeProfile          |
       | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip1"            |
       | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc19"  |
-      | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc587" |
-      | "ED25519"  | "NISTP384ECDHKW"   | "didcomm/v2"              |
+#      | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc587" |
+#      | "ED25519"  | "NISTP384ECDHKW"   | "didcomm/v2"              |
 
   @aries_didcommv2_router_sdk_nistpkw_key_agreement
   Scenario Outline: DID Exchange between two Edge Agents(without Inbound, DIDComm v2 is one way only) through Routers, without router didexchange

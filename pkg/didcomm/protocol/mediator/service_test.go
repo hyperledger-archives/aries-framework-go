@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/messagepickup"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/dispatcher"
@@ -312,6 +313,7 @@ func TestServiceRequestMsg(t *testing.T) {
 					return nil
 				},
 			},
+			MediaTypeProfilesValue: []string{transport.MediaTypeAIP2RFC0019Profile},
 		})
 		require.NoError(t, err)
 
@@ -402,6 +404,7 @@ func TestEvents(t *testing.T) {
 					return nil
 				},
 			},
+			MediaTypeProfilesValue: []string{transport.MediaTypeAIP2RFC0019Profile},
 		})
 		require.NoError(t, err)
 
@@ -512,6 +515,7 @@ func TestEvents(t *testing.T) {
 					return nil
 				},
 			},
+			MediaTypeProfilesValue: []string{transport.MediaTypeAIP2RFC0019Profile},
 		})
 		require.NoError(t, err)
 
