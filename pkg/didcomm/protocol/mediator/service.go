@@ -388,22 +388,24 @@ func (s *Service) handleInboundRequest(c *callback) error {
 		return fmt.Errorf("handleInboundRequest: route request message unmarshal : %w", err)
 	}
 
+	err = validateRequestVersion(s.mediaTypeProfiles, request.DIDCommV2)
+	if err != nil {
+		return err
+	}
+
 	grant, err := outboundGrant(
 		c.msg.ID(),
 		c.options,
 		s.endpoint,
 		func() (string, error) {
-			for _, mtp := range s.mediaTypeProfiles {
-				switch mtp {
-				case transport.MediaTypeDIDCommV2Profile, transport.MediaTypeAIP2RFC0587Profile:
-					_, pubKeyBytes, e := s.kms.CreateAndExportPubKeyBytes(s.keyAgreementType)
-					if e != nil {
-						return "", fmt.Errorf("outboundGrant from handleInboundRequest: kms failed to create "+
-							"and export %v key: %w", s.keyAgreementType, e)
-					}
-
-					return kmsdidkey.BuildDIDKeyByKeyType(pubKeyBytes, s.keyAgreementType)
+			if request.DIDCommV2 {
+				_, pubKeyBytes, e := s.kms.CreateAndExportPubKeyBytes(s.keyAgreementType)
+				if e != nil {
+					return "", fmt.Errorf("outboundGrant from handleInboundRequest: kms failed to create "+
+						"and export %v key: %w", s.keyAgreementType, e)
 				}
+
+				return kmsdidkey.BuildDIDKeyByKeyType(pubKeyBytes, s.keyAgreementType)
 			}
 
 			_, pubKeyBytes, er := s.kms.CreateAndExportPubKeyBytes(kms.ED25519Type)
@@ -422,6 +424,28 @@ func (s *Service) handleInboundRequest(c *callback) error {
 	}
 
 	return s.outbound.SendToDID(service.NewDIDCommMsgMap(grant), c.myDID, c.theirDID)
+}
+
+func validateRequestVersion(mtps []string, requestedV2 bool) error {
+	if requestedV2 {
+		for _, mtp := range mtps {
+			if transport.IsDIDCommV2(mtp) {
+				return nil
+			}
+		}
+
+		return fmt.Errorf("client requested didcomm v2 mediation from mediator " +
+			"that does not support didcomm v2")
+	}
+
+	for _, mtp := range mtps {
+		if !transport.IsDIDCommV2(mtp) {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("client requested didcomm v1 mediation from mediator " +
+		"that does not support didcomm v1")
 }
 
 func outboundGrant(
@@ -595,6 +619,10 @@ func (s *Service) doRegistration(record *connection.Record, req *Request, timeou
 	// TODO: would this be better served as time.Now().Add(timeout).Unix() as pkg/doc/verifiable/credential.go
 	// demonstrates? additionally `ExpiresTime` would need to be migrated to int64
 	req.ExpiresTime = time.Now().UTC().Add(timeout)
+
+	if record.DIDCommVersion == service.V2 {
+		req.DIDCommV2 = true
+	}
 
 	// send message to the router
 	if err = s.outbound.SendToDID(service.NewDIDCommMsgMap(req), record.MyDID, record.TheirDID); err != nil {

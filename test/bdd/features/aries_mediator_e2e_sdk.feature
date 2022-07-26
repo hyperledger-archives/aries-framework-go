@@ -74,8 +74,8 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
       | keyType    | keyAgreementType   | mediaTypeProfile          |
       | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip1"            |
       | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc19"  |
-      | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc587" |
-      | "ED25519"  | "NISTP384ECDHKW"   | "didcomm/v2"              |
+#      | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc587" |
+#      | "ED25519"  | "NISTP384ECDHKW"   | "didcomm/v2"              |
 
   Scenario Outline: Decentralized Identifier(DID) Exchange between two Edge Agents through Routers
     # DID Exchange between Alice and her Router
@@ -142,8 +142,8 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
       | keyType    | keyAgreementType   | mediaTypeProfile          |
       | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip1"            |
       | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc19"  |
-      | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc587" |
-      | "ED25519"  | "NISTP384ECDHKW"   | "didcomm/v2"              |
+#      | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc587" |
+#      | "ED25519"  | "NISTP384ECDHKW"   | "didcomm/v2"              |
 
   # https://wiki.hyperledger.org/display/ARIES/DIDComm+MediatorRouter
   Scenario Outline: Decentralized Identifier(DID) Exchange between two Edge Agents(without Inbound) through Routers(HTTP/WS)
@@ -257,5 +257,5 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
       | keyType    | keyAgreementType   | mediaTypeProfile          |
       | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip1"            |
       | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc19"  |
-      | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc587" |
-      | "ED25519"  | "NISTP384ECDHKW"   | "didcomm/v2"              |
+#      | "ED25519"  | "X25519ECDHKW"     | "didcomm/aip2;env=rfc587" |
+#      | "ED25519"  | "NISTP384ECDHKW"   | "didcomm/v2"              |

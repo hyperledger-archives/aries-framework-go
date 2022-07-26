@@ -51,3 +51,20 @@ func MediaTypeProfiles() []string {
 		MediaTypeProfileDIDCommAIP1,
 	}
 }
+
+// IsDIDCommV2 returns true iff mtp is one of:
+// MediaTypeV2EncryptedEnvelope, MediaTypeV2EncryptedEnvelopeV1PlaintextPayload, MediaTypeAIP2RFC0587Profile,
+// MediaTypeDIDCommV2Profile, or MediaTypeV2PlaintextPayload.
+func IsDIDCommV2(mtp string) bool {
+	v2MTPs := map[string]struct{}{
+		MediaTypeV2EncryptedEnvelope:                   {},
+		MediaTypeV2EncryptedEnvelopeV1PlaintextPayload: {},
+		MediaTypeAIP2RFC0587Profile:                    {},
+		MediaTypeDIDCommV2Profile:                      {},
+		MediaTypeV2PlaintextPayload:                    {},
+	}
+
+	_, ok := v2MTPs[mtp]
+
+	return ok
+}

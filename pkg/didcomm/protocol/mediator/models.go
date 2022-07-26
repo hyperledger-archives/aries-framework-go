@@ -15,6 +15,7 @@ import (
 type Request struct {
 	Type             string `json:"@type,omitempty"`
 	ID               string `json:"@id,omitempty"`
+	DIDCommV2        bool   `json:"didcomm_v2,omitempty"`
 	decorator.Timing `json:"~timing,omitempty"`
 }
 
