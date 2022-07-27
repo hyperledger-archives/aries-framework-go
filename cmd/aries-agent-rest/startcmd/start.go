@@ -20,6 +20,10 @@ import (
 	"github.com/rs/cors"
 	"github.com/spf13/cobra"
 
+	"github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb"
+	"github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
+	"github.com/hyperledger/aries-framework-go-ext/component/storage/mysql"
+	"github.com/hyperledger/aries-framework-go-ext/component/storage/postgresql"
 	"github.com/hyperledger/aries-framework-go/component/storage/leveldb"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
@@ -56,13 +60,14 @@ const (
 	databaseTypeEnvKey        = "ARIESD_DATABASE_TYPE"
 	databaseTypeFlagShorthand = "q"
 	databaseTypeFlagUsage     = "The type of database to use for everything except key storage. " +
-		"Supported options: mem, leveldb. " +
+		"Supported options: mem, leveldb, couchdb, mongodb, mysql, postgresql. " +
 		" Alternatively, this can be set with the following environment variable: " + databaseTypeEnvKey
 
 	databasePrefixFlagName      = "database-prefix"
 	databasePrefixEnvKey        = "ARIESD_DATABASE_PREFIX"
 	databasePrefixFlagShorthand = "u"
 	databasePrefixFlagUsage     = "An optional prefix to be used when creating and retrieving underlying databases. " +
+		"Also you can use this variable for paths or connection strings as needed. " +
 		" Alternatively, this can be set with the following environment variable: " + databasePrefixEnvKey
 
 	databaseTimeoutFlagName  = "database-timeout"
@@ -205,8 +210,12 @@ const (
 	httpProtocol      = "http"
 	websocketProtocol = "ws"
 
-	databaseTypeMemOption     = "mem"
-	databaseTypeLevelDBOption = "leveldb"
+	databaseTypeMemOption        = "mem"
+	databaseTypeLevelDBOption    = "leveldb"
+	databaseTypeCouchDBOption    = "couchdb"
+	databaseTypeMongoDBOption    = "mongodb"
+	databaseTypeMySQLOption      = "mysql"
+	databaseTypePostgreSQLOption = "postgresql"
 )
 
 var (
@@ -262,6 +271,18 @@ var supportedStorageProviders = map[string]func(prefix string) (storage.Provider
 	},
 	databaseTypeLevelDBOption: func(path string) (storage.Provider, error) { // nolint:unparam
 		return leveldb.NewProvider(path), nil
+	},
+	databaseTypeCouchDBOption: func(hostURL string) (storage.Provider, error) {
+		return couchdb.NewProvider(hostURL)
+	},
+	databaseTypeMongoDBOption: func(connectionString string) (storage.Provider, error) {
+		return mongodb.NewProvider(connectionString)
+	},
+	databaseTypeMySQLOption: func(path string) (storage.Provider, error) {
+		return mysql.NewProvider(path)
+	},
+	databaseTypePostgreSQLOption: func(connectionString string) (storage.Provider, error) {
+		return postgresql.NewProvider(connectionString)
 	},
 }
 
