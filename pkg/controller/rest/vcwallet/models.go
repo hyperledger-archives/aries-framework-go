@@ -9,6 +9,7 @@ package vcwallet
 import (
 	"encoding/json"
 
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command/didcommwallet"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/vcwallet"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
@@ -270,7 +271,7 @@ type connectRequest struct { // nolint: unused,deadcode
 	// Params for connecting to wallet for DIDComm.
 	//
 	// in: body
-	Params *vcwallet.ConnectRequest
+	Params *didcommwallet.ConnectRequest
 }
 
 // connectResponse is response model from wallet DID connect operation.
@@ -280,7 +281,7 @@ type connectResponse struct {
 	// wallet connect response.
 	//
 	// in: body
-	Response *vcwallet.ConnectResponse `json:"response"`
+	Response *didcommwallet.ConnectResponse `json:"response"`
 }
 
 // proposePresentationRequest is request model for performing propose presentation operation from wallet.
@@ -290,7 +291,7 @@ type proposePresentationRequest struct { // nolint: unused,deadcode
 	// Params for proposing presentation from wallet.
 	//
 	// in: body
-	Params *vcwallet.ProposePresentationRequest
+	Params *didcommwallet.ProposePresentationRequest
 }
 
 // proposePresentationResponse is response model from wallet propose presentation operation.
@@ -300,7 +301,7 @@ type proposePresentationResponse struct {
 	// response containing request presentation message from relyinig party.
 	//
 	// in: body
-	Response *vcwallet.ProposePresentationResponse `json:"response"`
+	Response *didcommwallet.ProposePresentationResponse `json:"response"`
 }
 
 // presentProofRequest is request model for performing present proof operation from wallet.
@@ -310,7 +311,7 @@ type presentProofRequest struct { // nolint: unused,deadcode
 	// Params for accepting presentation request and sending present proof message to relying party.
 	//
 	// in: body
-	Params *vcwallet.PresentProofRequest
+	Params *didcommwallet.PresentProofRequest
 }
 
 // presentProofResponse is response model from wallet present proof operation.
@@ -331,7 +332,7 @@ type proposeCredentialRequest struct { // nolint: unused,deadcode
 	// Params for proposing credential from wallet.
 	//
 	// in: body
-	Params *vcwallet.ProposeCredentialRequest
+	Params *didcommwallet.ProposeCredentialRequest
 }
 
 // proposePresentationResponse is response model from wallet propose credential operation.
@@ -341,7 +342,7 @@ type proposeCredentialResponse struct {
 	// response containing offer credential response from issuer.
 	//
 	// in: body
-	Response *vcwallet.ProposeCredentialResponse `json:"response"`
+	Response *didcommwallet.ProposeCredentialResponse `json:"response"`
 }
 
 // requestCredentialRequest is request model for performing request credential operation from wallet to conclude
@@ -352,7 +353,7 @@ type requestCredentialRequest struct { // nolint: unused,deadcode
 	// Params for sending request credential message from wallet and optionally wait for credential fulfillment.
 	//
 	// in: body
-	Params *vcwallet.RequestCredentialRequest
+	Params *didcommwallet.RequestCredentialRequest
 }
 
 // requestCredentialResponse is response model from wallet request credential operation which may contain
@@ -378,7 +379,7 @@ type resolveCredentialManifestRequest struct { // nolint: unused,deadcode
 	// Params for resolving credential manifests from wallet.
 	//
 	// in: body
-	Params *vcwallet.ResolveCredentialManifestRequest
+	Params *didcommwallet.ResolveCredentialManifestRequest
 }
 
 // resolveCredentialManifestResponse is response model for resolving credential manifests from wallet.
@@ -388,5 +389,5 @@ type resolveCredentialManifestResponse struct {
 	// Response containing resolve credential manifest descriptors.
 	//
 	// in: body
-	Response *vcwallet.ResolveCredentialManifestResponse `json:"response"`
+	Response *didcommwallet.ResolveCredentialManifestResponse `json:"response"`
 }

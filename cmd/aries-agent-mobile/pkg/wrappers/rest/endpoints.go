@@ -9,6 +9,7 @@ package rest
 import (
 	"net/http"
 
+	cmddidcommwallet "github.com/hyperledger/aries-framework-go/pkg/controller/command/didcommwallet"
 	cmddidexch "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	cmdintroduce "github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
 	cmdisscred "github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
@@ -518,13 +519,13 @@ func getVCWalletEndpoints() map[string]*endpoint {
 		cmdvcwallet.CreateKeyPairMethod: {
 			Path: opvcwallet.CreateKeyPairPath, Method: http.MethodPost,
 		},
-		cmdvcwallet.ConnectMethod: {
+		cmddidcommwallet.ConnectMethod: {
 			Path: opvcwallet.ConnectPath, Method: http.MethodPost,
 		},
-		cmdvcwallet.ProposePresentationMethod: {
+		cmddidcommwallet.ProposePresentationMethod: {
 			Path: opvcwallet.ProposePresentationPath, Method: http.MethodPost,
 		},
-		cmdvcwallet.PresentProofMethod: {
+		cmddidcommwallet.PresentProofMethod: {
 			Path: opvcwallet.PresentProofPath, Method: http.MethodPost,
 		},
 	}

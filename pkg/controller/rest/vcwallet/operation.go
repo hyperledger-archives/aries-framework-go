@@ -14,6 +14,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/piprate/json-gold/ld"
 
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command/didcommwallet"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/vcwallet"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
@@ -77,13 +78,12 @@ type didCommProvider interface {
 // Operation contains REST operations provided by verifiable credential wallet.
 type Operation struct {
 	handlers []rest.Handler
-	command  *vcwallet.Command
+	command  *didcommwallet.Command
 }
 
 // New returns new verfiable credential wallet REST controller.
 func New(p provider, config *vcwallet.Config) *Operation {
-	cmd := vcwallet.New(p, config)
-
+	cmd := didcommwallet.New(p, config)
 	o := &Operation{command: cmd}
 
 	o.registerHandler()
