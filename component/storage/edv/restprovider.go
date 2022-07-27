@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package edv
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -36,18 +35,11 @@ var (
 // RESTProviderOption allows for configuration of a RESTProvider.
 type RESTProviderOption func(opts *RESTProvider)
 
-// WithTLSConfig is an option that allows for the definition of a secured HTTP transport using a tls.Config instance.
-func WithTLSConfig(tlsConfig *tls.Config) RESTProviderOption {
+// WithHTTPClient allows for a custom HTTP client to be set. If not set, then the default Go HTTP client implementation
+// will be used. A custom HTTP client could be used to inject headers to outgoing requests to the EDV server.
+func WithHTTPClient(httpClient HTTPClient) RESTProviderOption {
 	return func(opts *RESTProvider) {
-		opts.restClient.httpClient.Transport = &http.Transport{TLSClientConfig: tlsConfig}
-	}
-}
-
-// WithHeaders option is for setting additional http request headers (since it's a function, it can call a remote
-// authorization server to fetch the necessary info needed in these headers).
-func WithHeaders(addHeadersFunc addHeaders) RESTProviderOption {
-	return func(opts *RESTProvider) {
-		opts.restClient.headersFunc = addHeadersFunc
+		opts.restClient.httpClient = httpClient
 	}
 }
 

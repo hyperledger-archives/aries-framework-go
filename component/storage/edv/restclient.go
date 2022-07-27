@@ -30,13 +30,13 @@ const (
 	failCreateRequest         = "failed to create request: %w"
 )
 
-// addHeaders function supports adding custom HTTP headers.
-type addHeaders func(req *http.Request) (*http.Header, error)
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
 
 type restClient struct {
 	edvServerURL string
-	httpClient   *http.Client
-	headersFunc  addHeaders
+	httpClient   HTTPClient
 }
 
 func (c *restClient) createDocument(vaultID string, docBytes []byte) (string, error) {
@@ -44,7 +44,7 @@ func (c *restClient) createDocument(vaultID string, docBytes []byte) (string, er
 
 	endpoint := fmt.Sprintf("%s/%s/documents", c.edvServerURL, vaultID)
 
-	statusCode, hdr, respBytes, err := c.sendHTTPRequest(http.MethodPost, endpoint, docBytes, c.headersFunc)
+	statusCode, hdr, respBytes, err := c.sendHTTPRequest(http.MethodPost, endpoint, docBytes)
 	if err != nil {
 		return "", fmt.Errorf(failSendPOSTRequest, err)
 	}
@@ -62,7 +62,7 @@ func (c *restClient) updateDocument(vaultID, docID string, docBytes []byte) erro
 	logger.Debugf(`Sending request to vault with ID "%s" to update a document with ID "%s". `+
 		`Document contents: %s`, vaultID, docID, docBytes)
 
-	statusCode, _, respBytes, err := c.sendHTTPRequest(http.MethodPost, endpoint, docBytes, c.headersFunc)
+	statusCode, _, respBytes, err := c.sendHTTPRequest(http.MethodPost, endpoint, docBytes)
 	if err != nil {
 		return fmt.Errorf(failSendPOSTRequest, err)
 	}
@@ -78,7 +78,7 @@ func (c *restClient) updateDocument(vaultID, docID string, docBytes []byte) erro
 func (c *restClient) readDocument(vaultID, docID string) ([]byte, error) {
 	endpoint := fmt.Sprintf("%s/%s/documents/%s", c.edvServerURL, url.PathEscape(vaultID), url.PathEscape(docID))
 
-	statusCode, _, respBytes, err := c.sendHTTPRequest(http.MethodGet, endpoint, nil, c.headersFunc)
+	statusCode, _, respBytes, err := c.sendHTTPRequest(http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send GET request: %w", err)
 	}
@@ -106,7 +106,7 @@ func (c *restClient) query(vaultID string, edvQuery query) ([]string, []encrypte
 
 	endpoint := fmt.Sprintf("%s/%s/query", c.edvServerURL, url.PathEscape(vaultID))
 
-	statusCode, _, respBytes, err := c.sendHTTPRequest(http.MethodPost, endpoint, jsonToSend, c.headersFunc)
+	statusCode, _, respBytes, err := c.sendHTTPRequest(http.MethodPost, endpoint, jsonToSend)
 	if err != nil {
 		return nil, nil, fmt.Errorf(failSendPOSTRequest, err)
 	}
@@ -144,7 +144,7 @@ func (c *restClient) batch(vaultID string, vaultOperations []vaultOperation) err
 
 	endpoint := fmt.Sprintf("%s/%s/batch", c.edvServerURL, url.PathEscape(vaultID))
 
-	statusCode, _, respBytes, err := c.sendHTTPRequest(http.MethodPost, endpoint, jsonToSend, c.headersFunc)
+	statusCode, _, respBytes, err := c.sendHTTPRequest(http.MethodPost, endpoint, jsonToSend)
 	if err != nil {
 		return fmt.Errorf(failSendPOSTRequest, err)
 	}
@@ -159,7 +159,7 @@ func (c *restClient) batch(vaultID string, vaultOperations []vaultOperation) err
 func (c *restClient) deleteDocument(vaultID, docID string) error {
 	endpoint := fmt.Sprintf("%s/%s/documents/%s", c.edvServerURL, url.PathEscape(vaultID), url.PathEscape(docID))
 
-	statusCode, _, respBytes, err := c.sendHTTPRequest(http.MethodDelete, endpoint, nil, c.headersFunc)
+	statusCode, _, respBytes, err := c.sendHTTPRequest(http.MethodDelete, endpoint, nil)
 	if err != nil {
 		return err
 	}
@@ -174,8 +174,7 @@ func (c *restClient) deleteDocument(vaultID, docID string) error {
 	return fmt.Errorf(failResponseFromEDVServer, statusCode, respBytes)
 }
 
-func (c *restClient) sendHTTPRequest(method, endpoint string, body []byte,
-	addHeadersFunc addHeaders) (int, http.Header, []byte, error) {
+func (c *restClient) sendHTTPRequest(method, endpoint string, body []byte) (int, http.Header, []byte, error) {
 	var req *http.Request
 
 	var err error
@@ -189,17 +188,6 @@ func (c *restClient) sendHTTPRequest(method, endpoint string, body []byte,
 		req, err = http.NewRequest(method, endpoint, bytes.NewBuffer(body))
 		if err != nil {
 			return -1, nil, nil, fmt.Errorf(failCreateRequest, err)
-		}
-	}
-
-	if addHeadersFunc != nil {
-		httpHeaders, errAddHdr := addHeadersFunc(req)
-		if errAddHdr != nil {
-			return -1, nil, nil, fmt.Errorf("add optional request headers error: %w", errAddHdr)
-		}
-
-		if httpHeaders != nil {
-			req.Header = httpHeaders.Clone()
 		}
 	}
 
