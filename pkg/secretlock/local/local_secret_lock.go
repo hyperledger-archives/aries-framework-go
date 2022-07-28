@@ -28,16 +28,13 @@ import (
 //
 // This lock services uses the NIST approved AES-GCM 256 bit encryption as per NIST SP 800-38D.
 //
-// The master key must be stored (encrypted with a MasterLock or not encrypted) either in a file or in
-// an environment variable.
-//
 // The user can then call either:
 //		MasterKeyFromPath(path) or
 //		MasterKeyFromEnv(envPrefix, keyURI)
 // to get an io.Reader instance needed to read the master key and create a keys Lock service.
 //
-// It is recommended for the content of the reader to be base64URL encoded (by masterlock if protected or manually
-// if not). This is particularly true when setting a master key in an environment variable as some OSs may
+// The content of the master key reader may be either raw bytes or base64URL encoded (by masterlock if protected or
+// manually if not). Base64URL encoding is useful when setting a master key in an environment variable as some OSs may
 // reject setting env variables with binary data as value. The service will attempt to base64URL decode the content of
 // reader first and if it fails, will try to create the service with the raw (binary) content.
 //
@@ -94,8 +91,7 @@ func NewService(masterKeyReader io.Reader, secLock secretlock.Service) (secretlo
 		// masterKeyData is not encrypted, base64URL decode it
 		masterKey, err = base64.URLEncoding.DecodeString(string(masterKeyData[:n]))
 		if err != nil {
-			logger.Warnf("base64URL.Decode of unprotected master key failed. " +
-				"Will attempt to create a service using the key content from reader as is.")
+			// attempt to create a service using the key content from reader as is
 
 			masterKey = make([]byte, n)
 
