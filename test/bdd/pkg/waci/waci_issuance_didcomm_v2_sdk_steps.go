@@ -258,7 +258,7 @@ func (i *IssuanceSDKDIDCommV2Steps) acceptCredentialApplication(issuerName strin
 
 	// Here, the issuer validates the Credential Application against its Credential Manifest.
 	// In a real flow, the issuer would want to check the proofs as well.
-	_, err = cm.ValidateCredentialApplication(application, credentialManifest, documentLoader,
+	err = cm.ValidateCredentialApplication(application, credentialManifest, documentLoader,
 		presexch.WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(documentLoader),
 			verifiable.WithDisabledProofCheck()))
 	if err != nil {

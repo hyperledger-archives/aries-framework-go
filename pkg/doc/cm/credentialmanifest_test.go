@@ -172,6 +172,13 @@ func TestCredentialManifest_Unmarshal(t *testing.T) {
 		require.EqualError(t, err, "invalid credential manifest: display title for output descriptor at "+
 			"index 0 is invalid: UnknownFormat is not a valid string schema format")
 	})
+	t.Run("Missing paths and text", func(t *testing.T) {
+		var credentialManifest cm.CredentialManifest
+
+		err := json.Unmarshal(createMarshalledCredentialManifestWithMissingPropertyJSONPathAndText(t), &credentialManifest)
+		require.EqualError(t, err, "invalid credential manifest: display property at index 0 for output descriptor at "+
+			"index 0 is invalid: display mapping object must contain either a paths or a text property")
+	})
 }
 
 func TestResolveFulfillment(t *testing.T) {
@@ -196,6 +203,9 @@ func TestResolveFulfillment(t *testing.T) {
 					"driver_license_output": {
 						Title:    "Washington State Driver License",
 						Subtitle: "Class A, Commercial",
+						Description: "License to operate a vehicle with a gross combined weight " +
+							"rating (GCWR) of 26,001 or more pounds, as long as the GVWR of the vehicle(s) " +
+							"being towed is over 10,000 pounds.",
 						Properties: map[string]*cm.ResolvedProperty{
 							"Driving License Number": {
 								Label: "Driving License Number",
@@ -213,15 +223,17 @@ func TestResolveFulfillment(t *testing.T) {
 				fulfillment: vpMultipleWithCredentialFulfillment,
 				expected: map[string]*match{
 					"prc_output": {
-						Title:    "Permanent Resident Card",
-						Subtitle: "Permanent Resident Card",
+						Title:       "Permanent Resident Card",
+						Subtitle:    "Permanent Resident Card",
+						Description: "PR card of John Smith.",
 						Properties: map[string]*cm.ResolvedProperty{
 							"Card Holder's family name": {Label: "Card Holder's family name", Value: "SMITH", Schema: cm.Schema{Type: "string"}},
 							"Card Holder's first name":  {Label: "Card Holder's first name", Value: "JOHN", Schema: cm.Schema{Type: "string"}},
 						},
 					},
 					"udc_output": {
-						Title: "Bachelor's Degree",
+						Title:       "Bachelor's Degree",
+						Description: "Awarded for completing a four year program at Example University.",
 						Properties: map[string]*cm.ResolvedProperty{
 							"Degree":               {Label: "Degree", Value: "BachelorDegree", Schema: cm.Schema{Type: "string"}},
 							"Degree Holder's name": {Label: "Degree Holder's name", Value: "Jayden Doe", Schema: cm.Schema{Type: "string"}},
@@ -236,6 +248,9 @@ func TestResolveFulfillment(t *testing.T) {
 					"driver_license_output": {
 						Title:    "Washington State Driver License",
 						Subtitle: "Class A, Commercial",
+						Description: "License to operate a vehicle with a gross combined weight " +
+							"rating (GCWR) of 26,001 or more pounds, as long as the GVWR of the vehicle(s) " +
+							"being towed is over 10,000 pounds.",
 						Properties: map[string]*cm.ResolvedProperty{
 							"Driving License Number": {Label: "Driving License Number", Value: "34DGE352", Schema: cm.Schema{Type: "boolean"}},
 						},
@@ -689,6 +704,24 @@ func createCredentialManifestWithInvalidSchemaFormat(t *testing.T) cm.Credential
 	}
 
 	return credentialManifest
+}
+
+func createCredentialManifestWithMissingPropertyJSONPathAndText(t *testing.T) cm.CredentialManifest {
+	credentialManifest := makeCredentialManifestFromBytes(t, credentialManifestUniversityDegree)
+
+	credentialManifest.OutputDescriptors[0].Display.Properties[0].Paths = []string{}
+	credentialManifest.OutputDescriptors[0].Display.Properties[0].Text = ""
+
+	return credentialManifest
+}
+
+func createMarshalledCredentialManifestWithMissingPropertyJSONPathAndText(t *testing.T) []byte {
+	credentialManifest := createCredentialManifestWithMissingPropertyJSONPathAndText(t)
+
+	credentialManifestWithNoPathsOrType, err := json.Marshal(credentialManifest)
+	require.NoError(t, err)
+
+	return credentialManifestWithNoPathsOrType
 }
 
 func createCredentialManifestWithNilJWTFormat(t *testing.T) cm.CredentialManifest {
