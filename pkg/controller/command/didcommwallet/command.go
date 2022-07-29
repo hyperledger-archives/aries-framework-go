@@ -46,20 +46,16 @@ const (
 
 	// RequestCredentialErrorCode for errors while request credential from wallet for issue credential protocol.
 	RequestCredentialErrorCode
-
-	// ResolveCredentialManifestErrorCode for errors while resolving credential manifest from wallet.
-	ResolveCredentialManifestErrorCode
 )
 
 // All command operations.
 const (
 	// command methods.
-	ConnectMethod                   = "Connect"
-	ProposePresentationMethod       = "ProposePresentation"
-	PresentProofMethod              = "PresentProof"
-	ProposeCredentialMethod         = "ProposeCredential"
-	RequestCredentialMethod         = "RequestCredential"
-	ResolveCredentialManifestMethod = "ResolveCredentialManifest"
+	ConnectMethod             = "Connect"
+	ProposePresentationMethod = "ProposePresentation"
+	PresentProofMethod        = "PresentProof"
+	ProposeCredentialMethod   = "ProposeCredential"
+	RequestCredentialMethod   = "RequestCredential"
 )
 
 // miscellaneous constants for the vc wallet command controller.
@@ -70,8 +66,6 @@ const (
 	connectionIDString = "connectionID"
 	invitationIDString = "invitationID"
 	LabelString        = "label"
-
-	emptyRawLength = 4
 )
 
 // AuthCapabilityProvider is for providing Authorization Capabilities (ZCAP-LD) feature for
@@ -132,7 +126,6 @@ func (o *Command) GetHandlers() []command.Handler {
 		cmdutil.NewCommandHandler(vcwallet.CommandName, PresentProofMethod, o.PresentProof),
 		cmdutil.NewCommandHandler(vcwallet.CommandName, ProposeCredentialMethod, o.ProposeCredential),
 		cmdutil.NewCommandHandler(vcwallet.CommandName, RequestCredentialMethod, o.RequestCredential),
-		cmdutil.NewCommandHandler(vcwallet.CommandName, ResolveCredentialManifestMethod, o.ResolveCredentialManifest),
 	)
 }
 
@@ -377,44 +370,6 @@ func (o *Command) RequestCredential(rw io.Writer, req io.Reader) command.Error {
 	return nil
 }
 
-// ResolveCredentialManifest resolves given credential manifest by credential fulfillment or credential.
-// Supports: https://identity.foundation/credential-manifest/
-//
-// Writes list of resolved descriptors to writer or returns error if operation fails.
-//
-func (o *Command) ResolveCredentialManifest(rw io.Writer, req io.Reader) command.Error {
-	request := &ResolveCredentialManifestRequest{}
-
-	err := json.NewDecoder(req).Decode(&request)
-	if err != nil {
-		logutil.LogInfo(logger, vcwallet.CommandName, ResolveCredentialManifestMethod, err.Error())
-
-		return command.NewValidationError(InvalidRequestErrorCode, err)
-	}
-
-	vcWallet, err := wallet.New(request.UserID, o.ctx)
-	if err != nil {
-		logutil.LogInfo(logger, vcwallet.CommandName, ResolveCredentialManifestMethod, err.Error())
-
-		return command.NewExecuteError(ResolveCredentialManifestErrorCode, err)
-	}
-
-	resolved, err := vcWallet.ResolveCredentialManifest(request.Auth, request.Manifest,
-		prepareResolveManifestOption(request))
-	if err != nil {
-		logutil.LogInfo(logger, vcwallet.CommandName, ResolveCredentialManifestMethod, err.Error())
-
-		return command.NewExecuteError(ResolveCredentialManifestErrorCode, err)
-	}
-
-	command.WriteNillableResponse(rw, &ResolveCredentialManifestResponse{Resolved: resolved}, logger)
-
-	logutil.LogDebug(logger, vcwallet.CommandName, ResolveCredentialManifestMethod, logSuccess,
-		logutil.CreateKeyValueString(logUserIDKey, request.UserID))
-
-	return nil
-}
-
 func prepareConcludeInteractionOpts(waitForDone bool, timeout time.Duration, presentation json.RawMessage) []wallet.ConcludeInteractionOptions { //nolint: lll
 	var options []wallet.ConcludeInteractionOptions
 
@@ -423,20 +378,4 @@ func prepareConcludeInteractionOpts(waitForDone bool, timeout time.Duration, pre
 	}
 
 	return append(options, wallet.FromRawPresentation(presentation))
-}
-
-func prepareResolveManifestOption(rqst *ResolveCredentialManifestRequest) wallet.ResolveManifestOption {
-	if len(rqst.Fulfillment) > emptyRawLength {
-		return wallet.ResolveRawFulfillment(rqst.Fulfillment)
-	}
-
-	if len(rqst.Credential) > emptyRawLength {
-		return wallet.ResolveRawCredential(rqst.DescriptorID, rqst.Credential)
-	}
-
-	if rqst.CredentialID != "" {
-		return wallet.ResolveCredentialID(rqst.DescriptorID, rqst.CredentialID)
-	}
-
-	return nil
 }

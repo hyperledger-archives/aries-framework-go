@@ -66,7 +66,7 @@ func TestNew(t *testing.T) {
 		cmd := New(newMockProvider(t), &Config{})
 		require.NotNil(t, cmd)
 
-		require.Len(t, cmd.GetHandlers(), 15)
+		require.Len(t, cmd.GetHandlers(), 16)
 	})
 }
 
@@ -1766,6 +1766,132 @@ func TestCommand_CreateKeyPair(t *testing.T) {
 
 		validateError(t, cmdErr, command.ExecuteError, CreateKeyPairFromWalletErrorCode, "failed to get VC wallet profile")
 		require.Empty(t, b.Bytes())
+	})
+}
+
+func TestCommand_ResolveCredentialManifest(t *testing.T) {
+	const sampleUser1 = "sample-user-r01"
+
+	mockctx := newMockProvider(t)
+	mockctx.VDRegistryValue = getMockDIDKeyVDR()
+
+	createSampleUserProfile(t, mockctx, &CreateOrUpdateProfileRequest{
+		UserID:             sampleUser1,
+		LocalKMSPassphrase: samplePassPhrase,
+	})
+
+	token, lock := unlockWallet(t, mockctx, &UnlockWalletRequest{
+		UserID:             sampleUser1,
+		LocalKMSPassphrase: samplePassPhrase,
+	})
+
+	defer lock()
+
+	addContent(t, mockctx, &AddContentRequest{
+		Content:     testdata.SampleUDCVC,
+		ContentType: "credential",
+		WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token},
+	})
+
+	t.Run("successfully resolve credential fulfillment", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		request := &ResolveCredentialManifestRequest{
+			WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token},
+			Manifest:    testdata.CredentialManifestMultipleVCs,
+			Fulfillment: testdata.CredentialFulfillmentWithMultipleVCs,
+		}
+
+		var b bytes.Buffer
+		cmdErr := cmd.ResolveCredentialManifest(&b, getReader(t, request))
+		require.NoError(t, cmdErr)
+
+		var response ResolveCredentialManifestResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&response))
+		require.NotEmpty(t, response)
+		require.Len(t, response.Resolved, 2)
+	})
+
+	t.Run("successfully resolve credential", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		request := &ResolveCredentialManifestRequest{
+			WalletAuth:   WalletAuth{UserID: sampleUser1, Auth: token},
+			Manifest:     testdata.CredentialManifestMultipleVCs,
+			Credential:   testdata.SampleUDCVC,
+			DescriptorID: "udc_output",
+		}
+
+		var b bytes.Buffer
+		cmdErr := cmd.ResolveCredentialManifest(&b, getReader(t, &request))
+		require.NoError(t, cmdErr)
+
+		var response ResolveCredentialManifestResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&response))
+		require.NotEmpty(t, response)
+		require.Len(t, response.Resolved, 1)
+	})
+
+	t.Run("successfully resolve credential ID", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		request := &ResolveCredentialManifestRequest{
+			WalletAuth:   WalletAuth{UserID: sampleUser1, Auth: token},
+			Manifest:     testdata.CredentialManifestMultipleVCs,
+			CredentialID: "http://example.edu/credentials/1872",
+			DescriptorID: "udc_output",
+		}
+
+		var b bytes.Buffer
+		cmdErr := cmd.ResolveCredentialManifest(&b, getReader(t, &request))
+		require.NoError(t, cmdErr)
+
+		var response ResolveCredentialManifestResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&response))
+		require.NotEmpty(t, response)
+		require.Len(t, response.Resolved, 1)
+	})
+
+	t.Run("failed to resolve - invalid requests", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		// missing manifest
+		request := &ResolveCredentialManifestRequest{
+			WalletAuth:   WalletAuth{UserID: sampleUser1, Auth: token},
+			Credential:   testdata.SampleUDCVC,
+			DescriptorID: "udc_output",
+		}
+
+		var b bytes.Buffer
+		cmdErr := cmd.ResolveCredentialManifest(&b, getReader(t, &request))
+		validateError(t, cmdErr, command.ExecuteError, ResolveCredentialManifestErrorCode,
+			"failed to read credential manifest")
+
+		// missing descriptor ID
+		request = &ResolveCredentialManifestRequest{
+			WalletAuth: WalletAuth{UserID: sampleUser1, Auth: token},
+			Manifest:   testdata.CredentialManifestMultipleVCs,
+			Credential: testdata.SampleUDCVC,
+		}
+
+		b.Reset()
+		cmdErr = cmd.ResolveCredentialManifest(&b, getReader(t, &request))
+		validateError(t, cmdErr, command.ExecuteError, ResolveCredentialManifestErrorCode,
+			"unable to find matching descriptor")
+
+		// missing resolve option
+		request = &ResolveCredentialManifestRequest{
+			WalletAuth: WalletAuth{UserID: sampleUser1, Auth: token},
+			Manifest:   testdata.CredentialManifestMultipleVCs,
+		}
+
+		b.Reset()
+		cmdErr = cmd.ResolveCredentialManifest(&b, getReader(t, &request))
+		validateError(t, cmdErr, command.ExecuteError, ResolveCredentialManifestErrorCode, "invalid option")
+
+		b.Reset()
+		cmdErr = cmd.ResolveCredentialManifest(&b, bytes.NewBufferString("=="))
+		validateError(t, cmdErr, command.ValidationError, InvalidRequestErrorCode, "invalid character")
 	})
 }
 

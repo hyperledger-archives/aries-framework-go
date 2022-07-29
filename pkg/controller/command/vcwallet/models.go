@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/cm"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
@@ -309,4 +310,31 @@ type CreateKeyPairRequest struct {
 // CreateKeyPairResponse is response model for creating key pair from wallet.
 type CreateKeyPairResponse struct {
 	*wallet.KeyPair
+}
+
+// ResolveCredentialManifestRequest is request model for resolving credential manifest from wallet.
+type ResolveCredentialManifestRequest struct {
+	WalletAuth
+
+	// Credential Manifest on which given credential fulfillment or credential needs to be resolved.
+	Manifest json.RawMessage `json:"manifest,omitempty"`
+
+	// Fulfillment to be be resolved.
+	// If provided, then this option takes precedence over credential resolve option.
+	Fulfillment json.RawMessage `json:"fulfillment,omitempty"`
+
+	// Credential to be be resolved, to be provided along with 'DescriptorID' to be used for resolving.
+	Credential json.RawMessage `json:"credential,omitempty"`
+
+	// ID of the Credential from wallet content to be be resolved, to be provided along with 'DescriptorID'.
+	CredentialID string `json:"credentialID,omitempty"`
+
+	// ID of the output descriptor to be used for resolving given credential.
+	DescriptorID string `json:"descriptorID,omitempty"`
+}
+
+// ResolveCredentialManifestResponse is response model from wallet credential manifest resolve operation.
+type ResolveCredentialManifestResponse struct {
+	// List of Resolved Descriptor results.
+	Resolved []*cm.ResolvedDescriptor `json:"resolved,omitempty"`
 }
