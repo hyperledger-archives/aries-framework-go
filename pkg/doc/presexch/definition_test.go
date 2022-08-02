@@ -1032,7 +1032,9 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				Constraints: &Constraints{
 					SubjectIsIssuer: &subIsIssuerRequired,
 					Fields: []*Field{{
-						Path: []string{"$.first_name", "$.last_name"},
+						Path: []string{"$.first_name"},
+					}, {
+						Path: []string{"$.last_name"},
 					}},
 				},
 			}, {
@@ -1042,7 +1044,9 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				}},
 				Constraints: &Constraints{
 					Fields: []*Field{{
-						Path: []string{"$.first_name", "$.last_name"},
+						Path: []string{"$.first_name"},
+					}, {
+						Path: []string{"$.last_name"},
 					}},
 				},
 			}},

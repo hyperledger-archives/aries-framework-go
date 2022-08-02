@@ -22,7 +22,7 @@ import (
 
 const dummy = "DUMMY"
 
-func ExamplePresentationDefinition_CreateVP() {
+func ExamplePresentationDefinition_CreateVP_v1() {
 	required := Required
 
 	pd := &PresentationDefinition{
