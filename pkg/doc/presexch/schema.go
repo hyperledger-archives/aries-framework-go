@@ -6,10 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 
 package presexch
 
-// DefinitionJSONSchema is the JSONSchema definition for PresentationDefinition.
+// DefinitionJSONSchemaV1 is the JSONSchema definition for PresentationDefinition.
 // nolint:lll
 // https://github.com/decentralized-identity/presentation-exchange/blob/9a6abc6d2b0f08b6339c9116132fa94c4c834418/test/presentation-definition/schema.json
-const DefinitionJSONSchema = `
+const DefinitionJSONSchemaV1 = `
 {
    "$schema":"http://json-schema.org/draft-07/schema#",
    "title":"Presentation Definition",
@@ -469,4 +469,211 @@ const DefinitionJSONSchema = `
          "additionalProperties":false
       }
    }
+}`
+
+// DefinitionJSONSchemaV2 is the JSONSchema definition for PresentationDefinition.
+// nolint:lll
+const DefinitionJSONSchemaV2 = `
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Presentation Definition Envelope",
+  "definitions": {
+    "status_directive": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "directive": {
+          "type": "string",
+          "enum": ["required", "allowed", "disallowed"]
+        },
+        "type": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "field": {
+      "type": "object",
+      "oneOf": [
+        {
+          "properties": {
+            "id": { "type": "string" },
+            "path": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "purpose": { "type": "string" },
+            "intent_to_retain": { "type": "boolean" },
+            "filter": { "$ref": "http://json-schema.org/draft-07/schema#" }
+          },
+          "required": ["path"],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "id": { "type": "string" },
+            "path": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "purpose": { "type": "string" },
+            "intent_to_retain": { "type": "boolean" },
+            "filter": { "$ref": "http://json-schema.org/draft-07/schema#" },
+            "predicate": {
+              "type": "string",
+              "enum": ["required", "preferred"]
+            }
+          },
+          "required": ["path", "filter", "predicate"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "input_descriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "purpose": { "type": "string" },
+        "format": {
+          "$ref": "http://identity.foundation/claim-format-registry/schemas/presentation-definition-claim-format-designations.json"
+        },
+        "group": { "type": "array", "items": { "type": "string" } },
+        "constraints": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "limit_disclosure": { "type": "string", "enum": ["required", "preferred"] },
+            "statuses": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "active": { "$ref": "#/definitions/status_directive" },
+                "suspended": { "$ref": "#/definitions/status_directive" },
+                "revoked": { "$ref": "#/definitions/status_directive" }
+              }
+            },
+            "fields": {
+              "type": "array",
+              "items": { "$ref": "#/definitions/field" }
+            },
+            "subject_is_issuer": { "type": "string", "enum": ["required", "preferred"] },
+            "is_holder": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "field_id": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  },
+                  "directive": {
+                    "type": "string",
+                    "enum": ["required", "preferred"]
+                  }
+                },
+                "required": ["field_id", "directive"]
+              }
+            },
+            "same_subject": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "field_id": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  },
+                  "directive": {
+                    "type": "string",
+                    "enum": ["required", "preferred"]
+                  }
+                },
+                "required": ["field_id", "directive"]
+              }
+            }
+          }
+        }
+      },
+      "required": ["id"]
+    },
+    "submission_requirement": {
+      "type": "object",
+      "oneOf": [
+        {
+          "properties": {
+            "name": { "type": "string" },
+            "purpose": { "type": "string" },
+            "rule": {
+              "type": "string",
+              "enum": ["all", "pick"]
+            },
+            "count": { "type": "integer", "minimum": 1 },
+            "min": { "type": "integer", "minimum": 0 },
+            "max": { "type": "integer", "minimum": 0 },
+            "from": { "type": "string" }
+          },
+          "required": ["rule", "from"],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "name": { "type": "string" },
+            "purpose": { "type": "string" },
+            "rule": {
+              "type": "string",
+              "enum": ["all", "pick"]
+            },
+            "count": { "type": "integer", "minimum": 1 },
+            "min": { "type": "integer", "minimum": 0 },
+            "max": { "type": "integer", "minimum": 0 },
+            "from_nested": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/definitions/submission_requirement"
+              }
+            }
+          },
+          "required": ["rule", "from_nested"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "presentation_definition": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "purpose": { "type": "string" },
+        "format": {
+          "$ref": "http://identity.foundation/claim-format-registry/schemas/presentation-definition-claim-format-designations.json#"
+        },
+        "frame": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "submission_requirements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/submission_requirement"
+          }
+        },
+        "input_descriptors": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/input_descriptor" }
+        }
+      },
+      "required": ["id", "input_descriptors"],
+      "additionalProperties": false
+    }
+  },
+  "type": "object",
+  "properties": {
+    "presentation_definition": {"$ref": "#/definitions/presentation_definition"}
+  }
 }`
