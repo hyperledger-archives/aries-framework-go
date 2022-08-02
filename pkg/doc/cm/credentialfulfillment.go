@@ -34,6 +34,7 @@ const (
 type CredentialFulfillment struct {
 	ID                             string                `json:"id,omitempty"`
 	ManifestID                     string                `json:"manifest_id,omitempty"`
+	ApplicationID                  string                `json:"application_id,omitempty"`
 	OutputDescriptorMappingObjects []OutputDescriptorMap `json:"descriptor_map,omitempty"`
 }
 

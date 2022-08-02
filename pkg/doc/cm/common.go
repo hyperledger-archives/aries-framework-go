@@ -53,3 +53,36 @@ func hasAnyProofTypes(ldpType *presexch.LdpType) bool {
 
 	return false
 }
+
+func lookUpString(model map[string]interface{}, key string) (string, bool) {
+	raw, ok := model[key]
+	if !ok {
+		return "", false
+	}
+
+	val, ok := raw.(string)
+
+	return val, ok
+}
+
+func lookUpMap(model map[string]interface{}, key string) (map[string]interface{}, bool) {
+	raw, ok := model[key]
+	if !ok {
+		return nil, false
+	}
+
+	val, ok := raw.(map[string]interface{})
+
+	return val, ok
+}
+
+func lookUpArray(model map[string]interface{}, key string) ([]interface{}, bool) {
+	raw, ok := model[key]
+	if !ok {
+		return nil, false
+	}
+
+	val, ok := raw.([]interface{})
+
+	return val, ok
+}
