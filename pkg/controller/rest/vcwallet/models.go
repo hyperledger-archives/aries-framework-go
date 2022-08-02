@@ -379,7 +379,7 @@ type resolveCredentialManifestRequest struct { // nolint: unused,deadcode
 	// Params for resolving credential manifests from wallet.
 	//
 	// in: body
-	Params *didcommwallet.ResolveCredentialManifestRequest
+	Params *vcwallet.ResolveCredentialManifestRequest
 }
 
 // resolveCredentialManifestResponse is response model for resolving credential manifests from wallet.
@@ -389,5 +389,5 @@ type resolveCredentialManifestResponse struct {
 	// Response containing resolve credential manifest descriptors.
 	//
 	// in: body
-	Response *didcommwallet.ResolveCredentialManifestResponse `json:"response"`
+	Response *vcwallet.ResolveCredentialManifestResponse `json:"response"`
 }

@@ -79,6 +79,9 @@ const (
 
 	// ProfileExistsErrorCode for errors while checking if profile exists for a wallet user.
 	ProfileExistsErrorCode
+
+	// ResolveCredentialManifestErrorCode for errors while resolving credential manifest from wallet.
+	ResolveCredentialManifestErrorCode
 )
 
 // All command operations.
@@ -86,21 +89,22 @@ const (
 	CommandName = "vcwallet"
 
 	// command methods.
-	CreateProfileMethod = "CreateProfile"
-	UpdateProfileMethod = "UpdateProfile"
-	ProfileExistsMethod = "ProfileExists"
-	OpenMethod          = "Open"
-	CloseMethod         = "Close"
-	AddMethod           = "Add"
-	RemoveMethod        = "Remove"
-	GetMethod           = "Get"
-	GetAllMethod        = "GetAll"
-	QueryMethod         = "Query"
-	IssueMethod         = "Issue"
-	ProveMethod         = "Prove"
-	VerifyMethod        = "Verify"
-	DeriveMethod        = "Derive"
-	CreateKeyPairMethod = "CreateKeyPair"
+	CreateProfileMethod             = "CreateProfile"
+	UpdateProfileMethod             = "UpdateProfile"
+	ProfileExistsMethod             = "ProfileExists"
+	OpenMethod                      = "Open"
+	CloseMethod                     = "Close"
+	AddMethod                       = "Add"
+	RemoveMethod                    = "Remove"
+	GetMethod                       = "Get"
+	GetAllMethod                    = "GetAll"
+	QueryMethod                     = "Query"
+	IssueMethod                     = "Issue"
+	ProveMethod                     = "Prove"
+	VerifyMethod                    = "Verify"
+	DeriveMethod                    = "Derive"
+	CreateKeyPairMethod             = "CreateKeyPair"
+	ResolveCredentialManifestMethod = "ResolveCredentialManifest"
 )
 
 // miscellaneous constants for the vc wallet command controller.
@@ -204,6 +208,7 @@ func (o *Command) GetHandlers() []command.Handler {
 		cmdutil.NewCommandHandler(CommandName, VerifyMethod, o.Verify),
 		cmdutil.NewCommandHandler(CommandName, DeriveMethod, o.Derive),
 		cmdutil.NewCommandHandler(CommandName, CreateKeyPairMethod, o.CreateKeyPair),
+		cmdutil.NewCommandHandler(CommandName, ResolveCredentialManifestMethod, o.ResolveCredentialManifest),
 	}
 }
 
@@ -703,6 +708,44 @@ func (o *Command) CreateKeyPair(rw io.Writer, req io.Reader) command.Error {
 	return nil
 }
 
+// ResolveCredentialManifest resolves given credential manifest by credential fulfillment or credential.
+// Supports: https://identity.foundation/credential-manifest/
+//
+// Writes list of resolved descriptors to writer or returns error if operation fails.
+//
+func (o *Command) ResolveCredentialManifest(rw io.Writer, req io.Reader) command.Error {
+	request := &ResolveCredentialManifestRequest{}
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, ResolveCredentialManifestMethod, err.Error())
+
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	vcWallet, err := wallet.New(request.UserID, o.ctx)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, ResolveCredentialManifestMethod, err.Error())
+
+		return command.NewExecuteError(ResolveCredentialManifestErrorCode, err)
+	}
+
+	resolved, err := vcWallet.ResolveCredentialManifest(request.Auth, request.Manifest,
+		prepareResolveManifestOption(request))
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, ResolveCredentialManifestMethod, err.Error())
+
+		return command.NewExecuteError(ResolveCredentialManifestErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, &ResolveCredentialManifestResponse{Resolved: resolved}, logger)
+
+	logutil.LogDebug(logger, CommandName, ResolveCredentialManifestMethod, logSuccess,
+		logutil.CreateKeyValueString(logUserIDKey, request.UserID))
+
+	return nil
+}
+
 // prepareProfileOptions prepares options for creating wallet profile.
 func prepareProfileOptions(rqst *CreateOrUpdateProfileRequest) []wallet.ProfileOptions {
 	var options []wallet.ProfileOptions
@@ -873,4 +916,20 @@ func prepareDeriveOption(rqst *DeriveRequest) wallet.CredentialToDerive {
 	}
 
 	return wallet.FromRawCredential(rqst.RawCredential)
+}
+
+func prepareResolveManifestOption(rqst *ResolveCredentialManifestRequest) wallet.ResolveManifestOption {
+	if len(rqst.Fulfillment) > emptyRawLength {
+		return wallet.ResolveRawFulfillment(rqst.Fulfillment)
+	}
+
+	if len(rqst.Credential) > emptyRawLength {
+		return wallet.ResolveRawCredential(rqst.DescriptorID, rqst.Credential)
+	}
+
+	if rqst.CredentialID != "" {
+		return wallet.ResolveCredentialID(rqst.DescriptorID, rqst.CredentialID)
+	}
+
+	return nil
 }

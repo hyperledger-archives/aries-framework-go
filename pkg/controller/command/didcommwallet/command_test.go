@@ -11,14 +11,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/internal/testdata"
 	outofbandClient "github.com/hyperledger/aries-framework-go/pkg/client/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/vcwallet"
@@ -30,8 +28,6 @@ import (
 	outofbandSvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
 	oobv2 "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofbandv2"
 	presentproofSvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	mockoutofbandv2 "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/client/outofbandv2"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/didexchange"
@@ -41,9 +37,7 @@ import (
 	mockpresentproof "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/presentproof"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
@@ -747,132 +741,6 @@ func TestCommand_RequestCredential(t *testing.T) {
 	})
 }
 
-func TestCommand_ResolveCredentialManifest(t *testing.T) {
-	const sampleUser1 = "sample-user-r01"
-
-	mockctx := newMockProvider(t)
-	mockctx.VDRegistryValue = getMockDIDKeyVDR()
-
-	createSampleUserProfile(t, mockctx, &vcwallet.CreateOrUpdateProfileRequest{
-		UserID:             sampleUser1,
-		LocalKMSPassphrase: samplePassPhrase,
-	})
-
-	token, lock := unlockWallet(t, mockctx, &vcwallet.UnlockWalletRequest{
-		UserID:             sampleUser1,
-		LocalKMSPassphrase: samplePassPhrase,
-	})
-
-	defer lock()
-
-	addContent(t, mockctx, &vcwallet.AddContentRequest{
-		Content:     testdata.SampleUDCVC,
-		ContentType: "credential",
-		WalletAuth:  vcwallet.WalletAuth{UserID: sampleUser1, Auth: token},
-	})
-
-	t.Run("successfully resolve credential fulfillment", func(t *testing.T) {
-		cmd := New(mockctx, &Config{})
-
-		request := &ResolveCredentialManifestRequest{
-			WalletAuth:  vcwallet.WalletAuth{UserID: sampleUser1, Auth: token},
-			Manifest:    testdata.CredentialManifestMultipleVCs,
-			Fulfillment: testdata.CredentialFulfillmentWithMultipleVCs,
-		}
-
-		var b bytes.Buffer
-		cmdErr := cmd.ResolveCredentialManifest(&b, getReader(t, request))
-		require.NoError(t, cmdErr)
-
-		var response ResolveCredentialManifestResponse
-		require.NoError(t, json.NewDecoder(&b).Decode(&response))
-		require.NotEmpty(t, response)
-		require.Len(t, response.Resolved, 2)
-	})
-
-	t.Run("successfully resolve credential", func(t *testing.T) {
-		cmd := New(mockctx, &Config{})
-
-		request := &ResolveCredentialManifestRequest{
-			WalletAuth:   vcwallet.WalletAuth{UserID: sampleUser1, Auth: token},
-			Manifest:     testdata.CredentialManifestMultipleVCs,
-			Credential:   testdata.SampleUDCVC,
-			DescriptorID: "udc_output",
-		}
-
-		var b bytes.Buffer
-		cmdErr := cmd.ResolveCredentialManifest(&b, getReader(t, &request))
-		require.NoError(t, cmdErr)
-
-		var response ResolveCredentialManifestResponse
-		require.NoError(t, json.NewDecoder(&b).Decode(&response))
-		require.NotEmpty(t, response)
-		require.Len(t, response.Resolved, 1)
-	})
-
-	t.Run("successfully resolve credential ID", func(t *testing.T) {
-		cmd := New(mockctx, &Config{})
-
-		request := &ResolveCredentialManifestRequest{
-			WalletAuth:   vcwallet.WalletAuth{UserID: sampleUser1, Auth: token},
-			Manifest:     testdata.CredentialManifestMultipleVCs,
-			CredentialID: "http://example.edu/credentials/1872",
-			DescriptorID: "udc_output",
-		}
-
-		var b bytes.Buffer
-		cmdErr := cmd.ResolveCredentialManifest(&b, getReader(t, &request))
-		require.NoError(t, cmdErr)
-
-		var response ResolveCredentialManifestResponse
-		require.NoError(t, json.NewDecoder(&b).Decode(&response))
-		require.NotEmpty(t, response)
-		require.Len(t, response.Resolved, 1)
-	})
-
-	t.Run("failed to resolve - invalid requests", func(t *testing.T) {
-		cmd := New(mockctx, &Config{})
-
-		// missing manifest
-		request := &ResolveCredentialManifestRequest{
-			WalletAuth:   vcwallet.WalletAuth{UserID: sampleUser1, Auth: token},
-			Credential:   testdata.SampleUDCVC,
-			DescriptorID: "udc_output",
-		}
-
-		var b bytes.Buffer
-		cmdErr := cmd.ResolveCredentialManifest(&b, getReader(t, &request))
-		validateError(t, cmdErr, command.ExecuteError, ResolveCredentialManifestErrorCode,
-			"failed to read credential manifest")
-
-		// missing descriptor ID
-		request = &ResolveCredentialManifestRequest{
-			WalletAuth: vcwallet.WalletAuth{UserID: sampleUser1, Auth: token},
-			Manifest:   testdata.CredentialManifestMultipleVCs,
-			Credential: testdata.SampleUDCVC,
-		}
-
-		b.Reset()
-		cmdErr = cmd.ResolveCredentialManifest(&b, getReader(t, &request))
-		validateError(t, cmdErr, command.ExecuteError, ResolveCredentialManifestErrorCode,
-			"unable to find matching descriptor")
-
-		// missing resolve option
-		request = &ResolveCredentialManifestRequest{
-			WalletAuth: vcwallet.WalletAuth{UserID: sampleUser1, Auth: token},
-			Manifest:   testdata.CredentialManifestMultipleVCs,
-		}
-
-		b.Reset()
-		cmdErr = cmd.ResolveCredentialManifest(&b, getReader(t, &request))
-		validateError(t, cmdErr, command.ExecuteError, ResolveCredentialManifestErrorCode, "invalid option")
-
-		b.Reset()
-		cmdErr = cmd.ResolveCredentialManifest(&b, bytes.NewBufferString("=="))
-		validateError(t, cmdErr, command.ValidationError, InvalidRequestErrorCode, "invalid character")
-	})
-}
-
 func createSampleUserProfile(t *testing.T, ctx *mockprovider.Provider, request *vcwallet.CreateOrUpdateProfileRequest) {
 	cmd := vcwallet.New(ctx, &Config{})
 	require.NotNil(t, cmd)
@@ -913,16 +781,6 @@ func unlockWallet(t *testing.T, ctx *mockprovider.Provider, request *vcwallet.Un
 	}
 }
 
-func addContent(t *testing.T, ctx *mockprovider.Provider, request *vcwallet.AddContentRequest) {
-	cmd := vcwallet.New(ctx, &Config{})
-
-	var b bytes.Buffer
-	defer b.Reset()
-
-	cmdErr := cmd.Add(&b, getReader(t, &request))
-	require.NoError(t, cmdErr)
-}
-
 func validateError(t *testing.T, err command.Error,
 	expectedType command.Type, expectedCode command.Code, contains string) {
 	require.Error(t, err)
@@ -954,25 +812,6 @@ func newMockProvider(t *testing.T) *mockprovider.Provider {
 		ProtocolStateStorageProviderValue: mockstorage.NewMockStoreProvider(),
 		DocumentLoaderValue:               loader,
 		ServiceMap:                        serviceMap,
-	}
-}
-
-func getMockDIDKeyVDR() *mockvdr.MockVDRegistry {
-	return &mockvdr.MockVDRegistry{
-		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
-			if strings.HasPrefix(didID, "did:key:") {
-				k := key.New()
-
-				d, e := k.Read(didID)
-				if e != nil {
-					return nil, e
-				}
-
-				return d, nil
-			}
-
-			return nil, fmt.Errorf("did not found")
-		},
 	}
 }
 

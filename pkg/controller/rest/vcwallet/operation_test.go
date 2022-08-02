@@ -1772,7 +1772,7 @@ func TestOperation_ResolveCredentialManifest(t *testing.T) {
 	defer lock()
 
 	t.Run("resolve credential manifest", func(t *testing.T) {
-		request := &didcommwallet.ResolveCredentialManifestRequest{
+		request := &vcwallet.ResolveCredentialManifestRequest{
 			WalletAuth:  vcwallet.WalletAuth{UserID: sampleUser1, Auth: token},
 			Manifest:    testdata.CredentialManifestMultipleVCs,
 			Fulfillment: testdata.CredentialFulfillmentWithMultipleVCs,
@@ -1793,7 +1793,7 @@ func TestOperation_ResolveCredentialManifest(t *testing.T) {
 	})
 
 	t.Run("resolve credential manifest failure", func(t *testing.T) {
-		request := &didcommwallet.ResolveCredentialManifestRequest{
+		request := &vcwallet.ResolveCredentialManifestRequest{
 			WalletAuth: vcwallet.WalletAuth{UserID: sampleUser1, Auth: token},
 			Manifest:   testdata.CredentialManifestMultipleVCs,
 			Credential: testdata.SampleUDCVC,
