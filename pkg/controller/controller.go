@@ -12,6 +12,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/connection"
+	didcommwalletcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/didcommwallet"
 	didexchangecmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	introducecmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
 	issuecredentialcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
@@ -22,7 +23,6 @@ import (
 	outofbandcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/outofband"
 	outofbandv2cmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/outofbandv2"
 	presentproofcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/presentproof"
-	vcwalletcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/vcwallet"
 	vdrcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
@@ -58,7 +58,7 @@ type allOpts struct {
 	autoExecuteRFC0593 bool
 	msgHandler         command.MessageHandler
 	notifier           command.Notifier
-	walletConf         *vcwalletcmd.Config
+	walletConf         *didcommwalletcmd.Config
 	httpClient         HTTPClient
 	ldService          ldsvc.Service
 }
@@ -111,7 +111,7 @@ func WithMessageHandler(handler command.MessageHandler) Opt {
 }
 
 // WithWalletConfiguration is an option for customizing vcwallet controller.
-func WithWalletConfiguration(conf *vcwalletcmd.Config) Opt {
+func WithWalletConfiguration(conf *didcommwalletcmd.Config) Opt {
 	return func(opts *allOpts) {
 		opts.walletConf = conf
 	}
@@ -349,7 +349,7 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 	}
 
 	// vc wallet command controller
-	wallet := vcwalletcmd.New(ctx, cmdOpts.walletConf)
+	wallet := didcommwalletcmd.New(ctx, cmdOpts.walletConf)
 
 	// JSON-LD command operation
 	ldCmd := ldcmd.New(cmdOpts.ldService, ldcmd.WithHTTPClient(cmdOpts.httpClient))
