@@ -38,6 +38,15 @@ Feature: Issue Verifiable Credential
 
 @interop_jwt_verifiable
   Scenario: Load and verify Interop JWT credentials
-    When loading interop credential number "1" and verify it
-    And  loading interop credential number "2" and verify it
-    And  loading interop credential number "3" and verify it
+    When loading file "interop_credential_1_ed25519.jwt" signed using "Ed25519" and verify it
+    And  loading file "interop_credential_2_ed25519.jwt" signed using "Ed25519" and verify it
+    And  loading file "interop_credential_3_ed25519.jwt" signed using "Ed25519" and verify it
+    And  loading file "interop_credential_4_secp256k1.jwt" signed using "secp256k1" and verify it
+    And  loading file "interop_credential_5_secp256k1.jwt" signed using "secp256k1" and verify it
+    And  loading file "interop_credential_6_secp256k1.jwt" signed using "secp256k1" and verify it
+    And  loading file "interop_credential_7_secp256r1.jwt" signed using "secp256r1" and verify it
+    And  loading file "interop_credential_8_secp256r1.jwt" signed using "secp256r1" and verify it
+    And  loading file "interop_credential_9_secp256r1.jwt" signed using "secp256r1" and verify it
+    And  loading file "interop_credential_10_secp384r1.jwt" signed using "secp384r1" and verify it
+    And  loading file "interop_credential_11_secp384r1.jwt" signed using "secp384r1" and verify it
+    And  loading file "interop_credential_12_secp384r1.jwt" signed using "secp384r1" and verify it

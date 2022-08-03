@@ -46,60 +46,192 @@ import (
 	bddldcontext "github.com/hyperledger/aries-framework-go/test/bdd/pkg/ldcontext"
 )
 
-//go:embed testdata/interop_credential_1.jwt
+//go:embed testdata/interop_credential_1_ed25519.jwt
 //nolint:lll
 // picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/spruce/credential-0--key-0-ed25519.vc-jwt.json
-var credential1 string //nolint:gochecknoglobals
+var credential1Ed25519 string //nolint:gochecknoglobals
 
-//go:embed testdata/interop_credential_2.jwt
+//go:embed testdata/interop_credential_2_ed25519.jwt
 //nolint:lll
 // picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/spruce/credential-1--key-0-ed25519.vc-jwt.json
-var credential2 string //nolint:gochecknoglobals
+var credential2Ed25519 string //nolint:gochecknoglobals
 
-//go:embed testdata/interop_credential_3.jwt
+//go:embed testdata/interop_credential_3_ed25519.jwt
 //nolint:lll
 // picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/spruce/credential-2--key-0-ed25519.vc-jwt.json
-var credential3 string //nolint:gochecknoglobals
+var credential3Ed25519 string //nolint:gochecknoglobals
 
-//go:embed testdata/interop_key.jwk
+//go:embed testdata/interop_credential_4_secp256k1.jwt
+//nolint:lll
+// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/transmute/credential-0--key-1-secp256k1.vc-jwt.json
+var credential4Secp256k1 string //nolint:gochecknoglobals
+
+//go:embed testdata/interop_credential_5_secp256k1.jwt
+//nolint:lll
+// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/transmute/credential-1--key-1-secp256k1.vc-jwt.json
+var credential5Secp256k1 string //nolint:gochecknoglobals
+
+//go:embed testdata/interop_credential_6_secp256k1.jwt
+//nolint:lll
+// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/transmute/credential-2--key-1-secp256k1.vc-jwt.json
+var credential6Secp256k1 string //nolint:gochecknoglobals
+
+//go:embed testdata/interop_credential_7_secp256r1.jwt
+//nolint:lll
+// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/transmute/credential-0--key-2-secp256r1.vc-jwt.json
+var credential7Secp256r1 string //nolint:gochecknoglobals
+
+//go:embed testdata/interop_credential_8_secp256r1.jwt
+//nolint:lll
+// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/transmute/credential-1--key-2-secp256r1.vc-jwt.json
+var credential8Secp256r1 string //nolint:gochecknoglobals
+
+//go:embed testdata/interop_credential_9_secp256r1.jwt
+//nolint:lll
+// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/transmute/credential-2--key-2-secp256r1.vc-jwt.json
+var credential9Secp256r1 string //nolint:gochecknoglobals
+
+//go:embed testdata/interop_credential_10_secp384r1.jwt
+//nolint:lll
+// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/transmute/credential-0--key-3-secp384r1.vc-jwt.json
+var credential10Secp384r1 string //nolint:gochecknoglobals
+
+//go:embed testdata/interop_credential_11_secp384r1.jwt
+//nolint:lll
+// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/transmute/credential-1--key-3-secp384r1.vc-jwt.json
+var credential11Secp384r1 string //nolint:gochecknoglobals
+
+//go:embed testdata/interop_credential_12_secp384r1.jwt
+//nolint:lll
+// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/transmute/credential-2--key-3-secp384r1.vc-jwt.json
+var credential12Secp384r1 string //nolint:gochecknoglobals
+
+//go:embed testdata/interop_key_ed25519.jwk
 // ref https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/keys/key-0-ed25519.json
-var interopKey string //nolint:gochecknoglobals
+var interopKeyEd25519 string //nolint:gochecknoglobals
+
+//go:embed testdata/interop_key_secp256k1.jwk
+// ref https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/keys/key-1-secp256k1.json
+var interopKeyECDSASecp256k1 string //nolint:gochecknoglobals
+
+//go:embed testdata/interop_key_secp256r1.jwk
+// ref https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/keys/key-2-secp256r1.json
+var interopKeyECDSASecp256r1 string //nolint:gochecknoglobals
+
+//go:embed testdata/interop_key_secp384r1.jwk
+// ref https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/keys/key-3-secp384r1.json
+var interopKeyECDSASecp384r1 string //nolint:gochecknoglobals
 
 // SDKSteps is steps for verifiable credentials using client SDK.
 type SDKSteps struct {
 	bddContext       *context.BDDContext
 	issuedVCBytes    []byte
 	secp256k1PrivKey *ecdsa.PrivateKey
-	joseVerifier     jose.SignatureVerifier
-	interopPubKey    *verifier.PublicKey
-	interopCreds     map[string]string
+	joseVerifier     map[string]jose.SignatureVerifier
+	interopPubKey    map[string]*verifier.PublicKey
+	interopCreds     map[string]map[string]string
 }
 
 // NewVerifiableCredentialSDKSteps creates steps for verifiable credential with SDK.
 func NewVerifiableCredentialSDKSteps() *SDKSteps {
-	jwkKey := &jwk.JWK{}
+	// Ed25519
+	jwkEd25519 := getJWK([]byte(interopKeyEd25519))
+	pubKeyEd25519 := getEd25519PublicKey(jwkEd25519)
+	// Secp256k1
+	jwkSecp256k1 := getJWK([]byte(interopKeyECDSASecp256k1))
+	pubKeySecp256k1 := getSecp256k1PublicKey(jwkSecp256k1)
+	// Secp256r1
+	jwkSecp256r1 := getJWK([]byte(interopKeyECDSASecp256r1))
+	pubKeySecp256r1 := getSecp256r1PublicKey(jwkSecp256r1)
+	// Secp384r1
+	jwkSecp384r1 := getJWK([]byte(interopKeyECDSASecp384r1))
+	pubKeySecp384r1 := getSecp384r1PublicKey(jwkSecp384r1)
 
-	err := jwkKey.UnmarshalJSON([]byte(interopKey))
+	return &SDKSteps{
+		joseVerifier: map[string]jose.SignatureVerifier{
+			ed25519Signature:        getEd25519Verifier(pubKeyEd25519.Value),
+			ecdsaSecp256k1Signature: jwt.NewECDSAVerifier(ecdsaSecp256k1Signature, pubKeySecp256k1),
+			ecdsaSecp256r1Signature: jwt.NewECDSAVerifier(ecdsaSecp256r1Signature, pubKeySecp256r1),
+			ecdsaSecp384r1Signature: jwt.NewECDSAVerifier(ecdsaSecp384r1Signature, pubKeySecp384r1),
+		},
+		interopPubKey: map[string]*verifier.PublicKey{
+			ed25519Signature:        pubKeyEd25519,
+			ecdsaSecp256k1Signature: pubKeySecp256k1,
+			ecdsaSecp256r1Signature: pubKeySecp256r1,
+			ecdsaSecp384r1Signature: pubKeySecp384r1,
+		},
+		interopCreds: map[string]map[string]string{
+			ed25519Signature: {
+				"interop_credential_1_ed25519.jwt": credential1Ed25519,
+				"interop_credential_2_ed25519.jwt": credential2Ed25519,
+				"interop_credential_3_ed25519.jwt": credential3Ed25519,
+			},
+			ecdsaSecp256k1Signature: {
+				"interop_credential_4_secp256k1.jwt": credential4Secp256k1,
+				"interop_credential_5_secp256k1.jwt": credential5Secp256k1,
+				"interop_credential_6_secp256k1.jwt": credential6Secp256k1,
+			},
+			ecdsaSecp256r1Signature: {
+				"interop_credential_7_secp256r1.jwt": credential7Secp256r1,
+				"interop_credential_8_secp256r1.jwt": credential8Secp256r1,
+				"interop_credential_9_secp256r1.jwt": credential9Secp256r1,
+			},
+			ecdsaSecp384r1Signature: {
+				"interop_credential_10_secp384r1.jwt": credential10Secp384r1,
+				"interop_credential_11_secp384r1.jwt": credential11Secp384r1,
+				"interop_credential_12_secp384r1.jwt": credential12Secp384r1,
+			},
+		},
+	}
+}
+
+func getSecp256k1PublicKey(jwkKey *jwk.JWK) *verifier.PublicKey {
+	return &verifier.PublicKey{
+		Type: ecdsaSecp256k1Signature,
+		JWK:  jwkKey,
+	}
+}
+
+func getSecp256r1PublicKey(jwkKey *jwk.JWK) *verifier.PublicKey {
+	return &verifier.PublicKey{
+		Type: ecdsaSecp256r1Signature,
+		JWK:  jwkKey,
+	}
+}
+
+func getSecp384r1PublicKey(jwkKey *jwk.JWK) *verifier.PublicKey {
+	return &verifier.PublicKey{
+		Type: ecdsaSecp384r1Signature,
+		JWK:  jwkKey,
+	}
+}
+
+func getEd25519Verifier(pubKey []byte) jose.SignatureVerifier {
+	v, err := jwt.NewEd25519Verifier(pubKey)
 	if err != nil {
 		panic(err)
 	}
 
-	pubKey := &verifier.PublicKey{
-		Type:  "ed25519",
+	return v
+}
+
+func getEd25519PublicKey(jwkKey *jwk.JWK) *verifier.PublicKey {
+	return &verifier.PublicKey{
+		Type:  ed25519Signature,
 		Value: jwkKey.JSONWebKey.Key.(ed25519.PublicKey),
 		JWK:   jwkKey,
 	}
+}
 
-	v, err := jwt.NewEd25519Verifier(pubKey.Value)
+func getJWK(jwkBytes []byte) *jwk.JWK {
+	jwkKey := &jwk.JWK{}
+
+	err := jwkKey.UnmarshalJSON(jwkBytes)
 	if err != nil {
-		return nil
+		panic(err)
 	}
 
-	return &SDKSteps{
-		joseVerifier:  v,
-		interopPubKey: pubKey,
-		interopCreds:  map[string]string{"1": credential1, "2": credential2, "3": credential3},
-	}
+	return jwkKey
 }
 
 const (
@@ -109,7 +241,11 @@ const (
 	ldpJSONWebSignatureSecp256k1   = "JsonWebSignature2020 (secp256k1) Linked Data"
 	ldpEcdsaSecp256k1Signature2019 = "EcdsaSecp256k1Signature2019 Linked Data"
 
-	jwsProof = "Ed25519 JWS"
+	jwsProof                = "Ed25519 JWS"
+	ed25519Signature        = "Ed25519"
+	ecdsaSecp256k1Signature = "secp256k1"
+	ecdsaSecp256r1Signature = "secp256r1"
+	ecdsaSecp384r1Signature = "secp384r1"
 )
 
 // SetContext is called before every scenario is run with a fresh new context.
@@ -120,7 +256,7 @@ func (s *SDKSteps) SetContext(ctx *context.BDDContext) {
 // RegisterSteps registers Verifiable Credential steps.
 func (s *SDKSteps) RegisterSteps(gs *godog.Suite) {
 	gs.Step(`^"([^"]*)" issues credential at "([^"]*)" regarding "([^"]*)" to "([^"]*)" with "([^"]*)" proof$`, s.issueCredential) //nolint:lll
-	gs.Step(`^loading interop credential number "([^\"]*)" and verify it$`, s.loadInteropCredentialAndVerify)
+	gs.Step(`^loading file "([^\"]*)" signed using "([^\"]*)" and verify it$`, s.loadInteropCredentialAndVerify)
 	gs.Step(`^"([^"]*)" receives the credential and verifies it$`, s.verifyCredential)
 }
 
@@ -145,8 +281,8 @@ func (s *SDKSteps) issueCredential(issuer, issuedAt, subject, holder, proofType 
 	return nil
 }
 
-func (s *SDKSteps) loadInteropCredentialAndVerify(claimID string) error {
-	credentialStr := s.interopCreds[claimID]
+func (s *SDKSteps) loadInteropCredentialAndVerify(claimID, signature string) error {
+	credentialStr := s.interopCreds[signature][claimID]
 	interopCred := &jwtCred{}
 
 	err := json.Unmarshal([]byte(credentialStr), interopCred)
@@ -154,7 +290,7 @@ func (s *SDKSteps) loadInteropCredentialAndVerify(claimID string) error {
 		return err
 	}
 
-	jwtCred, err := jwt.Parse(interopCred.JWT, jwt.WithSignatureVerifier(s.joseVerifier))
+	jwtCred, err := jwt.Parse(interopCred.JWT, jwt.WithSignatureVerifier(s.joseVerifier[signature]))
 	if jwtCred == nil {
 		return fmt.Errorf("interop jwt cred was nil, err: %w", err)
 	}
