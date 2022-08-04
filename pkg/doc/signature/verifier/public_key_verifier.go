@@ -224,6 +224,40 @@ func (sv RSAPS256SignatureVerifier) Verify(key *PublicKey, msg, signature []byte
 	return nil
 }
 
+// RSARS256SignatureVerifier verifies a Ed25519 signature taking RSA public key bytes as input.
+type RSARS256SignatureVerifier struct {
+	baseSignatureVerifier
+}
+
+// NewRSARS256SignatureVerifier creates a new RSARS256SignatureVerifier.
+func NewRSARS256SignatureVerifier() *RSARS256SignatureVerifier {
+	return &RSARS256SignatureVerifier{
+		baseSignatureVerifier: baseSignatureVerifier{
+			keyType:   "RSA",
+			algorithm: "RS256",
+		},
+	}
+}
+
+// Verify verifies the signature.
+func (sv RSARS256SignatureVerifier) Verify(key *PublicKey, msg, signature []byte) error {
+	pubKeyRsa, err := x509.ParsePKCS1PublicKey(key.Value)
+	if err != nil {
+		return errors.New("not *rsa.VerificationMethod public key")
+	}
+
+	hash := crypto.SHA256.New()
+
+	_, err = hash.Write(msg)
+	if err != nil {
+		return err
+	}
+
+	hashed := hash.Sum(nil)
+
+	return rsa.VerifyPKCS1v15(pubKeyRsa, crypto.SHA256, hashed, signature)
+}
+
 const (
 	p256KeySize      = 32
 	p384KeySize      = 48

@@ -375,7 +375,7 @@ func TestSignVerify(t *testing.T) {
 
 		err = data.Verify(c, k)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "getting KeyType for jwk")
+		require.Contains(t, err.Error(), "invalid key type")
 	})
 
 	validProtectedHeader := `{

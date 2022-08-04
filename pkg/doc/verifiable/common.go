@@ -25,6 +25,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	jsonutil "github.com/hyperledger/aries-framework-go/pkg/doc/util/json"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	kmsapi "github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 // TODO https://github.com/square/go-jose/issues/263 support ES256K
@@ -36,17 +37,64 @@ const (
 	// RS256 JWT Algorithm.
 	RS256 JWSAlgorithm = iota
 
+	// PS256 JWT Algorithm.
+	PS256
+
 	// EdDSA JWT Algorithm.
 	EdDSA
+
+	// ECDSASecp256k1 JWT Algorithm.
+	ECDSASecp256k1
+
+	// ECDSASecp256r1 JWT Algorithm.
+	ECDSASecp256r1
+
+	// ECDSASecp384r1 JWT Algorithm.
+	ECDSASecp384r1
+
+	// ECDSASecp521r1 JWT Algorithm.
+	ECDSASecp521r1
 )
+
+// KeyTypeToJWSAlgo returns the JWSAlgorithm based on keyType.
+func KeyTypeToJWSAlgo(keyType kmsapi.KeyType) (JWSAlgorithm, error) {
+	switch keyType {
+	case kmsapi.ECDSAP256TypeDER, kmsapi.ECDSAP256TypeIEEEP1363:
+		return ECDSASecp256r1, nil
+	case kmsapi.ECDSAP384TypeDER, kmsapi.ECDSAP384TypeIEEEP1363:
+		return ECDSASecp384r1, nil
+	case kmsapi.ECDSAP521TypeDER, kmsapi.ECDSAP521TypeIEEEP1363:
+		return ECDSASecp521r1, nil
+	case kmsapi.ED25519Type:
+		return EdDSA, nil
+	case kmsapi.ECDSASecp256k1TypeIEEEP1363:
+		return ECDSASecp256k1, nil
+	case kmsapi.RSARS256Type:
+		return RS256, nil
+	case kmsapi.RSAPS256Type:
+		return PS256, nil
+	default:
+		return 0, errors.New("unsupported key type")
+	}
+}
 
 // name return the name of the signature algorithm.
 func (ja JWSAlgorithm) name() (string, error) {
 	switch ja {
 	case RS256:
 		return "RS256", nil
+	case PS256:
+		return "PS256", nil
 	case EdDSA:
 		return "EdDSA", nil
+	case ECDSASecp256k1:
+		return "ES256K", nil
+	case ECDSASecp256r1:
+		return "ES256", nil
+	case ECDSASecp384r1:
+		return "ES384", nil
+	case ECDSASecp521r1:
+		return "ES521", nil
 	default:
 		return "", fmt.Errorf("unsupported algorithm: %v", ja)
 	}

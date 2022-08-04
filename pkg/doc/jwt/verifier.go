@@ -18,6 +18,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
+	kmsapi "github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 const (
@@ -71,11 +72,64 @@ func NewVerifier(resolver KeyResolver) *BasicVerifier {
 	return &BasicVerifier{resolver: resolver, compositeVerifier: compositeVerifier}
 }
 
+// GetVerifier returns new BasicVerifier based on *verifier.PublicKey.
+func GetVerifier(publicKey *verifier.PublicKey) (*BasicVerifier, error) {
+	keyType, err := publicKey.JWK.KeyType()
+	if err != nil {
+		return nil, err
+	}
+
+	var v verifier.SignatureVerifier
+
+	switch keyType {
+	case kmsapi.ECDSAP256TypeDER, kmsapi.ECDSAP256TypeIEEEP1363:
+		v = verifier.NewECDSAES256SignatureVerifier()
+	case kmsapi.ECDSAP384TypeDER, kmsapi.ECDSAP384TypeIEEEP1363:
+		v = verifier.NewECDSAES384SignatureVerifier()
+	case kmsapi.ECDSAP521TypeDER, kmsapi.ECDSAP521TypeIEEEP1363:
+		v = verifier.NewECDSAES521SignatureVerifier()
+	case kmsapi.ED25519Type:
+		v = verifier.NewEd25519SignatureVerifier()
+	case kmsapi.ECDSASecp256k1TypeIEEEP1363:
+		v = verifier.NewECDSASecp256k1SignatureVerifier()
+	case kmsapi.RSAPS256Type:
+		v = verifier.NewRSAPS256SignatureVerifier()
+	case kmsapi.RSARS256Type:
+		v = verifier.NewRSARS256SignatureVerifier()
+
+	default:
+		return nil, errors.New("unsupported key type")
+	}
+
+	compositeVerifier := jose.NewCompositeAlgSigVerifier(
+		jose.AlgSignatureVerifier{
+			Alg:      v.Algorithm(),
+			Verifier: getPublicKeyVerifier(publicKey, v),
+		},
+	)
+
+	return &BasicVerifier{compositeVerifier: compositeVerifier}, nil
+}
+
 type signatureVerifier func(pubKey *verifier.PublicKey, message, signature []byte) error
 
 func getVerifier(resolver KeyResolver, signatureVerifier signatureVerifier) jose.SignatureVerifier {
 	return jose.SignatureVerifierFunc(func(joseHeaders jose.Headers, payload, signingInput, signature []byte) error {
 		return verifySignature(resolver, signatureVerifier, joseHeaders, payload, signingInput, signature)
+	})
+}
+
+func getPublicKeyVerifier(publicKey *verifier.PublicKey, v verifier.SignatureVerifier) jose.SignatureVerifier {
+	return jose.SignatureVerifierFunc(func(joseHeaders jose.Headers, payload, signingInput, signature []byte) error {
+		alg, ok := joseHeaders.Algorithm()
+		if !ok {
+			return errors.New("'alg' JOSE header is not present")
+		}
+		if alg != v.Algorithm() {
+			return fmt.Errorf("alg is not %s", v.Algorithm())
+		}
+
+		return v.Verify(publicKey, signingInput, signature)
 	})
 }
 

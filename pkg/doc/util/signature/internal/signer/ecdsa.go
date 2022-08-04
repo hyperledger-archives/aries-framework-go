@@ -96,6 +96,22 @@ func NewECDSASigner(curve elliptic.Curve) (*ECDSASigner, error) {
 	}
 }
 
+// GetECDSASigner creates a new ECDSA signer based on the input *ecdsa.PrivateKey.
+func GetECDSASigner(privKey *ecdsa.PrivateKey) (*ECDSASigner, error) {
+	switch privKey.Curve {
+	case elliptic.P256():
+		return GetECDSAP256Signer(privKey), nil
+	case elliptic.P384():
+		return GetECDSAP384Signer(privKey), nil
+	case elliptic.P521():
+		return GetECDSAP521Signer(privKey), nil
+	case btcec.S256():
+		return GetECDSASecp256k1Signer(privKey), nil
+	default:
+		return nil, errors.New("unsupported curve")
+	}
+}
+
 // ECDSASigner makes ECDSA based signatures.
 type ECDSASigner struct {
 	privateKey  *ecdsa.PrivateKey

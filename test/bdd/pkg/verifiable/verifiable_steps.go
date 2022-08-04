@@ -147,12 +147,21 @@ func NewVerifiableCredentialSDKSteps() *SDKSteps {
 	jwkSecp384r1 := getJWK([]byte(interopKeyECDSASecp384r1))
 	pubKeySecp384r1 := getSecp384r1PublicKey(jwkSecp384r1)
 
+	getVerifierHelperFunc := func(publicKey *verifier.PublicKey) jose.SignatureVerifier {
+		v, err := jwt.GetVerifier(publicKey)
+		if err != nil {
+			panic(err)
+		}
+
+		return v
+	}
+
 	return &SDKSteps{
 		joseVerifier: map[string]jose.SignatureVerifier{
-			ed25519Signature:        getEd25519Verifier(pubKeyEd25519.Value),
-			ecdsaSecp256k1Signature: jwt.NewECDSAVerifier(ecdsaSecp256k1Signature, pubKeySecp256k1),
-			ecdsaSecp256r1Signature: jwt.NewECDSAVerifier(ecdsaSecp256r1Signature, pubKeySecp256r1),
-			ecdsaSecp384r1Signature: jwt.NewECDSAVerifier(ecdsaSecp384r1Signature, pubKeySecp384r1),
+			ed25519Signature:        getVerifierHelperFunc(pubKeyEd25519),
+			ecdsaSecp256k1Signature: getVerifierHelperFunc(pubKeySecp256k1),
+			ecdsaSecp256r1Signature: getVerifierHelperFunc(pubKeySecp256r1),
+			ecdsaSecp384r1Signature: getVerifierHelperFunc(pubKeySecp384r1),
 		},
 		interopPubKey: map[string]*verifier.PublicKey{
 			ed25519Signature:        pubKeyEd25519,
@@ -204,15 +213,6 @@ func getSecp384r1PublicKey(jwkKey *jwk.JWK) *verifier.PublicKey {
 		Type: ecdsaSecp384r1Signature,
 		JWK:  jwkKey,
 	}
-}
-
-func getEd25519Verifier(pubKey []byte) jose.SignatureVerifier {
-	v, err := jwt.NewEd25519Verifier(pubKey)
-	if err != nil {
-		panic(err)
-	}
-
-	return v
 }
 
 func getEd25519PublicKey(jwkKey *jwk.JWK) *verifier.PublicKey {

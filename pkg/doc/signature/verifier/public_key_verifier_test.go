@@ -224,6 +224,44 @@ func TestNewRSAPS256SignatureVerifier(t *testing.T) {
 	require.EqualError(t, err, "rsa: invalid public key")
 }
 
+func TestNewRSARS256SignatureVerifier(t *testing.T) {
+	v := NewRSARS256SignatureVerifier()
+	require.NotNil(t, v)
+
+	signer, err := newCryptoSigner(kmsapi.RSARS256Type)
+	require.NoError(t, err)
+
+	msg := []byte("test message")
+
+	msgSig, err := signer.Sign(msg)
+	require.NoError(t, err)
+
+	pubKey := &PublicKey{
+		Type: "JsonWebKey2020",
+		JWK: &jwk.JWK{
+			JSONWebKey: gojose.JSONWebKey{
+				Algorithm: "RS256",
+			},
+			Kty: "RSA",
+		},
+		Value: signer.PublicKeyBytes(),
+	}
+
+	err = v.Verify(pubKey, msg, msgSig)
+	require.NoError(t, err)
+
+	// invalid signature
+	err = v.Verify(pubKey, msg, []byte("invalid signature"))
+	require.Error(t, err)
+	require.EqualError(t, err, "crypto/rsa: verification error")
+
+	// invalid public key
+	pubKey.Value = []byte("invalid-key")
+	err = v.Verify(pubKey, msg, msgSig)
+	require.Error(t, err)
+	require.EqualError(t, err, "not *rsa.VerificationMethod public key")
+}
+
 func TestNewECDSAES256SignatureVerifier(t *testing.T) {
 	msg := []byte("test message")
 
