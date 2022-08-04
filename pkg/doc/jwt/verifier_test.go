@@ -12,13 +12,19 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"errors"
+	"encoding/base64"
+	"fmt"
+	"io/ioutil"
+	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/pkg/errors"
 	"github.com/square/go-jose/v3/json"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
@@ -181,4 +187,187 @@ func TestVerifyRS256(t *testing.T) {
 		Value: x509.MarshalPKCS1PublicKey(&anotherPrivKey.PublicKey),
 	}, []byte("test message"), signature)
 	r.Error(err)
+}
+
+func TestGetVerifier(t *testing.T) {
+	type fields struct {
+		publicKeyPath   string
+		credentialsPath string
+	}
+
+	type args struct {
+		joseHeaders jose.Headers
+	}
+
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "NewECDSASecp256k1SignatureVerifier_Verify_OK",
+			fields: fields{
+				credentialsPath: "../../../test/bdd/pkg/verifiable/testdata/interop_credential_4_secp256k1.jwt",
+				publicKeyPath:   "../../../test/bdd/pkg/verifiable/testdata/interop_key_secp256k1.jwk",
+			},
+			args: args{
+				joseHeaders: jose.Headers{
+					"alg": "ES256K",
+					"kid": "did:example:123#key-1",
+					"typ": "JWT",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "NewECDSASecp256k1SignatureVerifier_Verify_Error_invalid_key",
+			fields: fields{
+				credentialsPath: "../../../test/bdd/pkg/verifiable/testdata/interop_credential_4_secp256k1.jwt",
+				publicKeyPath:   "../../../test/bdd/pkg/verifiable/testdata/interop_key_ed25519.jwk",
+			},
+			args: args{
+				joseHeaders: jose.Headers{
+					"alg": "ES256K",
+					"kid": "did:example:123#key-1",
+					"typ": "JWT",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "NewECDSAES256SignatureVerifier_Verify_OK",
+			fields: fields{
+				credentialsPath: "../../../test/bdd/pkg/verifiable/testdata/interop_credential_7_secp256r1.jwt",
+				publicKeyPath:   "../../../test/bdd/pkg/verifiable/testdata/interop_key_secp256r1.jwk",
+			},
+			args: args{
+				joseHeaders: jose.Headers{
+					"alg": "ES256",
+					"kid": "did:example:123#key-1",
+					"typ": "JWT",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "NewECDSAES256SignatureVerifier_Verify_OK",
+			fields: fields{
+				credentialsPath: "../../../test/bdd/pkg/verifiable/testdata/interop_credential_10_secp384r1.jwt",
+				publicKeyPath:   "../../../test/bdd/pkg/verifiable/testdata/interop_key_secp384r1.jwk",
+			},
+			args: args{
+				joseHeaders: jose.Headers{
+					"alg": "ES384",
+					"kid": "did:example:123#key-1",
+					"typ": "JWT",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "NewECDSAES256SignatureVerifier_Verify_Error_alg_is_missing",
+			fields: fields{
+				credentialsPath: "../../../test/bdd/pkg/verifiable/testdata/interop_credential_10_secp384r1.jwt",
+				publicKeyPath:   "../../../test/bdd/pkg/verifiable/testdata/interop_key_secp384r1.jwk",
+			},
+			args: args{
+				joseHeaders: jose.Headers{
+					"kid": "did:example:123#key-1",
+					"typ": "JWT",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "NewECDSAES256SignatureVerifier_Verify_Error_Invalid_alg_in_header",
+			fields: fields{
+				credentialsPath: "../../../test/bdd/pkg/verifiable/testdata/interop_credential_10_secp384r1.jwt",
+				publicKeyPath:   "../../../test/bdd/pkg/verifiable/testdata/interop_key_secp384r1.jwk",
+			},
+			args: args{
+				joseHeaders: jose.Headers{
+					"alg": "ES256",
+					"kid": "did:example:123#key-1",
+					"typ": "JWT",
+				},
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			publicKey, err := getPublicKeyFromPath(tt.fields.publicKeyPath)
+			if err != nil {
+				t.Errorf("getPublicKeyFromPath() error = %v", err)
+			}
+			signingInput, signature, err := getSigningInputAndSignatureFromPath(tt.fields.credentialsPath)
+			if err != nil {
+				t.Errorf("getSigningInputAndSignatureFromPath() error = %v", err)
+			}
+			v, err := GetVerifier(publicKey)
+			if err != nil {
+				t.Errorf("GetVerifier() error = %v", err)
+			}
+			if err = v.Verify(tt.args.joseHeaders, nil, signingInput, signature); (err != nil) != tt.wantErr {
+				t.Errorf("Verify() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func getPublicKeyFromPath(path string) (*verifier.PublicKey, error) {
+	b, err := ioutil.ReadFile(filepath.Clean(path))
+	if err != nil {
+		return nil, err
+	}
+
+	jwkKey, err := getJWK(b)
+	if err != nil {
+		return nil, err
+	}
+
+	jwkBytes, err := jwkKey.PublicKeyBytes()
+
+	return &verifier.PublicKey{
+		Type:  "JsonWebKey2020",
+		Value: jwkBytes,
+		JWK:   jwkKey,
+	}, err
+}
+
+func getSigningInputAndSignatureFromPath(credentialsPath string) ([]byte, []byte, error) {
+	jwt, err := getJWTFromFile(credentialsPath)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	chunks := strings.Split(jwt, ".")
+	signingInput := []byte(fmt.Sprintf("%s.%s", chunks[0], chunks[1]))
+	signature, err := base64.RawURLEncoding.DecodeString(chunks[2])
+
+	return signingInput, signature, err
+}
+
+type JWTJSONFile struct {
+	JWT string `json:"jwt"`
+}
+
+func getJWTFromFile(path string) (string, error) {
+	bytes, err := ioutil.ReadFile(filepath.Clean(path))
+	if err != nil {
+		return "", errors.Wrapf(err, "could not read jwt from file: %s", path)
+	}
+
+	var jwt JWTJSONFile
+
+	return jwt.JWT, json.Unmarshal(bytes, &jwt)
+}
+
+func getJWK(jwkBytes []byte) (*jwk.JWK, error) {
+	jwkKey := &jwk.JWK{}
+	err := jwkKey.UnmarshalJSON(jwkBytes)
+
+	return jwkKey, err
 }

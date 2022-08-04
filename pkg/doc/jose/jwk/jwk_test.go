@@ -444,6 +444,20 @@ func TestJWK_KeyType(t *testing.T) {
 				}`,
 				keyType: kms.ECDSAP521TypeIEEEP1363,
 			},
+			{
+				jwk: `{
+					"kty": "RSA",
+					"e": "AQAB",
+					"use": "enc",
+					"kid": "sample@sample.id",
+					"alg": "RS256",
+					"n": "1hOl09BUnwY7jFBqoZKa4XDmIuc0YFb4y_5ThiHhLRW68aNG5Vo23n3ugND2GK3PsguZqJ_HrWCGVuVlKTmFg` +
+					`JWQD9ZnVcYqScgHpQRhxMBi86PIvXR01D_PWXZZjvTRakpvQxUT5bVBdWnaBHQoxDBt0YIVi5a7x-gXB1aDlts4RTMpfS9BPmEjX` +
+					`4lciozwS6Ow_wTO3C2YGa_Our0ptIxr-x_3sMbPCN8Fe_iaBDezeDAm39xCNjFa1E735ipXA4eUW_6SzFJ5-bM2UKba2WE6xUaEa5G1` +
+					`MDDHCG5LKKd6Mhy7SSAzPOR2FTKYj89ch2asCPlbjHTu8jS6Iy8"
+				}`,
+				keyType: kms.RSAPS256Type,
+			},
 		}
 
 		t.Parallel()
@@ -467,35 +481,6 @@ func TestJWK_KeyType(t *testing.T) {
 				require.NotEmpty(t, keyBytes)
 			})
 		}
-	})
-
-	t.Run("fail to get KeyType from JWK", func(t *testing.T) {
-		// RSA keys not currently supported by JWK.KeyType(), replace with another if RSA gets supported
-		keyJSON := `{
-			"kty": "RSA",
-			"e": "AQAB",
-			"use": "enc",
-			"kid": "sample@sample.id",
-			"alg": "RS256",
-			"n": "1hOl09BUnwY7jFBqoZKa4XDmIuc0YFb4y_5ThiHhLRW68aNG5Vo23n3ugND2GK3PsguZqJ_HrWCGVuVlKTmFg` +
-			`JWQD9ZnVcYqScgHpQRhxMBi86PIvXR01D_PWXZZjvTRakpvQxUT5bVBdWnaBHQoxDBt0YIVi5a7x-gXB1aDlts4RTMpfS9BPmEjX` +
-			`4lciozwS6Ow_wTO3C2YGa_Our0ptIxr-x_3sMbPCN8Fe_iaBDezeDAm39xCNjFa1E735ipXA4eUW_6SzFJ5-bM2UKba2WE6xUaEa5G1` +
-			`MDDHCG5LKKd6Mhy7SSAzPOR2FTKYj89ch2asCPlbjHTu8jS6Iy8"
-		}`
-
-		j := JWK{}
-		e := j.UnmarshalJSON([]byte(keyJSON))
-		require.NoError(t, e)
-
-		// test publicKeyBytes for RSA key
-		keyBytes, err := j.PublicKeyBytes()
-		require.NoError(t, err)
-		require.NotEmpty(t, keyBytes)
-
-		kt, e := j.KeyType()
-		require.Error(t, e)
-		require.Equal(t, kms.KeyType(""), kt)
-		require.Contains(t, e.Error(), "no keytype recognized for jwk")
 	})
 
 	t.Run("test ed25519 with []byte key material", func(t *testing.T) {

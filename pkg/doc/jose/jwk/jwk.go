@@ -176,6 +176,8 @@ func (j *JWK) KeyType() (kms.KeyType, error) {
 		return ecdsaPubKeyType(key)
 	case *ecdsa.PrivateKey:
 		return ecdsaPubKeyType(&(key.PublicKey))
+	case *rsa.PublicKey, *rsa.PrivateKey:
+		return kms.RSAPS256Type, nil
 	}
 
 	switch {
