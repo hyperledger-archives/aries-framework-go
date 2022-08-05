@@ -27,6 +27,7 @@ import (
 )
 
 const (
+
 	// All rule`s value.
 	All Selection = "all"
 	// Pick rule`s value.
@@ -38,6 +39,8 @@ const (
 	Preferred Preference = "preferred"
 
 	tmpEnding = "tmp_unique_id_"
+
+	credentialSchema = "credentialSchema"
 )
 
 var errPathNotApplicable = errors.New("path not applicable")
@@ -93,6 +96,8 @@ type PresentationDefinition struct {
 	// Format is an object with one or more properties matching the registered Claim Format Designations
 	// (jwt, jwt_vc, jwt_vp, etc.) to inform the Holder of the claim format configurations the Verifier can process.
 	Format *Format `json:"format,omitempty"`
+	// Frame is used for JSON-LD document framing.
+	Frame map[string]interface{} `json:"frame,omitempty"`
 	// SubmissionRequirements must conform to the Submission Requirement Format.
 	// If not present, all inputs listed in the InputDescriptors array are required for submission.
 	SubmissionRequirements []*SubmissionRequirement `json:"submission_requirements,omitempty"`
@@ -121,6 +126,7 @@ type InputDescriptor struct {
 	Metadata    map[string]interface{} `json:"metadata,omitempty"`
 	Schema      []*Schema              `json:"schema,omitempty"`
 	Constraints *Constraints           `json:"constraints,omitempty"`
+	Format      *Format                `json:"format,omitempty"`
 }
 
 // Schema input descriptor schema.
@@ -145,11 +151,12 @@ type Constraints struct {
 
 // Field describes Constraints`s Fields field.
 type Field struct {
-	Path      []string    `json:"path,omitempty"`
-	ID        string      `json:"id,omitempty"`
-	Purpose   string      `json:"purpose,omitempty"`
-	Filter    *Filter     `json:"filter,omitempty"`
-	Predicate *Preference `json:"predicate,omitempty"`
+	Path           []string    `json:"path,omitempty"`
+	ID             string      `json:"id,omitempty"`
+	Purpose        string      `json:"purpose,omitempty"`
+	Filter         *Filter     `json:"filter,omitempty"`
+	Predicate      *Preference `json:"predicate,omitempty"`
+	IntentToRetain bool        `json:"intent_to_retain,omitempty"`
 }
 
 // Filter describes filter.
@@ -171,11 +178,21 @@ type Filter struct {
 // ValidateSchema validates presentation definition.
 func (pd *PresentationDefinition) ValidateSchema() error {
 	result, err := gojsonschema.Validate(
-		gojsonschema.NewStringLoader(DefinitionJSONSchema),
+		gojsonschema.NewStringLoader(DefinitionJSONSchemaV1),
 		gojsonschema.NewGoLoader(struct {
 			PD *PresentationDefinition `json:"presentation_definition"`
 		}{PD: pd}),
 	)
+
+	if err != nil || !result.Valid() {
+		result, err = gojsonschema.Validate(
+			gojsonschema.NewStringLoader(DefinitionJSONSchemaV2),
+			gojsonschema.NewGoLoader(struct {
+				PD *PresentationDefinition `json:"presentation_definition"`
+			}{PD: pd}),
+		)
+	}
+
 	if err != nil {
 		return err
 	}
@@ -310,7 +327,7 @@ func (pd *PresentationDefinition) CreateVP(credentials []*verifiable.Credential,
 		return nil, err
 	}
 
-	result, err := applyRequirement(req, credentials, documentLoader, opts...)
+	result, err := pd.applyRequirement(req, credentials, documentLoader, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -340,14 +357,33 @@ func (pd *PresentationDefinition) CreateVP(credentials []*verifiable.Credential,
 var ErrNoCredentials = errors.New("credentials do not satisfy requirements")
 
 // nolint: gocyclo,funlen,gocognit
-func applyRequirement(req *requirement, creds []*verifiable.Credential,
+func (pd *PresentationDefinition) applyRequirement(req *requirement, creds []*verifiable.Credential,
 	documentLoader ld.DocumentLoader, opts ...verifiable.CredentialOpt) (map[string][]*verifiable.Credential, error) {
 	result := make(map[string][]*verifiable.Credential)
 
 	for _, descriptor := range req.InputDescriptors {
-		filtered := filterSchema(descriptor.Schema, creds, documentLoader)
+		format := pd.Format
+		if descriptor.Format != nil {
+			format = descriptor.Format
+		}
 
-		filtered, err := filterConstraints(descriptor.Constraints, filtered, opts...)
+		filtered := creds
+
+		filtered, err := frameCreds(pd.Frame, filtered, opts...)
+		if err != nil {
+			return nil, err
+		}
+
+		if format != nil {
+			filtered = filterFormat(format, filtered)
+		}
+
+		// Validate schema only for v1
+		if descriptor.Schema != nil {
+			filtered = filterSchema(descriptor.Schema, filtered, documentLoader)
+		}
+
+		filtered, err = filterConstraints(descriptor.Constraints, filtered, opts...)
 		if err != nil {
 			return nil, err
 		}
@@ -371,7 +407,7 @@ func applyRequirement(req *requirement, creds []*verifiable.Credential,
 	set := map[string]map[string]string{}
 
 	for _, r := range req.Nested {
-		res, err := applyRequirement(r, creds, documentLoader, opts...)
+		res, err := pd.applyRequirement(r, creds, documentLoader, opts...)
 		if errors.Is(err, ErrNoCredentials) {
 			continue
 		}
@@ -594,10 +630,30 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential,
 	return result, nil
 }
 
+func frameCreds(frame map[string]interface{}, creds []*verifiable.Credential,
+	opts ...verifiable.CredentialOpt) ([]*verifiable.Credential, error) {
+	if frame == nil {
+		return creds, nil
+	}
+
+	var result []*verifiable.Credential
+
+	for _, credential := range creds {
+		bbsVC, err := credential.GenerateBBSSelectiveDisclosure(frame, nil, opts...)
+		if err != nil {
+			return nil, err
+		}
+
+		result = append(result, bbsVC)
+	}
+
+	return result, nil
+}
+
 func toSubject(subject interface{}) interface{} {
 	sub, ok := subject.([]verifiable.Subject)
 	if ok && len(sub) == 1 {
-		return sub[0]
+		return verifiable.Subject{ID: sub[0].ID}
 	}
 
 	return subject
@@ -650,6 +706,10 @@ func createNewCredential(constraints *Constraints, src, limitedCred []byte,
 		}
 
 		for _, path := range jPaths {
+			if strings.Contains(path[0], credentialSchema) {
+				continue
+			}
+
 			var val interface{} = true
 
 			if !modifiedByPredicate {
@@ -772,6 +832,16 @@ func hasBBS(vc *verifiable.Credential) bool {
 	return false
 }
 
+func hasProofWithType(vc *verifiable.Credential, proofType string) bool {
+	for _, proof := range vc.Proofs {
+		if proof["type"] == proofType {
+			return true
+		}
+	}
+
+	return false
+}
+
 func filterField(f *Field, credential map[string]interface{}) error {
 	var schema gojsonschema.JSONLoader
 
@@ -779,19 +849,23 @@ func filterField(f *Field, credential map[string]interface{}) error {
 		schema = gojsonschema.NewGoLoader(*f.Filter)
 	}
 
+	var lastErr error
+
 	for _, path := range f.Path {
 		patch, err := jsonpath.Get(path, credential)
-		if err != nil {
-			return errPathNotApplicable
-		}
+		if err == nil {
+			err = validatePatch(schema, patch)
+			if err == nil {
+				return nil
+			}
 
-		err = validatePatch(schema, patch)
-		if err != nil {
-			return err
+			lastErr = err
+		} else {
+			lastErr = errPathNotApplicable
 		}
 	}
 
-	return nil
+	return lastErr
 }
 
 func validatePatch(schema gojsonschema.JSONLoader, patch interface{}) error {
@@ -887,6 +961,24 @@ type byID []*InputDescriptorMapping
 func (a byID) Len() int           { return len(a) }
 func (a byID) Less(i, j int) bool { return a[i].ID < a[j].ID }
 func (a byID) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+
+func filterFormat(format *Format, credentials []*verifiable.Credential) []*verifiable.Credential {
+	var result []*verifiable.Credential
+
+	if format.LdpVP == nil {
+		return result
+	}
+
+	for _, credential := range credentials {
+		for _, proofType := range format.LdpVP.ProofType {
+			if hasProofWithType(credential, proofType) {
+				result = append(result, credential)
+			}
+		}
+	}
+
+	return result
+}
 
 // nolint: gocyclo
 func filterSchema(schemas []*Schema, credentials []*verifiable.Credential,
