@@ -106,10 +106,10 @@ type LabeledDisplayMappingObject struct {
 // Schema represents Type and (optional) Format information for a DisplayMappingObject that uses the Paths field,
 // as defined in https://identity.foundation/credential-manifest/wallet-rendering/#using-path.
 type Schema struct {
-	Type             string `json:"type,omitempty"`      // MUST be here
-	Format           string `json:"format,omitempty"`    // MAY be here if the Type is "string".
-	ContentMediaType string `json:"mediatype,omitempty"` // MAY be here if the Type is "string".
-	ContentEncoding  string `json:"encoding,omitempty"`  // MAY be here if the Type is "string".
+	Type             string `json:"type,omitempty"`             // MUST be here
+	Format           string `json:"format,omitempty"`           // MAY be here if the Type is "string".
+	ContentMediaType string `json:"contentMediaType,omitempty"` // MAY be here if the Type is "string".
+	ContentEncoding  string `json:"contentEncoding,omitempty"`  // MAY be here if the Type is "string".
 }
 
 type staticDisplayMappingObjects struct {
