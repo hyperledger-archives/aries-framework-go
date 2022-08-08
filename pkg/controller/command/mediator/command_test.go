@@ -207,14 +207,96 @@ func TestCommand_Connections(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
-		var b bytes.Buffer
-		err = cmd.Connections(&b, nil)
-		require.NoError(t, err)
+		testcases := []struct {
+			name  string
+			input string
+		}{
+			{
+				name:  "no filters",
+				input: `{}`,
+			},
+			{
+				name:  "didcomm v1 only",
+				input: `{"didcomm_v1": true}`,
+			},
+			{
+				name:  "didcomm v2 only",
+				input: `{"didcomm_v2": true}`,
+			},
+		}
 
-		response := ConnectionsResponse{}
-		err = json.NewDecoder(&b).Decode(&response)
+		for _, tc := range testcases {
+			t.Run(tc.name, func(t *testing.T) {
+				var b bytes.Buffer
+				err = cmd.Connections(&b, bytes.NewBufferString(tc.input))
+				require.NoError(t, err)
+
+				response := ConnectionsResponse{}
+				err = json.NewDecoder(&b).Decode(&response)
+				require.NoError(t, err)
+				require.Equal(t, routerConnectionID, response.Connections[0])
+			})
+		}
+	})
+
+	t.Run("test get connection - read request error", func(t *testing.T) {
+		cmd, err := New(
+			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediator.Coordination:          &mockroute.MockMediatorSvc{},
+					oobsvc.Name:                    &mockoob.MockOobService{},
+				},
+			},
+			false,
+		)
 		require.NoError(t, err)
-		require.Equal(t, routerConnectionID, response.Connections[0])
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		err = cmd.Connections(&b, &errReader{err: fmt.Errorf("expected error")})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "read request")
+	})
+
+	t.Run("test get connection - decode request error", func(t *testing.T) {
+		cmd, err := New(
+			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediator.Coordination:          &mockroute.MockMediatorSvc{},
+					oobsvc.Name:                    &mockoob.MockOobService{},
+				},
+			},
+			false,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		err = cmd.Connections(&b, bytes.NewBufferString("{"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "decode request")
+	})
+
+	t.Run("test get connection - invalid filter options error", func(t *testing.T) {
+		cmd, err := New(
+			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickupSvc.MessagePickup: &messagepickup.MockMessagePickupSvc{},
+					mediator.Coordination:          &mockroute.MockMediatorSvc{},
+					oobsvc.Name:                    &mockoob.MockOobService{},
+				},
+			},
+			false,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		err = cmd.Connections(&b, bytes.NewBufferString(`{"didcomm_v1": true, "didcomm_v2": true}`))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "at the same time")
 	})
 
 	t.Run("test get connection - error", func(t *testing.T) {
@@ -234,7 +316,7 @@ func TestCommand_Connections(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		var b bytes.Buffer
-		err = cmd.Connections(&b, nil)
+		err = cmd.Connections(&b, bytes.NewBufferString("{}"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "get router connections")
 	})
@@ -532,4 +614,12 @@ func newMockProvider(serviceMap map[string]interface{}) *mockprovider.Provider {
 		StorageProviderValue:              mockstorage.NewMockStoreProvider(),
 		ProtocolStateStorageProviderValue: mockstorage.NewMockStoreProvider(),
 	}
+}
+
+type errReader struct {
+	err error
+}
+
+func (e *errReader) Read([]byte) (int, error) {
+	return 0, e.err
 }

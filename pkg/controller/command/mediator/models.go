@@ -16,6 +16,12 @@ type RegisterRoute struct {
 	ConnectionID string `json:"connectionID"`
 }
 
+// ConnectionsRequest contains parameters for filtering when requesting router connections.
+type ConnectionsRequest struct {
+	DIDCommV1Only bool `json:"didcomm_v1"`
+	DIDCommV2Only bool `json:"didcomm_v2"`
+}
+
 // ConnectionsResponse is response for router`s connections.
 type ConnectionsResponse struct {
 	Connections []string `json:"connections"`

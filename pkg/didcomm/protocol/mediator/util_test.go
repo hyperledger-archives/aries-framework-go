@@ -87,7 +87,7 @@ func (m *mockRouteSvc) AddKey(connID, recKey string) error {
 }
 
 // AddKey adds agents recKey to the router.
-func (m *mockRouteSvc) GetConnections() ([]string, error) {
+func (m *mockRouteSvc) GetConnections(...ConnectionOption) ([]string, error) {
 	return m.Connections, m.ConnectionsErr
 }
 

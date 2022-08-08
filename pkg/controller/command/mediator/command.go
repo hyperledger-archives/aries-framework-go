@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	mediatorSvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
@@ -215,7 +216,40 @@ func (o *Command) Unregister(rw io.Writer, req io.Reader) command.Error {
 
 // Connections returns the connections of the router.
 func (o *Command) Connections(rw io.Writer, req io.Reader) command.Error {
-	connections, err := o.routeClient.GetConnections()
+	var request ConnectionsRequest
+
+	if req != nil {
+		reqData, err := io.ReadAll(req)
+		if err != nil {
+			logutil.LogInfo(logger, CommandName, GetConnectionsCommandMethod, err.Error())
+			return command.NewValidationError(GetConnectionsErrorCode, fmt.Errorf("read request : %w", err))
+		}
+
+		if len(reqData) > 0 {
+			err = json.Unmarshal(reqData, &request)
+			if err != nil {
+				logutil.LogInfo(logger, CommandName, GetConnectionsCommandMethod, err.Error())
+				return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("decode request : %w", err))
+			}
+		}
+	}
+
+	opts := []mediator.ConnectionOption{}
+
+	switch {
+	case request.DIDCommV1Only && request.DIDCommV2Only:
+		errMsg := "can't request didcomm v1 only at the same time as didcomm v2 only"
+
+		logutil.LogError(logger, CommandName, GetConnectionsCommandMethod, errMsg)
+
+		return command.NewValidationError(GetConnectionsErrorCode, fmt.Errorf("%s", errMsg))
+	case request.DIDCommV2Only:
+		opts = append(opts, mediatorSvc.ConnectionByVersion(service.V2))
+	case request.DIDCommV1Only:
+		opts = append(opts, mediatorSvc.ConnectionByVersion(service.V1))
+	}
+
+	connections, err := o.routeClient.GetConnections(opts...)
 	if err != nil {
 		logutil.LogError(logger, CommandName, GetConnectionsCommandMethod, err.Error())
 		return command.NewExecuteError(GetConnectionsErrorCode, err)

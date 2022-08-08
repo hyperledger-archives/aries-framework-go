@@ -31,6 +31,7 @@ import (
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const (
@@ -1096,7 +1097,7 @@ func TestUnregister(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		s[fmt.Sprintf(routeConnIDDataKey, connID)] = mockstore.DBEntry{Value: []byte("conn-abc-xyz")}
+		s[fmt.Sprintf(routeConnIDDataKey, connID)] = mockstore.DBEntry{Value: []byte("{\"connectionID\":\"conn-abc-xyz\"}")}
 
 		err = svc.Unregister(connID)
 		require.NoError(t, err)
@@ -1179,7 +1180,7 @@ func TestKeylistUpdate(t *testing.T) {
 		require.NoError(t, err)
 
 		// save router connID
-		require.NoError(t, svc.saveRouterConnectionID("conn"))
+		require.NoError(t, svc.saveRouterConnectionID("conn", ""))
 
 		// save connections
 		connRec := &connection.Record{
@@ -1245,7 +1246,7 @@ func TestKeylistUpdate(t *testing.T) {
 		require.Contains(t, err.Error(), "router not registered")
 
 		// save router connID
-		require.NoError(t, svc.saveRouterConnectionID("conn"))
+		require.NoError(t, svc.saveRouterConnectionID("conn", ""))
 
 		// no connections saved
 		err = svc.AddKey("conn", recKey)
@@ -1298,7 +1299,7 @@ func TestKeylistUpdate(t *testing.T) {
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
 		s["conn_conn2"] = mockstore.DBEntry{Value: connBytes}
-		require.NoError(t, svc.saveRouterConnectionID("conn2"))
+		require.NoError(t, svc.saveRouterConnectionID("conn2", ""))
 
 		err = svc.AddKey("conn2", "recKey")
 		require.Error(t, err)
@@ -1342,7 +1343,7 @@ func TestConfig(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		require.NoError(t, svc.saveRouterConnectionID("connID-123"))
+		require.NoError(t, svc.saveRouterConnectionID("connID-123", ""))
 		require.NoError(t, svc.saveRouterConfig("connID-123", &config{
 			RouterEndpoint: ENDPOINT,
 			RoutingKeys:    routingKeys,
@@ -1386,7 +1387,7 @@ func TestConfig(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		require.NoError(t, svc.saveRouterConnectionID("connID-123"))
+		require.NoError(t, svc.saveRouterConnectionID("connID-123", ""))
 
 		conf, err := svc.Config("connID-123")
 		require.Error(t, err)
@@ -1409,7 +1410,7 @@ func TestConfig(t *testing.T) {
 
 		const conn = "connID-123"
 
-		require.NoError(t, svc.saveRouterConnectionID(conn))
+		require.NoError(t, svc.saveRouterConnectionID(conn, ""))
 		require.NoError(t, svc.routeStore.Put(fmt.Sprintf(routeConfigDataKey, conn), []byte("invalid data")))
 
 		conf, err := svc.Config(conn)
@@ -1433,7 +1434,7 @@ func TestConfig(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		require.NoError(t, svc.saveRouterConnectionID("connID-123"))
+		require.NoError(t, svc.saveRouterConnectionID("connID-123", ""))
 		require.NoError(t, svc.routeStore.Put(routeConfigDataKey, []byte("invalid data")))
 
 		conf, err := svc.Config("connID-123")
@@ -1458,7 +1459,7 @@ func TestGetConnections(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		err = svc.saveRouterConnectionID(routerConnectionID)
+		err = svc.saveRouterConnectionID(routerConnectionID, "")
 		require.NoError(t, err)
 
 		connID, err := svc.GetConnections()
@@ -1481,6 +1482,68 @@ func TestGetConnections(t *testing.T) {
 		connID, err := svc.GetConnections()
 		require.NoError(t, err)
 		require.Empty(t, connID)
+	})
+
+	t.Run("test get connection - filter by didcomm version", func(t *testing.T) {
+		svc, err := New(
+			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+				},
+				StorageProviderValue:              mem.NewProvider(),
+				ProtocolStateStorageProviderValue: mem.NewProvider(),
+			},
+		)
+		require.NoError(t, err)
+
+		const (
+			connID1 = "conn-id-1"
+			connID2 = "conn-id-2"
+		)
+
+		err = svc.saveRouterConnectionID(connID1, service.V1)
+		require.NoError(t, err)
+
+		err = svc.saveRouterConnectionID(connID2, service.V2)
+		require.NoError(t, err)
+
+		connIDs, err := svc.GetConnections()
+		require.NoError(t, err)
+		require.Len(t, connIDs, 2)
+
+		connIDs, err = svc.GetConnections(ConnectionByVersion(service.V1))
+		require.NoError(t, err)
+		require.Len(t, connIDs, 1)
+		require.Equal(t, connID1, connIDs[0])
+
+		connIDs, err = svc.GetConnections(ConnectionByVersion(service.V2))
+		require.NoError(t, err)
+		require.Len(t, connIDs, 1)
+		require.Equal(t, connID2, connIDs[0])
+	})
+
+	t.Run("test get connection - fail to parse connection entry", func(t *testing.T) {
+		svc, err := New(
+			&mockprovider.Provider{
+				ServiceMap: map[string]interface{}{
+					messagepickup.MessagePickup: &mockmessagep.MockMessagePickupSvc{},
+				},
+				StorageProviderValue:              mem.NewProvider(),
+				ProtocolStateStorageProviderValue: mem.NewProvider(),
+			},
+		)
+		require.NoError(t, err)
+
+		err = svc.routeStore.Put(
+			fmt.Sprintf(routeConnIDDataKey, routerConnectionID),
+			[]byte("foo"),
+			storage.Tag{Name: routeConnIDDataKey},
+		)
+		require.NoError(t, err)
+
+		_, err = svc.GetConnections()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to unmarshal router connection entry")
 	})
 }
 

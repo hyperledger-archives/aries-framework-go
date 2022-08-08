@@ -22,6 +22,9 @@ const (
 // Request is the route-request message of this protocol.
 type Request = mediator.Request
 
+// ConnectionOption option for Client.GetConnections.
+type ConnectionOption = mediator.ConnectionOption
+
 // NewRequest creates a new request.
 func NewRequest() *Request {
 	return &Request{
