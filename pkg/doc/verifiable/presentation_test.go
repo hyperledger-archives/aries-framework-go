@@ -54,6 +54,19 @@ const validPresentation = `
 }
 `
 
+const presentationWithoutCredentials = `
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://www.w3.org/2018/credentials/examples/v1",
+    "https://trustbloc.github.io/context/vc/examples-v1.jsonld"
+  ],
+  "id": "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",
+  "type": "VerifiablePresentation",
+  "holder": "did:example:ebfeb1f712ebc6f1c276e12ec21"
+}
+`
+
 const validPresentationWithCustomFields = `
 {
   "@context": [
@@ -128,6 +141,38 @@ func TestParsePresentation(t *testing.T) {
 
 		// check holder
 		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", vp.Holder)
+	})
+
+	t.Run("creates a new Verifiable Presentation from valid JSON without credentials", func(t *testing.T) {
+		vp, err := newTestPresentation(t, []byte(presentationWithoutCredentials), WithPresStrictValidation())
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+
+		// validate @context
+		require.Equal(t, []string{
+			"https://www.w3.org/2018/credentials/v1",
+			"https://www.w3.org/2018/credentials/examples/v1",
+			"https://trustbloc.github.io/context/vc/examples-v1.jsonld",
+		}, vp.Context)
+
+		// check id
+		require.Equal(t, "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5", vp.ID)
+
+		// check type
+		require.Equal(t, []string{"VerifiablePresentation"}, vp.Type)
+
+		// check verifiableCredentials
+		require.Nil(t, vp.Credentials())
+		require.Empty(t, vp.Credentials())
+
+		// check holder
+		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", vp.Holder)
+
+		// check rawPresentation
+		rp, err := vp.raw()
+		require.NoError(t, err)
+
+		require.IsType(t, nil, rp.Credential)
 	})
 
 	t.Run("creates a new Verifiable Presentation with custom/additional fields", func(t *testing.T) {
