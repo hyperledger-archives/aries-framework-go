@@ -98,7 +98,7 @@
             "!**/mocks/*.go",
             "!**/third_party/**"
           ],
-          "lineCount": 7,
+          "lineCount": 8,
           "patterns": ["Copyright", "License"],
           "flags": "i"
         }

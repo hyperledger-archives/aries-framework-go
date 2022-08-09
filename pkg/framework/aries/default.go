@@ -1,5 +1,6 @@
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
+Copyright Avast Software. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
@@ -21,6 +22,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/legacyconnection"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/messagepickup"
 	mdissuecredential "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/middleware/issuecredential"
@@ -82,7 +84,7 @@ func defFrameworkOpts(frameworkOpts *Aries) error { //nolint:gocyclo
 	// - OutOfBand depends on DIDExchange
 	// - Introduce depends on OutOfBand
 	frameworkOpts.protocolSvcCreators = append(frameworkOpts.protocolSvcCreators,
-		newMessagePickupSvc(), newRouteSvc(), newExchangeSvc(), newOutOfBandSvc(),
+		newMessagePickupSvc(), newRouteSvc(), newExchangeSvc(), newLegacyConnectionSvc(), newOutOfBandSvc(),
 		newIntroduceSvc(), newIssueCredentialSvc(), newPresentProofSvc(), newOutOfBandV2Svc())
 
 	if frameworkOpts.secretLock == nil && frameworkOpts.kmsCreator == nil {
@@ -99,6 +101,14 @@ func newExchangeSvc() api.ProtocolSvcCreator {
 	return api.ProtocolSvcCreator{
 		Create: func(prv api.Provider) (dispatcher.ProtocolService, error) {
 			return &didexchange.Service{}, nil
+		},
+	}
+}
+
+func newLegacyConnectionSvc() api.ProtocolSvcCreator {
+	return api.ProtocolSvcCreator{
+		Create: func(prv api.Provider) (dispatcher.ProtocolService, error) {
+			return &legacyconnection.Service{}, nil
 		},
 	}
 }

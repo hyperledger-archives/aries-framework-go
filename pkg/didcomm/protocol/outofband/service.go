@@ -1,5 +1,6 @@
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
+Copyright Avast Software. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
@@ -17,6 +18,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/common/model"
+	didcommModel "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
@@ -709,7 +711,7 @@ func (s *Service) handleDIDEvent(e service.StateMsg) error {
 		return errIgnoredDidEvent
 	}
 
-	props, ok := e.Properties.(didexchange.Event)
+	props, ok := e.Properties.(didcommModel.Event)
 	if !ok {
 		return fmt.Errorf("handleDIDEvent: failed to cast did state msg properties")
 	}

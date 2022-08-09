@@ -1,5 +1,6 @@
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
+Copyright Avast Software. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
@@ -25,10 +26,11 @@ type Destination struct {
 }
 
 const (
-	didCommServiceType      = "did-communication"
-	didCommV2ServiceType    = "DIDCommMessaging"
-	defaultDIDCommProfile   = "didcomm/aip2;env=rfc19"
-	defaultDIDCommV2Profile = "didcomm/v2"
+	didCommServiceType       = "did-communication"
+	didCommV2ServiceType     = "DIDCommMessaging"
+	defaultDIDCommProfile    = "didcomm/aip2;env=rfc19"
+	defaultDIDCommV2Profile  = "didcomm/v2"
+	legacyDIDCommServiceType = "IndyAgent"
 )
 
 // GetDestination constructs a Destination struct based on the given DID and parameters

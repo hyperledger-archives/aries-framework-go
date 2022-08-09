@@ -1,5 +1,7 @@
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
+Copyright Avast Software. All Rights Reserved.
+
 SPDX-License-Identifier: Apache-2.0
 */
 
@@ -122,6 +124,17 @@ func TestPrepareDestination(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, uri, "https://localhost:8090")
 		require.EqualValues(t, doc.Service[0].RoutingKeys, dest.RoutingKeys)
+	})
+
+	t.Run("successfully prepared legacy destination", func(t *testing.T) {
+		doc := mockdiddoc.GetMockIndyDoc(t)
+		dest, err := CreateDestination(doc)
+		require.NoError(t, err)
+		require.NotNil(t, dest)
+		uri, err := dest.ServiceEndpoint.URI()
+		require.NoError(t, err)
+		require.Equal(t, uri, "https://localhost:8090")
+		require.Equal(t, doc.Service[0].RoutingKeys, dest.RoutingKeys)
 	})
 
 	t.Run("error with destination having recipientKeys not did:keys", func(t *testing.T) {

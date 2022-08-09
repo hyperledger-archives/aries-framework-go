@@ -36,7 +36,7 @@ var logger = log.New("aries-framework/legacyconnection/service")
 
 const (
 	// LegacyConnection connection protocol.
-	LegacyConnection = "LegacyConnection"
+	LegacyConnection = "legacyconnection"
 	// PIURI is the connection protocol identifier URI.
 	PIURI = "https://didcomm.org/connections/1.0"
 	// InvitationMsgType defines the legacy-connection invite message type.
@@ -179,7 +179,7 @@ func (s *Service) Initialize(p interface{}) error {
 
 	keyAgreementType := kms.X25519ECDHKWType
 
-	mediaTypeProfiles := []string{transport.MediaTypeProfileDIDCommAIP1}
+	mediaTypeProfiles := []string{transport.LegacyDIDCommV1Profile}
 
 	s.ctx = &context{
 		outboundDispatcher: prov.OutboundDispatcher(),

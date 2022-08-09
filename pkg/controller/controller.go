@@ -1,5 +1,6 @@
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
+Copyright Avast Software. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
@@ -18,6 +19,7 @@ import (
 	issuecredentialcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/kms"
 	ldcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/ld"
+	legacyconncmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/legacyconnection"
 	routercmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/mediator"
 	messagingcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
 	outofbandcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/outofband"
@@ -32,6 +34,7 @@ import (
 	issuecredentialrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/issuecredential"
 	kmsrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/kms"
 	ldrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/ld"
+	legacyconnrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/legacyconnection"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/mediator"
 	messagingrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/messaging"
 	outofbandrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/outofband"
@@ -155,6 +158,13 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 		return nil, err
 	}
 
+	// Legacy connection REST operation
+	legacyConnOp, err := legacyconnrest.New(ctx, notifier, restAPIOpts.defaultLabel,
+		restAPIOpts.autoAccept)
+	if err != nil {
+		return nil, err
+	}
+
 	// VDR REST operation
 	vdrOp, err := vdrrest.New(ctx)
 	if err != nil {
@@ -234,6 +244,7 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 	// creat handlers from all operations
 	var allHandlers []rest.Handler
 	allHandlers = append(allHandlers, exchangeOp.GetRESTHandlers()...)
+	allHandlers = append(allHandlers, legacyConnOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, vdrOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, messagingOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, routeOp.GetRESTHandlers()...)
@@ -283,6 +294,13 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 		cmdOpts.autoAccept)
 	if err != nil {
 		return nil, fmt.Errorf("failed initialized didexchange command: %w", err)
+	}
+
+	// legacy connection command operation
+	legconncmd, err := legacyconncmd.New(ctx, notifier, cmdOpts.defaultLabel,
+		cmdOpts.autoAccept)
+	if err != nil {
+		return nil, fmt.Errorf("failed initialized legacy-connection command: %w", err)
 	}
 
 	// VDR command operation
@@ -356,6 +374,7 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 
 	var allHandlers []command.Handler
 	allHandlers = append(allHandlers, didexcmd.GetHandlers()...)
+	allHandlers = append(allHandlers, legconncmd.GetHandlers()...)
 	allHandlers = append(allHandlers, vcmd.GetHandlers()...)
 	allHandlers = append(allHandlers, msgcmd.GetHandlers()...)
 	allHandlers = append(allHandlers, routecmd.GetHandlers()...)
