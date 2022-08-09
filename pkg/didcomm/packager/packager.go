@@ -253,7 +253,7 @@ func isMediaTypeForLegacyPacker(cty string) bool {
 
 	switch cty {
 	case transport.MediaTypeRFC0019EncryptedEnvelope, transport.MediaTypeAIP2RFC0019Profile,
-		transport.MediaTypeProfileDIDCommAIP1:
+		transport.MediaTypeProfileDIDCommAIP1, transport.LegacyDIDCommV1Profile:
 		isLegacy = true
 	default:
 		isLegacy = false
