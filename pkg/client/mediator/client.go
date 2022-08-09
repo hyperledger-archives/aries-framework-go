@@ -39,7 +39,7 @@ type protocolService interface {
 	Unregister(connID string) error
 
 	// GetConnections returns router`s connections.
-	GetConnections() ([]string, error)
+	GetConnections(...mediator.ConnectionOption) ([]string, error)
 
 	// Config returns the router's configuration.
 	Config(connID string) (*mediator.Config, error)
@@ -91,8 +91,8 @@ func (c *Client) Unregister(connID string) error {
 }
 
 // GetConnections returns router`s connections.
-func (c *Client) GetConnections() ([]string, error) {
-	connections, err := c.routeSvc.GetConnections()
+func (c *Client) GetConnections(options ...ConnectionOption) ([]string, error) {
+	connections, err := c.routeSvc.GetConnections(options...)
 	if err != nil {
 		return nil, fmt.Errorf("get router connections: %w", err)
 	}

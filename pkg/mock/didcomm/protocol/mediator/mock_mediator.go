@@ -115,7 +115,7 @@ func (m *MockMediatorSvc) Config(connID string) (*mediator.Config, error) {
 }
 
 // GetConnections returns router`s connections.
-func (m *MockMediatorSvc) GetConnections() ([]string, error) {
+func (m *MockMediatorSvc) GetConnections(...mediator.ConnectionOption) ([]string, error) {
 	if m.GetConnectionsErr != nil {
 		return nil, m.GetConnectionsErr
 	}

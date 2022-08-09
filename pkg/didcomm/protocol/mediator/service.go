@@ -126,6 +126,11 @@ type callback struct {
 	err      error
 }
 
+type routerConnectionEntry struct {
+	ConnectionID   string          `json:"connectionID"`
+	DIDCommVersion service.Version `json:"didcomm_version,omitempty"`
+}
+
 type connections interface {
 	GetConnectionIDByDIDs(string, string) (string, error)
 	GetConnectionRecord(string) (*connection.Record, error)
@@ -646,7 +651,7 @@ func (s *Service) doRegistration(record *connection.Record, req *Request, timeou
 	logger.Debugf("saved router config from inbound grant: %+v", grant)
 
 	// save the connectionID of the router
-	return s.saveRouterConnectionID(record.ConnectionID)
+	return s.saveRouterConnectionID(record.ConnectionID, record.DIDCommVersion)
 }
 
 func (s *Service) getGrant(id string, timeout time.Duration) (*Grant, error) {
@@ -700,7 +705,13 @@ func (s *Service) Unregister(connID string) error {
 }
 
 // GetConnections returns the connections of the router.
-func (s *Service) GetConnections() ([]string, error) {
+func (s *Service) GetConnections(options ...ConnectionOption) ([]string, error) {
+	opts := &getConnectionOpts{}
+
+	for _, option := range options {
+		option(opts)
+	}
+
 	records, err := s.routeStore.Query(routeConnIDDataKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query route store: %w", err)
@@ -721,7 +732,16 @@ func (s *Service) GetConnections() ([]string, error) {
 			return nil, fmt.Errorf("failed to get value from records: %w", err)
 		}
 
-		conns = append(conns, string(value))
+		data := &routerConnectionEntry{}
+
+		err = json.Unmarshal(value, data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal router connection entry: %w", err)
+		}
+
+		if opts.version == "" || opts.version == data.DIDCommVersion {
+			conns = append(conns, data.ConnectionID)
+		}
 
 		more, err = records.Next()
 		if err != nil {
@@ -838,8 +858,18 @@ func (s *Service) deleteRouterConnectionID(connID string) error {
 	return s.routeStore.Delete(fmt.Sprintf(routeConnIDDataKey, connID))
 }
 
-func (s *Service) saveRouterConnectionID(connID string) error {
-	return s.routeStore.Put(fmt.Sprintf(routeConnIDDataKey, connID), []byte(connID), storage.Tag{Name: routeConnIDDataKey})
+func (s *Service) saveRouterConnectionID(connID string, didcommVersion service.Version) error {
+	data := &routerConnectionEntry{
+		ConnectionID:   connID,
+		DIDCommVersion: didcommVersion,
+	}
+
+	dataBytes, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("marshalling router connection ID data: %w", err)
+	}
+
+	return s.routeStore.Put(fmt.Sprintf(routeConnIDDataKey, connID), dataBytes, storage.Tag{Name: routeConnIDDataKey})
 }
 
 type config struct {
@@ -917,4 +947,18 @@ func parseClientOpts(options ...ClientOption) *ClientOptions {
 	}
 
 	return opts
+}
+
+type getConnectionOpts struct {
+	version service.Version
+}
+
+// ConnectionOption option for Service.GetConnections.
+type ConnectionOption func(opts *getConnectionOpts)
+
+// ConnectionByVersion filter for mediator connections of the given DIDComm version.
+func ConnectionByVersion(v service.Version) ConnectionOption {
+	return func(opts *getConnectionOpts) {
+		opts.version = v
+	}
 }

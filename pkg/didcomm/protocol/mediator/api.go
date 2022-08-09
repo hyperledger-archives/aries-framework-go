@@ -15,5 +15,5 @@ type ProtocolService interface {
 	Config(connID string) (*Config, error)
 
 	// GetConnections returns all router connections
-	GetConnections() ([]string, error)
+	GetConnections(options ...ConnectionOption) ([]string, error)
 }
