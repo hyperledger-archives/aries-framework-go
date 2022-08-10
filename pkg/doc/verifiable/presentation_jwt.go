@@ -33,7 +33,7 @@ func (jpc *JWTPresClaims) refineFromJWTClaims() {
 
 // newJWTPresClaims creates JWT Claims of VP with an option to minimize certain fields put into "vp" claim.
 func newJWTPresClaims(vp *Presentation, audience []string, minimizeVP bool) (*JWTPresClaims, error) {
-	// currently jwt encoding supports only single subject (by the spec)
+	// currently jwt encoding supports only single subject.([]Subject) (by the spec)
 	jwtClaims := &jwt.Claims{
 		Issuer: vp.Holder, // iss
 		ID:     vp.ID,     // jti
