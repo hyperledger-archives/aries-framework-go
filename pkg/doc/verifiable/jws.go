@@ -15,6 +15,7 @@ import (
 // Signer defines signer interface which is used to sign VC JWT.
 type Signer interface {
 	Sign(data []byte) ([]byte, error)
+	Alg() string
 }
 
 // jwtSigner implement jose.Signer interface.

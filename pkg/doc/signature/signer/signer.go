@@ -32,6 +32,9 @@ type SignatureSuite interface {
 	// Sign will sign document and return signature
 	Sign(doc []byte) ([]byte, error)
 
+	// Alg will return algorithm
+	Alg() string
+
 	// CompactProof indicates weather to compact the proof doc before canonization
 	CompactProof() bool
 }
@@ -120,7 +123,7 @@ func (signer *DocumentSigner) signObject(context *Context, jsonLdObject map[stri
 	}
 
 	if context.SignatureRepresentation == proof.SignatureJWS {
-		p.JWS = proof.CreateDetachedJWTHeader(p) + ".."
+		p.JWS = proof.CreateDetachedJWTHeader(suite.Alg()) + ".."
 	}
 
 	message, err := proof.CreateVerifyData(suite, jsonLdObject, p, append(opts, jsonld.WithValidateRDF())...)

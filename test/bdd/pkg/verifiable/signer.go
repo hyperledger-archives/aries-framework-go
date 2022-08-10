@@ -27,6 +27,11 @@ func (s *cryptoSigner) Sign(data []byte) ([]byte, error) {
 	return s.cr.Sign(data, s.kh)
 }
 
+func (s *cryptoSigner) Alg() string {
+	// TODO return correct alg
+	return ""
+}
+
 type secp256k1Signer struct {
 	privKey *ecdsa.PrivateKey
 }
@@ -68,4 +73,8 @@ func (signer *secp256k1Signer) Sign(payload []byte) ([]byte, error) {
 	}
 
 	return append(copyPadded(r.Bytes(), keyBytes), copyPadded(s.Bytes(), keyBytes)...), nil
+}
+
+func (signer *secp256k1Signer) Alg() string {
+	return "ES256K"
 }

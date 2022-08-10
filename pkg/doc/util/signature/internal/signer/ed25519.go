@@ -12,6 +12,10 @@ import (
 	"errors"
 )
 
+const (
+	alg = "EdDSA"
+)
+
 // NewEd25519Signer creates a new Ed25519 signer with generated key.
 func NewEd25519Signer() (*Ed25519Signer, error) {
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
@@ -41,6 +45,11 @@ func (s *Ed25519Signer) PublicKey() interface{} {
 // PublicKeyBytes returns bytes of the public key.
 func (s *Ed25519Signer) PublicKeyBytes() []byte {
 	return s.PubKey
+}
+
+// Alg return alg.
+func (s *Ed25519Signer) Alg() string {
+	return alg
 }
 
 // Sign signs a message.

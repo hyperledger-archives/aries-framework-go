@@ -16,4 +16,7 @@ type Signer interface {
 
 	// PublicKeyBytes returns bytes of the public key.
 	PublicKeyBytes() []byte
+
+	// Alg return alg.
+	Alg() string
 }

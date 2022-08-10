@@ -315,6 +315,10 @@ func (s *rsaSigner) Sign(data []byte) ([]byte, error) {
 	return rsa.SignPKCS1v15(rand.Reader, s.privateKey, crypto.SHA256, hashed)
 }
 
+func (s *rsaSigner) Alg() string {
+	return "PS256"
+}
+
 func abort(msg string, args ...interface{}) {
 	logger.Errorf(msg, args...)
 	os.Exit(1)

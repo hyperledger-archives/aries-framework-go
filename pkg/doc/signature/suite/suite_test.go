@@ -93,6 +93,10 @@ func (s *mockSigner) Sign(_ []byte) ([]byte, error) {
 	return s.signature, nil
 }
 
+func (s *mockSigner) Alg() string {
+	return ""
+}
+
 type mockVerifier struct {
 	verifyError error
 }

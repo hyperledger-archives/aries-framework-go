@@ -13,6 +13,11 @@ import (
 	"crypto/x509"
 )
 
+const (
+	rs256Alg = "RS256"
+	ps256Alg = "PS256"
+)
+
 // NewRS256Signer creates a new RS256 signer with generated key.
 func NewRS256Signer() (*RS256Signer, error) {
 	privKey, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -29,12 +34,13 @@ func GetRS256Signer(privKey *rsa.PrivateKey) *RS256Signer {
 }
 
 func newRS256Signer(privKey *rsa.PrivateKey) *RS256Signer {
-	return &RS256Signer{*newRSASigner(privKey)}
+	return &RS256Signer{rsaSigner: *newRSASigner(privKey), alg: rs256Alg}
 }
 
 // RS256Signer makes RS256 based signatures.
 type RS256Signer struct {
 	rsaSigner
+	alg string
 }
 
 // Sign signs a message.
@@ -44,6 +50,11 @@ func (s *RS256Signer) Sign(msg []byte) ([]byte, error) {
 	hashed := hasher.Sum(nil)
 
 	return rsa.SignPKCS1v15(rand.Reader, s.privateKey, crypto.SHA256, hashed)
+}
+
+// Alg return alg.
+func (s *RS256Signer) Alg() string {
+	return s.alg
 }
 
 // NewPS256Signer creates a new PS256 signer with generated key.
@@ -62,12 +73,13 @@ func GetPS256Signer(privKey *rsa.PrivateKey) *PS256Signer {
 }
 
 func newPS256Signer(privKey *rsa.PrivateKey) *PS256Signer {
-	return &PS256Signer{*newRSASigner(privKey)}
+	return &PS256Signer{rsaSigner: *newRSASigner(privKey), alg: ps256Alg}
 }
 
 // PS256Signer makes PS256 based signatures.
 type PS256Signer struct {
 	rsaSigner
+	alg string
 }
 
 // Sign signs a message.
@@ -81,6 +93,11 @@ func (s *PS256Signer) Sign(msg []byte) ([]byte, error) {
 	return rsa.SignPSS(rand.Reader, s.privateKey, crypto.SHA256, hashed, &rsa.PSSOptions{
 		SaltLength: rsa.PSSSaltLengthEqualsHash,
 	})
+}
+
+// Alg return alg.
+func (s *PS256Signer) Alg() string {
+	return s.alg
 }
 
 func newRSASigner(privKey *rsa.PrivateKey) *rsaSigner {

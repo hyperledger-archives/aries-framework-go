@@ -22,6 +22,8 @@ type SignatureSuite struct {
 type signer interface {
 	// Sign will sign document and return signature
 	Sign(data []byte) ([]byte, error)
+	// Alg return alg.
+	Alg() string
 }
 
 type verifier interface {
@@ -83,6 +85,11 @@ func (s *SignatureSuite) Sign(data []byte) ([]byte, error) {
 // CompactProof indicates weather to compact the proof doc before canonization.
 func (s *SignatureSuite) CompactProof() bool {
 	return s.CompactedProof
+}
+
+// Alg will return algorithm.
+func (s *SignatureSuite) Alg() string {
+	return s.Signer.Alg()
 }
 
 // ErrSignerNotDefined is returned when Sign() is called but signer option is not defined.

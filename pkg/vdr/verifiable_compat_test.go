@@ -283,6 +283,11 @@ func (s *cryptoSigner) Sign(msg []byte) ([]byte, error) {
 	return s.cr.Sign(msg, s.kh)
 }
 
+// Alg return alg.
+func (s *cryptoSigner) Alg() string {
+	return ""
+}
+
 // VerificationMethod returns a public key object (e.g. ed25519.VerificationMethod or *ecdsa.PublicKey).
 func (s *cryptoSigner) PublicKey() interface{} {
 	return s.PubKey

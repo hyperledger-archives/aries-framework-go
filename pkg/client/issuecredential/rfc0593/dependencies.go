@@ -58,6 +58,7 @@ type Provider interface {
 // Signer is used to create signer.SignatureSuite and attach LD proofs.
 type Signer interface {
 	Sign(data []byte) ([]byte, error)
+	Alg() string
 }
 
 // SignatureSuiteSpec specifies how to instantiate a signature suite and its proof.
