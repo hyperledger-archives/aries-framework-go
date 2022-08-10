@@ -30,7 +30,7 @@ const validPresentation = `
     "https://trustbloc.github.io/context/vc/examples-v1.jsonld"
   ],
   "id": "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",
-  "type": "VerifiablePresentation",
+  "type": ["VerifiablePresentation"],
   "verifiableCredential": [
     {
       "@context": [
@@ -62,7 +62,7 @@ const presentationWithoutCredentials = `
     "https://trustbloc.github.io/context/vc/examples-v1.jsonld"
   ],
   "id": "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",
-  "type": "VerifiablePresentation",
+  "type": ["VerifiablePresentation"],
   "holder": "did:example:ebfeb1f712ebc6f1c276e12ec21"
 }
 `
@@ -365,7 +365,7 @@ func TestValidateVP_Type(t *testing.T) {
 	t.Run("accepts verifiable presentation with single VerifiablePresentation type", func(t *testing.T) {
 		raw := &rawPresentation{}
 		require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
-		raw.Type = "VerifiablePresentation"
+		raw.Type = []string{"VerifiablePresentation"}
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		_, err = newTestPresentation(t, bytes)
@@ -409,7 +409,7 @@ func TestValidateVP_Type(t *testing.T) {
 	t.Run("rejects verifiable presentation where single type is not VerifiablePresentation", func(t *testing.T) {
 		raw := &rawPresentation{}
 		require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
-		raw.Type = "CredentialManagerPresentation"
+		raw.Type = []string{"CredentialManagerPresentation"}
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		vp, err := newTestPresentation(t, bytes)

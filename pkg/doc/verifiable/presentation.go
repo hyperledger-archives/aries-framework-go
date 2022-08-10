@@ -291,7 +291,7 @@ func (vp *Presentation) raw() (*rawPresentation, error) {
 		// Not compacting now to support interoperability
 		Context:      vp.Context,
 		ID:           vp.ID,
-		Type:         typesToRaw(vp.Type),
+		Type:         vp.Type,
 		Holder:       vp.Holder,
 		Proof:        proof,
 		CustomFields: vp.CustomFields,
@@ -308,7 +308,7 @@ func (vp *Presentation) raw() (*rawPresentation, error) {
 type rawPresentation struct {
 	Context    interface{}     `json:"@context,omitempty"`
 	ID         string          `json:"id,omitempty"`
-	Type       interface{}     `json:"type,omitempty"`
+	Type       []string        `json:"type,omitempty"`
 	Credential interface{}     `json:"verifiableCredential,omitempty"`
 	Holder     string          `json:"holder,omitempty"`
 	Proof      json.RawMessage `json:"proof,omitempty"`
@@ -432,11 +432,6 @@ func getPresentationOpts(opts []PresentationOpt) *presentationOpts {
 }
 
 func newPresentation(vpRaw *rawPresentation, vpOpts *presentationOpts) (*Presentation, error) {
-	types, err := decodeType(vpRaw.Type)
-	if err != nil {
-		return nil, fmt.Errorf("fill presentation types from raw: %w", err)
-	}
-
 	context, customContext, err := decodeContext(vpRaw.Context)
 	if err != nil {
 		return nil, fmt.Errorf("fill presentation contexts from raw: %w", err)
@@ -456,7 +451,7 @@ func newPresentation(vpRaw *rawPresentation, vpOpts *presentationOpts) (*Present
 		Context:       context,
 		CustomContext: customContext,
 		ID:            vpRaw.ID,
-		Type:          types,
+		Type:          vpRaw.Type,
 		credentials:   creds,
 		Holder:        vpRaw.Holder,
 		Proofs:        proofs,
