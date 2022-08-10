@@ -1361,15 +1361,13 @@ func TestParseSubject(t *testing.T) {
 
 		subject, err := parseSubject(subjectBytes)
 		require.NoError(t, err)
-		require.Len(t, subject, 1)
-		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subject[0].ID)
-		require.Empty(t, subject[0].CustomFields)
+		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subject.(string))
 	})
 
 	t.Run("Parse empty subject", func(t *testing.T) {
 		subject, err := parseSubject(nil)
 		require.NoError(t, err)
-		require.Len(t, subject, 0)
+		require.Nil(t, subject)
 	})
 
 	t.Run("Parse single Subject object", func(t *testing.T) {
@@ -1383,10 +1381,10 @@ func TestParseSubject(t *testing.T) {
 		subject, err := parseSubject(subjectBytes)
 		require.NoError(t, err)
 		require.Len(t, subject, 1)
-		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subject[0].ID)
-		require.NotEmpty(t, subject[0].CustomFields)
-		require.Equal(t, "Jayden Doe", subject[0].CustomFields["name"])
-		require.Equal(t, "did:example:c276e12ec21ebfeb1f712ebc6f1", subject[0].CustomFields["spouse"])
+		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subject.([]Subject)[0].ID)
+		require.NotEmpty(t, subject.([]Subject)[0].CustomFields)
+		require.Equal(t, "Jayden Doe", subject.([]Subject)[0].CustomFields["name"])
+		require.Equal(t, "did:example:c276e12ec21ebfeb1f712ebc6f1", subject.([]Subject)[0].CustomFields["spouse"])
 	})
 
 	t.Run("Parse several Subject objects", func(t *testing.T) {
@@ -1407,14 +1405,14 @@ func TestParseSubject(t *testing.T) {
 		subject, err := parseSubject(subjectBytes)
 		require.NoError(t, err)
 		require.Len(t, subject, 2)
-		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subject[0].ID)
-		require.NotEmpty(t, subject[0].CustomFields)
-		require.Equal(t, "Jayden Doe", subject[0].CustomFields["name"])
-		require.Equal(t, "did:example:c276e12ec21ebfeb1f712ebc6f1", subject[0].CustomFields["spouse"])
-		require.Equal(t, "did:example:c276e12ec21ebfeb1f712ebc6f1", subject[1].ID)
-		require.NotEmpty(t, subject[1].CustomFields)
-		require.Equal(t, "Morgan Doe", subject[1].CustomFields["name"])
-		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subject[1].CustomFields["spouse"])
+		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subject.([]Subject)[0].ID)
+		require.NotEmpty(t, subject.([]Subject)[0].CustomFields)
+		require.Equal(t, "Jayden Doe", subject.([]Subject)[0].CustomFields["name"])
+		require.Equal(t, "did:example:c276e12ec21ebfeb1f712ebc6f1", subject.([]Subject)[0].CustomFields["spouse"])
+		require.Equal(t, "did:example:c276e12ec21ebfeb1f712ebc6f1", subject.([]Subject)[1].ID)
+		require.NotEmpty(t, subject.([]Subject)[1].CustomFields)
+		require.Equal(t, "Morgan Doe", subject.([]Subject)[1].CustomFields["name"])
+		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subject.([]Subject)[1].CustomFields["spouse"])
 	})
 }
 
@@ -1467,12 +1465,9 @@ func TestMarshalSubject(t *testing.T) {
 	t.Run("Marshal Subject with ID defined only", func(t *testing.T) {
 		subject := Subject{ID: "did:example:76e12ec712ebc6f1c221ebfeb1f"}
 
-		expectedSubjectBytes, err := json.Marshal("did:example:76e12ec712ebc6f1c221ebfeb1f")
-		require.NoError(t, err)
-
 		subjectBytes, err := subject.MarshalJSON()
 		require.NoError(t, err)
-		require.Equal(t, expectedSubjectBytes, subjectBytes)
+		require.Equal(t, `{"id":"did:example:76e12ec712ebc6f1c221ebfeb1f"}`, string(subjectBytes))
 	})
 
 	t.Run("Marshal Subject with ID, name, spouse defined", func(t *testing.T) {
@@ -2034,7 +2029,7 @@ func TestSubjectToBytes(t *testing.T) {
 			ID: "did:example:ebfeb1f712ebc6f1c276e12ec21",
 		})
 		r.NoError(err)
-		r.Equal("\"did:example:ebfeb1f712ebc6f1c276e12ec21\"", string(subjectBytes))
+		r.Equal("{\"id\":\"did:example:ebfeb1f712ebc6f1c276e12ec21\"}", string(subjectBytes))
 
 		subjectBytes, err = subjectToBytes(Subject{
 			ID: "did:example:ebfeb1f712ebc6f1c276e12ec21",

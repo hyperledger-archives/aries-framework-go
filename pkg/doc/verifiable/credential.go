@@ -456,11 +456,6 @@ type Subject struct {
 
 // MarshalJSON marshals Subject to JSON.
 func (s *Subject) MarshalJSON() ([]byte, error) {
-	if len(s.CustomFields) == 0 {
-		// Subject ID as string
-		return json.Marshal(s.ID)
-	}
-
 	type Alias Subject
 
 	alias := Alias(*s)
@@ -730,7 +725,7 @@ func parseIssuer(issuerBytes json.RawMessage) (Issuer, error) {
 // parseSubject parses raw credential subject.
 //
 // Subject can be defined as a string (subject ID) or single object or array of objects.
-func parseSubject(subjectBytes json.RawMessage) ([]Subject, error) {
+func parseSubject(subjectBytes json.RawMessage) (interface{}, error) {
 	if len(subjectBytes) == 0 {
 		return nil, nil
 	}
@@ -739,10 +734,7 @@ func parseSubject(subjectBytes json.RawMessage) ([]Subject, error) {
 
 	err := json.Unmarshal(subjectBytes, &subjectID)
 	if err == nil {
-		return []Subject{{
-			ID:           subjectID,
-			CustomFields: make(CustomFields),
-		}}, nil
+		return subjectID, nil
 	}
 
 	var subject Subject
@@ -806,7 +798,6 @@ func ParseCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) 
 	if err != nil {
 		return nil, fmt.Errorf("decode new credential: %w", err)
 	}
-
 	// Unmarshal raw credential from JSON.
 	var raw rawCredential
 
