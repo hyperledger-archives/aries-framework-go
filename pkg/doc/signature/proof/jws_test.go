@@ -82,9 +82,7 @@ func TestCreateDetachedJWTHeader(t *testing.T) {
 		return jwtHeaderMap
 	}
 
-	jwtHeader := CreateDetachedJWTHeader(&Proof{
-		Type: "Ed25519Signature2018",
-	})
+	jwtHeader := CreateDetachedJWTHeader("EdDSA")
 	require.NotEmpty(t, jwtHeader)
 
 	jwtHeaderMap := getJwtHeaderMap(jwtHeader)
@@ -92,9 +90,7 @@ func TestCreateDetachedJWTHeader(t *testing.T) {
 	require.Equal(t, false, jwtHeaderMap["b64"])
 	require.Equal(t, []interface{}{"b64"}, jwtHeaderMap["crit"])
 
-	jwtHeader = CreateDetachedJWTHeader(&Proof{
-		Type: "EcdsaSecp256k1Signature2019",
-	})
+	jwtHeader = CreateDetachedJWTHeader("ES256K")
 	require.NotEmpty(t, jwtHeader)
 
 	jwtHeaderMap = getJwtHeaderMap(jwtHeader)
@@ -102,14 +98,11 @@ func TestCreateDetachedJWTHeader(t *testing.T) {
 	require.Equal(t, false, jwtHeaderMap["b64"])
 	require.Equal(t, []interface{}{"b64"}, jwtHeaderMap["crit"])
 
-	jwtHeader = CreateDetachedJWTHeader(&Proof{
-		Type: "JsonWebSignature2020",
-	})
+	jwtHeader = CreateDetachedJWTHeader("EdDSA")
 	require.NotEmpty(t, jwtHeader)
 
 	jwtHeaderMap = getJwtHeaderMap(jwtHeader)
-	// TODO this should be improved (https://github.com/hyperledger/aries-framework-go/issues/1589)
-	require.Equal(t, "JsonWebSignature2020", jwtHeaderMap["alg"])
+	require.Equal(t, "EdDSA", jwtHeaderMap["alg"])
 	require.Equal(t, false, jwtHeaderMap["b64"])
 	require.Equal(t, []interface{}{"b64"}, jwtHeaderMap["crit"])
 }

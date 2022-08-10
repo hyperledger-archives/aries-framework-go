@@ -211,6 +211,12 @@ func (s *kmsSigner) Sign(data []byte) ([]byte, error) {
 	return v, nil
 }
 
+// Alg return alg.
+func (s *kmsSigner) Alg() string {
+	// TODO return correct alg
+	return ""
+}
+
 // provider contains dependencies for the verifiable command and is typically created by using aries.Context().
 type provider interface {
 	StorageProvider() storage.Provider

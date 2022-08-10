@@ -2052,6 +2052,10 @@ func (s *testSigner) Sign(doc []byte) ([]byte, error) {
 	return ed25519.Sign(s.privateKey, doc), nil
 }
 
+func (s *testSigner) Alg() string {
+	return ""
+}
+
 const validDocWithProof = `{
 	"@context": ["https://w3id.org/did/v1"],
 	"created": "2019-09-23T14:16:59.261024-04:00",

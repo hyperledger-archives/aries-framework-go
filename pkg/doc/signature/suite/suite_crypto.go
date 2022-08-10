@@ -30,6 +30,11 @@ func (s *CryptoSigner) Sign(msg []byte) ([]byte, error) {
 	return s.cr.Sign(msg, s.kh)
 }
 
+// Alg return alg.
+func (s *CryptoSigner) Alg() string {
+	return ""
+}
+
 // CryptoVerifier defines signature verifier based on crypto.
 type CryptoVerifier struct {
 	cr crypto.Crypto

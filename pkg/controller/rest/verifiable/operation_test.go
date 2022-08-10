@@ -1526,6 +1526,10 @@ func (s *bbsSigner) Sign(data []byte) ([]byte, error) {
 	return bbs12381g2pub.New().Sign(msgs, s.privKeyBytes)
 }
 
+func (s *bbsSigner) Alg() string {
+	return ""
+}
+
 func (s *bbsSigner) textToLines(txt string) [][]byte {
 	lines := strings.Split(txt, "\n")
 	linesBytes := make([][]byte, 0, len(lines))

@@ -240,6 +240,11 @@ func (s *kmsSigner) Sign(data []byte) ([]byte, error) {
 	return v, nil
 }
 
+func (s *kmsSigner) Alg() string {
+	// TODO return correct alg
+	return ""
+}
+
 // importKeyJWK imports private key jwk found in key contents,
 // supported curve types - Ed25519, P-256, BLS12381G2.
 func importKeyJWK(auth string, key *keyContent) error {

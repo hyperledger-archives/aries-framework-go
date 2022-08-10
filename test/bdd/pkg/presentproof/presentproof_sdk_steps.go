@@ -918,6 +918,11 @@ func (s *signer) Sign(data []byte) ([]byte, error) {
 	return s.cr.Sign(data, kh)
 }
 
+// Alg return alg.
+func (s *signer) Alg() string {
+	return ""
+}
+
 type bbsSigner struct{ *signer }
 
 func newBBSSigner(km kms.KeyManager, cr crypto.Crypto, keyID string) *bbsSigner {
@@ -944,4 +949,9 @@ func (s *bbsSigner) textToLines(txt string) [][]byte {
 	}
 
 	return linesBytes
+}
+
+// Alg return alg.
+func (s *bbsSigner) Alg() string {
+	return ""
 }
