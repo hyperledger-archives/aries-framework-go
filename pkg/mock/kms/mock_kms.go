@@ -45,7 +45,7 @@ type KeyManager struct {
 }
 
 // Create a new mock ey/keyset/key handle for the type kt.
-func (k *KeyManager) Create(kt kmsservice.KeyType) (string, interface{}, error) {
+func (k *KeyManager) Create(kt kmsservice.KeyType, opts ...kmsservice.KeyOpts) (string, interface{}, error) {
 	if k.CreateKeyErr != nil {
 		return "", nil, k.CreateKeyErr
 	}
@@ -67,7 +67,8 @@ func (k *KeyManager) Get(keyID string) (interface{}, error) {
 }
 
 // Rotate returns a mocked rotated keyset handle and its ID.
-func (k *KeyManager) Rotate(kt kmsservice.KeyType, keyID string) (string, interface{}, error) {
+func (k *KeyManager) Rotate(kt kmsservice.KeyType, keyID string,
+	opts ...kmsservice.KeyOpts) (string, interface{}, error) {
 	if k.RotateKeyErr != nil {
 		return "", nil, k.RotateKeyErr
 	}
@@ -85,7 +86,8 @@ func (k *KeyManager) ExportPubKeyBytes(keyID string) ([]byte, kmsservice.KeyType
 }
 
 // CreateAndExportPubKeyBytes return a mocked kid and []byte public key.
-func (k *KeyManager) CreateAndExportPubKeyBytes(kt kmsservice.KeyType) (string, []byte, error) {
+func (k *KeyManager) CreateAndExportPubKeyBytes(kt kmsservice.KeyType,
+	opts ...kmsservice.KeyOpts) (string, []byte, error) {
 	if k.CrAndExportPubKeyErr != nil {
 		return "", nil, k.CrAndExportPubKeyErr
 	}
@@ -94,7 +96,8 @@ func (k *KeyManager) CreateAndExportPubKeyBytes(kt kmsservice.KeyType) (string, 
 }
 
 // PubKeyBytesToHandle will return a mocked keyset.Handle representing a public key handle.
-func (k *KeyManager) PubKeyBytesToHandle(pubKey []byte, keyType kmsservice.KeyType) (interface{}, error) {
+func (k *KeyManager) PubKeyBytesToHandle(pubKey []byte, keyType kmsservice.KeyType,
+	opts ...kmsservice.KeyOpts) (interface{}, error) {
 	if k.PubKeyBytesToHandleErr != nil {
 		return nil, k.PubKeyBytesToHandleErr
 	}

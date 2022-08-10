@@ -22,15 +22,16 @@ import (
 	"github.com/google/tink/go/subtle"
 
 	bbspb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/bbs_go_proto"
+	clpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/cl_go_proto"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
-func publicKeyBytesToHandle(pubKey []byte, kt kms.KeyType) (*keyset.Handle, error) {
+func publicKeyBytesToHandle(pubKey []byte, kt kms.KeyType, opts ...kms.KeyOpts) (*keyset.Handle, error) {
 	if len(pubKey) == 0 {
 		return nil, fmt.Errorf("pubKey is empty")
 	}
 
-	marshalledKey, tURL, err := getMarshalledProtoKeyAndKeyURL(pubKey, kt)
+	marshalledKey, tURL, err := getMarshalledProtoKeyAndKeyURL(pubKey, kt, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("error getting marshalled proto key: %w", err)
 	}
@@ -68,7 +69,9 @@ func newKeySet(tURL string, marshalledKey []byte, keyMaterialType tinkpb.KeyData
 	}
 }
 
-func getMarshalledProtoKeyAndKeyURL(pubKey []byte, kt kms.KeyType) ([]byte, string, error) { //nolint:funlen,gocyclo
+//nolint:funlen,gocyclo
+func getMarshalledProtoKeyAndKeyURL(pubKey []byte, kt kms.KeyType,
+	opts ...kms.KeyOpts) ([]byte, string, error) {
 	var (
 		tURL     string
 		keyValue []byte
@@ -158,6 +161,18 @@ func getMarshalledProtoKeyAndKeyURL(pubKey []byte, kt kms.KeyType) ([]byte, stri
 		pubKeyProto := new(bbspb.BBSPublicKey)
 		pubKeyProto.Version = 0
 		pubKeyProto.Params = buidBBSParams(kt)
+		pubKeyProto.KeyValue = make([]byte, len(pubKey))
+		copy(pubKeyProto.KeyValue, pubKey)
+
+		keyValue, err = proto.Marshal(pubKeyProto)
+		if err != nil {
+			return nil, "", err
+		}
+	case kms.CLCredDefType:
+		tURL = clCredDefKeyTypeURL
+		pubKeyProto := new(clpb.CLCredDefPublicKey)
+		pubKeyProto.Version = 0
+		pubKeyProto.Params = buidCLCredDefParams(kt, opts...)
 		pubKeyProto.KeyValue = make([]byte, len(pubKey))
 		copy(pubKeyProto.KeyValue, pubKey)
 
