@@ -126,7 +126,7 @@ func (cm *CredentialManifest) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	err = cm.validate()
+	err = cm.Validate()
 	if err != nil {
 		return fmt.Errorf("invalid credential manifest: %w", err)
 	}
@@ -136,7 +136,7 @@ func (cm *CredentialManifest) UnmarshalJSON(data []byte) error {
 
 // Validate ensures that this CredentialManifest is valid as per the spec.
 // Note that this function is automatically called when unmarshalling a []byte into a CredentialManifest.
-func (cm *CredentialManifest) validate() error {
+func (cm *CredentialManifest) Validate() error {
 	if cm.Issuer.ID == "" {
 		return errors.New("issuer ID missing")
 	}
