@@ -827,3 +827,33 @@ func closeResponseBody(respBody io.Closer, logger spi.Logger, action string) {
 		logger.Errorf("Failed to close response body for '%s' REST call: %s", action, err.Error())
 	}
 }
+
+// Blind will blind provided values with MasterSecret provided in a kh
+// returns:
+// 		blinded values in []byte
+//		error in case of errors
+// TO BE IMPLEMENTED.
+func (r *RemoteCrypto) Blind(kh interface{}, values ...map[string]interface{}) ([][]byte, error) {
+	return nil, errors.New("not implemented")
+}
+
+// GetCorrectnessProof will return correctness proof for a public key handle
+// returns:
+// 		correctness proof in []byte
+//		error in case of errors
+// TO BE IMPLEMENTED.
+func (r *RemoteCrypto) GetCorrectnessProof(kh interface{}) ([]byte, error) {
+	return nil, errors.New("not implemented")
+}
+
+// SignWithSecrets will generate a signature and related correctness proof
+// for the provided values using secrets and related DID
+// returns:
+// 		signature in []byte
+// 		correctness proof in []byte
+//		error in case of errors
+// TO BE IMPLEMENTED.
+func (r *RemoteCrypto) SignWithSecrets(kh interface{}, values map[string]interface{},
+	secrets []byte, correctnessProof []byte, nonces [][]byte, did string) ([]byte, []byte, error) {
+	return nil, nil, errors.New("not implemented")
+}

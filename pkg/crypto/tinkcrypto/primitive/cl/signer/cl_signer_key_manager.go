@@ -7,7 +7,7 @@ Copyright Avast Software. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package issuer
+package signer
 
 import (
 	"errors"
@@ -16,80 +16,93 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/tink/go/keyset"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
+	"github.com/hyperledger/ursa-wrapper-go/pkg/libursa/ursa"
+
 	clsubtle "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/cl/subtle"
 	clpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/cl_go_proto"
-	"github.com/hyperledger/ursa-wrapper-go/pkg/libursa/ursa"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/ursautil"
 )
 
 const (
-	clIssuerKeyVersion = 0
-	clIssuerKeyTypeURL = "type.hyperledger.org/hyperledger.aries.crypto.tink.CLIssuerKey"
+	clSignerKeyVersion = 0
+	clSignerKeyTypeURL = "type.hyperledger.org/hyperledger.aries.crypto.tink.CLCredDefKey"
 )
 
 // common errors.
 var (
-	errInvalidCLIssuerKey       = errors.New("cl_issuer_key_manager: invalid cred def key")
-	errInvalidCLIssuerKeyFormat = errors.New("cl_issuer_key_manager: invalid cred def key format")
-	errInvalidKeyUrsa           = errors.New("cl_issuer_key_manager: can not create Ursa cred def key")
+	errInvalidCLSignerKey       = errors.New("cl_signer_key_manager: invalid cred def key")
+	errInvalidCLSignerKeyFormat = errors.New("cl_signer_key_manager: invalid cred def key format")
+	errInvalidKeyUrsa           = errors.New("cl_signer_key_manager: can not create Ursa cred def key")
 )
 
-// clIssuerKeyManager is an implementation of KeyManager interface for CL signatures/proofs.
-// It generates new CredDefPrivateKeys and produces new instances of CLIssuer subtle.
-type clIssuerKeyManager struct{}
+// clSignerKeyManager is an implementation of KeyManager interface for CL signatures/proofs.
+// It generates new CredDefPrivateKeys and produces new instances of CLSigner subtle.
+type clSignerKeyManager struct{}
 
-// Сreates a new clIssuerKeyManager.
-func newCLIssuerKeyManager() *clIssuerKeyManager {
-	return new(clIssuerKeyManager)
+// Сreates a new clSignerKeyManager.
+func newCLSignerKeyManager() *clSignerKeyManager {
+	return new(clSignerKeyManager)
 }
 
-// Primitive creates a CL Issuer subtle for the given serialized CredDefPrivateKey proto.
-func (km *clIssuerKeyManager) Primitive(serializedKey []byte) (interface{}, error) {
+// Primitive creates a CL Signer subtle for the given serialized CredDefPrivateKey proto.
+func (km *clSignerKeyManager) Primitive(serializedKey []byte) (interface{}, error) {
 	if len(serializedKey) == 0 {
-		return nil, errInvalidCLIssuerKey
+		return nil, errInvalidCLSignerKey
 	}
 
 	key := new(clpb.CLCredDefPrivateKey)
 
 	err := proto.Unmarshal(serializedKey, key)
 	if err != nil {
-		return nil, fmt.Errorf(errInvalidCLIssuerKey.Error()+": invalid proto: %w", err)
+		return nil, fmt.Errorf(errInvalidCLSignerKey.Error()+": invalid proto: %w", err)
 	}
 
 	err = km.validateKey(key)
 	if err != nil {
-		return nil, fmt.Errorf(errInvalidCLIssuerKey.Error()+": %w", err)
+		return nil, fmt.Errorf(errInvalidCLSignerKey.Error()+": %w", err)
 	}
 
-	clIssuer, err := clsubtle.NewCLIssuer(key.KeyValue, key.PublicKey.KeyValue, key.PublicKey.KeyCorrectnessProof, key.PublicKey.Params.Attrs)
+	clSigner, err := clsubtle.NewCLSigner(
+		key.KeyValue,
+		key.PublicKey.KeyValue,
+		key.PublicKey.KeyCorrectnessProof,
+		key.PublicKey.Params.Attrs,
+	)
 	if err != nil {
-		return nil, fmt.Errorf(errInvalidCLIssuerKey.Error()+": invalid ursa key: %w", err)
+		return nil, fmt.Errorf(errInvalidCLSignerKey.Error()+": invalid ursa key: %w", err)
 	}
 
-	return clIssuer, nil
+	return clSigner, nil
 }
 
 // NewKey creates a new key according to the specification of CLCredDefPrivateKey format.
-func (km *clIssuerKeyManager) NewKey(serializedKeyFormat []byte) (proto.Message, error) {
+// nolint: funlen
+func (km *clSignerKeyManager) NewKey(serializedKeyFormat []byte) (proto.Message, error) {
 	if len(serializedKeyFormat) == 0 {
-		return nil, errInvalidCLIssuerKeyFormat
+		return nil, errInvalidCLSignerKeyFormat
 	}
 
 	// 1. Unmarshal to KeyFormat
 	keyFormat := new(clpb.CLCredDefKeyFormat)
+
 	err := proto.Unmarshal(serializedKeyFormat, keyFormat)
 	if err != nil {
-		return nil, fmt.Errorf(errInvalidCLIssuerKeyFormat.Error()+": invalid proto: %w", err)
+		return nil, fmt.Errorf(errInvalidCLSignerKeyFormat.Error()+": invalid proto: %w", err)
 	}
+
 	err = validateKeyFormat(keyFormat)
 	if err != nil {
-		return nil, fmt.Errorf(errInvalidCLIssuerKeyFormat.Error()+": %w", err)
+		return nil, fmt.Errorf(errInvalidCLSignerKeyFormat.Error()+": %w", err)
 	}
 
 	// 2. Create Credentials Schema
-	schema, nonSchema, err := clsubtle.BuildSchema(keyFormat.Params.Attrs)
+	schema, nonSchema, err := ursautil.BuildSchema(keyFormat.Params.Attrs)
 	if err != nil {
 		return nil, fmt.Errorf(errInvalidKeyUrsa.Error()+": %w", err)
 	}
+
+	defer schema.Free()    // nolint: errcheck
+	defer nonSchema.Free() // nolint: errcheck
 
 	// 4. Create CredDef
 	credDef, err := ursa.NewCredentialDef(schema, nonSchema, false)
@@ -97,25 +110,31 @@ func (km *clIssuerKeyManager) NewKey(serializedKeyFormat []byte) (proto.Message,
 		return nil, fmt.Errorf(errInvalidKeyUrsa.Error()+": %w", err)
 	}
 
+	defer credDef.PrivKey.Free()             // nolint: errcheck
+	defer credDef.PubKey.Free()              // nolint: errcheck
+	defer credDef.KeyCorrectnessProof.Free() // nolint: errcheck
+
 	// 5. serialize keys to JSONs
 	pubKeyBytes, err := credDef.PubKey.ToJSON()
 	if err != nil {
 		return nil, fmt.Errorf(errInvalidKeyUrsa.Error()+": can not convert cred def pub key to JSON: %w", err)
 	}
+
 	privKeyBytes, err := credDef.PrivKey.ToJSON()
 	if err != nil {
 		return nil, fmt.Errorf(errInvalidKeyUrsa.Error()+": can not convert cred def priv key to JSON: %w", err)
 	}
+
 	correctnessProofBytes, err := credDef.KeyCorrectnessProof.ToJSON()
 	if err != nil {
 		return nil, fmt.Errorf(errInvalidKeyUrsa.Error()+": can not convert cred def correctness proof to JSON: %w", err)
 	}
 
 	return &clpb.CLCredDefPrivateKey{
-		Version:  clIssuerKeyVersion,
+		Version:  clSignerKeyVersion,
 		KeyValue: privKeyBytes,
 		PublicKey: &clpb.CLCredDefPublicKey{
-			Version:             clIssuerKeyVersion,
+			Version:             clSignerKeyVersion,
 			Params:              keyFormat.Params,
 			KeyValue:            pubKeyBytes,
 			KeyCorrectnessProof: correctnessProofBytes,
@@ -125,7 +144,7 @@ func (km *clIssuerKeyManager) NewKey(serializedKeyFormat []byte) (proto.Message,
 
 // NewKeyData creates a new KeyData according to the specification of CLCredDefPrivateKey Format.
 // It should be used solely by the key management API.
-func (km *clIssuerKeyManager) NewKeyData(serializedKeyFormat []byte) (*tinkpb.KeyData, error) {
+func (km *clSignerKeyManager) NewKeyData(serializedKeyFormat []byte) (*tinkpb.KeyData, error) {
 	key, err := km.NewKey(serializedKeyFormat)
 	if err != nil {
 		return nil, err
@@ -133,53 +152,54 @@ func (km *clIssuerKeyManager) NewKeyData(serializedKeyFormat []byte) (*tinkpb.Ke
 
 	serializedKey, err := proto.Marshal(key)
 	if err != nil {
-		return nil, fmt.Errorf(errInvalidCLIssuerKeyFormat.Error()+": invalid proto: %w", err)
+		return nil, fmt.Errorf(errInvalidCLSignerKeyFormat.Error()+": invalid proto: %w", err)
 	}
 
 	return &tinkpb.KeyData{
-		TypeUrl:         clIssuerKeyTypeURL,
+		TypeUrl:         clSignerKeyTypeURL,
 		Value:           serializedKey,
 		KeyMaterialType: tinkpb.KeyData_ASYMMETRIC_PRIVATE,
 	}, nil
 }
 
 // PublicKeyData returns the enclosed public key data of serializedPrivKey.
-func (km *clIssuerKeyManager) PublicKeyData(serializedPrivKey []byte) (*tinkpb.KeyData, error) {
+func (km *clSignerKeyManager) PublicKeyData(serializedPrivKey []byte) (*tinkpb.KeyData, error) {
 	privKey := new(clpb.CLCredDefPrivateKey)
 
 	err := proto.Unmarshal(serializedPrivKey, privKey)
 	if err != nil {
-		return nil, fmt.Errorf(errInvalidCLIssuerKey.Error()+": invalid proto: %w", err)
+		return nil, fmt.Errorf(errInvalidCLSignerKey.Error()+": invalid proto: %w", err)
 	}
 
 	serializedPubKey, err := proto.Marshal(privKey.PublicKey)
 	if err != nil {
-		return nil, fmt.Errorf(errInvalidCLIssuerKey.Error()+": invalid proto: %w", err)
+		return nil, fmt.Errorf(errInvalidCLSignerKey.Error()+": invalid proto: %w", err)
 	}
 
 	return &tinkpb.KeyData{
-		TypeUrl:         clIssuerKeyTypeURL,
+		TypeUrl:         clSignerKeyTypeURL,
 		Value:           serializedPubKey,
 		KeyMaterialType: tinkpb.KeyData_ASYMMETRIC_PUBLIC,
 	}, nil
 }
 
 // DoesSupport indicates if this key manager supports the given key type.
-func (km *clIssuerKeyManager) DoesSupport(typeURL string) bool {
-	return typeURL == clIssuerKeyTypeURL
+func (km *clSignerKeyManager) DoesSupport(typeURL string) bool {
+	return typeURL == clSignerKeyTypeURL
 }
 
 // TypeURL returns the key type of keys managed by this key manager.
-func (km *clIssuerKeyManager) TypeURL() string {
-	return clIssuerKeyTypeURL
+func (km *clSignerKeyManager) TypeURL() string {
+	return clSignerKeyTypeURL
 }
 
-// validateKey validates the given CLCredDefPrivateKey
-func (km *clIssuerKeyManager) validateKey(key *clpb.CLCredDefPrivateKey) error {
-	err := keyset.ValidateKeyVersion(key.Version, clIssuerKeyVersion)
+// validateKey validates the given CLCredDefPrivateKey.
+func (km *clSignerKeyManager) validateKey(key *clpb.CLCredDefPrivateKey) error {
+	err := keyset.ValidateKeyVersion(key.Version, clSignerKeyVersion)
 	if err != nil {
 		return fmt.Errorf("invalid key version: %w", err)
 	}
+
 	return validateKeyParams(key.PublicKey.Params)
 }
 
@@ -191,5 +211,6 @@ func validateKeyParams(params *clpb.CLCredDefParams) error {
 	if len(params.Attrs) == 0 {
 		return fmt.Errorf("empty attributes")
 	}
+
 	return nil
 }

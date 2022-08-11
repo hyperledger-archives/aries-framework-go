@@ -1199,6 +1199,36 @@ func TestNonOKStatusCode(t *testing.T) {
 	})
 }
 
+func TestCLMethods(t *testing.T) {
+	hf := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	})
+
+	server, url, client := CreateMockHTTPServerAndClient(t, hf)
+
+	defer func() {
+		e := server.Close()
+		require.NoError(t, e)
+	}()
+
+	defaultKeystoreURL := fmt.Sprintf("%s/%s", strings.ReplaceAll(webkmsimpl.KeystoreEndpoint,
+		"{serverEndpoint}", url), defaultKeyStoreID)
+	rCrypto := New(defaultKeystoreURL, client)
+
+	t.Run("test CL methods return not implemented", func(t *testing.T) {
+		errNotImplemented := errors.New("not implemented")
+		var err error
+
+		_, err = rCrypto.GetCorrectnessProof(nil)
+		require.EqualError(t, err, errNotImplemented.Error())
+
+		_, _, err = rCrypto.SignWithSecrets(nil, map[string]interface{}{}, nil, nil, nil, "")
+		require.EqualError(t, err, errNotImplemented.Error())
+
+		_, err = rCrypto.Blind(nil, map[string]interface{}{})
+		require.EqualError(t, err, errNotImplemented.Error())
+	})
+}
+
 // nolint:gocyclo
 func processBBSPOSTRequest(w http.ResponseWriter, r *http.Request, sigKH *keyset.Handle) error {
 	if valid := validateHTTPMethod(w, r); !valid {

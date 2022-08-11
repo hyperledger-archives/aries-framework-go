@@ -23,33 +23,40 @@ type DeriveProofFunc func([][]byte, []byte, []byte, []int, interface{}) ([]byte,
 
 // Crypto mock.
 type Crypto struct {
-	EncryptValue      []byte
-	EncryptNonceValue []byte
-	EncryptErr        error
-	DecryptValue      []byte
-	DecryptErr        error
-	SignValue         []byte
-	SignKey           []byte
-	SignFn            SignFunc
-	SignErr           error
-	VerifyErr         error
-	ComputeMACValue   []byte
-	ComputeMACErr     error
-	VerifyMACErr      error
-	WrapValue         *cryptoapi.RecipientWrappedKey
-	WrapError         error
-	UnwrapValue       []byte
-	UnwrapError       error
-	BBSSignValue      []byte
-	BBSSignKey        []byte
-	BBSSignFn         BBSSignFunc
-	BBSSignErr        error
-	BBSVerifyErr      error
-	VerifyProofErr    error
-	DeriveProofValue  []byte
-	DeriveProofKey    []byte
-	DeriveProofFn     DeriveProofFunc
-	DeriveProofError  error
+	EncryptValue             []byte
+	EncryptNonceValue        []byte
+	EncryptErr               error
+	DecryptValue             []byte
+	DecryptErr               error
+	SignValue                []byte
+	SignKey                  []byte
+	SignFn                   SignFunc
+	SignErr                  error
+	VerifyErr                error
+	ComputeMACValue          []byte
+	ComputeMACErr            error
+	VerifyMACErr             error
+	WrapValue                *cryptoapi.RecipientWrappedKey
+	WrapError                error
+	UnwrapValue              []byte
+	UnwrapError              error
+	BBSSignValue             []byte
+	BBSSignKey               []byte
+	BBSSignFn                BBSSignFunc
+	BBSSignErr               error
+	BBSVerifyErr             error
+	VerifyProofErr           error
+	DeriveProofValue         []byte
+	DeriveProofKey           []byte
+	DeriveProofFn            DeriveProofFunc
+	DeriveProofError         error
+	BlindValue               [][]byte
+	BlindError               error
+	GetCorrectnessProofValue []byte
+	GetCorrectnessProofError error
+	SignWithSecretsValue     []byte
+	SignWithSecretsProof     []byte
+	SignWithSecretsError     error
 }
 
 // Encrypt returns mocked values and a mocked error.
@@ -132,4 +139,30 @@ func (c *Crypto) DeriveProof(messages [][]byte, bbsSignature, nonce []byte, reve
 	}
 
 	return c.DeriveProofValue, c.DeriveProofError
+}
+
+// Blind returns a mocked blinded vals and a mocked error.
+// returns:
+// 		blinded values in []byte
+//		error in case of errors
+func (c *Crypto) Blind(kh interface{}, values ...map[string]interface{}) ([][]byte, error) {
+	return c.BlindValue, c.BlindError
+}
+
+// GetCorrectnessProof returns a mocked correctness proof value and a mocked error.
+// returns:
+// 		correctness proof in []byte
+//		error in case of errors
+func (c *Crypto) GetCorrectnessProof(kh interface{}) ([]byte, error) {
+	return c.GetCorrectnessProofValue, c.GetCorrectnessProofError
+}
+
+// SignWithSecrets returns the mocked signature and correctness proof values and a mocked error.
+// returns:
+// 		signature in []byte
+// 		correctness proof in []byte
+//		error in case of errors
+func (c *Crypto) SignWithSecrets(kh interface{}, values map[string]interface{},
+	secrets []byte, correctnessProof []byte, nonces [][]byte, did string) ([]byte, []byte, error) {
+	return c.SignWithSecretsValue, c.SignWithSecretsProof, c.SignWithSecretsError
 }

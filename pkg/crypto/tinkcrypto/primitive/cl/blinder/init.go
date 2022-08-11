@@ -7,7 +7,7 @@ Copyright Avast Software. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package prover
+package blinder
 
 import (
 	"fmt"
@@ -19,7 +19,7 @@ import (
 // nolint: gochecknoinits
 func init() {
 	// TODO - avoid the tink registry singleton.
-	err := registry.RegisterKeyManager(newCLProverKeyManager())
+	err := registry.RegisterKeyManager(newCLBlinderKeyManager())
 	if err != nil {
 		panic(fmt.Sprintf("prover.init() failed: %v", err))
 	}

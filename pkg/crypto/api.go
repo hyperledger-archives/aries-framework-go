@@ -84,6 +84,24 @@ type Crypto interface {
 	// 		signature proof in []byte
 	//		error in case of errors
 	DeriveProof(messages [][]byte, bbsSignature, nonce []byte, revealedIndexes []int, kh interface{}) ([]byte, error)
+	// Blind will blind provided values and add blinded data realted to the key in kh
+	// returns:
+	// 		blinded values in []byte
+	//		error in case of errors
+	Blind(kh interface{}, values ...map[string]interface{}) ([][]byte, error)
+	// GetCorrectnessProof will return correctness proof for a public key handle
+	// returns:
+	// 		correctness proof in []byte
+	//		error in case of errors
+	GetCorrectnessProof(kh interface{}) ([]byte, error)
+	// SignWithSecrets will generate a signature and related correctness proof
+	// for the provided values using secrets and related DID
+	// returns:
+	// 		signature in []byte
+	// 		correctness proof in []byte
+	//		error in case of errors
+	SignWithSecrets(kh interface{}, values map[string]interface{},
+		secrets []byte, correctnessProof []byte, nonces [][]byte, did string) ([]byte, []byte, error)
 }
 
 // DefKeySize is the default key size for crypto primitives.
