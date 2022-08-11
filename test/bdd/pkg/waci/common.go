@@ -14,16 +14,13 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	issuecredentialclient "github.com/hyperledger/aries-framework-go/pkg/client/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/cm"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	ldstore "github.com/hyperledger/aries-framework-go/pkg/store/ld"
-	bddldcontext "github.com/hyperledger/aries-framework-go/test/bdd/pkg/ldcontext"
+	bddverifiable "github.com/hyperledger/aries-framework-go/test/bdd/pkg/verifiable"
 )
 
 const expectedVCID = "https://eu.com/claims/DriversLicense"
@@ -212,7 +209,7 @@ func generateCredentialFulfillmentAttachmentWithoutProof() (*decorator.GenericAt
 		"CredentialFulfillment",
 	}
 
-	documentLoader, err := createDocumentLoader()
+	documentLoader, err := bddverifiable.CreateDocumentLoader()
 	if err != nil {
 		return nil, err
 	}
@@ -285,7 +282,7 @@ func generateCredentialApplicationAttachment(credentialManifest *cm.CredentialMa
 		return nil, err
 	}
 
-	documentLoader, err := createDocumentLoader()
+	documentLoader, err := bddverifiable.CreateDocumentLoader()
 	if err != nil {
 		return nil, err
 	}
@@ -349,7 +346,7 @@ func generateIssueCredentialMsg(msgType string) (*issuecredentialclient.IssueCre
 		return nil, err
 	}
 
-	documentLoader, err := createDocumentLoader()
+	documentLoader, err := bddverifiable.CreateDocumentLoader()
 	if err != nil {
 		return nil, err
 	}
@@ -485,7 +482,7 @@ func getVCFromCredentialFulfillmentAttachment(credentialFulfillmentAttachment *d
 		return verifiable.Credential{}, err
 	}
 
-	documentLoader, err := createDocumentLoader()
+	documentLoader, err := bddverifiable.CreateDocumentLoader()
 	if err != nil {
 		return verifiable.Credential{}, err
 	}
@@ -501,41 +498,4 @@ func getVCFromCredentialFulfillmentAttachment(credentialFulfillmentAttachment *d
 	}
 
 	return vcs[0], nil
-}
-
-type docLoaderProvider struct {
-	ContextStore        ldstore.ContextStore
-	RemoteProviderStore ldstore.RemoteProviderStore
-}
-
-func (p *docLoaderProvider) JSONLDContextStore() ldstore.ContextStore {
-	return p.ContextStore
-}
-
-func (p *docLoaderProvider) JSONLDRemoteProviderStore() ldstore.RemoteProviderStore {
-	return p.RemoteProviderStore
-}
-
-func createDocumentLoader() (*ld.DocumentLoader, error) {
-	contextStore, err := ldstore.NewContextStore(mem.NewProvider())
-	if err != nil {
-		return nil, err
-	}
-
-	remoteProviderStore, err := ldstore.NewRemoteProviderStore(mem.NewProvider())
-	if err != nil {
-		return nil, err
-	}
-
-	p := &docLoaderProvider{
-		ContextStore:        contextStore,
-		RemoteProviderStore: remoteProviderStore,
-	}
-
-	loader, err := ld.NewDocumentLoader(p, ld.WithExtraContexts(bddldcontext.Extra()...))
-	if err != nil {
-		return nil, err
-	}
-
-	return loader, nil
 }

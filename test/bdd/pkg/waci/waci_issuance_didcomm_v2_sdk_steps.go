@@ -27,6 +27,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
+	bddverifiable "github.com/hyperledger/aries-framework-go/test/bdd/pkg/verifiable"
 )
 
 var (
@@ -244,7 +245,7 @@ func (i *IssuanceSDKDIDCommV2Steps) acceptCredentialApplication(issuerName strin
 		return fmt.Errorf("failed to marshal credential_application object: %w", err)
 	}
 
-	documentLoader, err := createDocumentLoader()
+	documentLoader, err := bddverifiable.CreateDocumentLoader()
 	if err != nil {
 		return err
 	}
@@ -424,7 +425,7 @@ func (i *IssuanceSDKDIDCommV2Steps) checkAttachments(attachmentsFromOfferMsg []d
 			expectedCredentialManifestID, credentialFulfillment.ManifestID)
 	}
 
-	documentLoader, err := createDocumentLoader()
+	documentLoader, err := bddverifiable.CreateDocumentLoader()
 	if err != nil {
 		return err
 	}
