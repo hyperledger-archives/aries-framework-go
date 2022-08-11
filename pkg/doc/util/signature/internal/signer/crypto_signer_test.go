@@ -35,14 +35,15 @@ func TestNewCryptoSigner(t *testing.T) {
 	tests := []struct {
 		keyType      kmsapi.KeyType
 		expectedType interface{}
+		expectedAlg  string
 	}{
-		{kmsapi.ED25519Type, ed25519.PublicKey{}},
-		{kmsapi.ECDSAP256TypeDER, &ecdsa.PublicKey{}},
-		{kmsapi.ECDSAP384TypeDER, &ecdsa.PublicKey{}},
-		{kmsapi.ECDSAP521TypeDER, &ecdsa.PublicKey{}},
-		{kmsapi.ECDSAP256TypeIEEEP1363, &ecdsa.PublicKey{}},
-		{kmsapi.ECDSAP384TypeIEEEP1363, &ecdsa.PublicKey{}},
-		{kmsapi.ECDSAP521TypeIEEEP1363, &ecdsa.PublicKey{}},
+		{kmsapi.ED25519Type, ed25519.PublicKey{}, alg},
+		{kmsapi.ECDSAP256TypeDER, &ecdsa.PublicKey{}, p256Alg},
+		{kmsapi.ECDSAP384TypeDER, &ecdsa.PublicKey{}, p384Alg},
+		{kmsapi.ECDSAP521TypeDER, &ecdsa.PublicKey{}, p521Alg},
+		{kmsapi.ECDSAP256TypeIEEEP1363, &ecdsa.PublicKey{}, p256Alg},
+		{kmsapi.ECDSAP384TypeIEEEP1363, &ecdsa.PublicKey{}, p384Alg},
+		{kmsapi.ECDSAP521TypeIEEEP1363, &ecdsa.PublicKey{}, p521Alg},
 	}
 
 	for _, test := range tests {
@@ -65,6 +66,9 @@ func TestNewCryptoSigner(t *testing.T) {
 
 		err = tinkCrypto.Verify(sigMsg, msg, publicKeyHandle)
 		require.NoError(t, err)
+
+		signerAlg := signer.Alg()
+		require.Equal(t, test.expectedAlg, signerAlg)
 	}
 
 	t.Run("error corner cases", func(t *testing.T) {

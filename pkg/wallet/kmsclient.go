@@ -38,6 +38,11 @@ const (
 
 	// number of sections in verification method.
 	vmSectionCount = 2
+
+	p256Alg = "ES256"
+	p384Alg = "ES384"
+	p521Alg = "ES521"
+	edAlg   = "EdDSA"
 )
 
 // supported key types for import key base58 (all constants defined in lower case).
@@ -183,6 +188,7 @@ func createRemoteKeyManager(opts *unlockOpts, keyServerURL string) *webkms.Remot
 }
 
 type kmsSigner struct {
+	keyType   kms.KeyType
 	keyHandle interface{}
 	crypto    crypto.Crypto
 	multiMsg  bool
@@ -206,12 +212,19 @@ func newKMSSigner(authToken string, c crypto.Crypto, opts *ProofOptions) (*kmsSi
 		return nil, errors.New("invalid verification method format")
 	}
 
-	keyHandler, err := keyManager.Get(vmSplit[vmSectionCount-1])
+	kid := vmSplit[vmSectionCount-1]
+
+	keyHandler, err := keyManager.Get(kid)
 	if err != nil {
 		return nil, err
 	}
 
-	return &kmsSigner{keyHandle: keyHandler, crypto: c, multiMsg: opts.ProofType == BbsBlsSignature2020}, nil
+	_, kt, err := keyManager.ExportPubKeyBytes(kid)
+	if err != nil {
+		return nil, err
+	}
+
+	return &kmsSigner{keyType: kt, keyHandle: keyHandler, crypto: c, multiMsg: opts.ProofType == BbsBlsSignature2020}, nil
 }
 
 func (s *kmsSigner) textToLines(txt string) [][]byte {
@@ -241,7 +254,17 @@ func (s *kmsSigner) Sign(data []byte) ([]byte, error) {
 }
 
 func (s *kmsSigner) Alg() string {
-	// TODO return correct alg
+	switch s.keyType {
+	case kms.ECDSAP256IEEEP1363, kms.ECDSAP256DER:
+		return p256Alg
+	case kms.ECDSAP384IEEEP1363, kms.ECDSAP384DER:
+		return p384Alg
+	case kms.ECDSAP521IEEEP1363, kms.ECDSAP521DER:
+		return p521Alg
+	case kms.ED25519:
+		return edAlg
+	}
+
 	return ""
 }
 

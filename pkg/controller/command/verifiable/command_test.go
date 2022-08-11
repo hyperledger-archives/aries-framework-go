@@ -35,6 +35,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
+	kmsapi "github.com/hyperledger/aries-framework-go/pkg/kms"
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	kmsmock "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
@@ -3047,4 +3048,65 @@ func TestBuildKIDOption(t *testing.T) {
 			require.EqualValuesf(t, tc.expectedKID, opts.KID, tc.name)
 		})
 	}
+}
+
+func TestNewKMSSignerAlg(t *testing.T) {
+	t.Run("test signer Alg()", func(t *testing.T) {
+		tests := []struct {
+			name        string
+			kmsKT       kmsapi.KeyType
+			expectedAlg string
+		}{
+			{
+				name:        "test ECDSA alg from P256 key type in DER format",
+				kmsKT:       kmsapi.ECDSAP256DER,
+				expectedAlg: p256Alg,
+			},
+			{
+				name:        "test ECDSA alg from P256 key type in IEEE format",
+				kmsKT:       kmsapi.ECDSAP256IEEEP1363,
+				expectedAlg: p256Alg,
+			},
+			{
+				name:        "test ECDSA alg from P384 key type in DER format",
+				kmsKT:       kmsapi.ECDSAP384DER,
+				expectedAlg: p384Alg,
+			},
+			{
+				name:        "test ECDSA alg from P384 key type in IEEE format",
+				kmsKT:       kmsapi.ECDSAP384IEEEP1363,
+				expectedAlg: p384Alg,
+			},
+			{
+				name:        "test ECDSA alg from P521 key type in DER format",
+				kmsKT:       kmsapi.ECDSAP521DER,
+				expectedAlg: p521Alg,
+			},
+			{
+				name:        "test ECDSA alg from P521 key type in IEEE format",
+				kmsKT:       kmsapi.ECDSAP521IEEEP1363,
+				expectedAlg: p521Alg,
+			},
+			{
+				name:        "test EdDSA alg from ed25519 key type",
+				kmsKT:       kmsapi.ED25519,
+				expectedAlg: edAlg,
+			},
+			{
+				name: "test empty alg from empty key type",
+			},
+		}
+
+		for _, tt := range tests {
+			tc := tt
+
+			t.Run(tc.name, func(t *testing.T) {
+				signer, err := newKMSSigner(&kmsmock.KeyManager{ExportPubKeyTypeValue: tc.kmsKT}, &cryptomock.Crypto{}, "123")
+				require.NoError(t, err)
+
+				alg := signer.Alg()
+				require.Equal(t, tc.expectedAlg, alg)
+			})
+		}
+	})
 }
