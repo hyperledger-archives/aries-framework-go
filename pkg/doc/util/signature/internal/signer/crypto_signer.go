@@ -50,7 +50,21 @@ func (s *CryptoSigner) PublicKeyBytes() []byte {
 
 // Alg returns alg.
 func (s *CryptoSigner) Alg() string {
-	// TODO return correct alg (use pubkey type)
+	switch pubKey := s.PubKey.(type) {
+	case
+		*ecdsa.PublicKey:
+		switch pubKey.Curve {
+		case elliptic.P256():
+			return p256Alg
+		case elliptic.P384():
+			return p384Alg
+		case elliptic.P521():
+			return p521Alg
+		}
+	case ed25519.PublicKey:
+		return alg
+	}
+
 	return ""
 }
 

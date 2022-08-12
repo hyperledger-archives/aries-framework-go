@@ -147,6 +147,11 @@ const (
 
 	// JSONWebKey2020 verification key type.
 	JSONWebKey2020 = "JsonWebKey2020"
+
+	p256Alg = "ES256"
+	p384Alg = "ES384"
+	p521Alg = "ES521"
+	edAlg   = "EdDSA"
 )
 
 type provable interface {
@@ -158,6 +163,7 @@ type keyResolver interface {
 }
 
 type kmsSigner struct {
+	keyType   kms.KeyType
 	keyHandle interface{}
 	crypto    ariescrypto.Crypto
 	bbs       bool
@@ -182,7 +188,12 @@ func newKMSSigner(keyManager kms.KeyManager, c ariescrypto.Crypto, kid string) (
 		return nil, err
 	}
 
-	return &kmsSigner{keyHandle: keyHandler, crypto: c}, nil
+	_, kt, err := keyManager.ExportPubKeyBytes(kid)
+	if err != nil {
+		return nil, err
+	}
+
+	return &kmsSigner{keyType: kt, keyHandle: keyHandler, crypto: c}, nil
 }
 
 func (s *kmsSigner) textToLines(txt string) [][]byte {
@@ -213,7 +224,17 @@ func (s *kmsSigner) Sign(data []byte) ([]byte, error) {
 
 // Alg return alg.
 func (s *kmsSigner) Alg() string {
-	// TODO return correct alg
+	switch s.keyType {
+	case kms.ECDSAP256IEEEP1363, kms.ECDSAP256DER:
+		return p256Alg
+	case kms.ECDSAP384IEEEP1363, kms.ECDSAP384DER:
+		return p384Alg
+	case kms.ECDSAP521IEEEP1363, kms.ECDSAP521DER:
+		return p521Alg
+	case kms.ED25519:
+		return edAlg
+	}
+
 	return ""
 }
 
