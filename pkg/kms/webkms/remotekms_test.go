@@ -266,6 +266,12 @@ func TestCreateKeyWithLocationInResponseBody(t *testing.T) {
 	require.Equal(t, defaultKID, kid1)
 	require.Contains(t, keyURL1, fmt.Sprintf("%s/keys/%s", defaultKeystoreURL, defaultKID))
 
+	// no error if options passed
+	_, _, err = remoteKMS.Create(kms.ED25519Type, kms.WithAttrs([]string{"attr1"}))
+	require.NoError(t, err)
+	_, _, err = remoteKMS.CreateAndExportPubKeyBytes(kms.ED25519Type, kms.WithAttrs([]string{"attr2"}))
+	require.NoError(t, err)
+
 	remoteKMS.unmarshalFunc = failingUnmarshal
 	_, _, err = remoteKMS.Create(kms.ED25519Type)
 	require.Contains(t, err.Error(), "unmarshal failed")

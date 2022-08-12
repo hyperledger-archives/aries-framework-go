@@ -133,6 +133,36 @@ type unwrapKeyResp struct {
 	Key []byte `json:"key"`
 }
 
+// blindReq serializable Blind request.
+type blindReq struct {
+	Values []map[string]interface{} `json:"values,omitempty"`
+}
+
+// blindResp serializable Blind response.
+type blindResp struct {
+	Blinded [][]byte `json:"blinded"`
+}
+
+// correctnessProofResp serializable GetCorrectnessProof response.
+type correctnessProofResp struct {
+	CorrectnessProof []byte `json:"correctness_proof"`
+}
+
+// signWithSecretsReq serializable SignWithSecrets request.
+type signWithSecretsReq struct {
+	Values           map[string]interface{} `json:"values"`
+	Secrets          []byte                 `json:"secrets"`
+	CorrectnessProof []byte                 `json:"correctness_proof"`
+	Nonces           [][]byte               `json:"nonces"`
+	DID              string                 `json:"did"`
+}
+
+// blindResp serializable Blind response.
+type signWithSecretsResp struct {
+	Signature        []byte `json:"signature"`
+	CorrectnessProof []byte `json:"correctness_proof"`
+}
+
 type marshalFunc func(interface{}) ([]byte, error)
 
 type unmarshalFunc func([]byte, interface{}) error
@@ -162,6 +192,11 @@ const (
 	verifyMultiURI = "/verifymulti"
 	deriveProofURI = "/deriveproof"
 	verifyProofURI = "/verifyproof"
+
+	// cl blind/sign endpoints.
+	blindURI            = "/blind"
+	correctnessProofURI = "/correctnessproof"
+	signWithSecretsURI  = "/signwithsecrets"
 )
 
 // New creates a new remoteCrypto instance using http client connecting to keystoreURL.
@@ -185,10 +220,20 @@ func (r *RemoteCrypto) postHTTPRequest(destination string, mReq []byte) (*http.R
 	return r.doHTTPRequest(http.MethodPost, destination, mReq)
 }
 
+func (r *RemoteCrypto) getHTTPRequest(destination string) (*http.Response, error) {
+	return r.doHTTPRequest(http.MethodGet, destination, nil)
+}
+
 func (r *RemoteCrypto) doHTTPRequest(method, destination string, mReq []byte) (*http.Response, error) {
 	start := time.Now()
 
-	httpReq, err := http.NewRequest(method, destination, bytes.NewBuffer(mReq))
+	var body io.Reader
+
+	if mReq != nil {
+		body = bytes.NewBuffer(mReq)
+	}
+
+	httpReq, err := http.NewRequest(method, destination, body)
 	if err != nil {
 		return nil, fmt.Errorf("build request error: %w", err)
 	}
@@ -820,30 +865,87 @@ func (r *RemoteCrypto) DeriveProof(messages [][]byte, bbsSignature, nonce []byte
 	return httpResp.Proof, nil
 }
 
-// closeResponseBody closes the response body.
-func closeResponseBody(respBody io.Closer, logger spi.Logger, action string) {
-	err := respBody.Close()
-	if err != nil {
-		logger.Errorf("Failed to close response body for '%s' REST call: %s", action, err.Error())
-	}
-}
-
 // Blind will blind provided values with MasterSecret provided in a kh
 // returns:
 // 		blinded values in []byte
 //		error in case of errors
-// TO BE IMPLEMENTED.
 func (r *RemoteCrypto) Blind(kh interface{}, values ...map[string]interface{}) ([][]byte, error) {
-	return nil, errors.New("not implemented")
+	startBlind := time.Now()
+	destination := fmt.Sprintf("%s", kh) + blindURI
+
+	bReq := blindReq{
+		Values: values,
+	}
+
+	httpReqBytes, err := r.marshalFunc(bReq)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request for CL Blind failed [%s, %w]", destination, err)
+	}
+
+	resp, err := r.postHTTPRequest(destination, httpReqBytes)
+	if err != nil {
+		return nil, fmt.Errorf("posting CL Blind message failed [%s, %w]", destination, err)
+	}
+
+	// handle response
+	defer closeResponseBody(resp.Body, logger, "CL Blind")
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("posting CL Blind returned http error: %s", resp.Status)
+	}
+
+	respBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response for CL Blind failed [%s, %w]", destination, err)
+	}
+
+	httpResp := &blindResp{}
+
+	err = r.unmarshalFunc(respBody, httpResp)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal blinded values for CL Blind failed [%s, %w]", destination, err)
+	}
+
+	logger.Debugf("overall CL Blind duration: %s", time.Since(startBlind))
+
+	return httpResp.Blinded, nil
 }
 
 // GetCorrectnessProof will return correctness proof for a public key handle
 // returns:
 // 		correctness proof in []byte
 //		error in case of errors
-// TO BE IMPLEMENTED.
 func (r *RemoteCrypto) GetCorrectnessProof(kh interface{}) ([]byte, error) {
-	return nil, errors.New("not implemented")
+	startGet := time.Now()
+	destination := fmt.Sprintf("%s", kh) + correctnessProofURI
+
+	resp, err := r.getHTTPRequest(destination)
+	if err != nil {
+		return nil, fmt.Errorf("getting CL CorrectnessProof message failed [%s, %w]", destination, err)
+	}
+
+	// handle response
+	defer closeResponseBody(resp.Body, logger, "CL CorrectnessProof")
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("getting CL CorrectnessProof returned http error: %s", resp.Status)
+	}
+
+	respBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response for CL CorrectnessProof failed [%s, %w]", destination, err)
+	}
+
+	httpResp := &correctnessProofResp{}
+
+	err = r.unmarshalFunc(respBody, httpResp)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal value for CL CorrectnessProof failed [%s, %w]", destination, err)
+	}
+
+	logger.Debugf("overall CL CorrectnessProof duration: %s", time.Since(startGet))
+
+	return httpResp.CorrectnessProof, nil
 }
 
 // SignWithSecrets will generate a signature and related correctness proof
@@ -852,8 +954,57 @@ func (r *RemoteCrypto) GetCorrectnessProof(kh interface{}) ([]byte, error) {
 // 		signature in []byte
 // 		correctness proof in []byte
 //		error in case of errors
-// TO BE IMPLEMENTED.
 func (r *RemoteCrypto) SignWithSecrets(kh interface{}, values map[string]interface{},
 	secrets []byte, correctnessProof []byte, nonces [][]byte, did string) ([]byte, []byte, error) {
-	return nil, nil, errors.New("not implemented")
+	startSign := time.Now()
+	destination := fmt.Sprintf("%s", kh) + signWithSecretsURI
+
+	sReq := signWithSecretsReq{
+		Values:           values,
+		Secrets:          secrets,
+		CorrectnessProof: correctnessProof,
+		Nonces:           nonces,
+		DID:              did,
+	}
+
+	httpReqBytes, err := r.marshalFunc(sReq)
+	if err != nil {
+		return nil, nil, fmt.Errorf("marshal request for CL SignWithSecrets failed [%s, %w]", destination, err)
+	}
+
+	resp, err := r.postHTTPRequest(destination, httpReqBytes)
+	if err != nil {
+		return nil, nil, fmt.Errorf("posting CL SignWithSecrets message failed [%s, %w]", destination, err)
+	}
+
+	// handle response
+	defer closeResponseBody(resp.Body, logger, "CL SignWithSecrets")
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, nil, fmt.Errorf("posting CL SignWithSecrets returned http error: %s", resp.Status)
+	}
+
+	respBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, nil, fmt.Errorf("read response for CL SignWithSecrets failed [%s, %w]", destination, err)
+	}
+
+	httpResp := &signWithSecretsResp{}
+
+	err = r.unmarshalFunc(respBody, httpResp)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unmarshal values for CL SignWithSecrets failed [%s, %w]", destination, err)
+	}
+
+	logger.Debugf("overall CL SignWithSecrets duration: %s", time.Since(startSign))
+
+	return httpResp.Signature, httpResp.CorrectnessProof, nil
+}
+
+// closeResponseBody closes the response body.
+func closeResponseBody(respBody io.Closer, logger spi.Logger, action string) {
+	err := respBody.Close()
+	if err != nil {
+		logger.Errorf("Failed to close response body for '%s' REST call: %s", action, err.Error())
+	}
 }

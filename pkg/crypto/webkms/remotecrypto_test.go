@@ -154,14 +154,14 @@ func processPOSTEncRequest(w http.ResponseWriter, r *http.Request, encKH *keyset
 		return err
 	}
 
-	if strings.LastIndex(r.URL.Path, encryptURI) == len(r.URL.Path)-len(encryptURI) {
+	if matchPath(r, encryptURI) {
 		err = encryptPOSTHandle(w, reqBody, encKH)
 		if err != nil {
 			return err
 		}
 	}
 
-	if strings.LastIndex(r.URL.Path, decryptURI) == len(r.URL.Path)-len(decryptURI) {
+	if matchPath(r, decryptURI) {
 		err = decryptPOSTHandle(w, reqBody, encKH)
 		if err != nil {
 			return err
@@ -354,14 +354,14 @@ func processPOSTSigRequest(w http.ResponseWriter, r *http.Request, sigKH *keyset
 		return err
 	}
 
-	if strings.LastIndex(r.URL.Path, signURI) == len(r.URL.Path)-len(signURI) {
+	if matchPath(r, signURI) {
 		err = signPOSTHandle(w, reqBody, sigKH)
 		if err != nil {
 			return err
 		}
 	}
 
-	if strings.LastIndex(r.URL.Path, verifyURI) == len(r.URL.Path)-len(verifyURI) {
+	if matchPath(r, verifyURI) {
 		err = verifyPOSTHandle(reqBody, sigKH)
 		if err != nil {
 			return err
@@ -527,14 +527,14 @@ func processPOSTMACRequest(w http.ResponseWriter, r *http.Request, macKH *keyset
 		return err
 	}
 
-	if strings.LastIndex(r.URL.Path, computeMACURI) == len(r.URL.Path)-len(computeMACURI) {
+	if matchPath(r, computeMACURI) {
 		err = computeMACPOSTHandle(w, reqBody, macKH)
 		if err != nil {
 			return err
 		}
 	}
 
-	if strings.LastIndex(r.URL.Path, verifyMACURI) == len(r.URL.Path)-len(verifyMACURI) {
+	if matchPath(r, verifyMACURI) {
 		err = verifyMACPOSTHandle(reqBody, macKH)
 		if err != nil {
 			return err
@@ -833,7 +833,7 @@ func processPOSTWrapRequest(w http.ResponseWriter, r *http.Request, senderKH, re
 		return err
 	}
 
-	if strings.LastIndex(r.URL.Path, wrapURI) == len(r.URL.Path)-len(wrapURI) {
+	if matchPath(r, wrapURI) {
 		if strings.Contains(r.URL.Path, keysURI+"/") {
 			// URL contains sender key id and has form "keystorepath/keys/{senderKeyId}/wrap"
 			err = wrapKeyPostHandle(w, reqBody, senderKH, cr)
@@ -846,7 +846,7 @@ func processPOSTWrapRequest(w http.ResponseWriter, r *http.Request, senderKH, re
 		}
 	}
 
-	if strings.LastIndex(r.URL.Path, unwrapURI) == len(r.URL.Path)-len(unwrapURI) {
+	if matchPath(r, unwrapURI) {
 		err = unwrapKeyPostHandle(w, reqBody, senderKH, recKH, cr)
 		if err != nil {
 			return err
@@ -1197,35 +1197,28 @@ func TestNonOKStatusCode(t *testing.T) {
 		}, []byte{}, []byte{}, nonOKDefaultKeyURL)
 		require.Contains(t, err.Error(), "501")
 	})
-}
 
-func TestCLMethods(t *testing.T) {
-	hf := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	t.Run("Blind Post request failure 501", func(t *testing.T) {
+		tmpCrypto := New(nonOKDefaultKeyURL, nonOKClient)
+
+		_, err := tmpCrypto.Blind(nonOKDefaultKeyURL, map[string]interface{}{})
+		require.Contains(t, err.Error(), "501")
 	})
 
-	server, url, client := CreateMockHTTPServerAndClient(t, hf)
+	t.Run("CorrectnessProof Get request failure 501", func(t *testing.T) {
+		tmpCrypto := New(nonOKDefaultKeyURL, nonOKClient)
 
-	defer func() {
-		e := server.Close()
-		require.NoError(t, e)
-	}()
+		_, err := tmpCrypto.GetCorrectnessProof(nonOKDefaultKeyURL)
+		require.Contains(t, err.Error(), "501")
+	})
 
-	defaultKeystoreURL := fmt.Sprintf("%s/%s", strings.ReplaceAll(webkmsimpl.KeystoreEndpoint,
-		"{serverEndpoint}", url), defaultKeyStoreID)
-	rCrypto := New(defaultKeystoreURL, client)
+	t.Run("SignWithSecrets Post request failure 501", func(t *testing.T) {
+		tmpCrypto := New(nonOKDefaultKeyURL, nonOKClient)
 
-	t.Run("test CL methods return not implemented", func(t *testing.T) {
-		errNotImplemented := errors.New("not implemented")
-		var err error
-
-		_, err = rCrypto.GetCorrectnessProof(nil)
-		require.EqualError(t, err, errNotImplemented.Error())
-
-		_, _, err = rCrypto.SignWithSecrets(nil, map[string]interface{}{}, nil, nil, nil, "")
-		require.EqualError(t, err, errNotImplemented.Error())
-
-		_, err = rCrypto.Blind(nil, map[string]interface{}{})
-		require.EqualError(t, err, errNotImplemented.Error())
+		_, _, err := tmpCrypto.SignWithSecrets(nonOKDefaultKeyURL,
+			map[string]interface{}{},
+			nil, nil, nil, "did:example")
+		require.Contains(t, err.Error(), "501")
 	})
 }
 
@@ -1244,28 +1237,28 @@ func processBBSPOSTRequest(w http.ResponseWriter, r *http.Request, sigKH *keyset
 		return err
 	}
 
-	if strings.LastIndex(r.URL.Path, signMultiURI) == len(r.URL.Path)-len(signMultiURI) {
+	if matchPath(r, signMultiURI) {
 		err = bbsSignPOSTHandle(w, reqBody, sigKH)
 		if err != nil {
 			return err
 		}
 	}
 
-	if strings.LastIndex(r.URL.Path, verifyMultiURI) == len(r.URL.Path)-len(verifyMultiURI) {
+	if matchPath(r, verifyMultiURI) {
 		err = bbsVerifyPOSTHandle(reqBody, sigKH)
 		if err != nil {
 			return err
 		}
 	}
 
-	if strings.LastIndex(r.URL.Path, deriveProofURI) == len(r.URL.Path)-len(deriveProofURI) {
+	if matchPath(r, deriveProofURI) {
 		err = bbsDeriveProofPOSTHandle(w, reqBody, sigKH)
 		if err != nil {
 			return err
 		}
 	}
 
-	if strings.LastIndex(r.URL.Path, verifyProofURI) == len(r.URL.Path)-len(verifyProofURI) {
+	if matchPath(r, verifyProofURI) {
 		err = bbsVerifyProofPOSTHandle(reqBody, sigKH)
 		if err != nil {
 			return err
@@ -1595,4 +1588,8 @@ var errAddHeadersFunc = errors.New("mockAddHeadersFuncError always fails")
 
 func mockAddHeadersFuncError(_ *http.Request) (*http.Header, error) {
 	return nil, errAddHeadersFunc
+}
+
+func matchPath(r *http.Request, uri string) bool {
+	return strings.LastIndex(r.URL.Path, uri) == len(r.URL.Path)-len(uri)
 }

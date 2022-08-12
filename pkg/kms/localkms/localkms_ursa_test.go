@@ -49,6 +49,12 @@ func TestLocalKMS_Ursa_Success(t *testing.T) {
 	opts[kms.CLCredDefType] = kms.WithAttrs([]string{"attr1", "attr2"})
 
 	for _, v := range keyTemplates {
+		// test Create() w/o the opts where they're mandatory
+		if opts[v] != nil {
+			_, _, e := kmsService.Create(v)
+			require.Error(t, e)
+		}
+
 		// test Create() a new key
 		keyID, newKeyHandle, e := kmsService.Create(v, opts[v])
 		require.NoError(t, e, "failed on template %v", v)
@@ -82,6 +88,12 @@ func TestLocalKMS_Ursa_Success(t *testing.T) {
 		require.Empty(t, rotatedKeyHandle)
 		require.Empty(t, newKeyID)
 
+		// with no parameters if they're mandatory - should fail
+		if opts[v] != nil {
+			_, _, e = kmsService.Rotate(v, keyID)
+			require.Error(t, e)
+		}
+
 		// with valid key type - should succeed
 		newKeyID, rotatedKeyHandle, e = kmsService.Rotate(v, keyID, opts[v])
 		require.NoError(t, e)
@@ -112,6 +124,10 @@ func TestLocalKMS_Ursa_Success(t *testing.T) {
 			// test create and export key in one function
 			_, _, e = kmsService.CreateAndExportPubKeyBytes(v, opts[v])
 			require.NoError(t, e)
+
+			// if no parameters passed - CreateAndExport should fail
+			_, _, e = kmsService.CreateAndExportPubKeyBytes(v)
+			require.Error(t, e)
 		}
 	}
 }
