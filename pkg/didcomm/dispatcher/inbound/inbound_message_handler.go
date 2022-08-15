@@ -1,5 +1,6 @@
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
+Copyright Avast Software. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
@@ -22,6 +23,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/legacyconnection"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
@@ -109,6 +111,7 @@ func (handler *MessageHandler) HandleInboundEnvelope(envelope *transport.Envelop
 	}
 
 	isDIDEx := (&didexchange.Service{}).Accept(msg.Type())
+	isLegacyConn := (&legacyconnection.Service{}).Accept(msg.Type())
 
 	isV2, err := service.IsDIDCommV2(&msg)
 	if err != nil {
@@ -126,8 +129,8 @@ func (handler *MessageHandler) HandleInboundEnvelope(envelope *transport.Envelop
 		return fmt.Errorf("handling inbound peer DID: %w", err)
 	}
 
-	// if msg is not a didexchange message, do additional handling
-	if !isDIDEx {
+	// if msg is not a didexchange and legacy-connection message, do additional handling
+	if !isDIDEx && !isLegacyConn {
 		myDID, theirDID, err = handler.getDIDs(envelope, msg)
 		if err != nil {
 			return fmt.Errorf("get DIDs for message: %w", err)
@@ -153,8 +156,8 @@ func (handler *MessageHandler) HandleInboundEnvelope(envelope *transport.Envelop
 
 	if foundService != nil {
 		switch foundService.Name() {
-		// perf: DID exchange doesn't require myDID and theirDID
-		case didexchange.DIDExchange:
+		// perf: DID exchange and legacy-connection doesn't require myDID and theirDID
+		case didexchange.DIDExchange, legacyconnection.LegacyConnection:
 		default:
 			if !gotDIDs {
 				myDID, theirDID, err = handler.getDIDs(envelope, msg)

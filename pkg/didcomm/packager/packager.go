@@ -1,5 +1,6 @@
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
+Copyright Avast Software. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
@@ -13,6 +14,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/btcsuite/btcutil/base58"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
@@ -153,7 +156,8 @@ func (bp *Packager) prepareSenderAndRecipientKeys(cty string, envelope *transpor
 
 				recipients = append(recipients, marshalledKey)
 			}
-
+		case cty == transport.LegacyDIDCommV1Profile:
+			recipients = append(recipients, base58.Decode(receiverKeyID))
 		default:
 			recipients = append(recipients, []byte(receiverKeyID))
 		}
@@ -392,7 +396,7 @@ func (bp *Packager) getCTYAndPacker(envelope *transport.Envelope) (string, packe
 		packerName := addAuthcryptSuffix(envelope.FromKey, transport.MediaTypeRFC0019EncryptedEnvelope)
 
 		return transport.MediaTypeRFC0019EncryptedEnvelope, bp.packers[packerName], nil
-	case transport.MediaTypeRFC0019EncryptedEnvelope:
+	case transport.MediaTypeRFC0019EncryptedEnvelope, transport.LegacyDIDCommV1Profile:
 		packerName := addAuthcryptSuffix(envelope.FromKey, transport.MediaTypeRFC0019EncryptedEnvelope)
 
 		return envelope.MediaTypeProfile, bp.packers[packerName], nil

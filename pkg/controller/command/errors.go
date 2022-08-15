@@ -1,5 +1,6 @@
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
+Copyright Avast Software. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
@@ -79,6 +80,9 @@ const (
 
 	// Connection error group for connection management errors.
 	Connection = 15000
+
+	// LegacyConnection error group for legacyconnection command errors.
+	LegacyConnection = 16000
 )
 
 // Error is the  interface for representing an command error condition, with the nil value representing no error.

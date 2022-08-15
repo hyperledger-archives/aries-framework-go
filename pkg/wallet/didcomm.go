@@ -1,5 +1,6 @@
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
+Copyright Avast Software. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
@@ -547,10 +548,10 @@ func waitForConnect(ctx context.Context, didStateMsgs chan service.StateMsg, con
 				continue
 			}
 
-			var event didexchangeSvc.Event
+			var event model.Event
 
 			switch p := msg.Properties.(type) {
-			case didexchangeSvc.Event:
+			case model.Event:
 				event = p
 			default:
 				logger.Warnf("failed to cast didexchange event properties")
