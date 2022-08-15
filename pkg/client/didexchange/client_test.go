@@ -38,6 +38,7 @@ import (
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/peer"
@@ -182,7 +183,9 @@ func TestClient_CreateInvitation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		store := mockstore.NewMockStoreProvider()
+		store, err := kms.NewAriesProviderWrapper(mockstore.NewMockStoreProvider())
+		require.NoError(t, err)
+
 		km := newKMS(t, store)
 
 		c, err := New(&mockprovider.Provider{
@@ -217,7 +220,9 @@ func TestClient_CreateInvitation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		store := mockstore.NewMockStoreProvider()
+		store, err := kms.NewAriesProviderWrapper(mockstore.NewMockStoreProvider())
+		require.NoError(t, err)
+
 		km := newKMS(t, store)
 
 		c, err := New(&mockprovider.Provider{
@@ -1206,11 +1211,16 @@ func TestClient_QueryConnectionsByParams(t *testing.T) { // nolint: gocyclo
 
 func TestServiceEvents(t *testing.T) {
 	protocolStateStore := mockstore.NewMockStoreProvider()
-	store := mockstore.NewMockStoreProvider()
-	km := newKMS(t, store)
+	ariesStore := mockstore.NewMockStoreProvider()
+	kmsStore, err := kms.NewAriesProviderWrapper(ariesStore)
+	require.NoError(t, err)
+
+	km := newKMS(t, kmsStore)
+
 	didExSvc, err := didexchange.New(&mockprotocol.MockProvider{
 		ProtocolStateStoreProvider: protocolStateStore,
-		StoreProvider:              store,
+		StoreProvider:              ariesStore,
+		KMSStore:                   kmsStore,
 		ServiceMap: map[string]interface{}{
 			mediator.Coordination: &mockroute.MockMediatorSvc{},
 		},
@@ -1223,7 +1233,7 @@ func TestServiceEvents(t *testing.T) {
 	// create the client
 	c, err := New(&mockprovider.Provider{
 		ProtocolStateStorageProviderValue: protocolStateStore,
-		StorageProviderValue:              store,
+		StorageProviderValue:              ariesStore,
 		ServiceMap: map[string]interface{}{
 			didexchange.DIDExchange: didExSvc,
 			mediator.Coordination:   &mockroute.MockMediatorSvc{},
@@ -1303,10 +1313,14 @@ func TestServiceEvents(t *testing.T) {
 }
 
 func TestAcceptExchangeRequest(t *testing.T) {
-	store := mockstore.NewMockStoreProvider()
-	km := newKMS(t, store)
+	ariesStore := mockstore.NewMockStoreProvider()
+	kmsStore, err := kms.NewAriesProviderWrapper(ariesStore)
+	require.NoError(t, err)
+
+	km := newKMS(t, kmsStore)
 	didExSvc, err := didexchange.New(&mockprotocol.MockProvider{
-		StoreProvider: store,
+		StoreProvider: ariesStore,
+		KMSStore:      kmsStore,
 		ServiceMap: map[string]interface{}{
 			mediator.Coordination: &mockroute.MockMediatorSvc{},
 		},
@@ -1319,7 +1333,7 @@ func TestAcceptExchangeRequest(t *testing.T) {
 	// create the client
 	c, err := New(&mockprovider.Provider{
 		ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-		StorageProviderValue:              store,
+		StorageProviderValue:              ariesStore,
 		ServiceMap: map[string]interface{}{
 			didexchange.DIDExchange: didExSvc,
 			mediator.Coordination:   &mockroute.MockMediatorSvc{},
@@ -1401,10 +1415,14 @@ func TestAcceptExchangeRequest(t *testing.T) {
 }
 
 func TestAcceptInvitation(t *testing.T) {
-	store := mockstore.NewMockStoreProvider()
-	km := newKMS(t, store)
+	ariesStore := mockstore.NewMockStoreProvider()
+	kmsStore, err := kms.NewAriesProviderWrapper(ariesStore)
+	require.NoError(t, err)
+
+	km := newKMS(t, kmsStore)
 	didExSvc, err := didexchange.New(&mockprotocol.MockProvider{
-		StoreProvider: store,
+		StoreProvider: ariesStore,
+		KMSStore:      kmsStore,
 		ServiceMap: map[string]interface{}{
 			mediator.Coordination: &mockroute.MockMediatorSvc{},
 		},
@@ -1417,7 +1435,7 @@ func TestAcceptInvitation(t *testing.T) {
 	// create the client
 	c, err := New(&mockprovider.Provider{
 		ProtocolStateStorageProviderValue: mockstore.NewMockStoreProvider(),
-		StorageProviderValue:              store,
+		StorageProviderValue:              ariesStore,
 		ServiceMap: map[string]interface{}{
 			didexchange.DIDExchange: didExSvc,
 			mediator.Coordination:   &mockroute.MockMediatorSvc{},
@@ -1532,12 +1550,25 @@ func getSigningKey() did.VerificationMethod {
 	return did.VerificationMethod{Value: pub[:], Type: "Ed25519VerificationKey2018"}
 }
 
-func newKMS(t *testing.T, store spi.Provider) kms.KeyManager {
+type mockKMSProvider struct {
+	kmsStore          kms.Store
+	secretLockService secretlock.Service
+}
+
+func (m *mockKMSProvider) StorageProvider() kms.Store {
+	return m.kmsStore
+}
+
+func (m *mockKMSProvider) SecretLock() secretlock.Service {
+	return m.secretLockService
+}
+
+func newKMS(t *testing.T, store kms.Store) kms.KeyManager {
 	t.Helper()
 
-	kmsProv := &mockprotocol.MockProvider{
-		StoreProvider: store,
-		CustomLock:    &noop.NoLock{},
+	kmsProv := &mockKMSProvider{
+		kmsStore:          store,
+		secretLockService: &noop.NoLock{},
 	}
 
 	customKMS, err := localkms.New("local-lock://primary/test/", kmsProv)

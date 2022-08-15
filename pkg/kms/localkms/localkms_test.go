@@ -32,35 +32,64 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms/internal/keywrapper"
 	mocksecretlock "github.com/hyperledger/aries-framework-go/pkg/mock/secretlock"
-	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local/masterlock/hkdf"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
-	"github.com/hyperledger/aries-framework-go/pkg/store/wrapper/prefix"
-	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const testMasterKeyURI = keywrapper.LocalKeyURIPrefix + "test/key/uri"
 
+type inMemoryKMSStore struct {
+	keys map[string][]byte
+}
+
+func newInMemoryKMSStore() *inMemoryKMSStore {
+	return &inMemoryKMSStore{keys: make(map[string][]byte)}
+}
+
+func (i *inMemoryKMSStore) Put(keysetID string, key []byte) error {
+	i.keys[keysetID] = key
+
+	return nil
+}
+
+func (i *inMemoryKMSStore) Get(keysetID string) ([]byte, error) {
+	key, found := i.keys[keysetID]
+	if !found {
+		return nil, kms.ErrKeyNotFound
+	}
+
+	return key, nil
+}
+
+func (i *inMemoryKMSStore) Delete(keysetID string) error {
+	delete(i.keys, keysetID)
+
+	return nil
+}
+
+type mockStore struct {
+	errPut error
+	errGet error
+}
+
+func (m *mockStore) Put(string, []byte) error {
+	return m.errPut
+}
+
+func (m *mockStore) Get(string) ([]byte, error) {
+	return nil, m.errGet
+}
+
+func (m *mockStore) Delete(string) error {
+	return nil
+}
+
 func TestNewKMS_Failure(t *testing.T) {
 	t.Run("test New() fail without masterkeyURI", func(t *testing.T) {
 		kmsStorage, err := New("", &mockProvider{
-			storage: mockstorage.NewMockStoreProvider(),
-			secretLock: &mocksecretlock.MockSecretLock{
-				ValEncrypt: "",
-				ValDecrypt: "",
-			},
-		})
-		require.Error(t, err)
-		require.Empty(t, kmsStorage)
-	})
-
-	t.Run("test New() fail due to error opening store", func(t *testing.T) {
-		kmsStorage, err := New(testMasterKeyURI, &mockProvider{
-			storage: &mockstorage.MockStoreProvider{
-				ErrOpenStoreHandle: fmt.Errorf("failed to create store"),
-			},
+			storage: newInMemoryKMSStore(),
 			secretLock: &mocksecretlock.MockSecretLock{
 				ValEncrypt: "",
 				ValDecrypt: "",
@@ -74,7 +103,7 @@ func TestNewKMS_Failure(t *testing.T) {
 		badKeyURI := "://test/key/uri"
 
 		kmsStorage, err := New(badKeyURI, &mockProvider{
-			storage: mockstorage.NewMockStoreProvider(),
+			storage: newInMemoryKMSStore(),
 			secretLock: &mocksecretlock.MockSecretLock{
 				ValEncrypt: "",
 				ValDecrypt: "",
@@ -88,7 +117,7 @@ func TestNewKMS_Failure(t *testing.T) {
 func TestCreateGetRotateKey_Failure(t *testing.T) {
 	t.Run("test failure Create() and Rotate() calls with bad key template string", func(t *testing.T) {
 		kmsStorage, err := New(testMasterKeyURI, &mockProvider{
-			storage: mockstorage.NewMockStoreProvider(),
+			storage: newInMemoryKMSStore(),
 			secretLock: &mocksecretlock.MockSecretLock{
 				ValEncrypt: "",
 				ValDecrypt: "",
@@ -125,13 +154,15 @@ func TestCreateGetRotateKey_Failure(t *testing.T) {
 	})
 
 	t.Run("test Create() with failure to store key", func(t *testing.T) {
-		putDataErr := fmt.Errorf("failed to put data")
+		putErr := fmt.Errorf("failed to put data")
+		errGet := kms.ErrKeyNotFound
+		mockStore := &mockStore{
+			errPut: putErr,
+			errGet: errGet,
+		}
+
 		kmsStorage, err := New(testMasterKeyURI, &mockProvider{
-			storage: &mockstorage.MockStoreProvider{
-				Store: &mockstorage.MockStore{
-					ErrPut: putDataErr,
-				},
-			},
+			storage: mockStore,
 			secretLock: &mocksecretlock.MockSecretLock{
 				ValEncrypt: "",
 				ValDecrypt: "",
@@ -140,19 +171,14 @@ func TestCreateGetRotateKey_Failure(t *testing.T) {
 		require.NoError(t, err)
 
 		id, kh, err := kmsStorage.Create(kms.AES128GCMType)
-		require.True(t, errors.Is(err, putDataErr))
+		require.True(t, errors.Is(err, putErr))
 		require.Empty(t, kh)
 		require.Empty(t, id)
 	})
 
 	t.Run("test Create() success to store key but fail to get key from store", func(t *testing.T) {
-		storeData := map[string]mockstorage.DBEntry{}
 		kmsStorage, err := New(testMasterKeyURI, &mockProvider{
-			storage: &mockstorage.MockStoreProvider{
-				Store: &mockstorage.MockStore{
-					Store: storeData,
-				},
-			},
+			storage: newInMemoryKMSStore(),
 			secretLock: &mocksecretlock.MockSecretLock{
 				ValEncrypt: "",
 				ValDecrypt: "",
@@ -166,13 +192,13 @@ func TestCreateGetRotateKey_Failure(t *testing.T) {
 		require.NotEmpty(t, id)
 
 		// new create a new client with a store throwing an error during a Get()
+		errGet := errors.New("failed to get data")
+		mockStore := &mockStore{
+			errGet: errGet,
+		}
+
 		kmsStorage3, err := New(testMasterKeyURI, &mockProvider{
-			storage: &mockstorage.MockStoreProvider{
-				Store: &mockstorage.MockStore{
-					ErrGet: fmt.Errorf("failed to get data"),
-					Store:  storeData,
-				},
-			},
+			storage: mockStore,
 			secretLock: &mocksecretlock.MockSecretLock{
 				ValEncrypt: "",
 				ValDecrypt: "",
@@ -191,13 +217,8 @@ func TestCreateGetRotateKey_Failure(t *testing.T) {
 	})
 
 	t.Run("create valid key but not available for Export", func(t *testing.T) {
-		storeData := map[string]mockstorage.DBEntry{}
 		kmsStorage, err := New(testMasterKeyURI, &mockProvider{
-			storage: &mockstorage.MockStoreProvider{
-				Store: &mockstorage.MockStore{
-					Store: storeData,
-				},
-			},
+			storage:    newInMemoryKMSStore(),
 			secretLock: &noop.NoLock{},
 		})
 		require.NoError(t, err)
@@ -211,13 +232,8 @@ func TestCreateGetRotateKey_Failure(t *testing.T) {
 	})
 
 	t.Run("create And Export invalid key", func(t *testing.T) {
-		storeData := map[string]mockstorage.DBEntry{}
 		kmsStorage, err := New(testMasterKeyURI, &mockProvider{
-			storage: &mockstorage.MockStoreProvider{
-				Store: &mockstorage.MockStore{
-					Store: storeData,
-				},
-			},
+			storage:    newInMemoryKMSStore(),
 			secretLock: &noop.NoLock{},
 		})
 		require.NoError(t, err)
@@ -239,13 +255,9 @@ func TestEncryptRotateDecrypt_Success(t *testing.T) {
 	// create a real (not mocked) master key and secret lock to test the KMS end to end
 	sl := createMasterKeyAndSecretLock(t)
 
-	storeDB := make(map[string]mockstorage.DBEntry)
 	// test New()
 	kmsService, err := New(testMasterKeyURI, &mockProvider{
-		storage: mockstorage.NewCustomMockStoreProvider(
-			&mockstorage.MockStore{
-				Store: storeDB,
-			}),
+		storage:    newInMemoryKMSStore(),
 		secretLock: sl,
 	})
 	require.NoError(t, err)
@@ -288,13 +300,15 @@ func TestLocalKMS_Success(t *testing.T) {
 	// create a real (not mocked) master key and secret lock to test the KMS end to end
 	sl := createMasterKeyAndSecretLock(t)
 
-	storeDB := make(map[string]mockstorage.DBEntry)
+	keys := make(map[string][]byte)
+
+	testStore := newInMemoryKMSStore()
+
+	testStore.keys = keys
+
 	// test New()
 	kmsService, err := New(testMasterKeyURI, &mockProvider{
-		storage: mockstorage.NewCustomMockStoreProvider(
-			&mockstorage.MockStore{
-				Store: storeDB,
-			}),
+		storage:    testStore,
 		secretLock: sl,
 	})
 	require.NoError(t, err)
@@ -327,7 +341,7 @@ func TestLocalKMS_Success(t *testing.T) {
 		require.NotEmpty(t, newKeyHandle)
 		require.NotEmpty(t, keyID)
 
-		ks, ok := storeDB[prefix.StorageKIDPrefix+keyID]
+		ks, ok := keys[keyID]
 		require.True(t, ok)
 		require.NotEmpty(t, ks)
 
@@ -392,13 +406,9 @@ func TestLocalKMS_ImportPrivateKey(t *testing.T) { // nolint:gocyclo
 	// create a real (not mocked) master key and secret lock to test the KMS end to end
 	sl := createMasterKeyAndSecretLock(t)
 
-	storeDB := make(map[string]mockstorage.DBEntry)
 	// test New()
 	kmsService, e := New(testMasterKeyURI, &mockProvider{
-		storage: mockstorage.NewCustomMockStoreProvider(
-			&mockstorage.MockStore{
-				Store: storeDB,
-			}),
+		storage:    newInMemoryKMSStore(),
 		secretLock: sl,
 	})
 	require.NoError(t, e)
@@ -658,11 +668,11 @@ func createMasterKeyAndSecretLock(t *testing.T) secretlock.Service {
 
 // mockProvider mocks a provider for KMS storage.
 type mockProvider struct {
-	storage    *mockstorage.MockStoreProvider
+	storage    kms.Store
 	secretLock secretlock.Service
 }
 
-func (m *mockProvider) StorageProvider() storage.Provider {
+func (m *mockProvider) StorageProvider() kms.Store {
 	return m.storage
 }
 

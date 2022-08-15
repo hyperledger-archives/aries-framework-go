@@ -13,19 +13,18 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	"github.com/hyperledger/aries-framework-go/spi/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 func TestLocalKMSReader(t *testing.T) {
 	someKey := []byte("someKeyData")
 	someKeyID := "newKeyID"
-	storeData := map[string]mockstorage.DBEntry{
-		someKeyID: {Value: someKey},
+	storeData := map[string][]byte{
+		someKeyID: someKey,
 	}
 
 	t.Run("success case - create a valid storeReader with a non empty and stored keysetID", func(t *testing.T) {
-		localStore := &mockstorage.MockStore{Store: storeData}
+		localStore := &inMemoryKMSStore{keys: storeData}
 
 		l := newReader(localStore, someKeyID)
 		require.NotEmpty(t, l)
@@ -41,9 +40,9 @@ func TestLocalKMSReader(t *testing.T) {
 	})
 
 	t.Run("error case - create an invalid read with empty keysetID", func(t *testing.T) {
-		mockStore := &mockstorage.MockStore{Store: storeData}
+		localStore := &inMemoryKMSStore{keys: storeData}
 
-		l := newReader(mockStore, "")
+		l := newReader(localStore, "")
 		require.NotEmpty(t, l)
 		data := make([]byte, 512)
 		n, err := l.Read(data)
@@ -52,14 +51,14 @@ func TestLocalKMSReader(t *testing.T) {
 	})
 
 	t.Run("error case - create an invalid read with non stored keyset", func(t *testing.T) {
-		mockStore := &mockstorage.MockStore{Store: map[string]mockstorage.DBEntry{}}
+		mockStore := newInMemoryKMSStore()
 
 		l := newReader(mockStore, someKeyID)
 		require.NotEmpty(t, l)
 		data := make([]byte, 512)
 		n, err := l.Read(data)
 		require.EqualError(t, err,
-			fmt.Errorf("cannot read data for keysetID %s: %w", someKeyID, storage.ErrDataNotFound).Error())
+			fmt.Errorf("cannot read data for keysetID %s: %w", someKeyID, kms.ErrKeyNotFound).Error())
 		require.Equal(t, 0, n)
 	})
 
@@ -70,11 +69,10 @@ func TestLocalKMSReader(t *testing.T) {
 		for i := 0; i < dataLen; i++ {
 			veryLargeData = append(veryLargeData, 'a')
 		}
-		largeStoreData := map[string]mockstorage.DBEntry{
-			someKeyID: {Value: veryLargeData},
-		}
 
-		mockStore := &mockstorage.MockStore{Store: largeStoreData}
+		mockStore := newInMemoryKMSStore()
+
+		mockStore.keys[someKeyID] = veryLargeData
 
 		l := newReader(mockStore, someKeyID)
 		require.NotEmpty(t, l)

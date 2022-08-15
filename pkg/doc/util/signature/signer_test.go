@@ -30,7 +30,9 @@ import (
 )
 
 func TestNewCryptoSigner(t *testing.T) {
-	p := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
+	p, err := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
+	require.NoError(t, err)
+
 	localKMS, err := localkms.New("local-lock://custom/master/key/", p)
 	require.NoError(t, err)
 

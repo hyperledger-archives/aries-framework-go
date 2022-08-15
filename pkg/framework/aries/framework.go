@@ -445,16 +445,31 @@ func (a *Aries) closeVDR() error {
 	return nil
 }
 
+type kmsProvider struct {
+	kmsStore          kms.Store
+	secretLockService secretlock.Service
+}
+
+func (k *kmsProvider) StorageProvider() kms.Store {
+	return k.kmsStore
+}
+
+func (k *kmsProvider) SecretLock() secretlock.Service {
+	return k.secretLockService
+}
+
 func createKMS(frameworkOpts *Aries) error {
-	ctx, err := context.New(
-		context.WithStorageProvider(frameworkOpts.storeProvider),
-		context.WithSecretLock(frameworkOpts.secretLock),
-	)
+	ariesProviderKMSStoreWrapper, err := kms.NewAriesProviderWrapper(frameworkOpts.storeProvider)
 	if err != nil {
-		return fmt.Errorf("create context failed: %w", err)
+		return fmt.Errorf("create Aries provider KMS store wrapper failed: %w", err)
 	}
 
-	frameworkOpts.kms, err = frameworkOpts.kmsCreator(ctx)
+	kmsProv := &kmsProvider{
+		kmsStore:          ariesProviderKMSStoreWrapper,
+		secretLockService: frameworkOpts.secretLock,
+	}
+
+	frameworkOpts.kms, err = frameworkOpts.kmsCreator(kmsProv)
 	if err != nil {
 		return fmt.Errorf("create KMS failed: %w", err)
 	}

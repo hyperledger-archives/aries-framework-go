@@ -165,8 +165,13 @@ func CreateDataVaultKeyPairs(userID string, ctx provider, options ...UnlockOptio
 		opt(opts)
 	}
 
+	kmsStore, err := kms.NewAriesProviderWrapper(ctx.StorageProvider())
+	if err != nil {
+		return err
+	}
+
 	// unlock key manager
-	kmsm, err := keyManager().createKeyManager(profile, ctx.StorageProvider(), opts)
+	kmsm, err := keyManager().createKeyManager(profile, kmsStore, opts)
 	if err != nil {
 		return fmt.Errorf("failed to get key manager: %w", err)
 	}
@@ -259,8 +264,13 @@ func (c *Wallet) Open(options ...UnlockOptions) (string, error) {
 		opt(opts)
 	}
 
+	kmsStore, err := kms.NewAriesProviderWrapper(c.storeProvider)
+	if err != nil {
+		return "", err
+	}
+
 	// unlock key manager
-	keyManager, err := keyManager().createKeyManager(c.profile, c.storeProvider, opts)
+	keyManager, err := keyManager().createKeyManager(c.profile, kmsStore, opts)
 	if err != nil {
 		return "", err
 	}

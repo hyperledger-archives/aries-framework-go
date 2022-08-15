@@ -147,12 +147,12 @@ func CreateMockED25519KeyHandle() (*keyset.Handle, error) {
 
 // Provider provides mock Provider implementation.
 type Provider struct {
-	storeProvider storage.Provider
+	storeProvider kmsservice.Store
 	secretLock    secretlock.Service
 }
 
 // StorageProvider return a storage provider.
-func (p *Provider) StorageProvider() storage.Provider {
+func (p *Provider) StorageProvider() kmsservice.Store {
 	return p.storeProvider
 }
 
@@ -162,9 +162,14 @@ func (p *Provider) SecretLock() secretlock.Service {
 }
 
 // NewProviderForKMS creates a new mock Provider to create a KMS.
-func NewProviderForKMS(storeProvider storage.Provider, secretLock secretlock.Service) *Provider {
-	return &Provider{
-		storeProvider: storeProvider,
-		secretLock:    secretLock,
+func NewProviderForKMS(storeProvider storage.Provider, secretLock secretlock.Service) (*Provider, error) {
+	kmsStore, err := kmsservice.NewAriesProviderWrapper(storeProvider)
+	if err != nil {
+		return nil, err
 	}
+
+	return &Provider{
+		storeProvider: kmsStore,
+		secretLock:    secretLock,
+	}, nil
 }

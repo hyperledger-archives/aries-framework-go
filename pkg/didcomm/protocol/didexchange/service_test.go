@@ -39,6 +39,7 @@ import (
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	didstore "github.com/hyperledger/aries-framework-go/pkg/store/did"
@@ -282,12 +283,28 @@ func msgEventListener(t *testing.T, statusCh chan service.StateMsg, respondedFla
 	}
 }
 
+type kmsProvider struct {
+	store             kms.Store
+	secretLockService secretlock.Service
+}
+
+func (k *kmsProvider) StorageProvider() kms.Store {
+	return k.store
+}
+
+func (k *kmsProvider) SecretLock() secretlock.Service {
+	return k.secretLockService
+}
+
 func newKMS(t *testing.T, store storage.Provider) kms.KeyManager {
 	t.Helper()
 
-	kmsProv := &protocol.MockProvider{
-		StoreProvider: store,
-		CustomLock:    &noop.NoLock{},
+	kmsStore, err := kms.NewAriesProviderWrapper(store)
+	require.NoError(t, err)
+
+	kmsProv := &kmsProvider{
+		store:             kmsStore,
+		secretLockService: &noop.NoLock{},
 	}
 
 	customKMS, err := localkms.New("local-lock://primary/test/", kmsProv)

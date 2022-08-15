@@ -30,6 +30,7 @@ import (
 type MockProvider struct {
 	StoreProvider                storage.Provider
 	ProtocolStateStoreProvider   storage.Provider
+	KMSStore                     kms.Store
 	CustomVDR                    vdrapi.Registry
 	CustomOutbound               *mockdispatcher.MockOutbound
 	CustomMessenger              *mockservice.MockMessenger

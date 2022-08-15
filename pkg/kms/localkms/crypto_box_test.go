@@ -15,18 +15,16 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	mockStorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
-	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 type testProvider struct {
-	storeProvider      storage.Provider
+	storeProvider      kms.Store
 	secretLockProvider secretlock.Service
 }
 
-func (p *testProvider) StorageProvider() storage.Provider {
+func (p *testProvider) StorageProvider() kms.Store {
 	return p.storeProvider
 }
 
@@ -34,25 +32,22 @@ func (p *testProvider) SecretLock() secretlock.Service {
 	return p.secretLockProvider
 }
 
-func newKMS(t *testing.T) (*LocalKMS, storage.Store) {
-	msp := mockStorage.NewMockStoreProvider()
+func newKMS(t *testing.T) *LocalKMS {
+	testStore := newInMemoryKMSStore()
 	p := testProvider{
-		storeProvider:      msp,
+		storeProvider:      testStore,
 		secretLockProvider: &noop.NoLock{},
 	}
-
-	store, err := p.StorageProvider().OpenStore("test-kms")
-	require.NoError(t, err)
 
 	mainLockURI := "local-lock://test/uri/"
 	ret, err := New(mainLockURI, &p)
 	require.NoError(t, err)
 
-	return ret, store
+	return ret
 }
 
 func TestNewCryptoBox(t *testing.T) {
-	k, _ := newKMS(t)
+	k := newKMS(t)
 	b, err := NewCryptoBox(k)
 	require.NoError(t, err)
 	require.Equal(t, b.km, k)
@@ -62,7 +57,7 @@ func TestNewCryptoBox(t *testing.T) {
 }
 
 func TestBoxSeal(t *testing.T) {
-	k, _ := newKMS(t)
+	k := newKMS(t)
 	_, rec1PubKey, err := k.CreateAndExportPubKeyBytes(kms.ED25519)
 	require.NoError(t, err)
 

@@ -24,9 +24,9 @@ import (
 	. "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
-	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 )
 
@@ -439,15 +439,31 @@ func mockAttachmentData() *AttachmentData {
 	return &AttachmentData{Base64: base64.RawURLEncoding.EncodeToString([]byte(`lorem ipsum dolor sit amet`))}
 }
 
+type kmsProvider struct {
+	store             kms.Store
+	secretLockService secretlock.Service
+}
+
+func (k *kmsProvider) StorageProvider() kms.Store {
+	return k.store
+}
+
+func (k *kmsProvider) SecretLock() secretlock.Service {
+	return k.secretLockService
+}
+
 func newKMS(t *testing.T) kms.KeyManager {
 	t.Helper()
 
 	store := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
 	sProvider := mockstorage.NewCustomMockStoreProvider(store)
 
-	kmsProv := &protocol.MockProvider{
-		StoreProvider: sProvider,
-		CustomLock:    &noop.NoLock{},
+	kmsStore, err := kms.NewAriesProviderWrapper(sProvider)
+	require.NoError(t, err)
+
+	kmsProv := &kmsProvider{
+		store:             kmsStore,
+		secretLockService: &noop.NoLock{},
 	}
 
 	customKMS, err := localkms.New("local-lock://primary/test/", kmsProv)

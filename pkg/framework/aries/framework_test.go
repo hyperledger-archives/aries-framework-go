@@ -550,10 +550,17 @@ func TestFramework(t *testing.T) {
 			context.WithStorageProvider(storage.NewMockStoreProvider()),
 		)
 		require.NoError(t, err)
-		require.NotEmpty(t, p)
+
+		kmsStore, err := kms.NewAriesProviderWrapper(p.StorageProvider())
+		require.NoError(t, err)
+
+		kmsProv := &kmsProvider{
+			kmsStore:          kmsStore,
+			secretLockService: p.SecretLock(),
+		}
 
 		// create a custom KMS instance with this provider
-		customKMS, err := localkms.New("local-lock://custom/master/key/", p)
+		customKMS, err := localkms.New("local-lock://custom/master/key/", kmsProv)
 		require.NoError(t, err)
 		require.NotEmpty(t, customKMS)
 
@@ -705,6 +712,20 @@ func TestFramework(t *testing.T) {
 		require.Equal(t, 2, len(aries.mediaTypeProfiles))
 		require.Equal(t, transport.MediaTypeV2EncryptedEnvelope, aries.mediaTypeProfiles[0])
 		require.Equal(t, transport.MediaTypeV1EncryptedEnvelope, aries.mediaTypeProfiles[1])
+	})
+
+	t.Run("failure while creating KMS Aries provider wrapper", func(t *testing.T) {
+		mockStoreProvider := &storage.MockStoreProvider{
+			FailNamespace: kms.AriesWrapperStoreName,
+			Store: &storage.MockStore{
+				Store: map[string]storage.DBEntry{},
+			},
+		}
+
+		aries, err := New(WithStoreProvider(mockStoreProvider))
+		require.EqualError(t, err, "create Aries provider KMS store wrapper failed: "+
+			"failed to open store for name space kmsdb")
+		require.Nil(t, aries)
 	})
 }
 

@@ -649,7 +649,8 @@ func write(w io.Writer, ks *tinkpb.EncryptedKeyset) error {
 func createKMS(t *testing.T) *localkms.LocalKMS {
 	t.Helper()
 
-	p := mockkms.NewProviderForKMS(mockstorage.NewMockStoreProvider(), &noop.NoLock{})
+	p, err := mockkms.NewProviderForKMS(mockstorage.NewMockStoreProvider(), &noop.NoLock{})
+	require.NoError(t, err)
 
 	k, err := localkms.New("local-lock://test/key/uri", p)
 	require.NoError(t, err)

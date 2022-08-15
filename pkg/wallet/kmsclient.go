@@ -29,7 +29,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local/masterlock/hkdf"
-	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const (
@@ -93,7 +92,7 @@ type walletKeyManager struct {
 }
 
 func (k *walletKeyManager) createKeyManager(profileInfo *profile,
-	storeProvider storage.Provider, opts *unlockOpts) (kms.KeyManager, error) {
+	storeProvider kms.Store, opts *unlockOpts) (kms.KeyManager, error) {
 	if profileInfo.MasterLockCipher == "" && profileInfo.KeyServerURL == "" {
 		return nil, fmt.Errorf("invalid wallet profile")
 	}
@@ -133,21 +132,21 @@ func createMasterLock(secretLockSvc secretlock.Service) (string, error) {
 }
 
 type kmsProvider struct {
-	storageProvider storage.Provider
+	storageProvider kms.Store
 	secretLock      secretlock.Service
 }
 
-func (k kmsProvider) StorageProvider() storage.Provider {
+func (k *kmsProvider) StorageProvider() kms.Store {
 	return k.storageProvider
 }
 
-func (k kmsProvider) SecretLock() secretlock.Service {
+func (k *kmsProvider) SecretLock() secretlock.Service {
 	return k.secretLock
 }
 
 // createLocalKeyManager creates and returns local KMS instance.
 func createLocalKeyManager(user, passphrase, masterLockCipher string,
-	masterLocker secretlock.Service, storeProvider storage.Provider) (*localkms.LocalKMS, error) {
+	masterLocker secretlock.Service, storeProvider kms.Store) (*localkms.LocalKMS, error) {
 	var err error
 	if passphrase != "" {
 		masterLocker, err = getDefaultSecretLock(passphrase)

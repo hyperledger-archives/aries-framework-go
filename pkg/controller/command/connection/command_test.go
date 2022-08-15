@@ -26,6 +26,7 @@ import (
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	didstore "github.com/hyperledger/aries-framework-go/pkg/store/did"
@@ -279,6 +280,19 @@ func TestCommand_SetConnectionToDIDCommV2(t *testing.T) {
 	})
 }
 
+type kmsProvider struct {
+	storageProvider kms.Store
+	secretLock      secretlock.Service
+}
+
+func (k kmsProvider) StorageProvider() kms.Store {
+	return k.storageProvider
+}
+
+func (k kmsProvider) SecretLock() secretlock.Service {
+	return k.secretLock
+}
+
 func TestCommand_RotateDID(t *testing.T) {
 	t.Parallel()
 
@@ -327,9 +341,16 @@ func TestCommand_RotateDID(t *testing.T) {
 		require.NoError(t, err)
 
 		prov.VDRegistryValue = vdr.New(vdr.WithVDR(peerVDR))
-		prov.SecretLockValue = &noop.NoLock{}
 
-		prov.KMSValue, err = localkms.New("foo://bar", prov)
+		kmsStore, err := kms.NewAriesProviderWrapper(prov.StorageProviderValue)
+		require.NoError(t, err)
+
+		kmsProvider := &kmsProvider{
+			storageProvider: kmsStore,
+			secretLock:      &noop.NoLock{},
+		}
+
+		prov.KMSValue, err = localkms.New("foo://bar", kmsProvider)
 		require.NoError(t, err)
 
 		connStore, err := connection.NewRecorder(prov)

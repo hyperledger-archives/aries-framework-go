@@ -21,6 +21,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	commonmodel "github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
@@ -586,7 +587,7 @@ func TestNewRequestFromInvitation(t *testing.T) {
 	})
 	t.Run("unsuccessful new request from invitation ", func(t *testing.T) {
 		prov := protocol.MockProvider{}
-		customKMS := newKMS(t, prov.StoreProvider)
+		customKMS := newKMS(t, mem.NewProvider())
 
 		ctx := &context{
 			kms:                customKMS,

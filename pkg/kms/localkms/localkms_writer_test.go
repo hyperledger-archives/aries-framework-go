@@ -8,6 +8,7 @@ package localkms
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -15,13 +16,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 )
 
 func TestLocalKMSWriter(t *testing.T) {
 	t.Run("success case - create a valid storeWriter and store 20 non empty random keys", func(t *testing.T) {
-		storeMap := map[string]mockstorage.DBEntry{}
-		mockStore := &mockstorage.MockStore{Store: storeMap}
+		keys := map[string][]byte{}
+		mockStore := &inMemoryKMSStore{keys: keys}
 
 		for i := 0; i < 256; i++ {
 			l := newWriter(mockStore)
@@ -31,53 +31,49 @@ func TestLocalKMSWriter(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, len(someKey), n)
 			require.Equal(t, maxKeyIDLen, len(l.KeysetID), "for key creation iteration %d", i)
-			retrievedDBEntry, ok := storeMap[l.KeysetID]
+			key, ok := keys[l.KeysetID]
 			require.True(t, ok)
-			require.Equal(t, retrievedDBEntry.Value, someKey)
+			require.Equal(t, key, someKey)
 		}
 
-		require.Equal(t, 256, len(storeMap))
+		require.Equal(t, 256, len(keys))
 	})
 
 	t.Run("error case - create a storeWriter using a bad storeWriter to storage", func(t *testing.T) {
-		storeMap := map[string]mockstorage.DBEntry{}
-		putError := fmt.Errorf("failed to put data")
-		mockStore := &mockstorage.MockStore{
-			Store:  storeMap,
-			ErrPut: putError,
+		putErr := fmt.Errorf("failed to put data")
+		errGet := kms.ErrKeyNotFound
+		mockStore := &mockStore{
+			errPut: putErr,
+			errGet: errGet,
 		}
 
 		l := newWriter(mockStore)
 		require.NotEmpty(t, l)
 		someKey := []byte("someKeyData")
 		n, err := l.Write(someKey)
-		require.EqualError(t, err, putError.Error())
+		require.EqualError(t, err, putErr.Error())
 		require.Equal(t, 0, n)
 	})
 
 	t.Run("error case - create a storeWriter using a bad storeReader from storage", func(t *testing.T) {
-		storeMap := map[string]mockstorage.DBEntry{}
-		getError := fmt.Errorf("failed to get data")
-		mockStore := &mockstorage.MockStore{
-			Store:  storeMap,
-			ErrGet: getError,
+		errGet := errors.New("failed to get data")
+		mockStore := &mockStore{
+			errGet: errGet,
 		}
 
 		l := newWriter(mockStore)
 		require.NotEmpty(t, l)
 		someKey := []byte("someKeyData")
 		n, err := l.Write(someKey)
-		require.EqualError(t, err, getError.Error())
+		require.EqualError(t, err, errGet.Error())
 		require.Equal(t, 0, n)
 	})
 
 	t.Run("error case - create a storeWriter with a keysetID using a bad storeReader from storage",
 		func(t *testing.T) {
-			storeMap := map[string]mockstorage.DBEntry{}
-			getError := fmt.Errorf("failed to get data")
-			mockStore := &mockstorage.MockStore{
-				Store:  storeMap,
-				ErrGet: getError,
+			errGet := errors.New("failed to get data")
+			mockStore := &mockStore{
+				errGet: errGet,
 			}
 
 			l := newWriter(mockStore, kms.WithKeyID(base64.RawURLEncoding.EncodeToString(random.GetRandomBytes(
@@ -86,13 +82,12 @@ func TestLocalKMSWriter(t *testing.T) {
 			require.NotEmpty(t, l)
 			someKey := []byte("someKeyData")
 			n, err := l.Write(someKey)
-			require.EqualError(t, err, "got error while verifying requested ID: "+getError.Error())
+			require.EqualError(t, err, "got error while verifying requested ID: "+errGet.Error())
 			require.Equal(t, 0, n)
 		})
 
 	t.Run("error case - import duplicate keysetID", func(t *testing.T) {
-		storeMap := map[string]mockstorage.DBEntry{}
-		mockStore := &mockstorage.MockStore{Store: storeMap}
+		mockStore := newInMemoryKMSStore()
 
 		l := newWriter(mockStore)
 		require.NotEmpty(t, l)
@@ -101,11 +96,11 @@ func TestLocalKMSWriter(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, len(someKey), n)
 		require.Equal(t, maxKeyIDLen, len(l.KeysetID))
-		retrievedDBEntry, ok := storeMap[l.KeysetID]
+		key, ok := mockStore.keys[l.KeysetID]
 		require.True(t, ok)
-		require.Equal(t, retrievedDBEntry.Value, someKey)
+		require.Equal(t, key, someKey)
 
-		require.Equal(t, 1, len(storeMap))
+		require.Equal(t, 1, len(mockStore.keys))
 
 		// create s second writer with keysetID created above
 		l2 := newWriter(mockStore, kms.WithKeyID(l.KeysetID))

@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
@@ -236,7 +237,10 @@ func TestContentStores(t *testing.T) {
 			},
 		}
 
-		kmgr, err := keyManager().createKeyManager(profileInfo, sp, &unlockOpts{passphrase: samplePassPhrase})
+		kmsStore, err := kms.NewAriesProviderWrapper(sp)
+		require.NoError(t, err)
+
+		kmgr, err := keyManager().createKeyManager(profileInfo, kmsStore, &unlockOpts{passphrase: samplePassPhrase})
 		require.NotEmpty(t, kmgr)
 		require.NoError(t, err)
 
@@ -384,7 +388,10 @@ func TestContentStores(t *testing.T) {
 			MasterLockCipher: masterLockCipherText,
 		}
 
-		kmgr, err := keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
+		kmsStore, err := kms.NewAriesProviderWrapper(mockstorage.NewMockStoreProvider())
+		require.NoError(t, err)
+
+		kmgr, err := keyManager().createKeyManager(profileInfo, kmsStore,
 			&unlockOpts{passphrase: samplePassPhrase})
 		require.NotEmpty(t, kmgr)
 		require.NoError(t, err)
@@ -427,7 +434,10 @@ func TestContentStores(t *testing.T) {
 			MasterLockCipher: masterLockCipherText,
 		}
 
-		kmgr, err := keyManager().createKeyManager(profileInfo, mockstorage.NewMockStoreProvider(),
+		kmsStore, err := kms.NewAriesProviderWrapper(mockstorage.NewMockStoreProvider())
+		require.NoError(t, err)
+
+		kmgr, err := keyManager().createKeyManager(profileInfo, kmsStore,
 			&unlockOpts{passphrase: samplePassPhrase})
 		require.NotEmpty(t, kmgr)
 		require.NoError(t, err)

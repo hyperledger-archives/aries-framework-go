@@ -19,7 +19,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/store/did"
 	"github.com/hyperledger/aries-framework-go/pkg/store/ld"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
@@ -54,12 +53,6 @@ type Provider struct {
 	GetDIDsMaxRetriesValue            uint64
 	DIDRotatorValue                   middleware.DIDCommMessageMiddleware
 	MessengerValue                    service.Messenger
-	SecretLockValue                   secretlock.Service
-}
-
-// SecretLock returns secret lock.
-func (p *Provider) SecretLock() secretlock.Service {
-	return p.SecretLockValue
 }
 
 // Messenger return messenger.

@@ -117,7 +117,10 @@ func TestNewCryptoSigner(t *testing.T) {
 }
 
 func createKMS() (*localkms.LocalKMS, error) {
-	p := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
+	p, err := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
+	if err != nil {
+		return nil, err
+	}
 
 	return localkms.New("local-lock://custom/master/key/", p)
 }

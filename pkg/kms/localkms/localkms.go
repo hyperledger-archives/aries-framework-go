@@ -22,13 +22,15 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms/internal/keywrapper"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
-	"github.com/hyperledger/aries-framework-go/pkg/store/wrapper/prefix"
-	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const (
-	// Namespace is the keystore's DB storage namespace.
-	Namespace = "kmsdb"
+	// Namespace is the store name used when creating a KMS store using kms.NewAriesProviderWrapper.
+	// The reason this is here in addition to kms.AriesWrapperStoreName is because
+	// the IndexedDB implementation refers to this. FOr the WASM unit tests, the aries-framework-go module import gets
+	// replaced with the local version and so in order for both to work correctly, for now we have the constant defined
+	// in both places.
+	Namespace = kms.AriesWrapperStoreName
 
 	ecdsaPrivateKeyTypeURL = "type.googleapis.com/google.crypto.tink.EcdsaPrivateKey"
 )
@@ -45,31 +47,12 @@ var errInvalidKeyType = errors.New("key type is not supported")
 type LocalKMS struct {
 	secretLock        secretlock.Service
 	primaryKeyURI     string
-	store             storage.Store
+	store             kms.Store
 	primaryKeyEnvAEAD *aead.KMSEnvelopeAEAD
-}
-
-func newKeyIDWrapperStore(provider storage.Provider, storePrefix string) (storage.Store, error) {
-	s, err := provider.OpenStore(storePrefix + Namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	return prefix.NewPrefixStoreWrapper(s, prefix.StorageKIDPrefix)
 }
 
 // New will create a new (local) KMS service.
 func New(primaryKeyURI string, p kms.Provider) (*LocalKMS, error) {
-	return NewWithPrefix(primaryKeyURI, p, "")
-}
-
-// NewWithPrefix will create a new (local) KMS service using a store name prefixed with storePrefix.
-func NewWithPrefix(primaryKeyURI string, p kms.Provider, storePrefix string) (*LocalKMS, error) {
-	store, err := newKeyIDWrapperStore(p.StorageProvider(), storePrefix)
-	if err != nil {
-		return nil, fmt.Errorf("new: failed to ceate local kms: %w", err)
-	}
-
 	secretLock := p.SecretLock()
 
 	kw, err := keywrapper.New(secretLock, primaryKeyURI)
@@ -81,7 +64,7 @@ func NewWithPrefix(primaryKeyURI string, p kms.Provider, storePrefix string) (*L
 	keyEnvelopeAEAD := aead.NewKMSEnvelopeAEAD2(aead.AES256GCMKeyTemplate(), kw)
 
 	return &LocalKMS{
-			store:             store,
+			store:             p.StorageProvider(),
 			secretLock:        secretLock,
 			primaryKeyURI:     primaryKeyURI,
 			primaryKeyEnvAEAD: keyEnvelopeAEAD,
@@ -209,7 +192,7 @@ func (l *LocalKMS) storeKeySet(kh *keyset.Handle, kt kms.KeyType) (string, error
 	return writeToStore(l.store, buf)
 }
 
-func writeToStore(store storage.Store, buf *bytes.Buffer, opts ...kms.PrivateKeyOpts) (string, error) {
+func writeToStore(store kms.Store, buf *bytes.Buffer, opts ...kms.PrivateKeyOpts) (string, error) {
 	w := newWriter(store, opts...)
 
 	// write buffer to localstorage

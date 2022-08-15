@@ -75,6 +75,19 @@ func (p *provider) Crypto() cryptoapi.Crypto {
 	return p.cryptoService
 }
 
+type kmsProvider struct {
+	store             kms.Store
+	secretLockService secretlock.Service
+}
+
+func (k *kmsProvider) StorageProvider() kms.Store {
+	return k.store
+}
+
+func (k *kmsProvider) SecretLock() secretlock.Service {
+	return k.secretLockService
+}
+
 func newKMS(t *testing.T) (kms.KeyManager, storage.Store) {
 	msp := mockStorage.NewMockStoreProvider()
 	p := &provider{storeProvider: msp, secretLock: &noop.NoLock{}}
@@ -82,7 +95,15 @@ func newKMS(t *testing.T) (kms.KeyManager, storage.Store) {
 	store, err := p.StorageProvider().OpenStore("test-kms")
 	require.NoError(t, err)
 
-	customKMS, err := localkms.New("local-lock://primary/test/", p)
+	kmsStore, err := kms.NewAriesProviderWrapper(msp)
+	require.NoError(t, err)
+
+	kmsProv := &kmsProvider{
+		store:             kmsStore,
+		secretLockService: &noop.NoLock{},
+	}
+
+	customKMS, err := localkms.New("local-lock://primary/test/", kmsProv)
 	require.NoError(t, err)
 
 	return customKMS, store
