@@ -10,7 +10,7 @@ echo "Running aries-framework-go integration tests..."
 PWD=`pwd`
 cd test/bdd
 go test -count=1 -v -cover . -p 1 -timeout=45m -race
-go test -count=1 -v -cover . -p 1 -timeout=30m -race -run presentproof,present_proof_controller,issue_credential,issue_credential_controller,webkms,waci_issuance,verifiable
+go test -count=1 -v -cover . -p 1 -timeout=30m -race -run presentproof,present_proof_controller,issue_credential,issue_credential_controller,webkms,waci_issuance,verifiable,verifiable_jwt
 go test -count=1 -v -cover . -p 1 -timeout=30m -race -run didcomm_remote_crypto,outofbandv2
 go test -count=1 -v -cover . -p 1 -timeout=45m -race -run outofband
 DEFAULT_KEY_TYPE="ecdsap256ieee1363" DEFAULT_KEY_AGREEMENT_TYPE="p256kw" go test -count=1 -v -cover . -p 1 -timeout=10m -race -run didcommv2

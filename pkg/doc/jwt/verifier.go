@@ -56,16 +56,25 @@ type BasicVerifier struct {
 func NewVerifier(resolver KeyResolver) *BasicVerifier {
 	// TODO Support pluggable JWS verifiers
 	//  (https://github.com/hyperledger/aries-framework-go/issues/1267)
-	compositeVerifier := jose.NewCompositeAlgSigVerifier(
-		jose.AlgSignatureVerifier{
-			Alg:      signatureEdDSA,
-			Verifier: getVerifier(resolver, VerifyEdDSA),
-		},
-		jose.AlgSignatureVerifier{
-			Alg:      signatureRS256,
-			Verifier: getVerifier(resolver, VerifyRS256),
-		},
-	)
+	verifiers := []verifier.SignatureVerifier{
+		verifier.NewECDSAES256SignatureVerifier(),
+		verifier.NewECDSAES384SignatureVerifier(),
+		verifier.NewECDSAES521SignatureVerifier(),
+		verifier.NewEd25519SignatureVerifier(),
+		verifier.NewECDSASecp256k1SignatureVerifier(),
+		verifier.NewRSAPS256SignatureVerifier(),
+		verifier.NewRSARS256SignatureVerifier(),
+	}
+
+	algVerifiers := make([]jose.AlgSignatureVerifier, 0, len(verifiers))
+	for _, v := range verifiers {
+		algVerifiers = append(algVerifiers, jose.AlgSignatureVerifier{
+			Alg:      v.Algorithm(),
+			Verifier: getVerifier(resolver, v.Verify),
+		})
+	}
+
+	compositeVerifier := jose.NewCompositeAlgSigVerifier(algVerifiers[0], algVerifiers[1:]...)
 	// TODO ECDSA to support NIST P256 curve
 	//  https://github.com/hyperledger/aries-framework-go/issues/1266
 
