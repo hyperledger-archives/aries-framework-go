@@ -41,11 +41,11 @@ const (
 // See https://github.com/decentralized-identity/credential-manifest/issues/73 for more information about this name
 // overloading.
 type CredentialApplication struct {
-	ID string `json:"id,omitempty"`
+	ID string `json:"id,omitempty"` // mandatory property
 	// The value of this property MUST be the ID of a valid Credential Manifest.
-	ManifestID string `json:"manifest_id,omitempty"`
+	ManifestID string `json:"manifest_id,omitempty"` // mandatory property
 	// Must be a subset of the format property of the CredentialManifest that this CredentialApplication is related to
-	Format presexch.Format `json:"format,omitempty"`
+	Format presexch.Format `json:"format,omitempty"` // mandatory property
 }
 
 // UnmarshalAndValidateAgainstCredentialManifest unmarshals the credentialApplicationBytes into a CredentialApplication
@@ -187,7 +187,7 @@ func (ca *CredentialApplication) validateFormatAgainstCredManifestFormat(cm *Cre
 		return errors.New("the Credential Manifest specifies a format but the Credential Application does not")
 	}
 
-	err := ca.ensureFormatIsSubsetOfCredManifestFormat(cm.Format)
+	err := ca.ensureFormatIsSubsetOfCredManifestFormat(*cm.Format)
 	if err != nil {
 		return fmt.Errorf("invalid format request: %w", err)
 	}
@@ -328,10 +328,15 @@ func setCredentialApplicationContext(presentation *verifiable.Presentation) {
 }
 
 func setCustomFields(presentation *verifiable.Presentation, credentialManifest *CredentialManifest) {
+	format := presexch.Format{}
+	if credentialManifest.Format != nil {
+		format = *credentialManifest.Format
+	}
+
 	application := CredentialApplication{
 		ID:         uuid.New().String(),
 		ManifestID: credentialManifest.ID,
-		Format:     credentialManifest.Format,
+		Format:     format,
 	}
 
 	if presentation.CustomFields == nil {

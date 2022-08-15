@@ -37,6 +37,8 @@ var (
 	credentialManifestDriversLicenseWithPresentationDefinition []byte //nolint:gochecknoglobals
 	//go:embed testdata/credential_manifest_drivers_license_with_presentation_definition_and_format.json
 	credentialManifestDriversLicenseWithPresentationDefinitionAndFormat []byte //nolint:gochecknoglobals
+	//go:embed testdata/credential_manifest_drivers_license_with_no_display_or_styles.json
+	credentialManifestDriversLicenseWithNoDisplayOrStyles []byte //nolint:gochecknoglobals
 )
 
 // Sample verifiable credential for a university degree.
@@ -64,120 +66,167 @@ func TestCredentialManifest_Unmarshal(t *testing.T) {
 		t.Run("With Presentation Submission", func(t *testing.T) {
 			makeCredentialManifestFromBytes(t, credentialManifestUniversityDegreeWithPresentationDefinition)
 		})
-	})
-	t.Run("Missing issuer ID", func(t *testing.T) {
-		credentialManifest := makeCredentialManifestFromBytes(t, credentialManifestUniversityDegree)
-
-		credentialManifest.Issuer.ID = ""
-
-		invalidCredentialManifest, err := json.Marshal(credentialManifest)
-		require.NoError(t, err)
-
-		err = json.Unmarshal(invalidCredentialManifest, &credentialManifest)
-		require.EqualError(t, err, "invalid credential manifest: issuer ID missing")
-	})
-	t.Run("No output descriptors", func(t *testing.T) {
-		credentialManifest := makeCredentialManifestFromBytes(t, credentialManifestUniversityDegree)
-
-		credentialManifest.OutputDescriptors = nil
-
-		invalidCredentialManifest, err := json.Marshal(credentialManifest)
-		require.NoError(t, err)
-
-		err = json.Unmarshal(invalidCredentialManifest, &credentialManifest)
-		require.EqualError(t, err, "invalid credential manifest: no output descriptors found")
-	})
-	t.Run("Output descriptor missing ID", func(t *testing.T) {
-		credentialManifest := makeCredentialManifestFromBytes(t, credentialManifestUniversityDegree)
-
-		credentialManifest.OutputDescriptors[0].ID = ""
-
-		invalidCredentialManifest, err := json.Marshal(credentialManifest)
-		require.NoError(t, err)
-
-		err = json.Unmarshal(invalidCredentialManifest, &credentialManifest)
-		require.EqualError(t, err, "invalid credential manifest: missing ID for output descriptor at index 0")
-	})
-	t.Run("Duplicate output descriptor IDs", func(t *testing.T) {
-		credentialManifest := makeCredentialManifestFromBytes(t, credentialManifestUniversityDegree)
-
-		credentialManifest.OutputDescriptors =
-			append(credentialManifest.OutputDescriptors,
-				&cm.OutputDescriptor{ID: credentialManifest.OutputDescriptors[0].ID})
-
-		invalidCredentialManifest, err := json.Marshal(credentialManifest)
-		require.NoError(t, err)
-
-		err = json.Unmarshal(invalidCredentialManifest, &credentialManifest)
-		require.EqualError(t, err, "invalid credential manifest: the ID bachelors_degree appears "+
-			"in multiple output descriptors")
-	})
-	t.Run("Missing schema for output descriptor", func(t *testing.T) {
-		credentialManifest := makeCredentialManifestFromBytes(t, credentialManifestUniversityDegree)
-
-		credentialManifest.OutputDescriptors[0].Schema = ""
-
-		invalidCredentialManifest, err := json.Marshal(credentialManifest)
-		require.NoError(t, err)
-
-		err = json.Unmarshal(invalidCredentialManifest, &credentialManifest)
-		require.EqualError(t, err, "invalid credential manifest: missing schema for "+
-			"output descriptor at index 0")
-	})
-	t.Run("Invalid JSONPath", func(t *testing.T) {
-		t.Run("Display title", func(t *testing.T) {
-			var credentialManifest cm.CredentialManifest
-
-			err := json.Unmarshal(createMarshalledCredentialManifestWithInvalidTitleJSONPath(t), &credentialManifest)
-			require.EqualError(t, err, "invalid credential manifest: display title for output descriptor "+
-				`at index 0 is invalid: path "%InvalidJSONPath" at index 0 is not a valid JSONPath: parsing error: `+
-				`%InvalidJSONPath	:1:1 - 1:2 unexpected "%" while scanning extensions`)
+		t.Run("Without output descriptor display", func(t *testing.T) {
+			makeCredentialManifestFromBytes(t, credentialManifestDriversLicenseWithNoDisplayOrStyles)
 		})
-		t.Run("Display subtitle", func(t *testing.T) {
-			var credentialManifest cm.CredentialManifest
+		t.Run("Without issuer optional properties", func(t *testing.T) {
+			credentialManifest := makeCredentialManifestFromBytes(t, credentialManifestUniversityDegree)
 
-			err := json.Unmarshal(createMarshalledCredentialManifestWithInvalidSubtitleJSONPath(t), &credentialManifest)
-			require.EqualError(t, err, "invalid credential manifest: display subtitle for output descriptor "+
-				`at index 0 is invalid: path "%InvalidJSONPath" at index 0 is not a valid JSONPath: parsing error: `+
-				`%InvalidJSONPath	:1:1 - 1:2 unexpected "%" while scanning extensions`)
-		})
-		t.Run("Display description", func(t *testing.T) {
-			var credentialManifest cm.CredentialManifest
+			credentialManifest.Issuer = cm.Issuer{ID: "valid ID"}
 
-			err := json.Unmarshal(createMarshalledCredentialManifestWithInvalidDescriptionJSONPath(t), &credentialManifest)
-			require.EqualError(t, err, "invalid credential manifest: display description for output "+
-				`descriptor at index 0 is invalid: path "%InvalidJSONPath" at index 0 is not a valid JSONPath: `+
-				`parsing error: %InvalidJSONPath	:1:1 - 1:2 unexpected "%" while scanning extensions`)
-		})
-		t.Run("Display property", func(t *testing.T) {
-			var credentialManifest cm.CredentialManifest
+			invalidCredentialManifest, err := json.Marshal(credentialManifest)
+			require.NoError(t, err)
 
-			err := json.Unmarshal(createMarshalledCredentialManifestWithInvalidPropertyJSONPath(t), &credentialManifest)
-			require.EqualError(t, err, "invalid credential manifest: display property at index 0 for output "+
-				`descriptor at index 0 is invalid: path "%InvalidJSONPath" at index 0 is not a valid JSONPath: `+
-				`parsing error: %InvalidJSONPath	:1:1 - 1:2 unexpected "%" while scanning extensions`)
+			err = json.Unmarshal(invalidCredentialManifest, &credentialManifest)
+			require.NoError(t, err)
 		})
 	})
-	t.Run("Invalid schema type", func(t *testing.T) {
-		var credentialManifest cm.CredentialManifest
+	t.Run("Invalid Credential Manifest", func(t *testing.T) {
+		t.Run("Missing ID", func(t *testing.T) {
+			credentialManifest := makeCredentialManifestFromBytes(t, credentialManifestUniversityDegree)
 
-		err := json.Unmarshal(createMarshalledCredentialManifestWithInvalidSchemaType(t), &credentialManifest)
-		require.EqualError(t, err, "invalid credential manifest: display title for output descriptor at "+
-			"index 0 is invalid: InvalidSchemaType is not a valid schema type")
-	})
-	t.Run("Invalid schema format", func(t *testing.T) {
-		var credentialManifest cm.CredentialManifest
+			credentialManifest.ID = ""
 
-		err := json.Unmarshal(createMarshalledCredentialManifestWithInvalidSchemaFormat(t), &credentialManifest)
-		require.EqualError(t, err, "invalid credential manifest: display title for output descriptor at "+
-			"index 0 is invalid: UnknownFormat is not a valid string schema format")
-	})
-	t.Run("Missing paths and text", func(t *testing.T) {
-		var credentialManifest cm.CredentialManifest
+			invalidCredentialManifest, err := json.Marshal(credentialManifest)
+			require.NoError(t, err)
 
-		err := json.Unmarshal(createMarshalledCredentialManifestWithMissingPropertyJSONPathAndText(t), &credentialManifest)
-		require.EqualError(t, err, "invalid credential manifest: display property at index 0 for output descriptor at "+
-			"index 0 is invalid: display mapping object must contain either a paths or a text property")
+			err = json.Unmarshal(invalidCredentialManifest, &credentialManifest)
+			require.EqualError(t, err, "invalid credential manifest: ID missing")
+		})
+		t.Run("Missing issuer", func(t *testing.T) {
+			credentialManifest := makeCredentialManifestFromBytes(t, credentialManifestUniversityDegree)
+
+			credentialManifest.Issuer = cm.Issuer{}
+
+			invalidCredentialManifest, err := json.Marshal(credentialManifest)
+			require.NoError(t, err)
+
+			err = json.Unmarshal(invalidCredentialManifest, &credentialManifest)
+			require.EqualError(t, err, "invalid credential manifest: issuer ID missing")
+		})
+		t.Run("Missing issuer ID", func(t *testing.T) {
+			credentialManifest := makeCredentialManifestFromBytes(t, credentialManifestUniversityDegree)
+
+			credentialManifest.Issuer.ID = ""
+
+			invalidCredentialManifest, err := json.Marshal(credentialManifest)
+			require.NoError(t, err)
+
+			err = json.Unmarshal(invalidCredentialManifest, &credentialManifest)
+			require.EqualError(t, err, "invalid credential manifest: issuer ID missing")
+		})
+		t.Run("No output descriptors", func(t *testing.T) {
+			credentialManifest := makeCredentialManifestFromBytes(t, credentialManifestUniversityDegree)
+
+			credentialManifest.OutputDescriptors = nil
+
+			invalidCredentialManifest, err := json.Marshal(credentialManifest)
+			require.NoError(t, err)
+
+			err = json.Unmarshal(invalidCredentialManifest, &credentialManifest)
+			require.EqualError(t, err, "invalid credential manifest: no output descriptors found")
+		})
+		t.Run("Output descriptor missing ID", func(t *testing.T) {
+			credentialManifest := makeCredentialManifestFromBytes(t, credentialManifestUniversityDegree)
+
+			credentialManifest.OutputDescriptors[0].ID = ""
+
+			invalidCredentialManifest, err := json.Marshal(credentialManifest)
+			require.NoError(t, err)
+
+			err = json.Unmarshal(invalidCredentialManifest, &credentialManifest)
+			require.EqualError(t, err, "invalid credential manifest: missing ID for output descriptor at index 0")
+		})
+		t.Run("Duplicate output descriptor IDs", func(t *testing.T) {
+			credentialManifest := makeCredentialManifestFromBytes(t, credentialManifestUniversityDegree)
+
+			credentialManifest.OutputDescriptors =
+				append(credentialManifest.OutputDescriptors,
+					&cm.OutputDescriptor{ID: credentialManifest.OutputDescriptors[0].ID})
+
+			invalidCredentialManifest, err := json.Marshal(credentialManifest)
+			require.NoError(t, err)
+
+			err = json.Unmarshal(invalidCredentialManifest, &credentialManifest)
+			require.EqualError(t, err, "invalid credential manifest: the ID bachelors_degree appears "+
+				"in multiple output descriptors")
+		})
+		t.Run("Missing schema for output descriptor", func(t *testing.T) {
+			credentialManifest := makeCredentialManifestFromBytes(t, credentialManifestUniversityDegree)
+
+			credentialManifest.OutputDescriptors[0].Schema = ""
+
+			invalidCredentialManifest, err := json.Marshal(credentialManifest)
+			require.NoError(t, err)
+
+			err = json.Unmarshal(invalidCredentialManifest, &credentialManifest)
+			require.EqualError(t, err, "invalid credential manifest: missing schema for "+
+				"output descriptor at index 0")
+		})
+		t.Run("Invalid JSONPath", func(t *testing.T) {
+			t.Run("Display title", func(t *testing.T) {
+				var credentialManifest cm.CredentialManifest
+
+				err := json.Unmarshal(createMarshalledCredentialManifestWithInvalidTitleJSONPath(t), &credentialManifest)
+				require.EqualError(t, err, "invalid credential manifest: display title for output descriptor "+
+					`at index 0 is invalid: path "%InvalidJSONPath" at index 0 is not a valid JSONPath: parsing error: `+
+					`%InvalidJSONPath	:1:1 - 1:2 unexpected "%" while scanning extensions`)
+			})
+			t.Run("Display subtitle", func(t *testing.T) {
+				var credentialManifest cm.CredentialManifest
+
+				err := json.Unmarshal(createMarshalledCredentialManifestWithInvalidSubtitleJSONPath(t), &credentialManifest)
+				require.EqualError(t, err, "invalid credential manifest: display subtitle for output descriptor "+
+					`at index 0 is invalid: path "%InvalidJSONPath" at index 0 is not a valid JSONPath: parsing error: `+
+					`%InvalidJSONPath	:1:1 - 1:2 unexpected "%" while scanning extensions`)
+			})
+			t.Run("Display description", func(t *testing.T) {
+				var credentialManifest cm.CredentialManifest
+
+				err := json.Unmarshal(createMarshalledCredentialManifestWithInvalidDescriptionJSONPath(t), &credentialManifest)
+				require.EqualError(t, err, "invalid credential manifest: display description for output "+
+					`descriptor at index 0 is invalid: path "%InvalidJSONPath" at index 0 is not a valid JSONPath: `+
+					`parsing error: %InvalidJSONPath	:1:1 - 1:2 unexpected "%" while scanning extensions`)
+			})
+			t.Run("Display property", func(t *testing.T) {
+				var credentialManifest cm.CredentialManifest
+
+				err := json.Unmarshal(createMarshalledCredentialManifestWithInvalidPropertyJSONPath(t), &credentialManifest)
+				require.EqualError(t, err, "invalid credential manifest: display property at index 0 for output "+
+					`descriptor at index 0 is invalid: path "%InvalidJSONPath" at index 0 is not a valid JSONPath: `+
+					`parsing error: %InvalidJSONPath	:1:1 - 1:2 unexpected "%" while scanning extensions`)
+			})
+		})
+		t.Run("Invalid schema type", func(t *testing.T) {
+			var credentialManifest cm.CredentialManifest
+
+			err := json.Unmarshal(createMarshalledCredentialManifestWithInvalidSchemaType(t), &credentialManifest)
+			require.EqualError(t, err, "invalid credential manifest: display title for output descriptor at "+
+				"index 0 is invalid: InvalidSchemaType is not a valid schema type")
+		})
+		t.Run("Invalid schema format", func(t *testing.T) {
+			var credentialManifest cm.CredentialManifest
+
+			err := json.Unmarshal(createMarshalledCredentialManifestWithInvalidSchemaFormat(t), &credentialManifest)
+			require.EqualError(t, err, "invalid credential manifest: display title for output descriptor at "+
+				"index 0 is invalid: UnknownFormat is not a valid string schema format")
+		})
+		t.Run("Missing paths and text", func(t *testing.T) {
+			var credentialManifest cm.CredentialManifest
+
+			err := json.Unmarshal(createMarshalledCredentialManifestWithMissingPropertyJSONPathAndText(t), &credentialManifest)
+			require.EqualError(t, err, "invalid credential manifest: display property at index 0 for output descriptor at "+
+				"index 0 is invalid: display mapping object must contain either a paths or a text property")
+		})
+		t.Run("Missing image URI", func(t *testing.T) {
+			credentialManifest := createCredentialManifestWithNoImageURI(t)
+
+			invalidCredentialManifest, err := json.Marshal(credentialManifest)
+			require.NoError(t, err)
+
+			err = json.Unmarshal(invalidCredentialManifest, &credentialManifest)
+			require.EqualError(t, err, "invalid credential manifest: uri missing for image at index 0")
+		})
 	})
 }
 
@@ -736,6 +785,17 @@ func createCredentialManifestWithNilLDPFormat(t *testing.T) cm.CredentialManifes
 	credentialManifest := makeCredentialManifestFromBytes(t, credentialManifestUniversityDegreeWithFormat)
 
 	credentialManifest.Format.Ldp = nil
+
+	return credentialManifest
+}
+
+func createCredentialManifestWithNoImageURI(t *testing.T) cm.CredentialManifest {
+	credentialManifest := makeCredentialManifestFromBytes(t, credentialManifestUniversityDegree)
+
+	credentialManifest.OutputDescriptors[0].Styles.Thumbnail = &cm.ImageURIWithAltText{
+		Alt: "valid alt",
+	}
+	require.Empty(t, credentialManifest.OutputDescriptors[0].Styles.Thumbnail.URI)
 
 	return credentialManifest
 }

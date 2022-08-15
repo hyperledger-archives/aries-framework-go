@@ -20,20 +20,20 @@ import (
 
 // ResolvedProperty contains resolved result for each resolved property.
 type ResolvedProperty struct {
-	Schema Schema      `json:"schema,omitempty"`
-	Label  string      `json:"label,omitempty"`
-	Value  interface{} `json:"value,omitempty"`
+	Schema Schema      `json:"schema"`
+	Label  string      `json:"label"`
+	Value  interface{} `json:"value"`
 }
 
 // ResolvedDescriptor typically represents results of resolving manifests by credential fulfillment.
 // Typically represents a DataDisplayDescriptor that's had its various "template" fields resolved
 // into concrete values based on a Verifiable Credential.
 type ResolvedDescriptor struct {
-	DescriptorID string              `json:"descriptor_id,omitempty"`
+	DescriptorID string              `json:"descriptor_id"`
 	Title        string              `json:"title,omitempty"`
 	Subtitle     string              `json:"subtitle,omitempty"`
 	Description  string              `json:"description,omitempty"`
-	Styles       Styles              `json:"styles,omitempty"`
+	Styles       *Styles             `json:"styles,omitempty"`
 	Properties   []*ResolvedProperty `json:"properties,omitempty"`
 }
 
@@ -206,17 +206,17 @@ func resolveOutputDescriptor(outputDescriptor *OutputDescriptor,
 
 func resolveStaticDisplayMappingObjects(outputDescriptor *OutputDescriptor,
 	vc map[string]interface{}) (staticDisplayMappingObjects, error) {
-	title, err := resolveDisplayMappingObject(&outputDescriptor.Display.Title, vc)
+	title, err := resolveDisplayMappingObject(outputDescriptor.Display.Title, vc)
 	if err != nil {
 		return staticDisplayMappingObjects{}, fmt.Errorf("failed to resolve title display mapping object: %w", err)
 	}
 
-	subtitle, err := resolveDisplayMappingObject(&outputDescriptor.Display.Subtitle, vc)
+	subtitle, err := resolveDisplayMappingObject(outputDescriptor.Display.Subtitle, vc)
 	if err != nil {
 		return staticDisplayMappingObjects{}, fmt.Errorf("failed to resolve subtitle display mapping object: %w", err)
 	}
 
-	description, err := resolveDisplayMappingObject(&outputDescriptor.Display.Description, vc)
+	description, err := resolveDisplayMappingObject(outputDescriptor.Display.Description, vc)
 	if err != nil {
 		return staticDisplayMappingObjects{}, fmt.Errorf("failed to resolve description display mapping object: %w", err)
 	}
@@ -228,7 +228,7 @@ func resolveStaticDisplayMappingObjects(outputDescriptor *OutputDescriptor,
 	}, nil
 }
 
-func resolveDescriptorProperties(properties []LabeledDisplayMappingObject,
+func resolveDescriptorProperties(properties []*LabeledDisplayMappingObject,
 	vc map[string]interface{}) ([]*ResolvedProperty, error) {
 	var resolvedProperties []*ResolvedProperty
 
