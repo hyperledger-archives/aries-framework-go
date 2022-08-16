@@ -20,11 +20,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
-const (
-	// legacyDIDCommServiceType is the non-spec service type used by legacy didcomm agent systems.
-	legacyDIDCommServiceType = "IndyAgent"
-)
-
 // CreateDestination makes a DIDComm Destination object from a DID Doc as per the DIDComm service conventions:
 // https://github.com/hyperledger/aries-rfcs/blob/master/features/0067-didcomm-diddoc-conventions/README.md.
 func CreateDestination(didDoc *diddoc.Doc) (*Destination, error) {
