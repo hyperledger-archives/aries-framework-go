@@ -23,6 +23,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 	bbspb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/bbs_go_proto"
+	clpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/cl_go_proto"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -32,6 +33,7 @@ const (
 	nistPECDHKWPublicKeyTypeURL  = "type.hyperledger.org/hyperledger.aries.crypto.tink.NistPEcdhKwPublicKey"
 	x25519ECDHKWPublicKeyTypeURL = "type.hyperledger.org/hyperledger.aries.crypto.tink.X25519EcdhKwPublicKey"
 	bbsVerifierKeyTypeURL        = "type.hyperledger.org/hyperledger.aries.crypto.tink.BBSPublicKey"
+	clCredDefKeyTypeURL          = "type.hyperledger.org/hyperledger.aries.crypto.tink.CLCredDefKey"
 	derPrefix                    = "der-"
 	p13163Prefix                 = "p1363-"
 )
@@ -93,7 +95,7 @@ func write(w io.Writer, msg *tinkpb.Keyset) (kms.KeyType, error) {
 	for _, key := range ks {
 		if key.KeyId == primaryKID && key.Status == tinkpb.KeyStatusType_ENABLED {
 			switch key.KeyData.TypeUrl {
-			case ecdsaVerifierTypeURL, ed25519VerifierTypeURL, bbsVerifierKeyTypeURL:
+			case ecdsaVerifierTypeURL, ed25519VerifierTypeURL, bbsVerifierKeyTypeURL, clCredDefKeyTypeURL:
 				created, kt, err = writePubKey(w, key)
 				if err != nil {
 					return "", err
@@ -123,6 +125,7 @@ func write(w io.Writer, msg *tinkpb.Keyset) (kms.KeyType, error) {
 	return kt, nil
 }
 
+// nolint:gocyclo,funlen
 func writePubKey(w io.Writer, key *tinkpb.Keyset_Key) (bool, kms.KeyType, error) {
 	var (
 		marshaledRawPubKey []byte
@@ -168,6 +171,18 @@ func writePubKey(w io.Writer, key *tinkpb.Keyset_Key) (bool, kms.KeyType, error)
 		copy(marshaledRawPubKey, pubKeyProto.KeyValue)
 
 		kt = kms.BLS12381G2Type
+	case clCredDefKeyTypeURL:
+		pubKeyProto := new(clpb.CLCredDefPublicKey)
+
+		err := proto.Unmarshal(key.KeyData.Value, pubKeyProto)
+		if err != nil {
+			return false, "", err
+		}
+
+		marshaledRawPubKey = make([]byte, len(pubKeyProto.KeyValue))
+		copy(marshaledRawPubKey, pubKeyProto.KeyValue)
+
+		kt = kms.CLCredDefType
 	default:
 		return false, "", fmt.Errorf("can't export key with keyURL:%s", key.KeyData.TypeUrl)
 	}

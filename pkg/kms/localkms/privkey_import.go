@@ -22,6 +22,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
 	bbspb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/bbs_go_proto"
+	clpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/cl_go_proto"
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
@@ -285,6 +286,22 @@ func buidBBSParams(kt kms.KeyType) *bbspb.BBSParams {
 			HashType: commonpb.HashType_SHA256,
 			Curve:    bbspb.BBSCurveType_BLS12_381,
 			Group:    bbspb.GroupField_G2,
+		}
+	}
+
+	return nil
+}
+
+func buidCLCredDefParams(kt kms.KeyType, opts ...kms.KeyOpts) *clpb.CLCredDefParams {
+	if kt == kms.CLCredDefType {
+		keyOpts := kms.NewKeyOpt()
+
+		for _, opt := range opts {
+			opt(keyOpts)
+		}
+
+		return &clpb.CLCredDefParams{
+			Attrs: keyOpts.Attrs(),
 		}
 	}
 
