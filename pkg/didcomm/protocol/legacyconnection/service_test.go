@@ -409,7 +409,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, invitation.ServiceEndpoint, uri)
 
-	connectionSignature, err := ctx.prepareConnectionSignature(doc.DIDDocument, invitation.ID)
+	connectionSignature, err := ctx.prepareConnectionSignature(doc.DIDDocument, invitation.RecipientKeys[0])
 	require.NoError(t, err)
 
 	// Bob replies with a Response
@@ -578,7 +578,7 @@ func TestService_Accept(t *testing.T) {
 	require.Equal(t, true, s.Accept("https://didcomm.org/connections/1.0/invitation"))
 	require.Equal(t, true, s.Accept("https://didcomm.org/connections/1.0/request"))
 	require.Equal(t, true, s.Accept("https://didcomm.org/connections/1.0/response"))
-	require.Equal(t, true, s.Accept("https://didcomm.org/connections/1.0/ack"))
+	require.Equal(t, true, s.Accept("https://didcomm.org/notification/1.0/ack"))
 	require.Equal(t, false, s.Accept("unsupported msg type"))
 }
 
@@ -1215,7 +1215,7 @@ func TestConnectionRecord(t *testing.T) {
 	require.NoError(t, err)
 
 	conn, err := svc.connectionRecord(generateRequestMsgPayload(t, &protocol.MockProvider{},
-		randomString(), randomString()))
+		randomString(), randomString()), service.EmptyDIDCommContext())
 	require.NoError(t, err)
 	require.NotNil(t, conn)
 
@@ -1227,7 +1227,7 @@ func TestConnectionRecord(t *testing.T) {
 	msg, err := service.ParseDIDCommMsgMap(requestBytes)
 	require.NoError(t, err)
 
-	_, err = svc.connectionRecord(msg)
+	_, err = svc.connectionRecord(msg, service.EmptyDIDCommContext())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid message type")
 }
@@ -1315,7 +1315,7 @@ func TestRequestRecord(t *testing.T) {
 
 		didcommMsg := generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString(), uuid.New().String())
 		require.NotEmpty(t, didcommMsg.ParentThreadID())
-		conn, err := svc.requestMsgRecord(didcommMsg)
+		conn, err := svc.requestMsgRecord(didcommMsg, service.EmptyDIDCommContext())
 		require.NoError(t, err)
 		require.NotNil(t, conn)
 		require.Equal(t, didcommMsg.ParentThreadID(), conn.InvitationID)
@@ -1333,7 +1333,7 @@ func TestRequestRecord(t *testing.T) {
 		require.NotEmpty(t, didcommMsg.ParentThreadID())
 		delete(didcommMsg, "connection")
 
-		_, err = svc.requestMsgRecord(didcommMsg)
+		_, err = svc.requestMsgRecord(didcommMsg, service.EmptyDIDCommContext())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "missing connection field")
 	})
@@ -1351,7 +1351,7 @@ func TestRequestRecord(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = svc.requestMsgRecord(generateRequestMsgPayload(t, &protocol.MockProvider{},
-			randomString(), uuid.New().String()))
+			randomString(), uuid.New().String()), service.EmptyDIDCommContext())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "save connection record")
 	})
@@ -1367,12 +1367,12 @@ func TestRequestRecord(t *testing.T) {
 		parentThreadID := ""
 		didcommMsg := generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString(), parentThreadID)
 		require.Empty(t, didcommMsg.ParentThreadID())
-		_, err = svc.requestMsgRecord(didcommMsg)
+		_, err = svc.requestMsgRecord(didcommMsg, service.EmptyDIDCommContext())
 		require.Error(t, err)
 	})
 }
 
-func TestAcceptExchangeRequest(t *testing.T) {
+func TestAcceptConnectionRequest(t *testing.T) {
 	sp := mockstorage.NewMockStoreProvider()
 	k := newKMS(t, sp)
 	ctx := &context{
@@ -1444,7 +1444,82 @@ func TestAcceptExchangeRequest(t *testing.T) {
 	}
 }
 
-func TestAcceptExchangeRequestWithPublicDID(t *testing.T) {
+func TestAcceptConnectionRequestWithoutParentThreadID(t *testing.T) {
+	sp := mockstorage.NewMockStoreProvider()
+	k := newKMS(t, sp)
+	ctx := &context{
+		kms:              k,
+		keyType:          kms.ED25519Type,
+		keyAgreementType: kms.X25519ECDHKWType,
+	}
+
+	svc, err := New(&protocol.MockProvider{
+		StoreProvider: sp,
+		ServiceMap: map[string]interface{}{
+			mediator.Coordination: &mockroute.MockMediatorSvc{},
+		},
+		CustomKMS:             k,
+		KeyTypeValue:          ctx.keyType,
+		KeyAgreementTypeValue: ctx.keyAgreementType,
+	})
+	require.NoError(t, err)
+
+	actionCh := make(chan service.DIDCommAction, 10)
+	err = svc.RegisterActionEvent(actionCh)
+	require.NoError(t, err)
+
+	_, verPubKey, err := ctx.kms.CreateAndExportPubKeyBytes(kms.ED25519Type)
+	require.NoError(t, err)
+
+	invitation := &Invitation{
+		Type:            InvitationMsgType,
+		ID:              randomString(),
+		Label:           "Bob",
+		RecipientKeys:   []string{base58.Encode(verPubKey)},
+		ServiceEndpoint: "http://alice.agent.example.com:8081",
+	}
+
+	err = svc.connectionRecorder.SaveInvitation(invitation.ID, invitation)
+	require.NoError(t, err)
+
+	go func() {
+		for e := range actionCh {
+			prop, ok := e.Properties.(event)
+			require.True(t, ok, "Failed to cast the event properties to service.Event")
+			require.NoError(t, svc.AcceptConnectionRequest(prop.ConnectionID(), "", "", nil))
+		}
+	}()
+
+	statusCh := make(chan service.StateMsg, 10)
+	err = svc.RegisterMsgEvent(statusCh)
+	require.NoError(t, err)
+
+	done := make(chan struct{})
+
+	go func() {
+		for e := range statusCh {
+			if e.Type == service.PostState && e.StateID == StateIDResponded {
+				done <- struct{}{}
+			}
+		}
+	}()
+
+	props := map[string]interface{}{}
+	props[InvitationRecipientKey] = invitation.RecipientKeys[0]
+	c := service.NewDIDCommContext("", "", props)
+
+	_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{
+		StoreProvider: mockstorage.NewMockStoreProvider(),
+	}, randomString(), ""), c)
+	require.NoError(t, err, "missing parent thread ID and invitation recipient key on connection request")
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		require.Fail(t, "tests are not validated")
+	}
+}
+
+func TestAcceptConnectionRequestWithPublicDID(t *testing.T) {
 	sp := mockstorage.NewMockStoreProvider()
 	k := newKMS(t, sp)
 	ctx := &context{

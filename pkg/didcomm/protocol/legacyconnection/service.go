@@ -46,7 +46,7 @@ const (
 	// ResponseMsgType defines the legacy-connection response message type.
 	ResponseMsgType = PIURI + "/response"
 	// AckMsgType defines the legacy-connection ack message type.
-	AckMsgType             = PIURI + "/ack"
+	AckMsgType             = "https://didcomm.org/notification/1.0/ack"
 	routerConnsMetadataKey = "routerConnections"
 )
 
@@ -55,6 +55,8 @@ const (
 	// TODO: https://github.com/hyperledger/aries-framework-go/issues/556 It will not be constant, this namespace
 	//  will need to be figured with verification key
 	theirNSPrefix = "their"
+	// InvitationRecipientKey is map key constant.
+	InvitationRecipientKey = "invRecipientKey"
 )
 
 // message type to store data for eventing. This is retrieved during callback.
@@ -222,7 +224,7 @@ func retrievingRouterConnections(msg service.DIDCommMsg) []string {
 }
 
 // HandleInbound handles inbound connection messages.
-func (s *Service) HandleInbound(msg service.DIDCommMsg, _ service.DIDCommContext) (string, error) {
+func (s *Service) HandleInbound(msg service.DIDCommMsg, ctx service.DIDCommContext) (string, error) {
 	logger.Debugf("receive inbound message : %s", msg)
 
 	// fetch the thread id
@@ -238,7 +240,7 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, _ service.DIDCommContext
 	}
 
 	// connection record
-	connRecord, err := s.connectionRecord(msg)
+	connRecord, err := s.connectionRecord(msg, ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch connection record : %w", err)
 	}
@@ -376,7 +378,7 @@ func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) erro
 		}
 
 		if connectionRecord.State == StateIDCompleted {
-			err = s.connectionStore.SaveDIDByResolving(connectionRecord.TheirDID, connectionRecord.RecipientKeys...)
+			err = s.connectionStore.SaveDID(connectionRecord.TheirDID, connectionRecord.RecipientKeys...)
 			if err != nil {
 				return fmt.Errorf("save theirDID: %w", err)
 			}
@@ -627,12 +629,12 @@ func (s *Service) CreateConnection(record *connection.Record, theirDID *did.Doc)
 	return s.connectionRecorder.SaveConnectionRecord(record)
 }
 
-func (s *Service) connectionRecord(msg service.DIDCommMsg) (*connection.Record, error) {
+func (s *Service) connectionRecord(msg service.DIDCommMsg, ctx service.DIDCommContext) (*connection.Record, error) {
 	switch msg.Type() {
 	case InvitationMsgType:
 		return s.invitationMsgRecord(msg)
 	case RequestMsgType:
-		return s.requestMsgRecord(msg)
+		return s.requestMsgRecord(msg, ctx)
 	case ResponseMsgType:
 		return s.responseMsgRecord(msg)
 	case AckMsgType:
@@ -680,8 +682,11 @@ func (s *Service) invitationMsgRecord(msg service.DIDCommMsg) (*connection.Recor
 	return connRecord, nil
 }
 
-func (s *Service) requestMsgRecord(msg service.DIDCommMsg) (*connection.Record, error) {
-	request := Request{}
+func (s *Service) requestMsgRecord(msg service.DIDCommMsg, ctx service.DIDCommContext) (*connection.Record, error) {
+	var (
+		request          Request
+		invitationRecKey []string
+	)
 
 	err := msg.Decode(&request)
 	if err != nil {
@@ -690,7 +695,13 @@ func (s *Service) requestMsgRecord(msg service.DIDCommMsg) (*connection.Record, 
 
 	invitationID := msg.ParentThreadID()
 	if invitationID == "" {
-		return nil, fmt.Errorf("missing parent thread ID on connection request with @id=%s", request.ID)
+		// try to retrieve key which was assigned at HandleInboundEnvelope method of inbound handler
+		if verKey, ok := ctx.All()[InvitationRecipientKey].(string); ok && verKey != "" {
+			invitationRecKey = append(invitationRecKey, verKey)
+		} else {
+			return nil, fmt.Errorf("missing parent thread ID and invitation recipient key"+
+				" on connection request with @id=%s", request.ID)
+		}
 	}
 
 	if request.Connection == nil {
@@ -698,14 +709,15 @@ func (s *Service) requestMsgRecord(msg service.DIDCommMsg) (*connection.Record, 
 	}
 
 	connRecord := &connection.Record{
-		TheirLabel:     request.Label,
-		ConnectionID:   generateRandomID(),
-		ThreadID:       request.ID,
-		State:          stateNameNull,
-		TheirDID:       request.Connection.DID,
-		InvitationID:   invitationID,
-		Namespace:      theirNSPrefix,
-		DIDCommVersion: service.V1,
+		TheirLabel:              request.Label,
+		ConnectionID:            generateRandomID(),
+		ThreadID:                request.ID,
+		State:                   stateNameNull,
+		TheirDID:                request.Connection.DID,
+		InvitationID:            invitationID,
+		InvitationRecipientKeys: invitationRecKey,
+		Namespace:               theirNSPrefix,
+		DIDCommVersion:          service.V1,
 	}
 
 	if !strings.HasPrefix(connRecord.TheirDID, "did") {

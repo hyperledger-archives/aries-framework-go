@@ -54,25 +54,27 @@ type DIDRotationRecord struct {
 }
 
 // Record contain info about did exchange connection.
+// nolint:lll
 type Record struct {
-	ConnectionID        string
-	State               string
-	ThreadID            string
-	ParentThreadID      string
-	TheirLabel          string
-	TheirDID            string
-	MyDID               string
-	ServiceEndPoint     model.Endpoint // ServiceEndPoint is 'their' DIDComm service endpoint.
-	RecipientKeys       []string       // RecipientKeys holds 'their' DIDComm recipient keys.
-	RoutingKeys         []string       // RoutingKeys holds 'their' DIDComm routing keys.
-	InvitationID        string
-	InvitationDID       string
-	Implicit            bool
-	Namespace           string
-	MediaTypeProfiles   []string
-	DIDCommVersion      didcomm.Version
-	PeerDIDInitialState string
-	MyDIDRotation       *DIDRotationRecord `json:"myDIDRotation,omitempty"`
+	ConnectionID            string
+	State                   string
+	ThreadID                string
+	ParentThreadID          string
+	TheirLabel              string
+	TheirDID                string
+	MyDID                   string
+	ServiceEndPoint         model.Endpoint // ServiceEndPoint is 'their' DIDComm service endpoint.
+	RecipientKeys           []string       // RecipientKeys holds 'their' DIDComm recipient keys.
+	RoutingKeys             []string       // RoutingKeys holds 'their' DIDComm routing keys.
+	InvitationID            string
+	InvitationDID           string
+	InvitationRecipientKeys []string `json:"invitationRecipientKeys,omitempty"` // InvitationRecipientKeys holds keys generated for invitation
+	Implicit                bool
+	Namespace               string
+	MediaTypeProfiles       []string
+	DIDCommVersion          didcomm.Version
+	PeerDIDInitialState     string
+	MyDIDRotation           *DIDRotationRecord `json:"myDIDRotation,omitempty"`
 }
 
 // NewLookup returns new connection lookup instance.

@@ -60,6 +60,9 @@ const (
 	jsonldPublicKeyHex       = "publicKeyHex"
 	jsonldPublicKeyPem       = "publicKeyPem"
 	jsonldPublicKeyjwk       = "publicKeyJwk"
+
+	// service type that needed for v011 did-doc resolution.
+	legacyServiceType = "IndyAgent"
 )
 
 var (
@@ -472,7 +475,7 @@ func (doc *Doc) UnmarshalJSON(data []byte) error {
 }
 
 // ParseDocument creates an instance of DIDDocument by reading a JSON document from bytes.
-func ParseDocument(data []byte) (*Doc, error) {
+func ParseDocument(data []byte) (*Doc, error) { // nolint:funlen,gocyclo
 	raw := &rawDoc{}
 
 	err := json.Unmarshal(data, &raw)
@@ -483,8 +486,13 @@ func ParseDocument(data []byte) (*Doc, error) {
 	}
 
 	// Interop: handle legacy did docs that incorrectly indicate they use the new format
-	// aca-py issue: https://github.com/hyperledger/aries-cloudagent-python/issues/1048
-	if doACAPYInterop && requiresLegacyHandling(raw) {
+	// aca-py and vcx issue: https://github.com/hyperledger/aries-cloudagent-python/issues/1048
+	var serviceType string
+	if len(raw.Service) > 0 {
+		serviceType, _ = raw.Service[0]["type"].(string) //nolint: errcheck
+	}
+
+	if (doACAPYInterop || serviceType == legacyServiceType) && requiresLegacyHandling(raw) {
 		raw.Context = []string{contextV011}
 	} else {
 		// validate did document

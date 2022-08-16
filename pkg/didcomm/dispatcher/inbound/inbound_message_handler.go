@@ -155,9 +155,20 @@ func (handler *MessageHandler) HandleInboundEnvelope(envelope *transport.Envelop
 	}
 
 	if foundService != nil {
+		props := make(map[string]interface{})
+
 		switch foundService.Name() {
-		// perf: DID exchange and legacy-connection doesn't require myDID and theirDID
-		case didexchange.DIDExchange, legacyconnection.LegacyConnection:
+		// perf: DID exchange doesn't require myDID and theirDID
+		case didexchange.DIDExchange:
+		// perf: legacy-connection requires envelope.ToKey when sending Connection Response (it will sign connection
+		// data with this key)
+		case legacyconnection.LegacyConnection:
+			// When type of envelope.Message is connections/request, the key which was used to decrypt message is the
+			// same key which was sent during invitation. If ParentThreadID is missed (Interop issues), that key will be
+			// used to sign connection-data while sending connection response
+			if msg.Type() == legacyconnection.RequestMsgType && msg.ParentThreadID() == "" {
+				props[legacyconnection.InvitationRecipientKey] = base58.Encode(envelope.ToKey)
+			}
 		default:
 			if !gotDIDs {
 				myDID, theirDID, err = handler.getDIDs(envelope, msg)
@@ -167,7 +178,7 @@ func (handler *MessageHandler) HandleInboundEnvelope(envelope *transport.Envelop
 			}
 		}
 
-		_, err = foundService.HandleInbound(msg, service.NewDIDCommContext(myDID, theirDID, nil))
+		_, err = foundService.HandleInbound(msg, service.NewDIDCommContext(myDID, theirDID, props))
 
 		return err
 	}

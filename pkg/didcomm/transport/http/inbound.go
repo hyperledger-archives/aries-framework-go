@@ -100,7 +100,7 @@ func validateHTTPMethod(w http.ResponseWriter, r *http.Request) bool {
 
 	ct := r.Header.Get("Content-type")
 
-	if ct != commContentType {
+	if ct != commContentType && ct != commContentTypeLegacy {
 		http.Error(w, fmt.Sprintf("Unsupported Content-type \"%s\"", ct), http.StatusUnsupportedMediaType)
 		return false
 	}

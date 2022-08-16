@@ -69,3 +69,48 @@ func TestConvertBase58KeysToDIDKeys(t *testing.T) {
 		}
 	})
 }
+
+func TestConvertDIDKeysToBase58Keys(t *testing.T) {
+	t.Run("no keys given", func(t *testing.T) {
+		recipientKeys := ConvertDIDKeysToBase58Keys(nil)
+		require.Nil(t, recipientKeys)
+	})
+
+	t.Run("some keys are converted", func(t *testing.T) {
+		inKeys := []string{
+			"did:key:z6MkjtX1C5tGbsNxcGBdCnkfzPw4pHq3fuufgFNkBpFtviAL",
+			"#key1",
+			"did:key:z6MkkFUoo38XGcBVojEhiGum4EV58DCCdGnigLHqvFMWiz3H",
+			"did:key:z6MkerVcrLfHZ9SajtxAkkir2wUwsQ9hg85oQfU62pyMtgsQ",
+			"/path#fragment",
+			"did:key:z6MkoG3wcwpJBS7GpzJSs1rPuTgiA7tsUV2FyVqszD1kWNNJ",
+			"did:key:z6MkuusSJ7WsP58DcpvU7hqoiYtzkxwHb5nrE9xLUj76PK9n",
+			"?query=value",
+			"did:key:z6MktheMCSkicACB2D4nP3y2JX8i1ZofyYvuKtMK5Zs78ewa",
+			"",
+			"@!~unexpected data~!@",
+		}
+
+		expectedKeys := []string{
+			"6SFxbqdqGKtVVmLvXDnq9JP4ziZCG2fJzETpMYHt1VNx",
+			"#key1",
+			"6oDmCnt5w4h2hEQ12hwvD8w5JdvMDPYMzKNv5yPVomFu",
+			"QEaG6QrDbx7dQ7U5Bm1Bqvx3psrGEqSieZACZ1LyU62",
+			"/path#fragment",
+			"9onu2hZrqtcoiVTkBStZ4N8iLYd24bmuHUvx9w3jb9av",
+			"GTcPhsGS3XdkWL5mS8sxsTLzwPfSBCYVY93QeT95U6NQ",
+			"?query=value",
+			"FFPJcCWHGchhuiE5hV1BTRaiBzXpZfgYdsSPFHu6DSAC",
+			"",
+			"@!~unexpected data~!@",
+		}
+
+		outKeys := ConvertDIDKeysToBase58Keys(inKeys)
+
+		require.Equal(t, len(expectedKeys), len(outKeys))
+
+		for i := range outKeys {
+			require.Equal(t, expectedKeys[i], outKeys[i])
+		}
+	})
+}

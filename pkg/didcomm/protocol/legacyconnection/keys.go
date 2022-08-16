@@ -27,9 +27,8 @@ func (ctx *context) createNewKeyAndVM(didDoc *did.Doc) error {
 	}
 
 	didDoc.VerificationMethod = append(didDoc.VerificationMethod, *vm)
-	didDoc.Authentication = append(didDoc.Authentication, *did.NewEmbeddedVerification(vm, did.Authentication))
-	// FIXME is KeyAgreement needed?
-	didDoc.KeyAgreement = append(didDoc.KeyAgreement, *did.NewEmbeddedVerification(kaVM, did.KeyAgreement))
+	didDoc.Authentication = append(didDoc.Authentication, *did.NewReferencedVerification(vm, did.Authentication))
+	didDoc.KeyAgreement = append(didDoc.KeyAgreement, *did.NewReferencedVerification(kaVM, did.KeyAgreement))
 
 	return nil
 }
