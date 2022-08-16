@@ -32,10 +32,10 @@ const (
 // CredentialFulfillment represents a Credential Fulfillment object as defined in
 // https://identity.foundation/credential-manifest/#credential-fulfillment.
 type CredentialFulfillment struct {
-	ID                             string                `json:"id,omitempty"`
-	ManifestID                     string                `json:"manifest_id,omitempty"`
+	ID                             string                `json:"id,omitempty"`          // mandatory property
+	ManifestID                     string                `json:"manifest_id,omitempty"` // mandatory property
 	ApplicationID                  string                `json:"application_id,omitempty"`
-	OutputDescriptorMappingObjects []OutputDescriptorMap `json:"descriptor_map,omitempty"`
+	OutputDescriptorMappingObjects []OutputDescriptorMap `json:"descriptor_map,omitempty"` // mandatory property
 }
 
 // OutputDescriptorMap represents an Output Descriptor Mapping Object as defined in
