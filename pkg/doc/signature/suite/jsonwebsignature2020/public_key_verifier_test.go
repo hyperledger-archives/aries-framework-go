@@ -66,7 +66,7 @@ func TestPublicKeyVerifier_Verify_EC(t *testing.T) {
 				keyType, err := signature.MapECCurveToKeyType(tc.curve)
 				require.NoError(t, err)
 
-				signer, err := newCryptoSigner(keyType)
+				signer, err := newCryptoSigner(t, keyType)
 				require.NoError(t, err)
 
 				pubKey := &sigverifier.PublicKey{
@@ -94,7 +94,7 @@ func TestPublicKeyVerifier_Verify_EC(t *testing.T) {
 }
 
 func TestPublicKeyVerifier_Verify_Ed25519(t *testing.T) {
-	signer, err := newCryptoSigner(kmsapi.ED25519Type)
+	signer, err := newCryptoSigner(t, kmsapi.ED25519Type)
 	require.NoError(t, err)
 
 	msg := []byte("test message")
@@ -116,7 +116,7 @@ func TestPublicKeyVerifier_Verify_Ed25519(t *testing.T) {
 }
 
 func TestPublicKeyVerifier_Verify_RSA(t *testing.T) {
-	signer, err := newCryptoSigner(kmsapi.RSAPS256Type)
+	signer, err := newCryptoSigner(t, kmsapi.RSAPS256Type)
 	require.NoError(t, err)
 
 	msg := []byte("test message")
@@ -141,8 +141,8 @@ func TestPublicKeyVerifier_Verify_RSA(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func newCryptoSigner(keyType kmsapi.KeyType) (signature.Signer, error) {
-	localKMS, err := createKMS()
+func newCryptoSigner(t *testing.T, keyType kmsapi.KeyType) (signature.Signer, error) {
+	localKMS, err := createKMS(t)
 	if err != nil {
 		return nil, err
 	}

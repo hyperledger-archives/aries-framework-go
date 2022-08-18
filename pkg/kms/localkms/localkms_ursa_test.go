@@ -17,7 +17,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/store/wrapper/prefix"
 )
 
 func TestLocalKMS_Ursa_Success(t *testing.T) {
@@ -26,11 +25,16 @@ func TestLocalKMS_Ursa_Success(t *testing.T) {
 
 	storeDB := make(map[string]mockstorage.DBEntry)
 	// test New()
+	mockStorageProvider := mockstorage.NewCustomMockStoreProvider(
+		&mockstorage.MockStore{
+			Store: storeDB,
+		})
+
+	kmsStore, err := kms.NewAriesProviderWrapper(mockStorageProvider)
+	require.NoError(t, err)
+
 	kmsService, err := New(testMasterKeyURI, &mockProvider{
-		storage: mockstorage.NewCustomMockStoreProvider(
-			&mockstorage.MockStore{
-				Store: storeDB,
-			}),
+		storage:    kmsStore,
 		secretLock: sl,
 	})
 	require.NoError(t, err)
@@ -51,7 +55,7 @@ func TestLocalKMS_Ursa_Success(t *testing.T) {
 		require.NotEmpty(t, newKeyHandle)
 		require.NotEmpty(t, keyID)
 
-		ks, ok := storeDB[prefix.StorageKIDPrefix+keyID]
+		ks, ok := storeDB[keyID]
 		require.True(t, ok)
 		require.NotEmpty(t, ks)
 

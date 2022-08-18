@@ -10,12 +10,12 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go/spi/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 // newReader will create a new local storage storeReader of a keyset with ID value = keysetID
 // it is used internally by local kms.
-func newReader(store storage.Store, keysetID string) *storeReader {
+func newReader(store kms.Store, keysetID string) *storeReader {
 	return &storeReader{
 		storage:  store,
 		keysetID: keysetID,
@@ -25,7 +25,7 @@ func newReader(store storage.Store, keysetID string) *storeReader {
 // storeReader struct to load a keyset from a local storage.
 type storeReader struct {
 	buf      *bytes.Buffer
-	storage  storage.Store
+	storage  kms.Store
 	keysetID string
 }
 

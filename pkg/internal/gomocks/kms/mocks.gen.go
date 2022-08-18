@@ -10,7 +10,6 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	kms "github.com/hyperledger/aries-framework-go/pkg/kms"
 	secretlock "github.com/hyperledger/aries-framework-go/pkg/secretlock"
-	storage "github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 // MockProvider is a mock of Provider interface.
@@ -51,10 +50,10 @@ func (mr *MockProviderMockRecorder) SecretLock() *gomock.Call {
 }
 
 // StorageProvider mocks base method.
-func (m *MockProvider) StorageProvider() storage.Provider {
+func (m *MockProvider) StorageProvider() kms.Store {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StorageProvider")
-	ret0, _ := ret[0].(storage.Provider)
+	ret0, _ := ret[0].(kms.Store)
 	return ret0
 }
 

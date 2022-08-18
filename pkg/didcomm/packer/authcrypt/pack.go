@@ -21,7 +21,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/kid/resolver"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 // Package authcrypt includes a Packer implementation to build and parse JWE messages using Authcrypt. It allows sending
@@ -201,7 +200,7 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 		// verify recKey.KID is found in kms to prove ownership of key.
 		_, err = p.kms.Get(recKey.KID)
 		if err != nil {
-			if errors.Is(err, storage.ErrDataNotFound) {
+			if errors.Is(err, kms.ErrKeyNotFound) {
 				retriesMsg := ""
 
 				if i < len(jwe.Recipients) {

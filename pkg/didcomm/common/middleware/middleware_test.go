@@ -1052,12 +1052,28 @@ func TestDIDRotator_verifyJWSAndPayload(t *testing.T) {
 	})
 }
 
+type kmsProvider struct {
+	kmsStore          kms.Store
+	secretLockService secretlock.Service
+}
+
+func (k *kmsProvider) StorageProvider() kms.Store {
+	return k.kmsStore
+}
+
+func (k *kmsProvider) SecretLock() secretlock.Service {
+	return k.secretLockService
+}
+
 func createMockProvider(t *testing.T) *mockProvider {
 	t.Helper()
 
-	kmsStorage, err := localkms.New("local-lock://test/master/key/", &mockProvider{
-		storeProvider: mockstorage.NewMockStoreProvider(),
-		secretLock:    &noop.NoLock{},
+	kmsStore, err := kms.NewAriesProviderWrapper(mockstorage.NewMockStoreProvider())
+	require.NoError(t, err)
+
+	kmsStorage, err := localkms.New("local-lock://test/master/key/", &kmsProvider{
+		kmsStore:          kmsStore,
+		secretLockService: &noop.NoLock{},
 	})
 	require.NoError(t, err)
 

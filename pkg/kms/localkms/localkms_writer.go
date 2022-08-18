@@ -14,13 +14,12 @@ import (
 	"github.com/google/tink/go/subtle/random"
 
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const maxKeyIDLen = 50
 
 // newWriter creates a new instance of local storage key storeWriter in the given store and for primaryKeyURI.
-func newWriter(kmsStore storage.Store, opts ...kms.PrivateKeyOpts) *storeWriter {
+func newWriter(kmsStore kms.Store, opts ...kms.PrivateKeyOpts) *storeWriter {
 	pOpts := kms.NewOpt()
 
 	for _, opt := range opts {
@@ -35,7 +34,7 @@ func newWriter(kmsStore storage.Store, opts ...kms.PrivateKeyOpts) *storeWriter 
 
 // storeWriter struct to store a keyset in a local store.
 type storeWriter struct {
-	storage storage.Store
+	storage kms.Store
 	//
 	requestedKeysetID string
 	// KeysetID is set when Write() is called
@@ -72,7 +71,7 @@ func (l *storeWriter) Write(p []byte) (int, error) {
 
 func (l *storeWriter) verifyRequestedID() (string, error) {
 	_, err := l.storage.Get(l.requestedKeysetID)
-	if errors.Is(err, storage.ErrDataNotFound) {
+	if errors.Is(err, kms.ErrKeyNotFound) {
 		return l.requestedKeysetID, nil
 	}
 
@@ -95,7 +94,7 @@ func (l *storeWriter) newKeysetID() (string, error) {
 		// ensure ksID is not already used
 		_, err := l.storage.Get(ksID)
 		if err != nil {
-			if errors.Is(err, storage.ErrDataNotFound) {
+			if errors.Is(err, kms.ErrKeyNotFound) {
 				break
 			}
 

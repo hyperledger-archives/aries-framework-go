@@ -18,8 +18,20 @@ import (
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
-	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
+
+type kmsProvider struct {
+	store             kms.Store
+	secretLockService secretlock.Service
+}
+
+func (k *kmsProvider) StorageProvider() kms.Store {
+	return k.store
+}
+
+func (k *kmsProvider) SecretLock() secretlock.Service {
+	return k.secretLockService
+}
 
 func TestSignVerifyKeyTypes(t *testing.T) {
 	testCases := []struct {
@@ -44,9 +56,12 @@ func TestSignVerifyKeyTypes(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			kmsStorage, err := localkms.New("local-lock://test/master/key/", &mockProvider{
-				storeProvider: mockstorage.NewMockStoreProvider(),
-				secretLock:    &noop.NoLock{},
+			kmsStore, err := kms.NewAriesProviderWrapper(mockstorage.NewMockStoreProvider())
+			require.NoError(t, err)
+
+			kmsStorage, err := localkms.New("local-lock://test/master/key/", &kmsProvider{
+				store:             kmsStore,
+				secretLockService: &noop.NoLock{},
 			})
 			require.NoError(t, err)
 
@@ -76,17 +91,4 @@ func TestSignVerifyKeyTypes(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
-}
-
-type mockProvider struct {
-	storeProvider storage.Provider
-	secretLock    secretlock.Service
-}
-
-func (m *mockProvider) StorageProvider() storage.Provider {
-	return m.storeProvider
-}
-
-func (m *mockProvider) SecretLock() secretlock.Service {
-	return m.secretLock
 }

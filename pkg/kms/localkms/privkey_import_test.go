@@ -19,14 +19,10 @@ import (
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/stretchr/testify/require"
 
-	storageGoMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/spi/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mocksecretlock "github.com/hyperledger/aries-framework-go/pkg/mock/secretlock"
-	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
-	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 func TestImportECDSAKeyWithInvalidKey(t *testing.T) {
@@ -63,15 +59,6 @@ func TestImportKeySetInvalid(t *testing.T) {
 	defer ctrl.Finish()
 
 	errPrefix := "import private EC key failed: "
-	storeData := map[string]mockstorage.DBEntry{}
-
-	store := storageGoMocks.NewMockStore(ctrl)
-	store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
-	store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
-	store.EXPECT().Get(gomock.Any()).Return(nil, fmt.Errorf("failed to get keyset"))
-
-	storeProvider := storageGoMocks.NewMockProvider(ctrl)
-	storeProvider.EXPECT().OpenStore(Namespace).Return(store, nil).AnyTimes()
 
 	flagTests := []struct {
 		tcName        string
@@ -82,11 +69,7 @@ func TestImportKeySetInvalid(t *testing.T) {
 		{
 			tcName: "call importKeySet with nil keyset",
 			kmsProvider: &mockProvider{
-				storage: &mockstorage.MockStoreProvider{
-					Store: &mockstorage.MockStore{
-						Store: storeData,
-					},
-				},
+				storage: newInMemoryKMSStore(),
 				secretLock: &mocksecretlock.MockSecretLock{
 					ValEncrypt: "",
 					ValDecrypt: "",
@@ -97,11 +80,7 @@ func TestImportKeySetInvalid(t *testing.T) {
 		{
 			tcName: "call importKeySet with bad secretLock Encrypt",
 			kmsProvider: &mockProvider{
-				storage: &mockstorage.MockStoreProvider{
-					Store: &mockstorage.MockStore{
-						Store: storeData,
-					},
-				},
+				storage: newInMemoryKMSStore(),
 				secretLock: &mocksecretlock.MockSecretLock{
 					ValEncrypt: "",
 					ErrEncrypt: fmt.Errorf("bad encryption"),
@@ -117,7 +96,7 @@ func TestImportKeySetInvalid(t *testing.T) {
 		{
 			tcName: "call importKeySet with bad storage getKeySet call",
 			kmsProvider: &goMockProvider{
-				storage: storeProvider,
+				storage: newInMemoryKMSStore(),
 				secretLock: &mocksecretlock.MockSecretLock{
 					ValEncrypt: "",
 					ValDecrypt: "",
@@ -192,7 +171,10 @@ func TestValidECPrivateKey(t *testing.T) {
 func createKMS(t *testing.T) *LocalKMS {
 	t.Helper()
 
-	p := mockkms.NewProviderForKMS(mockstorage.NewMockStoreProvider(), &noop.NoLock{})
+	p := &mockProvider{
+		storage:    newInMemoryKMSStore(),
+		secretLock: &noop.NoLock{},
+	}
 
 	k, err := New(testMasterKeyURI, p)
 	require.NoError(t, err)
@@ -202,11 +184,11 @@ func createKMS(t *testing.T) *LocalKMS {
 
 // mockProvider mocks a provider for KMS storage.
 type goMockProvider struct {
-	storage    *storageGoMocks.MockProvider
+	storage    kms.Store
 	secretLock secretlock.Service
 }
 
-func (m *goMockProvider) StorageProvider() storage.Provider {
+func (m *goMockProvider) StorageProvider() kms.Store {
 	return m.storage
 }
 

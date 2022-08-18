@@ -383,6 +383,27 @@ func TestCreateDataVaultKeyPairs(t *testing.T) {
 		require.Contains(t, err.Error(), "failed to create key pairs")
 	})
 
+	t.Run("fail to create new KMS Aries provider wrapper", func(t *testing.T) {
+		testProfile := profile{EDVConf: &edvConf{}}
+
+		testProfileBytes, err := json.Marshal(testProfile)
+		require.NoError(t, err)
+
+		mockContext := &mockprovider.Provider{
+			StorageProviderValue: &mockstorage.MockStoreProvider{
+				FailNamespace: kms.AriesWrapperStoreName,
+				Store: &mockstorage.MockStore{
+					Store: map[string]mockstorage.DBEntry{
+						"vcwallet_usr_sample-user01": {Value: testProfileBytes},
+					},
+				},
+			},
+		}
+
+		err = CreateDataVaultKeyPairs(sampleUserID, mockContext)
+		require.EqualError(t, err, "failed to open store for name space kmsdb")
+	})
+
 	t.Run("test update profile errors", func(t *testing.T) {
 		kmgr := &mockkms.KeyManager{CreateKeyFn: func(kt kms.KeyType) (s string, i interface{}, e error) {
 			if kt == kms.HMACSHA256Tag256Type {

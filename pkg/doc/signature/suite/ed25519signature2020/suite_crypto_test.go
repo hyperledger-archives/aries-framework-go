@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/google/tink/go/keyset"
+	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
@@ -23,7 +24,7 @@ import (
 )
 
 func TestNewCryptoSignerAndVerifier(t *testing.T) {
-	lKMS := createKMS()
+	lKMS := createKMS(t)
 
 	kid, kh := createKeyHandle(lKMS, kmsapi.ED25519Type)
 
@@ -98,13 +99,12 @@ func createKeyHandle(kms *localkms.LocalKMS, keyType kmsapi.KeyType) (string, *k
 	return kid, kh.(*keyset.Handle)
 }
 
-func createKMS() *localkms.LocalKMS {
-	p := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
+func createKMS(t *testing.T) *localkms.LocalKMS {
+	p, err := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
+	require.NoError(t, err)
 
 	k, err := localkms.New("local-lock://custom/master/key/", p)
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 
 	return k
 }

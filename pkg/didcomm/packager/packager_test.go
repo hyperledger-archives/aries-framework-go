@@ -34,7 +34,6 @@ import (
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
-	"github.com/hyperledger/aries-framework-go/pkg/store/wrapper/prefix"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
@@ -57,7 +56,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 
 	t.Run("test failed to create packer encMessage due to missing vdr in provider", func(t *testing.T) {
 		// create a custom KMS instance with this provider
-		customKMS, err := localkms.New(localKeyURI, newMockKMSProvider(mockstorage.NewMockStoreProvider()))
+		customKMS, err := localkms.New(localKeyURI, newMockKMSProvider(mockstorage.NewMockStoreProvider(), t))
 		require.NoError(t, err)
 		require.NotEmpty(t, customKMS)
 
@@ -75,7 +74,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 	t.Run("test failed to unmarshal encMessage", func(t *testing.T) {
 		// create a custom KMS instance with this provider
 		customKMS, err := localkms.New(localKeyURI,
-			newMockKMSProvider(mockstorage.NewMockStoreProvider()))
+			newMockKMSProvider(mockstorage.NewMockStoreProvider(), t))
 		require.NoError(t, err)
 		require.NotEmpty(t, customKMS)
 
@@ -102,7 +101,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 
 	t.Run("test bad encoding type", func(t *testing.T) {
 		customKMS, err := localkms.New(localKeyURI,
-			newMockKMSProvider(mockstorage.NewMockStoreProvider()))
+			newMockKMSProvider(mockstorage.NewMockStoreProvider(), t))
 		require.NoError(t, err)
 		require.NotEmpty(t, customKMS)
 
@@ -148,7 +147,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 
 		// create a customKMS with a custom storage provider using the above store to access the store map.
 		customKMS, err := localkms.New(localKeyURI,
-			newMockKMSProvider(mockstorage.NewCustomMockStoreProvider(customStore)))
+			newMockKMSProvider(mockstorage.NewCustomMockStoreProvider(customStore), t))
 		require.NoError(t, err)
 		require.NotEmpty(t, customKMS)
 
@@ -191,7 +190,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		// mock KMS without ToKey then try UnpackMessage
-		delete(storeMap, prefix.StorageKIDPrefix+toKID) // keys in storeMap are prefixed
+		delete(storeMap, toKID) // keys in storeMap are prefixed
 
 		// It should fail since Recipient keys are not found in the KMS
 		_, err = packager.UnpackMessage(packMsg)
@@ -201,7 +200,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 
 	t.Run("test Pack/Unpack fails", func(t *testing.T) {
 		customKMS, err := localkms.New(localKeyURI,
-			newMockKMSProvider(mockstorage.NewMockStoreProvider()))
+			newMockKMSProvider(mockstorage.NewMockStoreProvider(), t))
 		require.NoError(t, err)
 		require.NotEmpty(t, customKMS)
 
@@ -288,7 +287,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 	})
 
 	t.Run("test Pack/Unpack success", func(t *testing.T) {
-		customKMS, err := localkms.New(localKeyURI, newMockKMSProvider(mockstorage.NewMockStoreProvider()))
+		customKMS, err := localkms.New(localKeyURI, newMockKMSProvider(mockstorage.NewMockStoreProvider(), t))
 		require.NoError(t, err)
 		require.NotEmpty(t, customKMS)
 
@@ -324,7 +323,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 
 	t.Run("test success - dids not found", func(t *testing.T) {
 		customKMS, err := localkms.New(localKeyURI,
-			newMockKMSProvider(mockstorage.NewMockStoreProvider()))
+			newMockKMSProvider(mockstorage.NewMockStoreProvider(), t))
 		require.NoError(t, err)
 		require.NotEmpty(t, customKMS)
 
@@ -527,7 +526,7 @@ func packUnPackSuccess(keyType kms.KeyType, customKMS kms.KeyManager, cryptoSvc 
 }
 
 func TestPackagerLegacyInterop(t *testing.T) {
-	customKMS, err := localkms.New(localKeyURI, newMockKMSProvider(mockstorage.NewMockStoreProvider()))
+	customKMS, err := localkms.New(localKeyURI, newMockKMSProvider(mockstorage.NewMockStoreProvider(), t))
 	require.NoError(t, err)
 	require.NotEmpty(t, customKMS)
 
@@ -603,7 +602,7 @@ func TestPackager_PackMessage_DIDKey_Failures(t *testing.T) {
 	cryptoSvc, err := tinkcrypto.New()
 	require.NoError(t, err)
 
-	customKMS, err := localkms.New(localKeyURI, newMockKMSProvider(mockstorage.NewMockStoreProvider()))
+	customKMS, err := localkms.New(localKeyURI, newMockKMSProvider(mockstorage.NewMockStoreProvider(), t))
 	require.NoError(t, err)
 
 	mockedProviders := &mockProvider{
@@ -654,7 +653,8 @@ func TestPackager_PackMessage_DIDKey_Failures(t *testing.T) {
 			fromKey: []byte("zInvalidKey"),
 			toKeys:  []string{"did:key:z6LSeu9HkTHSfLLeUs2nnzUSNedgDUevfNQgQjQC23ZCit6F"},
 			errMsg: "packMessage: failed to pack: authcrypt Pack: failed to get sender key from KMS: getKeySet: " +
-				"failed to read json keyset from reader: cannot read data for keysetID zInvalidKey: data not found",
+				"failed to read json keyset from reader: cannot read data for keysetID zInvalidKey: key not found. " +
+				"Underlying error: data not found",
 		},
 	}
 
@@ -675,7 +675,7 @@ func TestPackager_PackMessage_KeyAgreementID_Failures(t *testing.T) {
 	cryptoSvc, err := tinkcrypto.New()
 	require.NoError(t, err)
 
-	customKMS, err := localkms.New(localKeyURI, newMockKMSProvider(mockstorage.NewMockStoreProvider()))
+	customKMS, err := localkms.New(localKeyURI, newMockKMSProvider(mockstorage.NewMockStoreProvider(), t))
 	require.NoError(t, err)
 
 	//nolint:dogsled
@@ -860,8 +860,24 @@ func newLegacyDIDsAndDIDDocResolverFunc(t *testing.T, customKMS kms.KeyManager) 
 	return resolveDID, fromDID, toDID
 }
 
-func newMockKMSProvider(storagePvdr *mockstorage.MockStoreProvider) *mockProvider {
-	return &mockProvider{storagePvdr, nil, &noop.NoLock{}, nil, nil, nil, nil}
+type kmsProvider struct {
+	kmsStore          kms.Store
+	secretLockService secretlock.Service
+}
+
+func (k *kmsProvider) StorageProvider() kms.Store {
+	return k.kmsStore
+}
+
+func (k *kmsProvider) SecretLock() secretlock.Service {
+	return k.secretLockService
+}
+
+func newMockKMSProvider(storagePvdr *mockstorage.MockStoreProvider, t *testing.T) kms.Provider {
+	ariesProviderWrapper, err := kms.NewAriesProviderWrapper(storagePvdr)
+	require.NoError(t, err)
+
+	return &kmsProvider{kmsStore: ariesProviderWrapper, secretLockService: &noop.NoLock{}}
 }
 
 // mockProvider mocks provider for KMS.

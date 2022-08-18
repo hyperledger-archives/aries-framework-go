@@ -41,6 +41,7 @@ import (
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/peer"
@@ -1016,12 +1017,28 @@ func toBytes(t *testing.T, v interface{}) []byte {
 	return bits
 }
 
+type kmsProvider struct {
+	store             kms.Store
+	secretLockService secretlock.Service
+}
+
+func (k *kmsProvider) StorageProvider() kms.Store {
+	return k.store
+}
+
+func (k *kmsProvider) SecretLock() secretlock.Service {
+	return k.secretLockService
+}
+
 func newKMS(t *testing.T, store spi.Provider) kms.KeyManager {
 	t.Helper()
 
-	kmsProv := &protocol.MockProvider{
-		StoreProvider: store,
-		CustomLock:    &noop.NoLock{},
+	kmsStore, err := kms.NewAriesProviderWrapper(store)
+	require.NoError(t, err)
+
+	kmsProv := &kmsProvider{
+		store:             kmsStore,
+		secretLockService: &noop.NoLock{},
 	}
 
 	customKMS, err := localkms.New("local-lock://primary/test/", kmsProv)

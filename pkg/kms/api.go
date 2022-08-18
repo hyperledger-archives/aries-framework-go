@@ -7,10 +7,10 @@
 package kms
 
 import (
+	"errors"
 	"io"
 
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
-	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 // package kms provides the KMS interface of the framework. This includes the provider interface necessary for building
@@ -72,9 +72,26 @@ type KeyManager interface {
 	ImportPrivateKey(privKey interface{}, kt KeyType, opts ...PrivateKeyOpts) (string, interface{}, error)
 }
 
+// ErrKeyNotFound is an error type that a KMS expects from the Store.Get method if no key stored under the given
+// key ID could be found.
+var ErrKeyNotFound = errors.New("key not found")
+
+// Store defines the storage capability required by a KeyManager Provider.
+type Store interface {
+	// Put stores the given key under the given keysetID.
+	Put(keysetID string, key []byte) error
+	// Get retrieves the key stored under the given keysetID. If no key is found, the returned error is expected
+	// to wrap ErrKeyNotFound. KMS implementations may check to see if the error wraps that error type for certain
+	// operations.
+	Get(keysetID string) (key []byte, err error)
+	// Delete deletes the key stored under the given keysetID. A KeyManager will assume that attempting to delete
+	// a non-existent key will not return an error.
+	Delete(keysetID string) error
+}
+
 // Provider for KeyManager builder/constructor.
 type Provider interface {
-	StorageProvider() storage.Provider
+	StorageProvider() Store
 	SecretLock() secretlock.Service
 }
 

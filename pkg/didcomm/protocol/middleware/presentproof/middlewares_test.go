@@ -312,8 +312,10 @@ func TestPresentationDefinition(t *testing.T) {
 	cr, err := tinkcrypto.New()
 	require.NoError(t, err)
 
-	km, err := localkms.New("local-lock://custom/master/key/",
-		mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{}))
+	kmsProvider, err := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
+	require.NoError(t, err)
+
+	km, err := localkms.New("local-lock://custom/master/key/", kmsProvider)
 	require.NoError(t, err)
 
 	loader, err := ldtestutil.DocumentLoader()
