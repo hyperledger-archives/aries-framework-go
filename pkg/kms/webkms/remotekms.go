@@ -60,6 +60,7 @@ type createKeyStoreResp struct {
 
 type createKeyReq struct {
 	KeyType kms.KeyType `json:"key_type"`
+	Attrs   []string    `json:"attrs,omitempty"`
 }
 
 type createKeyResp struct {
@@ -276,11 +277,18 @@ func (r *RemoteKMS) Create(kt kms.KeyType, opts ...kms.KeyOpts) (string, interfa
 	return kid, keyURL, nil
 }
 
-func (r *RemoteKMS) createKey(kt kms.KeyType, _ ...kms.KeyOpts) (string, []byte, error) {
+func (r *RemoteKMS) createKey(kt kms.KeyType, opts ...kms.KeyOpts) (string, []byte, error) {
 	destination := r.keystoreURL + "/keys"
+
+	keyOpts := kms.NewKeyOpt()
+
+	for _, opt := range opts {
+		opt(keyOpts)
+	}
 
 	httpReqJSON := &createKeyReq{
 		KeyType: kt,
+		Attrs:   keyOpts.Attrs(),
 	}
 
 	marshaledReq, err := r.marshalFunc(httpReqJSON)
