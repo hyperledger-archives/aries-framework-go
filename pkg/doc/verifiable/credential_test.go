@@ -1871,6 +1871,10 @@ func TestParseUnverifiedCredential(t *testing.T) {
 			WithDisabledProofCheck())
 		require.NoError(t, err)
 		require.NotNil(t, vcUnverified)
+
+		require.Equal(t, jws, vcUnverified.JWT)
+		vcUnverified.JWT = ""
+
 		require.Equal(t, vc, vcUnverified)
 	})
 

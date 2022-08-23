@@ -24,9 +24,20 @@ type QueryParams struct {
 	Query []json.RawMessage `json:"credentialQuery"`
 }
 
+// ProofFormat determines whether a credential or presentation should be signed with an external JWT proof
+// (wrapping the credential to form a JWT-VC) or with an embedded LD proof.
+type ProofFormat string
+
+const (
+	// ExternalJWTProofFormat indicates that a credential or presentation should be signed with an external JWT proof.
+	ExternalJWTProofFormat = "ExternalJWTProofFormat"
+	// EmbeddedLDProofFormat indicates that a credential or presentation should be signed with an embedded LD proof.
+	EmbeddedLDProofFormat = "EmbeddedLDProofFormat"
+)
+
 // ProofOptions model
 //
-// Options for adding linked data proofs to a verifiable credential or a verifiable presentation.
+// Options for adding JWT or linked data proofs to a verifiable credential or a verifiable presentation.
 // To be used as options for issue/prove wallet features.
 //
 type ProofOptions struct {
@@ -38,6 +49,11 @@ type ProofOptions struct {
 	// Created date of the proof.
 	// Optional, current system time will be used.
 	Created *time.Time `json:"created,omitempty"`
+	// ProofFormat determines whether a credential or presentation should be signed with an external JWT proof
+	// (wrapping the credential to form a JWT-VC) or with an embedded LD proof.
+	//
+	// Optional: If empty, defaults to EmbeddedLDProofFormat.
+	ProofFormat ProofFormat `json:"proofFormat,omitempty"`
 	// Domain is operational domain of a digital proof.
 	// Optional, by default domain will not be part of proof.
 	Domain string `json:"domain,omitempty"`

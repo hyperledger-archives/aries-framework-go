@@ -67,6 +67,9 @@ func TestParseCredentialFromJWS(t *testing.T) {
 		vc, err := parseTestCredential(t, testCred)
 		require.NoError(t, err)
 
+		require.NotEqual(t, "", vcFromJWT.JWT)
+		vcFromJWT.JWT = ""
+
 		require.Equal(t, vc, vcFromJWT)
 	})
 
@@ -79,6 +82,9 @@ func TestParseCredentialFromJWS(t *testing.T) {
 
 		vc, err := parseTestCredential(t, testCred)
 		require.NoError(t, err)
+
+		require.NotEqual(t, "", vcFromJWT.JWT)
+		vcFromJWT.JWT = ""
 
 		require.Equal(t, vc, vcFromJWT)
 	})
@@ -139,6 +145,9 @@ func TestParseCredentialFromJWS_EdDSA(t *testing.T) {
 		vcJWSStr,
 		WithPublicKeyFetcher(SingleKey(signer.PublicKeyBytes(), kms.ED25519)))
 	require.NoError(t, err)
+
+	require.NotEqual(t, "", vcFromJWS.JWT)
+	vcFromJWS.JWT = ""
 
 	// unmarshalled credential must be the same as original one
 	require.Equal(t, vc, vcFromJWS)
