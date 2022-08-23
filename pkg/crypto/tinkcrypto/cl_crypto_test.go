@@ -14,7 +14,6 @@ import (
 
 	"github.com/google/tink/go/keyset"
 	"github.com/hyperledger/ursa-wrapper-go/pkg/libursa/ursa"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	bld "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/cl/blinder"
@@ -161,7 +160,7 @@ func generateBlindedSecretsWithNonces(
 	_offerNonce, err := ursa.NewNonce()
 	require.NoError(t, err)
 	_blindedSecrets, err := ursa.BlindCredentialSecrets(_pubKey, _correctnessProof, _offerNonce, _blindedVals)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	_requestNonce, err := ursa.NewNonce()
 	require.NoError(t, err)
 

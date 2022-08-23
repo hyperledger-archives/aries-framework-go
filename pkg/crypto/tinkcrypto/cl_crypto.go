@@ -44,18 +44,22 @@ func (t *Crypto) Blind(kh interface{}, values ...map[string]interface{}) ([][]by
 		return [][]byte{blinded}, nil
 	}
 
-	blindedList := make([][]byte, len(values))
+	var blindeds [][]byte
 
-	for i, val := range values {
+	if len(values) == 0 {
+		values = []map[string]interface{}{}
+	}
+
+	for _, val := range values {
 		blinded, err := blinder.Blind(val)
 		if err != nil {
 			return nil, err
 		}
 
-		blindedList[i] = blinded
+		blindeds = append(blindeds, blinded)
 	}
 
-	return blindedList, nil
+	return blindeds, nil
 }
 
 // GetCorrectnessProof will return correctness proof for a public key handle
