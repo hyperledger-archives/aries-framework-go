@@ -1215,8 +1215,10 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 		require.NoError(t, err)
 		customKMS := newKMS(t, mockstorage.NewMockStoreProvider())
 		ctx := context{
-			kms:                customKMS,
-			vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc(t, false)},
+			kms: customKMS,
+			vdRegistry: &mockvdr.MockVDRegistry{
+				CreateValue: mockdiddoc.GetLegacyInteropMockDIDDoc(t, "1234567abcdefg", []byte("key")),
+			},
 			connectionRecorder: connRec,
 			routeSvc: &mockroute.MockMediatorSvc{
 				Connections: []string{"xyz"},
@@ -1225,7 +1227,7 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 			keyType:          kms.ED25519Type,
 			keyAgreementType: kms.X25519ECDHKWType,
 		}
-		didDoc, err := ctx.getMyDIDDoc("", []string{"xyz"}, didCommServiceType)
+		didDoc, err := ctx.getMyDIDDoc("", []string{"xyz"}, legacyDIDCommServiceType)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "did doc - add key to the router")
 		require.Nil(t, didDoc)

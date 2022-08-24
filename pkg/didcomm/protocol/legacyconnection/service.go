@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/google/uuid"
 
@@ -718,10 +717,6 @@ func (s *Service) requestMsgRecord(msg service.DIDCommMsg, ctx service.DIDCommCo
 		InvitationRecipientKeys: invitationRecKey,
 		Namespace:               theirNSPrefix,
 		DIDCommVersion:          service.V1,
-	}
-
-	if !strings.HasPrefix(connRecord.TheirDID, "did") {
-		connRecord.TheirDID = "did:peer:" + connRecord.TheirDID
 	}
 
 	if err := s.connectionRecorder.SaveConnectionRecord(connRecord); err != nil {
