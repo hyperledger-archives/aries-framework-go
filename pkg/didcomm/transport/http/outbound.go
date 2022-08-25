@@ -22,8 +22,9 @@ import (
 //go:generate testdata/scripts/openssl_env.sh testdata/scripts/generate_test_keys.sh
 
 const (
-	commContentType = "application/didcomm-envelope-enc"
-	httpScheme      = "http"
+	commContentType       = "application/didcomm-envelope-enc"
+	commContentTypeLegacy = "application/ssi-agent-wire"
+	httpScheme            = "http"
 )
 
 // outboundCommHTTPOpts holds options for the HTTP transport implementation of CommTransport

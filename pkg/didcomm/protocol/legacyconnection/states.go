@@ -9,7 +9,6 @@ package legacyconnection
 import (
 	"encoding/base64"
 	"encoding/binary"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -28,6 +27,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/kmsdidkey"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/didkeyutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	connectionstore "github.com/hyperledger/aries-framework-go/pkg/store/connection"
@@ -316,6 +316,7 @@ func (ctx *context) createConnectionRequest(destination *service.Destination, la
 	}, connRec, nil
 }
 
+// nolint:gocyclo,funlen
 func (ctx *context) handleInboundRequest(request *Request, options *options,
 	connRec *connectionstore.Record) (stateAction, *connectionstore.Record, error) {
 	logger.Debugf("handling request: %#v", request)
@@ -346,8 +347,18 @@ func (ctx *context) handleInboundRequest(request *Request, options *options,
 		return nil, nil, fmt.Errorf("get response did doc and connection: %w", err)
 	}
 
+	var verKey string
+	if len(connRec.InvitationRecipientKeys) > 0 {
+		verKey = connRec.InvitationRecipientKeys[0]
+	} else {
+		verKey, err = ctx.getVerKey(request.Thread.PID)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to get verkey : %w", err)
+		}
+	}
+
 	// prepare connection signature
-	connectionSignature, err := ctx.prepareConnectionSignature(responseDidDoc, request.Thread.PID)
+	connectionSignature, err := ctx.prepareConnectionSignature(responseDidDoc, verKey)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -364,6 +375,7 @@ func (ctx *context) handleInboundRequest(request *Request, options *options,
 	connRec.MyDID = responseDidDoc.ID
 	connRec.TheirDID = request.Connection.DID
 	connRec.TheirLabel = request.Label
+	connRec.RecipientKeys = destination.RecipientKeys
 
 	accept, err := destination.ServiceEndpoint.Accept()
 	if err != nil {
@@ -379,16 +391,14 @@ func (ctx *context) handleInboundRequest(request *Request, options *options,
 	}, connRec, nil
 }
 
-//nolint:funlen
-func (ctx *context) prepareConnectionSignature(didDoc *did.Doc,
-	invitationID string) (*ConnectionSignature, error) {
+func (ctx *context) prepareConnectionSignature(didDoc *did.Doc, verKey string) (*ConnectionSignature, error) {
 	connection := &Connection{
 		DID:    didDoc.ID,
 		DIDDoc: didDoc,
 	}
-	logger.Debugf("connection=%+v invitationID=%s", connection, invitationID)
+	logger.Debugf("connection=%+v verKey=%s", connection, verKey)
 
-	connAttributeBytes, err := json.Marshal(connection)
+	connAttributeBytes, err := connection.toLegacyJSONBytes()
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal connection : %w", err)
 	}
@@ -398,11 +408,6 @@ func (ctx *context) prepareConnectionSignature(didDoc *did.Doc,
 	binary.BigEndian.PutUint64(timestampBuf, uint64(now))
 
 	concatenateSignData := append(timestampBuf, connAttributeBytes...)
-
-	verKey, err := ctx.getVerKey(invitationID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get verkey : %w", err)
-	}
 
 	var signingKey []byte
 
@@ -544,6 +549,7 @@ func (ctx *context) getMyDIDDoc(pubDID string, routerConnections []string, servi
 
 		switch serviceType {
 		case didCommServiceType, legacyDIDCommServiceType:
+			routingKeys = didkeyutil.ConvertDIDKeysToBase58Keys(routingKeys)
 			svc = did.Service{
 				Type:            serviceType,
 				ServiceEndpoint: model.NewDIDCommV1Endpoint(serviceEndpoint),
@@ -621,10 +627,21 @@ func (ctx *context) isPrivateDIDMethod(method string) bool {
 		return true
 	}
 
-	return method == "peer" || method == "sov"
+	return method == "peer" || method == "sov" || method == "key"
 }
 
 func (ctx *context) resolveDidDocFromConnection(con *Connection) (*did.Doc, error) {
+	if con.DIDDoc == nil {
+		return nil, fmt.Errorf("missing DIDDoc")
+	}
+	// FIXME Interop: aca-py and vcx issue. Should be removed after theirs fix
+	if !strings.HasPrefix(con.DIDDoc.ID, "did") && len(con.DIDDoc.Service) > 0 {
+		if len(con.DIDDoc.Service[0].RecipientKeys) > 0 {
+			con.DIDDoc.ID = didkeyutil.ConvertBase58KeysToDIDKeys(con.DIDDoc.Service[0].RecipientKeys)[0]
+			con.DID = con.DIDDoc.ID
+		}
+	}
+
 	parsedDID, err := did.Parse(con.DID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse did: %w", err)
@@ -638,20 +655,8 @@ func (ctx *context) resolveDidDocFromConnection(con *Connection) (*did.Doc, erro
 
 		return docResolution.DIDDocument, nil
 	}
-
-	if con.DIDDoc == nil {
-		return nil, fmt.Errorf("missing DIDDoc")
-	}
-
-	var method string
-
-	if parsedDID != nil && parsedDID.Method != "sov" {
-		method = parsedDID.Method
-	} else {
-		method = "peer"
-	}
 	// store provided did document
-	_, err = ctx.vdRegistry.Create(method, con.DIDDoc, vdrapi.WithOption("store", true))
+	_, err = ctx.vdRegistry.Create("peer", con.DIDDoc, vdrapi.WithOption("store", true))
 	if err != nil {
 		return nil, fmt.Errorf("failed to store provided did document: %w", err)
 	}
@@ -759,9 +764,8 @@ func (ctx *context) verifySignature(connSignature *ConnectionSignature, recipien
 	}
 
 	connBytes := sigData[timestampLength:]
-	conn := &Connection{}
 
-	err = json.Unmarshal(connBytes, conn)
+	conn, err := parseLegacyJSONBytes(connBytes)
 	if err != nil {
 		return nil, fmt.Errorf("JSON unmarshalling of connection: %w", err)
 	}

@@ -100,34 +100,40 @@ func TestInboundHandler(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusUnsupportedMediaType, rs.StatusCode)
 
-	// test with nil body ..
-	rs, err = client.Post(serverURL+"/", commContentType, nil)
-	require.NoError(t, err)
-	err = rs.Body.Close()
-	require.NoError(t, err)
-	require.Equal(t, http.StatusBadRequest, rs.StatusCode)
-
-	// finally test successful POST requests
+	contentTypes := []string{commContentType, commContentTypeLegacy}
 	data := "success"
 
-	resp, err := client.Post(serverURL+"/", commContentType, bytes.NewBuffer([]byte(data)))
-	require.NoError(t, err)
-	err = resp.Body.Close()
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+	for _, contentType := range contentTypes {
+		// test with nil body ..
+		resp, err := client.Post(serverURL+"/", contentType, nil)
+		require.NoError(t, err)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+		require.NoError(t, resp.Body.Close())
+
+		// test successful POST requests
+		resp, err = client.Post(serverURL+"/", contentType, bytes.NewBuffer([]byte(data)))
+		require.NoError(t, err)
+		err = resp.Body.Close()
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.Equal(t, http.StatusAccepted, resp.StatusCode)
+	}
 
 	// test unpack error
 	mockPackager.UnpackValue = nil
 	mockPackager.UnpackErr = fmt.Errorf("unpack error")
-	resp, err = client.Post(serverURL+"/", commContentType, bytes.NewBuffer([]byte(data)))
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-	require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
-	body, err := ioutil.ReadAll(resp.Body)
-	require.NoError(t, err)
-	require.Contains(t, string(body), "failed to unpack msg")
-	require.NoError(t, resp.Body.Close())
+
+	for _, contentType := range contentTypes {
+		resp, err := client.Post(serverURL+"/", contentType, bytes.NewBuffer([]byte(data)))
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+		body, err := ioutil.ReadAll(resp.Body)
+		require.NoError(t, err)
+		require.Contains(t, string(body), "failed to unpack msg")
+		require.NoError(t, resp.Body.Close())
+	}
 }
 
 func TestInboundTransport(t *testing.T) {
@@ -193,23 +199,31 @@ func TestInboundTransport(t *testing.T) {
 		err = inbound.Start(&mockProvider{packagerValue: mockPackager})
 		require.NoError(t, err)
 		require.NoError(t, listenFor("localhost:26605", time.Second))
-		// invoke a endpoint
-		client := http.Client{}
-		resp, err := client.Post("http://localhost:26605", commContentType, bytes.NewBuffer([]byte("success")))
-		require.NoError(t, err)
-		require.Equal(t, http.StatusAccepted, resp.StatusCode)
-		require.NotNil(t, resp)
 
-		err = resp.Body.Close()
-		require.NoError(t, err)
+		contentTypes := []string{commContentType, commContentTypeLegacy}
+		client := http.Client{}
+
+		for _, contentType := range contentTypes {
+			// invoke a endpoint
+			var resp *http.Response
+			resp, err = client.Post("http://localhost:26605", contentType, bytes.NewBuffer([]byte("success")))
+			require.NoError(t, err)
+			require.Equal(t, http.StatusAccepted, resp.StatusCode)
+			require.NotNil(t, resp)
+
+			err = resp.Body.Close()
+			require.NoError(t, err)
+		}
 
 		// stop server
 		err = inbound.Stop()
 		require.NoError(t, err)
 
 		// try after server stop
-		_, err = client.Post("http://localhost:26605", commContentType, bytes.NewBuffer([]byte("success"))) // nolint
-		require.Error(t, err)
+		for _, contentType := range contentTypes {
+			_, err = client.Post("http://localhost:26605", contentType, bytes.NewBuffer([]byte("success"))) // nolint
+			require.Error(t, err)
+		}
 	})
 }
 

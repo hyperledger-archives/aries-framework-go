@@ -49,3 +49,20 @@ func ConvertBase58KeysToDIDKeys(keys []string) []string {
 
 	return didKeys
 }
+
+// ConvertDIDKeysToBase58Keys converts base58 keys array to did:key keys array.
+func ConvertDIDKeysToBase58Keys(keys []string) []string {
+	var base58Keys []string
+
+	for _, key := range keys {
+		if strings.HasPrefix(key, "did:key:") {
+			rawKey, _ := fingerprint.PubKeyFromDIDKey(key) //nolint: errcheck
+
+			base58Keys = append(base58Keys, base58.Encode(rawKey))
+		} else {
+			base58Keys = append(base58Keys, key)
+		}
+	}
+
+	return base58Keys
+}
