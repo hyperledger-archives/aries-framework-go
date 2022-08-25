@@ -67,6 +67,8 @@ func checkEmbeddedProof(docBytes []byte, opts *embeddedProofCheckOpts) ([]byte, 
 		return nil, fmt.Errorf("embedded proof is not JSON: %w", err)
 	}
 
+	delete(jsonldDoc, "jwt")
+
 	proofElement, ok := jsonldDoc["proof"]
 	if !ok || proofElement == nil {
 		// do not make a check if there is no proof defined as proof presence is not mandatory

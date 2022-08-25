@@ -76,6 +76,10 @@ type provable interface {
 	AddLinkedDataProof(context *verifiable.LinkedDataProofContext, jsonldOpts ...jsonld.ProcessorOpts) error
 }
 
+type jwtClaims interface {
+	MarshalJWS(signatureAlg verifiable.JWSAlgorithm, signer verifiable.Signer, keyID string) (string, error)
+}
+
 // Wallet enables access to verifiable credential wallet features.
 type Wallet struct {
 	// ID of wallet content owner
@@ -448,9 +452,24 @@ func (c *Wallet) Issue(authToken string, credential json.RawMessage,
 		return nil, fmt.Errorf("failed to prepare proof: %w", err)
 	}
 
-	err = c.addLinkedDataProof(authToken, vc, options, purpose)
-	if err != nil {
-		return nil, fmt.Errorf("failed to issue credential: %w", err)
+	switch options.ProofFormat {
+	case ExternalJWTProofFormat:
+		claims, e := vc.JWTClaims(false)
+		if e != nil {
+			return nil, fmt.Errorf("failed to generate JWT claims for VC: %w", e)
+		}
+
+		jws, e := c.verifiableClaimsToJWT(authToken, claims, options)
+		if e != nil {
+			return nil, fmt.Errorf("failed to generate JWT VC: %w", e)
+		}
+
+		vc.JWT = jws
+	default: // default case is EmbeddedLDProofFormat
+		err = c.addLinkedDataProof(authToken, vc, options, purpose)
+		if err != nil {
+			return nil, fmt.Errorf("failed to issue credential: %w", err)
+		}
 	}
 
 	return vc, nil
@@ -771,6 +790,35 @@ func (c *Wallet) verifyPresentation(authToken string, presentation json.RawMessa
 	return true, nil
 }
 
+func (c *Wallet) verifiableClaimsToJWT(authToken string, claims jwtClaims, options *ProofOptions) (string, error) {
+	s, err := newKMSSigner(authToken, c.walletCrypto, options)
+	if err != nil {
+		return "", fmt.Errorf("initializing signer: %w", err)
+	}
+
+	var alg verifiable.JWSAlgorithm
+
+	switch s.keyType {
+	case kms.ED25519Type:
+		alg = verifiable.EdDSA
+	case kms.ECDSAP256TypeIEEEP1363:
+		alg = verifiable.ECDSASecp256r1
+	case kms.ECDSAP384TypeIEEEP1363:
+		alg = verifiable.ECDSASecp384r1
+	case kms.ECDSAP521TypeIEEEP1363:
+		alg = verifiable.ECDSASecp521r1
+	default:
+		return "", fmt.Errorf("unsupported keytype for JWT")
+	}
+
+	jws, err := claims.MarshalJWS(alg, s, options.VerificationMethod)
+	if err != nil {
+		return "", fmt.Errorf("failed to sign JWS: %w", err)
+	}
+
+	return jws, nil
+}
+
 func (c *Wallet) addLinkedDataProof(authToken string, p provable, opts *ProofOptions,
 	relationship did.VerificationRelationship) error {
 	s, err := newKMSSigner(authToken, c.walletCrypto, opts)
@@ -825,6 +873,10 @@ func (c *Wallet) validateProofOption(authToken string, opts *ProofOptions, metho
 	err = c.validateVerificationMethod(resolvedDoc.DIDDocument, opts, method)
 	if err != nil {
 		return err
+	}
+
+	if opts.ProofFormat == "" {
+		opts.ProofFormat = EmbeddedLDProofFormat
 	}
 
 	if opts.ProofRepresentation == nil {

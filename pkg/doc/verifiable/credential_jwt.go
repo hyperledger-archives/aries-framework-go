@@ -70,6 +70,9 @@ func newJWTCredClaims(vc *Credential, minimizeVC bool) (*JWTCredClaims, error) {
 		return nil, err
 	}
 
+	// If a Credential was parsed from JWT, we don't want the original JWT included when marshaling back to JWT claims.
+	raw.JWT = ""
+
 	vcMap, err := jsonutil.MergeCustomFields(raw, raw.CustomFields)
 	if err != nil {
 		return nil, err

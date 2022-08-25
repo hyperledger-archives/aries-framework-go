@@ -136,6 +136,8 @@ func ExampleCredential_embedding() {
 		panic(fmt.Errorf("failed to encode VC from JWS: %w", err))
 	}
 
+	// When a Credential was parsed from JWS, it Marshals into a JSON string containing the original JWS.
+
 	vcBytesFromJWS, err := vcParsed.MarshalJSON()
 	if err != nil {
 		panic(fmt.Errorf("failed to marshal VC: %w", err))
@@ -144,9 +146,21 @@ func ExampleCredential_embedding() {
 	// todo missing referenceNumber here (https://github.com/hyperledger/aries-framework-go/issues/847)
 	fmt.Println(string(vcBytesFromJWS))
 
+	// To marshal the Credential into JSON-LD form, clear the JWT field.
+
+	vcParsed.JWT = ""
+
+	vcBytesFromJWS, err = vcParsed.MarshalJSON()
+	if err != nil {
+		panic(fmt.Errorf("failed to marshal VC: %w", err))
+	}
+
+	fmt.Println(string(vcBytesFromJWS))
+
 	// Output:
 	// {"@context":["https://www.w3.org/2018/credentials/v1","https://www.w3.org/2018/credentials/examples/v1"],"credentialSubject":{"degree":{"type":"BachelorDegree","university":"MIT"},"id":"did:example:ebfeb1f712ebc6f1c276e12ec21","name":"Jayden Doe","spouse":"did:example:c276e12ec21ebfeb1f712ebc6f1"},"expirationDate":"2020-01-01T19:23:24Z","id":"http://example.edu/credentials/1872","issuanceDate":"2010-01-01T19:23:24Z","issuer":{"id":"did:example:76e12ec712ebc6f1c221ebfeb1f","name":"Example University"},"referenceNumber":83294847,"type":["VerifiableCredential","UniversityDegreeCredential"]}
 	// eyJhbGciOiJFZERTQSIsImtpZCI6IiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1Nzc5MDY2MDQsImlhdCI6MTI2MjM3MzgwNCwiaXNzIjoiZGlkOmV4YW1wbGU6NzZlMTJlYzcxMmViYzZmMWMyMjFlYmZlYjFmIiwianRpIjoiaHR0cDovL2V4YW1wbGUuZWR1L2NyZWRlbnRpYWxzLzE4NzIiLCJuYmYiOjEyNjIzNzM4MDQsInN1YiI6ImRpZDpleGFtcGxlOmViZmViMWY3MTJlYmM2ZjFjMjc2ZTEyZWMyMSIsInZjIjp7IkBjb250ZXh0IjpbImh0dHBzOi8vd3d3LnczLm9yZy8yMDE4L2NyZWRlbnRpYWxzL3YxIiwiaHR0cHM6Ly93d3cudzMub3JnLzIwMTgvY3JlZGVudGlhbHMvZXhhbXBsZXMvdjEiXSwiY3JlZGVudGlhbFN1YmplY3QiOnsiZGVncmVlIjp7InR5cGUiOiJCYWNoZWxvckRlZ3JlZSIsInVuaXZlcnNpdHkiOiJNSVQifSwiaWQiOiJkaWQ6ZXhhbXBsZTplYmZlYjFmNzEyZWJjNmYxYzI3NmUxMmVjMjEiLCJuYW1lIjoiSmF5ZGVuIERvZSIsInNwb3VzZSI6ImRpZDpleGFtcGxlOmMyNzZlMTJlYzIxZWJmZWIxZjcxMmViYzZmMSJ9LCJpc3N1ZXIiOnsibmFtZSI6IkV4YW1wbGUgVW5pdmVyc2l0eSJ9LCJ0eXBlIjpbIlZlcmlmaWFibGVDcmVkZW50aWFsIiwiVW5pdmVyc2l0eURlZ3JlZUNyZWRlbnRpYWwiXX19.7He-0-kAUCgjgMUSI-BmH-9MjI-ixuMV6NUnJCtfLpoOJIkdK0Tf1iU6SWGSURpv67Mi91H-pzQCmW6jzEUABQ
+	// "eyJhbGciOiJFZERTQSIsImtpZCI6IiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1Nzc5MDY2MDQsImlhdCI6MTI2MjM3MzgwNCwiaXNzIjoiZGlkOmV4YW1wbGU6NzZlMTJlYzcxMmViYzZmMWMyMjFlYmZlYjFmIiwianRpIjoiaHR0cDovL2V4YW1wbGUuZWR1L2NyZWRlbnRpYWxzLzE4NzIiLCJuYmYiOjEyNjIzNzM4MDQsInN1YiI6ImRpZDpleGFtcGxlOmViZmViMWY3MTJlYmM2ZjFjMjc2ZTEyZWMyMSIsInZjIjp7IkBjb250ZXh0IjpbImh0dHBzOi8vd3d3LnczLm9yZy8yMDE4L2NyZWRlbnRpYWxzL3YxIiwiaHR0cHM6Ly93d3cudzMub3JnLzIwMTgvY3JlZGVudGlhbHMvZXhhbXBsZXMvdjEiXSwiY3JlZGVudGlhbFN1YmplY3QiOnsiZGVncmVlIjp7InR5cGUiOiJCYWNoZWxvckRlZ3JlZSIsInVuaXZlcnNpdHkiOiJNSVQifSwiaWQiOiJkaWQ6ZXhhbXBsZTplYmZlYjFmNzEyZWJjNmYxYzI3NmUxMmVjMjEiLCJuYW1lIjoiSmF5ZGVuIERvZSIsInNwb3VzZSI6ImRpZDpleGFtcGxlOmMyNzZlMTJlYzIxZWJmZWIxZjcxMmViYzZmMSJ9LCJpc3N1ZXIiOnsibmFtZSI6IkV4YW1wbGUgVW5pdmVyc2l0eSJ9LCJ0eXBlIjpbIlZlcmlmaWFibGVDcmVkZW50aWFsIiwiVW5pdmVyc2l0eURlZ3JlZUNyZWRlbnRpYWwiXX19.7He-0-kAUCgjgMUSI-BmH-9MjI-ixuMV6NUnJCtfLpoOJIkdK0Tf1iU6SWGSURpv67Mi91H-pzQCmW6jzEUABQ"
 	// {"@context":["https://www.w3.org/2018/credentials/v1","https://www.w3.org/2018/credentials/examples/v1"],"credentialSubject":{"degree":{"type":"BachelorDegree","university":"MIT"},"id":"did:example:ebfeb1f712ebc6f1c276e12ec21","name":"Jayden Doe","spouse":"did:example:c276e12ec21ebfeb1f712ebc6f1"},"expirationDate":"2020-01-01T19:23:24Z","id":"http://example.edu/credentials/1872","issuanceDate":"2010-01-01T19:23:24Z","issuer":{"id":"did:example:76e12ec712ebc6f1c221ebfeb1f","name":"Example University"},"type":["VerifiableCredential","UniversityDegreeCredential"]}
 }
 
@@ -213,6 +227,8 @@ func ExampleCredential_extraFields() {
 	if err != nil {
 		panic(fmt.Errorf("failed to encode VC from JWS: %w", err))
 	}
+
+	vcParsed.JWT = ""
 
 	vcBytesFromJWS, err := vcParsed.MarshalJSON()
 	if err != nil {
@@ -282,6 +298,11 @@ func ExampleParseCredential() {
 		panic(fmt.Errorf("failed to decode VC JWS: %w", err))
 	}
 
+	// When parsing a verifiable.Credential from JWS, Credential.JWT is set to the raw JWS value.
+	// This allows the user to save the Credential and verify it later.
+
+	// When Credential.JWT is set, the Credential Marshals into a JSON string containing the original JWS.
+
 	vcDecodedBytes, err := vcParsed.MarshalJSON()
 	if err != nil {
 		panic(fmt.Errorf("failed to marshal VC: %w", err))
@@ -290,7 +311,20 @@ func ExampleParseCredential() {
 	// The Holder then e.g. can save the credential to her personal verifiable credential wallet.
 	fmt.Println(string(vcDecodedBytes))
 
-	// Output: {"@context":["https://www.w3.org/2018/credentials/v1","https://www.w3.org/2018/credentials/examples/v1"],"credentialSubject":{"degree":{"type":"BachelorDegree","university":"MIT"},"id":"did:example:ebfeb1f712ebc6f1c276e12ec21","name":"Jayden Doe","spouse":"did:example:c276e12ec21ebfeb1f712ebc6f1"},"expirationDate":"2020-01-01T19:23:24Z","id":"http://example.edu/credentials/1872","issuanceDate":"2010-01-01T19:23:24Z","issuer":{"id":"did:example:76e12ec712ebc6f1c221ebfeb1f","name":"Example University"},"referenceNumber":83294847,"type":["VerifiableCredential","UniversityDegreeCredential"]}
+	// To marshal the Credential into JSON-LD form, clear the JWT field.
+	vcParsed.JWT = ""
+
+	vcDecodedBytes, err = vcParsed.MarshalJSON()
+	if err != nil {
+		panic(fmt.Errorf("failed to marshal VC: %w", err))
+	}
+
+	// The Credential is now in JSON-LD form..
+	fmt.Println(string(vcDecodedBytes))
+
+	// Output:
+	// "eyJhbGciOiJFZERTQSIsImtpZCI6IiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1Nzc5MDY2MDQsImlhdCI6MTI2MjM3MzgwNCwiaXNzIjoiZGlkOmV4YW1wbGU6NzZlMTJlYzcxMmViYzZmMWMyMjFlYmZlYjFmIiwianRpIjoiaHR0cDovL2V4YW1wbGUuZWR1L2NyZWRlbnRpYWxzLzE4NzIiLCJuYmYiOjEyNjIzNzM4MDQsInN1YiI6ImRpZDpleGFtcGxlOmViZmViMWY3MTJlYmM2ZjFjMjc2ZTEyZWMyMSIsInZjIjp7IkBjb250ZXh0IjpbImh0dHBzOi8vd3d3LnczLm9yZy8yMDE4L2NyZWRlbnRpYWxzL3YxIiwiaHR0cHM6Ly93d3cudzMub3JnLzIwMTgvY3JlZGVudGlhbHMvZXhhbXBsZXMvdjEiXSwiY3JlZGVudGlhbFN1YmplY3QiOnsiZGVncmVlIjp7InR5cGUiOiJCYWNoZWxvckRlZ3JlZSIsInVuaXZlcnNpdHkiOiJNSVQifSwiaWQiOiJkaWQ6ZXhhbXBsZTplYmZlYjFmNzEyZWJjNmYxYzI3NmUxMmVjMjEiLCJuYW1lIjoiSmF5ZGVuIERvZSIsInNwb3VzZSI6ImRpZDpleGFtcGxlOmMyNzZlMTJlYzIxZWJmZWIxZjcxMmViYzZmMSJ9LCJpc3N1ZXIiOnsibmFtZSI6IkV4YW1wbGUgVW5pdmVyc2l0eSJ9LCJyZWZlcmVuY2VOdW1iZXIiOjguMzI5NDg0N2UrMDcsInR5cGUiOlsiVmVyaWZpYWJsZUNyZWRlbnRpYWwiLCJVbml2ZXJzaXR5RGVncmVlQ3JlZGVudGlhbCJdfX0.a5yKMPmDnEXvM-fG3BaOqfdkqdvU4s2rzeZuOzLmkTH1y9sJT-mgTe7map5E9x7abrNVpyYbaH7JaAb9Yhr1DQ"
+	// {"@context":["https://www.w3.org/2018/credentials/v1","https://www.w3.org/2018/credentials/examples/v1"],"credentialSubject":{"degree":{"type":"BachelorDegree","university":"MIT"},"id":"did:example:ebfeb1f712ebc6f1c276e12ec21","name":"Jayden Doe","spouse":"did:example:c276e12ec21ebfeb1f712ebc6f1"},"expirationDate":"2020-01-01T19:23:24Z","id":"http://example.edu/credentials/1872","issuanceDate":"2010-01-01T19:23:24Z","issuer":{"id":"did:example:76e12ec712ebc6f1c221ebfeb1f","name":"Example University"},"referenceNumber":83294847,"type":["VerifiableCredential","UniversityDegreeCredential"]}
 }
 
 func ExampleCredential_JWTClaims() {

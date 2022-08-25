@@ -199,6 +199,8 @@ func decodeVCJWTToJSON(vcBytes []byte, publicKey *rsa.PublicKey) {
 		abort("failed to decode credential: %v", err)
 	}
 
+	credential.JWT = ""
+
 	jsonBytes, err := credential.MarshalJSON()
 	if err != nil {
 		abort("failed to marshall verifiable credential to JSON: %v", err)
