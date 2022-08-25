@@ -121,6 +121,212 @@ func ExamplePresentationDefinition_CreateVP_v1() {
 	//}
 }
 
+func ExamplePresentationDefinition_CreateVP_v1_With_LDP_FormatAndProof() {
+	required := Required
+
+	pd := &PresentationDefinition{
+		ID:      "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
+		Purpose: "To sell you a drink we need to know that you are an adult.",
+		InputDescriptors: []*InputDescriptor{{
+			ID:      "age_descriptor",
+			Purpose: "Your age should be greater or equal to 18.",
+			Schema: []*Schema{{
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+			}},
+			Constraints: &Constraints{
+				LimitDisclosure: &required,
+				Fields: []*Field{{
+					Path:      []string{"$.age"},
+					Predicate: &required,
+					Filter: &Filter{
+						Type:    &intFilterType,
+						Minimum: 18,
+					},
+				}},
+			},
+		}},
+		Format: &Format{
+			Ldp: &LdpType{ProofType: []string{"JsonWebSignature2020"}},
+		},
+	}
+
+	loader, err := ldtestutil.DocumentLoader()
+	if err != nil {
+		panic(err)
+	}
+
+	vp, err := pd.CreateVP([]*verifiable.Credential{
+		{
+			ID:      "http://example.edu/credentials/777",
+			Context: []string{verifiable.ContextURI},
+			Types:   []string{verifiable.VCType},
+			Issuer: verifiable.Issuer{
+				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			},
+			Issued: &util.TimeWrapper{
+				Time: time.Time{},
+			},
+			Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			CustomFields: map[string]interface{}{
+				"first_name": "Jesse",
+				"last_name":  "Pinkman",
+				"age":        21,
+			},
+			Proofs: []verifiable.Proof{{"type": "JsonWebSignature2020"}},
+		},
+	}, loader, verifiable.WithJSONLDDocumentLoader(loader))
+	if err != nil {
+		panic(err)
+	}
+
+	vp.CustomFields["presentation_submission"].(*PresentationSubmission).ID = dummy
+
+	vpBytes, err := json.MarshalIndent(vp, "", "\t")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(string(vpBytes))
+	// Output:
+	//{
+	//	"@context": [
+	//		"https://www.w3.org/2018/credentials/v1",
+	//		"https://identity.foundation/presentation-exchange/submission/v1"
+	//	],
+	//	"presentation_submission": {
+	//		"id": "DUMMY",
+	//		"definition_id": "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
+	//		"descriptor_map": [
+	//			{
+	//				"id": "age_descriptor",
+	//				"format": "ldp",
+	//				"path": "$.verifiableCredential[0]"
+	//			}
+	//		]
+	//	},
+	//	"type": [
+	//		"VerifiablePresentation",
+	//		"PresentationSubmission"
+	//	],
+	//	"verifiableCredential": [
+	//		{
+	//			"@context": [
+	//				"https://www.w3.org/2018/credentials/v1"
+	//			],
+	//			"age": true,
+	//			"credentialSubject": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+	//			"id": "http://example.edu/credentials/777",
+	//			"issuanceDate": "0001-01-01T00:00:00Z",
+	//			"issuer": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+	//			"type": "VerifiableCredential"
+	//		}
+	//	]
+	//}
+}
+
+func ExamplePresentationDefinition_CreateVP_v1_With_LDPVC_FormatAndProof() {
+	required := Required
+
+	pd := &PresentationDefinition{
+		ID:      "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
+		Purpose: "To sell you a drink we need to know that you are an adult.",
+		InputDescriptors: []*InputDescriptor{{
+			ID:      "age_descriptor",
+			Purpose: "Your age should be greater or equal to 18.",
+			Schema: []*Schema{{
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+			}},
+			Constraints: &Constraints{
+				LimitDisclosure: &required,
+				Fields: []*Field{{
+					Path:      []string{"$.age"},
+					Predicate: &required,
+					Filter: &Filter{
+						Type:    &intFilterType,
+						Minimum: 18,
+					},
+				}},
+			},
+		}},
+		Format: &Format{
+			LdpVC: &LdpType{ProofType: []string{"JsonWebSignature2020"}},
+		},
+	}
+
+	loader, err := ldtestutil.DocumentLoader()
+	if err != nil {
+		panic(err)
+	}
+
+	vp, err := pd.CreateVP([]*verifiable.Credential{
+		{
+			ID:      "http://example.edu/credentials/777",
+			Context: []string{verifiable.ContextURI},
+			Types:   []string{verifiable.VCType},
+			Issuer: verifiable.Issuer{
+				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			},
+			Issued: &util.TimeWrapper{
+				Time: time.Time{},
+			},
+			Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			CustomFields: map[string]interface{}{
+				"first_name": "Jesse",
+				"last_name":  "Pinkman",
+				"age":        21,
+			},
+			Proofs: []verifiable.Proof{{"type": "JsonWebSignature2020"}},
+		},
+	}, loader, verifiable.WithJSONLDDocumentLoader(loader))
+	if err != nil {
+		panic(err)
+	}
+
+	vp.CustomFields["presentation_submission"].(*PresentationSubmission).ID = dummy
+
+	vpBytes, err := json.MarshalIndent(vp, "", "\t")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(string(vpBytes))
+	// Output:
+	//{
+	//	"@context": [
+	//		"https://www.w3.org/2018/credentials/v1",
+	//		"https://identity.foundation/presentation-exchange/submission/v1"
+	//	],
+	//	"presentation_submission": {
+	//		"id": "DUMMY",
+	//		"definition_id": "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
+	//		"descriptor_map": [
+	//			{
+	//				"id": "age_descriptor",
+	//				"format": "ldp_vc",
+	//				"path": "$.verifiableCredential[0]"
+	//			}
+	//		]
+	//	},
+	//	"type": [
+	//		"VerifiablePresentation",
+	//		"PresentationSubmission"
+	//	],
+	//	"verifiableCredential": [
+	//		{
+	//			"@context": [
+	//				"https://www.w3.org/2018/credentials/v1"
+	//			],
+	//			"age": true,
+	//			"credentialSubject": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+	//			"id": "http://example.edu/credentials/777",
+	//			"issuanceDate": "0001-01-01T00:00:00Z",
+	//			"issuer": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+	//			"type": "VerifiableCredential"
+	//		}
+	//	]
+	//}
+}
+
 func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 	pd := &PresentationDefinition{
 		ID:      "c1b88ce1-8460-4baf-8f16-4759a2f055fd",

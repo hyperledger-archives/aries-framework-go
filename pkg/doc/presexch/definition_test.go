@@ -81,140 +81,179 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 	t.Run("Checks submission requirements", func(t *testing.T) {
 		issuerID := uuid.New().String()
 
-		pd := &PresentationDefinition{
-			ID: uuid.New().String(),
-			SubmissionRequirements: []*SubmissionRequirement{
-				{
-					Rule: "all",
-					From: "A",
-				},
-				{
-					Rule:  "pick",
-					Count: 1,
-					FromNested: []*SubmissionRequirement{
-						{
-							Rule: "all",
-							From: "teenager",
-						},
-						{
-							Rule: "all",
-							From: "child",
-						},
-						{
-							Rule: "pick",
-							From: "adult",
-							Min:  2,
-						},
-					},
+		tests := []struct {
+			name    string
+			format  string
+			vFormat *Format
+		}{
+			{
+				name:   "test LDP format",
+				format: FormatLDP,
+				vFormat: &Format{
+					Ldp: &LdpType{ProofType: []string{"JsonWebSignature2020"}},
 				},
 			},
-			InputDescriptors: []*InputDescriptor{{
-				ID:    uuid.New().String(),
-				Group: []string{"A"},
-				Schema: []*Schema{{
-					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
-				}},
-				Constraints: &Constraints{
-					SubjectIsIssuer: &subIsIssuerRequired,
-					Fields: []*Field{{
-						Path: []string{"$.first_name", "$.last_name"},
-					}},
+			{
+				name:   "test LDPVP format",
+				format: FormatLDPVP,
+				vFormat: &Format{
+					LdpVP: &LdpType{ProofType: []string{"JsonWebSignature2020"}},
 				},
-			}, {
-				ID:    uuid.New().String(),
-				Group: []string{"child"},
-				Schema: []*Schema{{
-					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
-				}},
-				Constraints: &Constraints{
-					SubjectIsIssuer: &subIsIssuerRequired,
-					Fields: []*Field{{
-						Path: []string{"$.age"},
-						Filter: &Filter{
-							Type:    &intFilterType,
-							Minimum: 3,
-							Maximum: 12,
-						},
-					}},
+			},
+			{
+				name:   "test LDPVC format",
+				format: FormatLDPVC,
+				vFormat: &Format{
+					LdpVC: &LdpType{ProofType: []string{"JsonWebSignature2020"}},
 				},
-			}, {
-				ID:    uuid.New().String(),
-				Group: []string{"teenager"},
-				Schema: []*Schema{{
-					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
-				}},
-				Constraints: &Constraints{
-					SubjectIsIssuer: &subIsIssuerRequired,
-					Fields: []*Field{{
-						Path: []string{"$.age"},
-						Filter: &Filter{
-							Type:    &intFilterType,
-							Minimum: 13,
-							Maximum: 17,
-						},
-					}},
-				},
-			}, {
-				ID:    uuid.New().String(),
-				Group: []string{"adult"},
-				Schema: []*Schema{{
-					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
-				}},
-				Constraints: &Constraints{
-					SubjectIsIssuer: &subIsIssuerRequired,
-					Fields: []*Field{{
-						Path: []string{"$.age"},
-						Filter: &Filter{
-							Type:    &intFilterType,
-							Minimum: 18,
-							Maximum: 23,
-						},
-					}},
-				},
-			}},
+			},
 		}
 
-		vp, err := pd.CreateVP([]*verifiable.Credential{
-			{
-				Context: []string{verifiable.ContextURI},
-				Types:   []string{verifiable.VCType},
-				ID:      uuid.New().String(),
-				CustomFields: map[string]interface{}{
-					"first_name": "Jesse",
-				},
-			},
-			{
-				Context: []string{verifiable.ContextURI},
-				Types:   []string{verifiable.VCType},
-				ID:      uuid.New().String(),
-				Subject: []verifiable.Subject{{ID: issuerID}},
-				Issuer:  verifiable.Issuer{ID: issuerID},
-				CustomFields: map[string]interface{}{
-					"first_name": "Jesse",
-					"last_name":  "Travis",
-					"age":        17,
-				},
-			},
-			{
-				Context: []string{verifiable.ContextURI},
-				Types:   []string{verifiable.VCType},
-				ID:      uuid.New().String(),
-				Subject: []verifiable.Subject{{ID: issuerID}},
-				Issuer:  verifiable.Issuer{ID: issuerID},
-				CustomFields: map[string]interface{}{
-					"first_name": "Jesse",
-					"last_name":  "Travis",
-					"age":        2,
-				},
-			},
-		}, lddl)
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				pd := &PresentationDefinition{
+					ID: uuid.New().String(),
+					SubmissionRequirements: []*SubmissionRequirement{
+						{
+							Rule: "all",
+							From: "A",
+						},
+						{
+							Rule:  "pick",
+							Count: 1,
+							FromNested: []*SubmissionRequirement{
+								{
+									Rule: "all",
+									From: "teenager",
+								},
+								{
+									Rule: "all",
+									From: "child",
+								},
+								{
+									Rule: "pick",
+									From: "adult",
+									Min:  2,
+								},
+							},
+						},
+					},
+					InputDescriptors: []*InputDescriptor{{
+						ID:    uuid.New().String(),
+						Group: []string{"A"},
+						Schema: []*Schema{{
+							URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+						}},
+						Constraints: &Constraints{
+							SubjectIsIssuer: &subIsIssuerRequired,
+							Fields: []*Field{{
+								Path: []string{"$.first_name", "$.last_name"},
+							}},
+						},
+					}, {
+						ID:    uuid.New().String(),
+						Group: []string{"child"},
+						Schema: []*Schema{{
+							URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+						}},
+						Constraints: &Constraints{
+							SubjectIsIssuer: &subIsIssuerRequired,
+							Fields: []*Field{{
+								Path: []string{"$.age"},
+								Filter: &Filter{
+									Type:    &intFilterType,
+									Minimum: 3,
+									Maximum: 12,
+								},
+							}},
+						},
+					}, {
+						ID:    uuid.New().String(),
+						Group: []string{"teenager"},
+						Schema: []*Schema{{
+							URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+						}},
+						Constraints: &Constraints{
+							SubjectIsIssuer: &subIsIssuerRequired,
+							Fields: []*Field{{
+								Path: []string{"$.age"},
+								Filter: &Filter{
+									Type:    &intFilterType,
+									Minimum: 13,
+									Maximum: 17,
+								},
+							}},
+						},
+					}, {
+						ID:    uuid.New().String(),
+						Group: []string{"adult"},
+						Schema: []*Schema{{
+							URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+						}},
+						Constraints: &Constraints{
+							SubjectIsIssuer: &subIsIssuerRequired,
+							Fields: []*Field{{
+								Path: []string{"$.age"},
+								Filter: &Filter{
+									Type:    &intFilterType,
+									Minimum: 18,
+									Maximum: 23,
+								},
+							}},
+						},
+					}},
+					Format: tc.vFormat,
+				}
 
-		require.NoError(t, err)
-		require.NotNil(t, vp)
-		require.Equal(t, 1, len(vp.Credentials()))
+				vp, err := pd.CreateVP([]*verifiable.Credential{
+					{
+						Context: []string{verifiable.ContextURI},
+						Types:   []string{verifiable.VCType},
+						ID:      uuid.New().String(),
+						CustomFields: map[string]interface{}{
+							"first_name": "Jesse",
+						},
+						// since Format in InputDescriptor works only with proofs, need to add it in the vc.
+						Proofs: []verifiable.Proof{{"type": "JsonWebSignature2020"}},
+					},
+					{
+						Context: []string{verifiable.ContextURI},
+						Types:   []string{verifiable.VCType},
+						ID:      uuid.New().String(),
+						Subject: []verifiable.Subject{{ID: issuerID}},
+						Issuer:  verifiable.Issuer{ID: issuerID},
+						CustomFields: map[string]interface{}{
+							"first_name": "Jesse",
+							"last_name":  "Travis",
+							"age":        17,
+						},
+						// since Format in InputDescriptor works only with proofs, need to add it in the vc.
+						Proofs: []verifiable.Proof{{"type": "JsonWebSignature2020"}},
+					},
+					{
+						Context: []string{verifiable.ContextURI},
+						Types:   []string{verifiable.VCType},
+						ID:      uuid.New().String(),
+						Subject: []verifiable.Subject{{ID: issuerID}},
+						Issuer:  verifiable.Issuer{ID: issuerID},
+						CustomFields: map[string]interface{}{
+							"first_name": "Jesse",
+							"last_name":  "Travis",
+							"age":        2,
+						},
+						// since Format in InputDescriptor works only with proofs, need to add it in the vc.
+						Proofs: []verifiable.Proof{{"type": "JsonWebSignature2020"}},
+					},
+				}, lddl)
 
-		checkSubmission(t, vp, pd)
-		checkVP(t, vp)
+				require.NoError(t, err)
+				require.NotNil(t, vp)
+				require.Equal(t, 1, len(vp.Credentials()))
+
+				checkSubmission(t, vp, pd)
+				checkVP(t, vp)
+			})
+		}
 	})
 
 	t.Run("Checks submission requirements (no descriptor)", func(t *testing.T) {

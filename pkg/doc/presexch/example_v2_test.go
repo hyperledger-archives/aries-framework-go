@@ -141,14 +141,14 @@ func ExamplePresentationDefinition_CreateVP_v2() {
 	//}
 }
 
-func ExamplePresentationDefinition_CreateVP_withFormat() {
+func ExamplePresentationDefinition_CreateVP_with_LdpVC_Format() {
 	required := Required
 
 	pd := &PresentationDefinition{
 		ID:      "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
 		Purpose: "To sell you a drink we need to know that you are an adult.",
 		Format: &Format{
-			LdpVP: &LdpType{
+			LdpVC: &LdpType{
 				ProofType: []string{"Ed25519Signature2018"},
 			},
 		},
@@ -234,7 +234,129 @@ func ExamplePresentationDefinition_CreateVP_withFormat() {
 	//		"descriptor_map": [
 	//			{
 	//				"id": "age_descriptor",
-	//				"format": "ldp_vp",
+	//				"format": "ldp_vc",
+	//				"path": "$.verifiableCredential[0]"
+	//			}
+	//		]
+	//	},
+	//	"type": [
+	//		"VerifiablePresentation",
+	//		"PresentationSubmission"
+	//	],
+	//	"verifiableCredential": [
+	//		{
+	//			"@context": [
+	//				"https://www.w3.org/2018/credentials/v1"
+	//			],
+	//			"credentialSubject": {
+	//				"age": true,
+	//				"first_name": "Jesse",
+	//				"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+	//				"last_name": "Pinkman"
+	//			},
+	//			"id": "http://example.edu/credentials/777",
+	//			"issuanceDate": "0001-01-01T00:00:00Z",
+	//			"issuer": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+	//			"type": "VerifiableCredential"
+	//		}
+	//	]
+	//}
+}
+
+func ExamplePresentationDefinition_CreateVP_with_Ldp_Format() {
+	required := Required
+
+	pd := &PresentationDefinition{
+		ID:      "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
+		Purpose: "To sell you a drink we need to know that you are an adult.",
+		Format: &Format{
+			Ldp: &LdpType{
+				ProofType: []string{"Ed25519Signature2018"},
+			},
+		},
+		InputDescriptors: []*InputDescriptor{{
+			ID:      "age_descriptor",
+			Purpose: "Your age should be greater or equal to 18.",
+			Constraints: &Constraints{
+				LimitDisclosure: &required,
+				Fields: []*Field{
+					{
+						Path:      []string{"$.credentialSubject.age", "$.vc.credentialSubject.age", "$.age"},
+						Predicate: &required,
+						Filter: &Filter{
+							Type:    &intFilterType,
+							Minimum: 18,
+						},
+					},
+					{
+						Path: []string{"$.credentialSchema[0].id", "$.credentialSchema.id", "$.vc.credentialSchema.id"},
+						Filter: &Filter{
+							Type:  &strFilterType,
+							Const: "hub://did:foo:123/Collections/schema.us.gov/passport.json",
+						},
+					},
+				},
+			},
+		}},
+	}
+
+	loader, err := ldtestutil.DocumentLoader()
+	if err != nil {
+		panic(err)
+	}
+
+	vp, err := pd.CreateVP([]*verifiable.Credential{
+		{
+			ID:      "http://example.edu/credentials/777",
+			Context: []string{verifiable.ContextURI},
+			Types:   []string{verifiable.VCType},
+			Issuer: verifiable.Issuer{
+				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			},
+			Issued: &util.TimeWrapper{
+				Time: time.Time{},
+			},
+			Schemas: []verifiable.TypedID{{
+				ID:   "hub://did:foo:123/Collections/schema.us.gov/passport.json",
+				Type: "JsonSchemaValidator2018",
+			}},
+
+			Subject: map[string]interface{}{
+				"id":         "did:example:ebfeb1f712ebc6f1c276e12ec21",
+				"first_name": "Jesse",
+				"last_name":  "Pinkman",
+				"age":        21,
+			},
+			Proofs: []verifiable.Proof{
+				{"type": "Ed25519Signature2018"},
+			},
+		},
+	}, loader, verifiable.WithJSONLDDocumentLoader(loader))
+	if err != nil {
+		panic(err)
+	}
+
+	vp.CustomFields["presentation_submission"].(*PresentationSubmission).ID = dummy
+
+	vpBytes, err := json.MarshalIndent(vp, "", "\t")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(string(vpBytes))
+	// Output:
+	//{
+	//	"@context": [
+	//		"https://www.w3.org/2018/credentials/v1",
+	//		"https://identity.foundation/presentation-exchange/submission/v1"
+	//	],
+	//	"presentation_submission": {
+	//		"id": "DUMMY",
+	//		"definition_id": "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
+	//		"descriptor_map": [
+	//			{
+	//				"id": "age_descriptor",
+	//				"format": "ldp",
 	//				"path": "$.verifiableCredential[0]"
 	//			}
 	//		]
