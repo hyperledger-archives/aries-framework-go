@@ -1,0 +1,16 @@
+{
+  "reason": "Please present your identity document.",
+  "example": {
+    "@context": [
+      "https://www.w3.org/2018/credentials/v1",
+      "https://www.w3.org/2018/credentials/examples/v1"
+    ],
+    "type": ["VerifiableCredential","UniversityDegreeCredential"],
+    "trustedIssuer": [
+      {
+        "required": true,
+        "issuer": "%s"
+      }
+    ]
+  }
+}
