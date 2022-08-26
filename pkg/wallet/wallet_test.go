@@ -1612,7 +1612,9 @@ func TestWallet_Prove(t *testing.T) {
 
 	mockctx := newMockProvider(t)
 	mockctx.VDRegistryValue = customVDR
-	mockctx.CryptoValue = &cryptomock.Crypto{}
+	mockctx.CryptoValue = &cryptomock.Crypto{
+		SignValue: []byte("abcdefg"),
+	}
 
 	// create profile
 	err := CreateProfile(user, mockctx, WithPassphrase(samplePassPhrase))
@@ -1624,12 +1626,12 @@ func TestWallet_Prove(t *testing.T) {
 	require.NotEmpty(t, walletForIssue)
 	require.NoError(t, err)
 
-	authToken, err := walletForIssue.Open(WithUnlockByPassphrase(samplePassPhrase))
+	issuerToken, err := walletForIssue.Open(WithUnlockByPassphrase(samplePassPhrase))
 	require.NoError(t, err)
-	require.NotEmpty(t, authToken)
+	require.NotEmpty(t, issuerToken)
 
 	// import ED25519 & BLS12381G2Type keys manually
-	session, err := sessionManager().getSession(authToken)
+	session, err := sessionManager().getSession(issuerToken)
 	require.NotEmpty(t, session)
 	require.NoError(t, err)
 
@@ -1646,7 +1648,7 @@ func TestWallet_Prove(t *testing.T) {
 	kmgr.ImportPrivateKey(privKeyBBS, kms.BLS12381G2Type, kms.WithKeyID(keyIDBBS))
 
 	// issue a credential with Ed25519Signature2018
-	result, err := walletForIssue.Issue(authToken, testdata.SampleUDCVC, &ProofOptions{
+	result, err := walletForIssue.Issue(issuerToken, testdata.SampleUDCVC, &ProofOptions{
 		Controller: didKey,
 	})
 	require.NoError(t, err)
@@ -1656,7 +1658,7 @@ func TestWallet_Prove(t *testing.T) {
 
 	// issue a credential with BbsBlsSignature2020
 	proofRepr := verifiable.SignatureProofValue
-	result, err = walletForIssue.Issue(authToken, testdata.SampleUDCVC, &ProofOptions{
+	result, err = walletForIssue.Issue(issuerToken, testdata.SampleUDCVC, &ProofOptions{
 		Controller:          didKeyBBS,
 		ProofType:           BbsBlsSignature2020,
 		ProofRepresentation: &proofRepr,
@@ -1665,6 +1667,28 @@ func TestWallet_Prove(t *testing.T) {
 	require.NotEmpty(t, result)
 	require.Len(t, result.Proofs, 1)
 	vcs["bbsvc"] = result
+
+	templateCred, err := verifiable.ParseCredential(testdata.SampleUDCVC, verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(walletForIssue.jsonldDocumentLoader))
+	require.NoError(t, err)
+
+	templateCred.Issuer.ID = didKey
+
+	templateData, err := templateCred.MarshalJSON()
+	require.NoError(t, err)
+
+	// issue a JWT credential
+	result, err = walletForIssue.Issue(issuerToken, templateData, &ProofOptions{
+		Controller:         didKey,
+		VerificationMethod: sampleVerificationMethod,
+		ProofFormat:        ExternalJWTProofFormat,
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, result)
+	require.NotEqual(t, "", result.JWT)
+	require.True(t, jwt.IsJWS(result.JWT))
+
+	vcs["jwtvc"] = result
 
 	walletForIssue.Close()
 
@@ -1702,23 +1726,26 @@ func TestWallet_Prove(t *testing.T) {
 		bbsVCBytes, err := json.Marshal(vcs["bbsvc"])
 		require.NoError(t, err)
 
+		jwtVCBytes, err := json.Marshal(vcs["jwtvc"])
+		require.NoError(t, err)
+
 		// sign with just controller (one stored & one raw bytes)
 		result, err := walletInstance.Prove(authToken,
 			&ProofOptions{Controller: didKey},
 			WithStoredCredentialsToProve(vcs["edvc"].ID),
-			WithRawCredentialsToProve(bbsVCBytes),
+			WithRawCredentialsToProve(bbsVCBytes, jwtVCBytes),
 			WithCredentialsToProve(vcs["edvc"]),
 		)
 		require.NoError(t, err)
 		require.NotEmpty(t, result)
 		require.Len(t, result.Proofs, 1)
-		require.Len(t, result.Credentials(), 3)
+		require.Len(t, result.Credentials(), 4)
 		require.Equal(t, result.Holder, didKey)
 
 		// sign with just controller with all raw credentials
 		result, err = walletInstance.Prove(authToken,
 			&ProofOptions{Controller: didKey},
-			WithRawCredentialsToProve(edVCBytes, bbsVCBytes),
+			WithRawCredentialsToProve(edVCBytes, bbsVCBytes, jwtVCBytes),
 		)
 		require.NoError(t, err)
 		require.NotEmpty(t, result)
@@ -1916,6 +1943,50 @@ func TestWallet_Prove(t *testing.T) {
 		require.Equal(t, result.Proofs[0]["verificationMethod"], vm)
 	})
 
+	t.Run("Test prove using JWT - success", func(t *testing.T) {
+		walletInstance, err := New(user, mockctx)
+		require.NotEmpty(t, walletInstance)
+		require.NoError(t, err)
+
+		// unlock wallet
+		authToken, err := walletInstance.Open(WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+		require.NotEmpty(t, authToken)
+
+		defer walletInstance.Close()
+
+		// save one VC in store
+		cleanup := addCredentialsToWallet(t, walletInstance, authToken, vcs["jwtvc"])
+		defer cleanup()
+
+		// import keys manually for signing presentation
+		session, err := sessionManager().getSession(authToken)
+		require.NotEmpty(t, session)
+		require.NoError(t, err)
+
+		kmgr := session.KeyManager
+		require.NotEmpty(t, kmgr)
+
+		edPriv := ed25519.PrivateKey(base58.Decode(pkBase58))
+		// nolint: errcheck, gosec
+		kmgr.ImportPrivateKey(edPriv, kms.ED25519, kms.WithKeyID(kid))
+
+		// sign with just controller (one stored & one raw bytes)
+		result, err := walletInstance.Prove(authToken,
+			&ProofOptions{
+				Controller:  didKey,
+				ProofFormat: ExternalJWTProofFormat,
+			},
+			WithStoredCredentialsToProve(vcs["jwtvc"].ID),
+		)
+		require.NoError(t, err)
+		require.NotEmpty(t, result)
+		require.Len(t, result.Proofs, 0)
+		require.Len(t, result.Credentials(), 1)
+		require.Equal(t, result.Holder, didKey)
+		require.NotEmpty(t, result.JWT)
+	})
+
 	t.Run("Test prove without credentials (DIDAuth) - success", func(t *testing.T) {
 		walletInstance, err := New(user, mockctx)
 		require.NotEmpty(t, walletInstance)
@@ -1946,7 +2017,6 @@ func TestWallet_Prove(t *testing.T) {
 		created, err := time.Parse("2006-01-02", sampleCreatedDate)
 		require.NoError(t, err)
 
-		// sign with just controller (one stored & one raw)
 		result, err := walletInstance.Prove(authToken, &ProofOptions{
 			Controller:          didKey,
 			VerificationMethod:  vm,
@@ -2045,7 +2115,59 @@ func TestWallet_Prove(t *testing.T) {
 		require.Contains(t, err.Error(), "unable to find 'authentication' for given verification method")
 	})
 
-	t.Run("Test VC wallet issue failure - add proof errors", func(t *testing.T) {
+	t.Run("Test prove using JWT - fail to generate JWT claims from invalid presentation", func(t *testing.T) {
+		walletInstance, err := New(user, mockctx)
+		require.NotEmpty(t, walletInstance)
+		require.NoError(t, err)
+
+		// unlock wallet
+		authToken, err := walletInstance.Open(WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+		require.NotEmpty(t, authToken)
+
+		defer walletInstance.Close()
+
+		// sign with invalid Presentation
+		_, err = walletInstance.Prove(authToken,
+			&ProofOptions{
+				Controller:  didKey,
+				ProofFormat: ExternalJWTProofFormat,
+			},
+			WithPresentationToProve(&verifiable.Presentation{
+				Proofs: []verifiable.Proof{
+					{
+						"invalid": new(chan<- int), // can't marshal a channel
+					},
+				},
+			}),
+		)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to generate JWT claims for VP")
+	})
+
+	t.Run("Test prove using JWT - fail to sign VP", func(t *testing.T) {
+		walletInstance, err := New(user, mockctx)
+		require.NotEmpty(t, walletInstance)
+		require.NoError(t, err)
+
+		// unlock wallet
+		_, err = walletInstance.Open(WithUnlockByPassphrase(samplePassPhrase))
+		require.NoError(t, err)
+		require.NotEmpty(t, issuerToken)
+
+		defer walletInstance.Close()
+
+		_, err = walletInstance.Prove("invalid auth token",
+			&ProofOptions{
+				Controller:  didKey,
+				ProofFormat: ExternalJWTProofFormat,
+			},
+		)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to generate JWT VP")
+	})
+
+	t.Run("Test VC wallet prove failure - add LD proof errors", func(t *testing.T) {
 		walletInstance, err := New(user, mockctx)
 		require.NotEmpty(t, walletInstance)
 		require.NoError(t, err)
@@ -2197,7 +2319,7 @@ func TestWallet_Verify(t *testing.T) {
 		ProofFormat:        ExternalJWTProofFormat,
 	})
 	require.NoError(t, err)
-	require.NotEmpty(t, sampleVC)
+	require.NotEmpty(t, sampleJWTVC)
 	require.NotEqual(t, "", sampleJWTVC.JWT)
 	require.True(t, jwt.IsJWS(sampleJWTVC.JWT))
 

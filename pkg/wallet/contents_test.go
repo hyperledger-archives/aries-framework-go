@@ -147,6 +147,16 @@ const (
 				"kid":"z6MkiEh8RQL83nkPo8ehDeX7"
 			}
   		}`
+	sampleJWTCredContentValid = "eyJhbGciOiJFZERTQSIsImtpZCI6IiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1Nzc5MDY2MDQsImlhdCI6M" +
+		"TI2MjM3MzgwNCwiaXNzIjoiZGlkOmV4YW1wbGU6NzZlMTJlYzcxMmViYzZmMWMyMjFlYmZlYjFmIiwianRpIjoiaHR0cDovL2V4YW1wbGU" +
+		"uZWR1L2NyZWRlbnRpYWxzLzE4NzIiLCJuYmYiOjEyNjIzNzM4MDQsInN1YiI6ImRpZDpleGFtcGxlOmViZmViMWY3MTJlYmM2ZjFjMjc2Z" +
+		"TEyZWMyMSIsInZjIjp7IkBjb250ZXh0IjpbImh0dHBzOi8vd3d3LnczLm9yZy8yMDE4L2NyZWRlbnRpYWxzL3YxIiwiaHR0cHM6Ly93d3c" +
+		"udzMub3JnLzIwMTgvY3JlZGVudGlhbHMvZXhhbXBsZXMvdjEiXSwiY3JlZGVudGlhbFN1YmplY3QiOnsiZGVncmVlIjp7InR5cGUiOiJCY" +
+		"WNoZWxvckRlZ3JlZSIsInVuaXZlcnNpdHkiOiJNSVQifSwiaWQiOiJkaWQ6ZXhhbXBsZTplYmZlYjFmNzEyZWJjNmYxYzI3NmUxMmVjMjE" +
+		"iLCJuYW1lIjoiSmF5ZGVuIERvZSIsInNwb3VzZSI6ImRpZDpleGFtcGxlOmMyNzZlMTJlYzIxZWJmZWIxZjcxMmViYzZmMSJ9LCJpc3N1Z" +
+		"XIiOnsibmFtZSI6IkV4YW1wbGUgVW5pdmVyc2l0eSJ9LCJyZWZlcmVuY2VOdW1iZXIiOjguMzI5NDg0N2UrMDcsInR5cGUiOlsiVmVyaWZ" +
+		"pYWJsZUNyZWRlbnRpYWwiLCJVbml2ZXJzaXR5RGVncmVlQ3JlZGVudGlhbCJdfX0.a5yKMPmDnEXvM-fG3BaOqfdkqdvU4s2rzeZuOzLmk" +
+		"TH1y9sJT-mgTe7map5E9x7abrNVpyYbaH7JaAb9Yhr1DQ"
 )
 
 func TestContentTypes(t *testing.T) {
@@ -361,6 +371,18 @@ func TestContentStores(t *testing.T) {
 		require.Empty(t, response)
 	})
 
+	t.Run("save JWTVC to store - success", func(t *testing.T) {
+		sp := getMockStorageProvider()
+
+		contentStore := newContentStore(sp, createTestDocumentLoader(t), &profile{ID: uuid.New().String()})
+		require.NotEmpty(t, contentStore)
+
+		require.NoError(t, contentStore.Open(keyMgr, &unlockOpts{}))
+
+		err := contentStore.Save(token, Credential, []byte(sampleJWTCredContentValid))
+		require.NoError(t, err)
+	})
+
 	t.Run("save key to store - success", func(t *testing.T) {
 		sp := getMockStorageProvider()
 		sampleUser := uuid.New().String()
@@ -450,6 +472,35 @@ func TestContentStores(t *testing.T) {
 		// import base58 private key
 		err = contentStore.Save(tkn, Key, []byte(sampleKeyContentBase58WithInvalidField), ValidateContent())
 		require.Contains(t, err.Error(), "JSON-LD doc has different structure after compaction")
+	})
+
+	t.Run("save JWTVC to store - failures", func(t *testing.T) {
+		sp := getMockStorageProvider()
+
+		contentStore := newContentStore(sp, createTestDocumentLoader(t), &profile{ID: uuid.New().String()})
+		require.NotEmpty(t, contentStore)
+
+		require.NoError(t, contentStore.Open(keyMgr, &unlockOpts{}))
+
+		// assumes bad data is not JWT, fails to parse as JSON
+		err := contentStore.Save(token, Credential, []byte("f"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to read content to be saved")
+
+		// fail to decode payload that isn't base64
+		err = contentStore.Save(token, Credential, []byte("!!!!.!!!!.!!!!"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "decode base64 JWT data")
+
+		// YWJjZGVm is abcdef in base64, so this isn't valid JSON
+		err = contentStore.Save(token, Credential, []byte("YWJjZGVm.YWJjZGVm.YWJjZGVm"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to unmarshal JWT data")
+
+		// e30 is {} in base64, so jwt is empty
+		err = contentStore.Save(token, Credential, []byte("e30.e30.signature"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "JWT data has no ID")
 	})
 
 	t.Run("save key to store - failure", func(t *testing.T) {

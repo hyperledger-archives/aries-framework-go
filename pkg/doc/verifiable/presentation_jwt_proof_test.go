@@ -35,6 +35,10 @@ func TestParsePresentationFromJWS(t *testing.T) {
 		vp, err := newTestPresentation(t, vpBytes)
 		require.NoError(t, err)
 
+		// Validate the JWT field, then clear it to validate against the original presentation.
+		require.Equal(t, string(jws), vpFromJWT.JWT)
+		vpFromJWT.JWT = ""
+
 		require.Equal(t, vp, vpFromJWT)
 	})
 
@@ -45,6 +49,9 @@ func TestParsePresentationFromJWS(t *testing.T) {
 
 		vp, err := newTestPresentation(t, vpBytes)
 		require.NoError(t, err)
+
+		require.Equal(t, string(jws), vpFromJWT.JWT)
+		vpFromJWT.JWT = ""
 
 		require.Equal(t, vp, vpFromJWT)
 	})
@@ -112,6 +119,9 @@ func TestParsePresentationFromJWS_EdDSA(t *testing.T) {
 		[]byte(vpJWSStr),
 		WithPresPublicKeyFetcher(SingleKey(signer.PublicKeyBytes(), kms.ED25519)))
 	require.NoError(t, err)
+
+	require.Equal(t, vpJWSStr, vpFromJWS.JWT)
+	vpFromJWS.JWT = ""
 
 	// unmarshalled presentation must be the same as original one
 	require.Equal(t, vp, vpFromJWS)
