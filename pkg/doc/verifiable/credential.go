@@ -886,6 +886,7 @@ func (vc *Credential) validateJSONLD(vcBytes []byte, vcOpts *credentialOpts) err
 		docjsonld.WithDocumentLoader(vcOpts.jsonldCredentialOpts.jsonldDocumentLoader),
 		docjsonld.WithExternalContext(vcOpts.jsonldCredentialOpts.externalContext),
 		docjsonld.WithStrictValidation(vcOpts.strictValidation),
+		docjsonld.WithStrictContextURIPosition(baseContext),
 	)
 }
 
