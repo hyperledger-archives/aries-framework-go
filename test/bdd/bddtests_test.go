@@ -28,6 +28,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/issuecredential"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/jwt"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/ld"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/legacyconnection"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/mediator"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/messaging"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/outofband"
@@ -219,5 +220,6 @@ func features() []feature {
 		waci.NewIssuanceDIDCommV1SDKSteps(),
 		waci.NewIssuanceDIDCommV2SDKSteps(),
 		walletjsonld.NewSDKSteps(),
+		legacyconnection.NewLegacyConnectionControllerSteps(),
 	}
 }

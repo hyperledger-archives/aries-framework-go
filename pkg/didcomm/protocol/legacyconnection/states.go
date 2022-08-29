@@ -375,7 +375,10 @@ func (ctx *context) handleInboundRequest(request *Request, options *options,
 	connRec.MyDID = responseDidDoc.ID
 	connRec.TheirDID = request.Connection.DID
 	connRec.TheirLabel = request.Label
-	connRec.RecipientKeys = destination.RecipientKeys
+
+	if len(responseDidDoc.Service) > 0 {
+		connRec.RecipientKeys = responseDidDoc.Service[0].RecipientKeys
+	}
 
 	accept, err := destination.ServiceEndpoint.Accept()
 	if err != nil {
@@ -605,7 +608,7 @@ func (ctx *context) getMyDIDDoc(pubDID string, routerConnections []string, servi
 }
 
 func (ctx *context) addRouterKeys(doc *did.Doc, routerConnections []string) error {
-	svc, ok := did.LookupService(doc, didCommServiceType)
+	svc, ok := did.LookupService(doc, legacyDIDCommServiceType)
 	if ok {
 		for _, recKey := range svc.RecipientKeys {
 			for _, connID := range routerConnections {
