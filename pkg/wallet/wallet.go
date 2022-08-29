@@ -498,9 +498,26 @@ func (c *Wallet) Prove(authToken string, proofOptions *ProofOptions, credentials
 
 	presentation.Holder = proofOptions.Controller
 
-	err = c.addLinkedDataProof(authToken, presentation, proofOptions, purpose)
-	if err != nil {
-		return nil, fmt.Errorf("failed to prove credentials: %w", err)
+	switch proofOptions.ProofFormat {
+	case ExternalJWTProofFormat:
+		// TODO: look into passing audience identifier
+		//  https://github.com/hyperledger/aries-framework-go/issues/3354
+		claims, e := presentation.JWTClaims(nil, false)
+		if e != nil {
+			return nil, fmt.Errorf("failed to generate JWT claims for VP: %w", e)
+		}
+
+		jws, e := c.verifiableClaimsToJWT(authToken, claims, proofOptions)
+		if e != nil {
+			return nil, fmt.Errorf("failed to generate JWT VP: %w", e)
+		}
+
+		presentation.JWT = jws
+	default: // default case is EmbeddedLDProofFormat
+		err = c.addLinkedDataProof(authToken, presentation, proofOptions, purpose)
+		if err != nil {
+			return nil, fmt.Errorf("failed to prove credentials: %w", err)
+		}
 	}
 
 	return presentation, nil

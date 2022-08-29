@@ -452,8 +452,17 @@ func (cs *contentStore) checkDataModel(content []byte, opts *addContentOpts) err
 }
 
 func getContentID(content []byte) (string, error) {
+	jti, err := getJWTContentID(string(content))
+	if err != nil {
+		return "", err
+	}
+
+	if jti != "" {
+		return jti, nil
+	}
+
 	var cid contentID
-	if err := json.Unmarshal(content, &cid); err != nil {
+	if err = json.Unmarshal(content, &cid); err != nil {
 		return "", fmt.Errorf("failed to read content to be saved : %w", err)
 	}
 
@@ -465,6 +474,47 @@ func getContentID(content []byte) (string, error) {
 	}
 
 	return key, nil
+}
+
+type hasJTI struct {
+	JTI string `json:"jti"`
+}
+
+func getJWTContentID(jwtStr string) (string, error) {
+	parts := strings.Split(unQuote(jwtStr), ".")
+	if len(parts) != 3 { // nolint: gomnd
+		return "", nil // assume not a jwt
+	}
+
+	credBytes, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return "", fmt.Errorf("decode base64 JWT data: %w", err)
+	}
+
+	cred := &hasJTI{}
+
+	err = json.Unmarshal(credBytes, cred)
+	if err != nil {
+		return "", fmt.Errorf("failed to unmarshal JWT data: %w", err)
+	}
+
+	if cred.JTI == "" {
+		return "", fmt.Errorf("JWT data has no ID")
+	}
+
+	return cred.JTI, nil
+}
+
+func unQuote(s string) string {
+	if len(s) <= 1 {
+		return s
+	}
+
+	if s[0] == '"' && s[len(s)-1] == '"' {
+		return s[1 : len(s)-1]
+	}
+
+	return s
 }
 
 // getContentKeyPrefix returns key prefix by wallet content type and storage key.

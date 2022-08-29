@@ -60,6 +60,8 @@ func newJWTPresClaims(vp *Presentation, audience []string, minimizeVP bool) (*JW
 		return nil, err
 	}
 
+	rawVP.JWT = ""
+
 	presClaims := &JWTPresClaims{
 		Claims:       jwtClaims,
 		Presentation: rawVP,
