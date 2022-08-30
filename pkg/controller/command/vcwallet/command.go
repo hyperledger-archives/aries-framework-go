@@ -708,7 +708,7 @@ func (o *Command) CreateKeyPair(rw io.Writer, req io.Reader) command.Error {
 	return nil
 }
 
-// ResolveCredentialManifest resolves given credential manifest by credential fulfillment or credential.
+// ResolveCredentialManifest resolves given credential manifest by credential response or credential.
 // Supports: https://identity.foundation/credential-manifest/
 //
 // Writes list of resolved descriptors to writer or returns error if operation fails.
@@ -919,8 +919,8 @@ func prepareDeriveOption(rqst *DeriveRequest) wallet.CredentialToDerive {
 }
 
 func prepareResolveManifestOption(rqst *ResolveCredentialManifestRequest) wallet.ResolveManifestOption {
-	if len(rqst.Fulfillment) > emptyRawLength {
-		return wallet.ResolveRawFulfillment(rqst.Fulfillment)
+	if len(rqst.Response) > emptyRawLength {
+		return wallet.ResolveRawResponse(rqst.Response)
 	}
 
 	if len(rqst.Credential) > emptyRawLength {

@@ -316,12 +316,12 @@ type CreateKeyPairResponse struct {
 type ResolveCredentialManifestRequest struct {
 	WalletAuth
 
-	// Credential Manifest on which given credential fulfillment or credential needs to be resolved.
+	// Credential Manifest on which given credential response or credential needs to be resolved.
 	Manifest json.RawMessage `json:"manifest,omitempty"`
 
-	// Fulfillment to be be resolved.
+	// Response to be resolved.
 	// If provided, then this option takes precedence over credential resolve option.
-	Fulfillment json.RawMessage `json:"fulfillment,omitempty"`
+	Response json.RawMessage `json:"response,omitempty"`
 
 	// Credential to be be resolved, to be provided along with 'DescriptorID' to be used for resolving.
 	Credential json.RawMessage `json:"credential,omitempty"`

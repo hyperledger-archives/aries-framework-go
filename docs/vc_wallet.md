@@ -684,7 +684,7 @@ Returns,
 
 
 #### [RequestCredential](https://w3c-ccg.github.io/universal-wallet-interop-spec/#requestcredential)
-Sends request credential message from wallet to issuer and optionally waits for credential fulfillment.
+Sends request credential message from wallet to issuer and optionally waits for credential response.
 
 Params:
 * thID: thread ID (action ID) of offer credential message previously received.
@@ -715,18 +715,18 @@ Returns:
   ``` 
 
 #### ResolveCredentialManifest
-Resolves given credential manifest by credential fulfillment or credential.
+Resolves given credential manifest by credential response or credential.
 Supports: https://identity.foundation/credential-manifest/
 
 Params,
 * manifest: Credential manifest data model in raw format.
-* resolve: to provide credential fulfillment or credential to resolve.
+* resolve: to provide credential response or credential to resolve.
 
 Returns,
 * list of resolved descriptors.
 * error if operation fails.
 
-> Aries Go SDK Sample for resolving credential manifest by fulfillment.
+> Aries Go SDK Sample for resolving credential manifest by response.
   ```
   // creating vcwallet instance.
   myWallet, err := vcwallet.New(sampleUserID, ctx)
@@ -734,8 +734,8 @@ Returns,
   // open wallet.
   err = myWallet.Open(...)
   
-  // resolve credential manifest by raw credential fulfillment.
-  connectionID, err := myWallet.ResolveCredentialManifest(threadID, wallet.ResolveRawFulfillment(fulfillment))
+  // resolve credential manifest by raw credential response.
+  connectionID, err := myWallet.ResolveCredentialManifest(threadID, wallet.ResolveRawResponse(response))
     
   // close wallet.
   ok = myWallet.Close()
@@ -839,7 +839,7 @@ await agent.vcwallet.presentProof({userID, auth, threadID, presentation})
 // accept invitation, send propose credential message and wait for offer presentation.
 let offer = await wallet.proposeCredential(invitation, "did:example:holder", someTimeout)
 
-// send request credential message, wait for ack and return credential fulfillment.
+// send request credential message, wait for ack and return credential response.
 let fulfilment = await wallet.requestCredential(thID, presentation, waitForAck, someTimeout)
 
 // close wallet

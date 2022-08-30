@@ -134,11 +134,11 @@ type RequestCredentialRequest struct {
 	// presentation to be sent as part of request credential message.
 	Presentation json.RawMessage `json:"presentation,omitempty"`
 
-	// If true then wallet will wait till it receives credential fulfillment response from issuer for given Timeout.
-	// Also, will return web redirect info if found in fulfillment message or problem-report.
+	// If true then wallet will wait till it receives credential response response from issuer for given Timeout.
+	// Also, will return web redirect info if found in response message or problem-report.
 	WaitForDone bool `json:"waitForDone,omitempty"`
 
-	// Optional timeout (in milliseconds) waiting for credential fulfillment to arrive.
+	// Optional timeout (in milliseconds) waiting for credential response to arrive.
 	// will be taken into account only when WaitForDone is enabled.
 	// If not provided then wallet will use its default timeout.
 	Timeout time.Duration `json:"WaitForDoneTimeout,omitempty"`

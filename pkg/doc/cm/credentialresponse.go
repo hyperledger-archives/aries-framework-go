@@ -19,19 +19,19 @@ import (
 )
 
 const (
-	// CredentialFulfillmentAttachmentFormat defines the format type of Credential Fulfillment when used as an
+	// CredentialResponseAttachmentFormat defines the format type of Credential Response when used as an
 	// attachment in the WACI issuance flow.
 	// Refer to https://identity.foundation/waci-presentation-exchange/#issuance-2 for more info.
-	CredentialFulfillmentAttachmentFormat = "dif/credential-manifest/fulfillment@v1.0"
-	// CredentialFulfillmentPresentationContext defines the context type of Credential Fulfillment when used as part of
+	CredentialResponseAttachmentFormat = "dif/credential-manifest/response@v1.0"
+	// CredentialResponsePresentationContext defines the context type of Credential Response when used as part of
 	// a presentation attachment in the WACI issuance flow.
 	// Refer to https://identity.foundation/waci-presentation-exchange/#issuance-2 for more info.
-	CredentialFulfillmentPresentationContext = "https://identity.foundation/credential-manifest/fulfillment/v1"
+	CredentialResponsePresentationContext = "https://identity.foundation/credential-manifest/response/v1"
 )
 
-// CredentialFulfillment represents a Credential Fulfillment object as defined in
-// https://identity.foundation/credential-manifest/#credential-fulfillment.
-type CredentialFulfillment struct {
+// CredentialResponse represents a Credential Response object as defined in
+// https://identity.foundation/credential-manifest/#credential-response.
+type CredentialResponse struct {
 	ID                             string                `json:"id,omitempty"`          // mandatory property
 	ManifestID                     string                `json:"manifest_id,omitempty"` // mandatory property
 	ApplicationID                  string                `json:"application_id,omitempty"`
@@ -39,14 +39,14 @@ type CredentialFulfillment struct {
 }
 
 // OutputDescriptorMap represents an Output Descriptor Mapping Object as defined in
-// https://identity.foundation/credential-manifest/#credential-fulfillment.
+// https://identity.foundation/credential-manifest/#credential-response.
 // It has the same format as the InputDescriptorMapping object from the presexch package, but has a different meaning
 // here.
 type OutputDescriptorMap presexch.InputDescriptorMapping
 
 // UnmarshalJSON is the custom unmarshal function gets called automatically when the standard json.Unmarshal is called.
-// It also ensures that the given data is a valid CredentialFulfillment object per the specification.
-func (cf *CredentialFulfillment) UnmarshalJSON(data []byte) error {
+// It also ensures that the given data is a valid CredentialResponse object per the specification.
+func (cf *CredentialResponse) UnmarshalJSON(data []byte) error {
 	err := cf.standardUnmarshal(data)
 	if err != nil {
 		return err
@@ -54,20 +54,20 @@ func (cf *CredentialFulfillment) UnmarshalJSON(data []byte) error {
 
 	err = cf.validate()
 	if err != nil {
-		return fmt.Errorf("invalid Credential Fulfillment: %w", err)
+		return fmt.Errorf("invalid Credential Response: %w", err)
 	}
 
 	return nil
 }
 
-// ResolveDescriptorMaps resolves Verifiable Credentials based on this Credential Fulfillment's descriptor maps.
+// ResolveDescriptorMaps resolves Verifiable Credentials based on this Credential Response's descriptor maps.
 // This function looks at each OutputDescriptorMap's path property and checks for that path in the given JSON data,
 // which is expected to be from
 // the attachment of an Issue Credential message (i.e. issuecredential.IssueCredentialV3.Attachments[i].Data.JSON).
-// See the TestCredentialFulfillment_ResolveDescriptorMap method for examples.
+// See the TestCredentialResponse_ResolveDescriptorMap method for examples.
 // If a VC is found at that path's location, then it is added to the array of VCs that will be returned by this method.
 // Once all OutputDescriptorMaps are done being scanned, the array of VCs will be returned.
-func (cf *CredentialFulfillment) ResolveDescriptorMaps(jsonDataFromAttachment interface{},
+func (cf *CredentialResponse) ResolveDescriptorMaps(jsonDataFromAttachment interface{},
 	parseCredentialOpts ...verifiable.CredentialOpt) ([]verifiable.Credential, error) {
 	// The jsonpath library needs a map[string]interface{}.
 	// The issuecredential.IssueCredentialV3.Attachments[i].Data.JSON object (expected to be passed in here) is of type
@@ -91,12 +91,12 @@ func (cf *CredentialFulfillment) ResolveDescriptorMaps(jsonDataFromAttachment in
 	return verifiableCredentials, nil
 }
 
-func (cf *CredentialFulfillment) standardUnmarshal(data []byte) error {
+func (cf *CredentialResponse) standardUnmarshal(data []byte) error {
 	// The type alias below is used as to allow the standard json.Unmarshal to be called within a custom unmarshal
 	// function without causing infinite recursion. See https://stackoverflow.com/a/43178272 for more information.
-	type credentialFulfillmentWithoutMethods *CredentialFulfillment
+	type credentialResponseWithoutMethods *CredentialResponse
 
-	err := json.Unmarshal(data, credentialFulfillmentWithoutMethods(cf))
+	err := json.Unmarshal(data, credentialResponseWithoutMethods(cf))
 	if err != nil {
 		return err
 	}
@@ -104,7 +104,7 @@ func (cf *CredentialFulfillment) standardUnmarshal(data []byte) error {
 	return nil
 }
 
-func (cf *CredentialFulfillment) validate() error {
+func (cf *CredentialResponse) validate() error {
 	if cf.ID == "" {
 		return errors.New("missing ID")
 	}
@@ -116,42 +116,42 @@ func (cf *CredentialFulfillment) validate() error {
 	return nil
 }
 
-// presentCredentialFulfillmentOpts holds options for the PresentCredentialFulfillment method.
-type presentCredentialFulfillmentOpts struct {
+// presentCredentialResponseOpts holds options for the PresentCredentialResponse method.
+type presentCredentialResponseOpts struct {
 	existingPresentation    verifiable.Presentation
 	existingPresentationSet bool
 }
 
-// PresentCredentialFulfillmentOpt is an option for the PresentCredentialFulfillment method.
-type PresentCredentialFulfillmentOpt func(opts *presentCredentialFulfillmentOpts)
+// PresentCredentialResponseOpt is an option for the PresentCredentialResponse method.
+type PresentCredentialResponseOpt func(opts *presentCredentialResponseOpts)
 
-// WithExistingPresentationForPresentCredentialFulfillment is an option for the PresentCredentialFulfillment method
-// that allows Credential Fulfillment data to be added to an existing Presentation. The existing Presentation
-// should not already have Credential Fulfillment data.
-func WithExistingPresentationForPresentCredentialFulfillment(
-	presentation *verifiable.Presentation) PresentCredentialFulfillmentOpt {
-	return func(opts *presentCredentialFulfillmentOpts) {
+// WithExistingPresentationForPresentCredentialResponse is an option for the PresentCredentialResponse method
+// that allows Credential Response data to be added to an existing Presentation. The existing Presentation
+// should not already have Credential Response data.
+func WithExistingPresentationForPresentCredentialResponse(
+	presentation *verifiable.Presentation) PresentCredentialResponseOpt {
+	return func(opts *presentCredentialResponseOpts) {
 		opts.existingPresentation = *presentation
 		opts.existingPresentationSet = true
 	}
 }
 
-// PresentCredentialFulfillment creates a basic Presentation (without proofs) with Credential Fulfillment data based
-// on credentialManifest. The WithExistingPresentationForPresentCredentialFulfillment can be used to add the Credential
-// Fulfillment data to an existing Presentation object instead. Note that any existing proofs are not updated.
+// PresentCredentialResponse creates a basic Presentation (without proofs) with Credential Response data based
+// on credentialManifest. The WithExistingPresentationForPresentCredentialResponse can be used to add the Credential
+// Response data to an existing Presentation object instead. Note that any existing proofs are not updated.
 // Note also the following assumptions/limitations of this method:
 // 1. The format of all credentials is assumed to be ldp_vc.
 // 2. The location of the Verifiable Credentials is assumed to be an array at the root under a field called
 //    "verifiableCredential".
 // 3. The Verifiable Credentials in the presentation is assumed to be in the same order as the Output Descriptors in
 //    the Credential Manifest.
-func PresentCredentialFulfillment(credentialManifest *CredentialManifest,
-	opts ...PresentCredentialFulfillmentOpt) (*verifiable.Presentation, error) {
+func PresentCredentialResponse(credentialManifest *CredentialManifest,
+	opts ...PresentCredentialResponseOpt) (*verifiable.Presentation, error) {
 	if credentialManifest == nil {
 		return nil, errors.New("credential manifest argument cannot be nil")
 	}
 
-	appliedOptions := getPresentCredentialFulfillmentOpts(opts)
+	appliedOptions := getPresentCredentialResponseOpts(opts)
 
 	var presentation verifiable.Presentation
 
@@ -167,8 +167,8 @@ func PresentCredentialFulfillment(credentialManifest *CredentialManifest,
 	}
 
 	presentation.Context = append(presentation.Context,
-		"https://identity.foundation/credential-manifest/fulfillment/v1")
-	presentation.Type = append(presentation.Type, "CredentialFulfillment")
+		"https://identity.foundation/credential-manifest/response/v1")
+	presentation.Type = append(presentation.Type, "CredentialResponse")
 
 	outputDescriptorMappingObjects := make([]OutputDescriptorMap, len(credentialManifest.OutputDescriptors))
 
@@ -178,7 +178,7 @@ func PresentCredentialFulfillment(credentialManifest *CredentialManifest,
 		outputDescriptorMappingObjects[i].Path = fmt.Sprintf("$.verifiableCredential[%d]", i)
 	}
 
-	fulfillment := CredentialFulfillment{
+	response := CredentialResponse{
 		ID:                             uuid.New().String(),
 		ManifestID:                     credentialManifest.ID,
 		OutputDescriptorMappingObjects: outputDescriptorMappingObjects,
@@ -188,13 +188,13 @@ func PresentCredentialFulfillment(credentialManifest *CredentialManifest,
 		presentation.CustomFields = make(map[string]interface{})
 	}
 
-	presentation.CustomFields["credential_fulfillment"] = fulfillment
+	presentation.CustomFields["credential_response"] = response
 
 	return &presentation, nil
 }
 
-func getPresentCredentialFulfillmentOpts(opts []PresentCredentialFulfillmentOpt) *presentCredentialFulfillmentOpts {
-	processedOptions := &presentCredentialFulfillmentOpts{}
+func getPresentCredentialResponseOpts(opts []PresentCredentialResponseOpt) *presentCredentialResponseOpts {
+	processedOptions := &presentCredentialResponseOpts{}
 
 	for _, opt := range opts {
 		opt(processedOptions)

@@ -392,7 +392,7 @@ func (c *DidComm) ProposeCredential(authToken string, invitation *GenericInvitat
 }
 
 // RequestCredential sends request credential message from wallet to issuer and
-// optionally waits for credential fulfillment.
+// optionally waits for credential response.
 // https://w3c-ccg.github.io/universal-wallet-interop-spec/#requestcredential
 //
 // Currently Supporting : 0453-issueCredentialV2
@@ -440,7 +440,7 @@ func (c *DidComm) RequestCredential(authToken, thID string, options ...ConcludeI
 		return nil, err
 	}
 
-	// wait for credential fulfillment.
+	// wait for credential response.
 	if opts.waitForDone {
 		statusCh := make(chan service.StateMsg, msgEventBufferSize)
 

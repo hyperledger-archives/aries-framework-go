@@ -44,8 +44,8 @@ var (
 	x255192019 []byte
 	//go:embed third_party/ns.did.ai/secp256k1-2019_v1.jsonld
 	secp256k12019 []byte
-	//go:embed third_party/identity.foundation/credential-fulfillment.jsonld
-	credentialFulfillment []byte
+	//go:embed third_party/identity.foundation/credential-response.jsonld
+	credentialResponse []byte
 	//go:embed third_party/identity.foundation/credential-application.jsonld
 	credentialApplication []byte
 	//go:embed third_party/digitalbazaar.github.io/ed25519-signature-2020-v1.jsonld
@@ -147,9 +147,9 @@ var Contexts = []ldcontext.Document{ //nolint:gochecknoglobals
 		Content:     secp256k12019,
 	},
 	{
-		URL:         "https://identity.foundation/credential-manifest/fulfillment/v1",
-		DocumentURL: "https://identity.foundation/credential-manifest/fulfillment/v1",
-		Content:     credentialFulfillment,
+		URL:         "https://identity.foundation/credential-manifest/response/v1",
+		DocumentURL: "https://identity.foundation/credential-manifest/response/v1",
+		Content:     credentialResponse,
 	},
 	{
 		URL:         "https://identity.foundation/credential-manifest/application/v1",

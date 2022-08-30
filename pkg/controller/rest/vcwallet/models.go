@@ -350,14 +350,14 @@ type proposeCredentialResponse struct {
 //
 // swagger:parameters requestCredReq
 type requestCredentialRequest struct { // nolint: unused,deadcode
-	// Params for sending request credential message from wallet and optionally wait for credential fulfillment.
+	// Params for sending request credential message from wallet and optionally wait for credential response.
 	//
 	// in: body
 	Params *didcommwallet.RequestCredentialRequest
 }
 
 // requestCredentialResponse is response model from wallet request credential operation which may contain
-// credential fulfillment message, status and web redirect info.
+// credential response message, status and web redirect info.
 //
 // swagger:response requestCredRes
 type requestCredentialResponse struct {

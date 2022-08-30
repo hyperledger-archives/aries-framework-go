@@ -375,7 +375,7 @@ func TestPresentCredentialApplication(t *testing.T) {
 			makePresentationSubmissionIDsTheSame(reunmarshalledPresentation, expectedPresentation)
 
 			require.True(t, reflect.DeepEqual(reunmarshalledPresentation, expectedPresentation), errorMessageTestNameFormat+
-				" the presentation with a Credential Fulfillment added to it differs from what was expected", testName)
+				" the presentation with a Credential Response added to it differs from what was expected", testName)
 		}
 	})
 	t.Run("Nil Credential Manifest argument", func(t *testing.T) {

@@ -597,13 +597,13 @@ func (c *Wallet) CreateKeyPair(authToken string, keyType kms.KeyType) (*KeyPair,
 	}, nil
 }
 
-// ResolveCredentialManifest resolves given credential manifest by credential fulfillment or credential.
+// ResolveCredentialManifest resolves given credential manifest by credential response or credential.
 // Supports: https://identity.foundation/credential-manifest/
 //
 // Args:
 // 		- authToken: authorization for performing operation.
 // 		- manifest: Credential manifest data model in raw format.
-// 		- resolve: options to provide credential fulfillment or credential to resolve.
+// 		- resolve: options to provide credential response or credential to resolve.
 //
 // Returns:
 // 		- list of resolved descriptors.
@@ -624,8 +624,8 @@ func (c *Wallet) ResolveCredentialManifest(authToken string, manifest json.RawMe
 	}
 
 	switch {
-	case len(opts.rawFulfillment) > 0:
-		opts.fulfillment, err = verifiable.ParsePresentation(opts.rawFulfillment,
+	case len(opts.rawResponse) > 0:
+		opts.response, err = verifiable.ParsePresentation(opts.rawResponse,
 			verifiable.WithPresDisabledProofCheck(),
 			verifiable.WithPresJSONLDDocumentLoader(c.jsonldDocumentLoader))
 		if err != nil {
@@ -633,8 +633,8 @@ func (c *Wallet) ResolveCredentialManifest(authToken string, manifest json.RawMe
 		}
 
 		fallthrough
-	case opts.fulfillment != nil:
-		return credentialManifest.ResolveFulfillment(opts.fulfillment)
+	case opts.response != nil:
+		return credentialManifest.ResolveResponse(opts.response)
 	case opts.credentialID != "":
 		opts.rawCredential, err = c.Get(authToken, Credential, opts.credentialID)
 		if err != nil {

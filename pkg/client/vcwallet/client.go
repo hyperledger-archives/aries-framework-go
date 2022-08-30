@@ -451,7 +451,7 @@ func (c *Client) ProposeCredential(invitation *wallet.GenericInvitation, options
 }
 
 // RequestCredential sends request credential message from wallet to issuer and
-// optionally waits for credential fulfillment.
+// optionally waits for credential response.
 // https://w3c-ccg.github.io/universal-wallet-interop-spec/#proposecredential
 //
 // Currently Supporting : 0453-issueCredentialV2
@@ -474,13 +474,13 @@ func (c *Client) RequestCredential(thID string, options ...wallet.ConcludeIntera
 	return c.didComm.RequestCredential(auth, thID, options...)
 }
 
-// ResolveCredentialManifest resolves given credential manifest by credential fulfillment or credential.
+// ResolveCredentialManifest resolves given credential manifest by credential response or credential.
 // Supports: https://identity.foundation/credential-manifest/
 //
 // Args:
 // 		- authToken: authorization for performing operation.
 // 		- manifest: Credential manifest data model in raw format.
-// 		- resolve: options to provide credential fulfillment or credential to resolve.
+// 		- resolve: options to provide credential response or credential to resolve.
 //
 // Returns:
 // 		- list of resolved descriptors.

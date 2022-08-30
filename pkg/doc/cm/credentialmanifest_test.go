@@ -230,7 +230,7 @@ func TestCredentialManifest_Unmarshal(t *testing.T) {
 	})
 }
 
-func TestResolveFulfillment(t *testing.T) {
+func TestResolveResponse(t *testing.T) {
 	type match struct {
 		Title       string
 		Subtitle    string
@@ -241,13 +241,13 @@ func TestResolveFulfillment(t *testing.T) {
 	// nolint:lll
 	t.Run("Successes", func(t *testing.T) {
 		testTable := map[string]struct {
-			manifest    []byte
-			fulfillment []byte
-			expected    map[string]*match
+			manifest []byte
+			response []byte
+			expected map[string]*match
 		}{
 			"single descriptor and credential": {
-				manifest:    credentialManifestDriversLicense,
-				fulfillment: vpWithDriversLicenseVCAndCredentialFulfillment,
+				manifest: credentialManifestDriversLicense,
+				response: vpWithDriversLicenseVCAndCredentialResponse,
 				expected: map[string]*match{
 					"driver_license_output": {
 						Title:    "Washington State Driver License",
@@ -268,8 +268,8 @@ func TestResolveFulfillment(t *testing.T) {
 				},
 			},
 			"multiple descriptor and credentials": {
-				manifest:    credentialManifestMultipleVCs,
-				fulfillment: vpMultipleWithCredentialFulfillment,
+				manifest: credentialManifestMultipleVCs,
+				response: vpMultipleWithCredentialResponse,
 				expected: map[string]*match{
 					"prc_output": {
 						Title:       "Permanent Resident Card",
@@ -291,8 +291,8 @@ func TestResolveFulfillment(t *testing.T) {
 				},
 			},
 			"single descriptor and credentials for multi descriptor manifest": {
-				manifest:    credentialManifestMultipleVCs,
-				fulfillment: vpWithDriversLicenseVCAndCredentialFulfillment,
+				manifest: credentialManifestMultipleVCs,
+				response: vpWithDriversLicenseVCAndCredentialResponse,
 				expected: map[string]*match{
 					"driver_license_output": {
 						Title:    "Washington State Driver License",
@@ -312,11 +312,11 @@ func TestResolveFulfillment(t *testing.T) {
 
 		for testName, testData := range testTable {
 			t.Run(testName, func(t *testing.T) {
-				fulfillment := makePresentationFromBytes(t, testData.fulfillment, testName)
+				response := makePresentationFromBytes(t, testData.response, testName)
 				manifest := &cm.CredentialManifest{}
 				require.NoError(t, manifest.UnmarshalJSON(testData.manifest))
 
-				results, err := manifest.ResolveFulfillment(fulfillment)
+				results, err := manifest.ResolveResponse(response)
 				require.NoError(t, err)
 				require.Len(t, results, len(testData.expected))
 
@@ -340,19 +340,19 @@ func TestResolveFulfillment(t *testing.T) {
 		}
 	})
 
-	t.Run("Fulfillment format failures", func(t *testing.T) {
-		fulfillment := makePresentationFromBytes(t, vpMultipleWithCredentialFulfillment, t.Name())
+	t.Run("Response format failures", func(t *testing.T) {
+		response := makePresentationFromBytes(t, vpMultipleWithCredentialResponse, t.Name())
 		manifest := &cm.CredentialManifest{}
 		require.NoError(t, manifest.UnmarshalJSON(credentialManifestMultipleVCs))
 
 		t.Parallel()
 
 		testTable := map[string]struct {
-			credFulfillment []byte
-			error           string
+			credResponse []byte
+			error        string
 		}{
 			"missing credential": {
-				credFulfillment: []byte(`{
+				credResponse: []byte(`{
                       "id":"a30e3b91-fb77-4d22-95fa-871689c322e2",
                       "manifest_id":"dcc75a16-19f5-4273-84ce-4da69ee2b7fe",
                       "descriptor_map":[
@@ -371,7 +371,7 @@ func TestResolveFulfillment(t *testing.T) {
 				error: "failed to select vc from descriptor",
 			},
 			"missing path in descriptor": {
-				credFulfillment: []byte(`{
+				credResponse: []byte(`{
                       "id":"a30e3b91-fb77-4d22-95fa-871689c322e2",
                       "manifest_id":"dcc75a16-19f5-4273-84ce-4da69ee2b7fe",
                       "descriptor_map":[
@@ -389,7 +389,7 @@ func TestResolveFulfillment(t *testing.T) {
 				error: "invalid credential path",
 			},
 			"descriptor id missing": {
-				credFulfillment: []byte(`{
+				credResponse: []byte(`{
                       "id":"a30e3b91-fb77-4d22-95fa-871689c322e2",
                       "manifest_id":"dcc75a16-19f5-4273-84ce-4da69ee2b7fe",
                       "descriptor_map":[
@@ -402,7 +402,7 @@ func TestResolveFulfillment(t *testing.T) {
 				error: "invalid descriptor ID",
 			},
 			"incorrect descriptor format": {
-				credFulfillment: []byte(`{
+				credResponse: []byte(`{
                       "id":"a30e3b91-fb77-4d22-95fa-871689c322e2",
                       "manifest_id":"dcc75a16-19f5-4273-84ce-4da69ee2b7fe",
                       "descriptor_map":[
@@ -412,7 +412,7 @@ func TestResolveFulfillment(t *testing.T) {
 				error: "invalid descriptor format",
 			},
 			"empty descriptor map": {
-				credFulfillment: []byte(`{
+				credResponse: []byte(`{
                       "id":"a30e3b91-fb77-4d22-95fa-871689c322e2",
                       "manifest_id":"dcc75a16-19f5-4273-84ce-4da69ee2b7fe",
                       "descriptor_map":[]
@@ -420,7 +420,7 @@ func TestResolveFulfillment(t *testing.T) {
 				error: "",
 			},
 			"invalid descriptor format": {
-				credFulfillment: []byte(`{
+				credResponse: []byte(`{
                       "id":"a30e3b91-fb77-4d22-95fa-871689c322e2",
                       "manifest_id":"dcc75a16-19f5-4273-84ce-4da69ee2b7fe",
                       "descriptor_map": {}
@@ -428,15 +428,15 @@ func TestResolveFulfillment(t *testing.T) {
 				error: "invalid descriptor map",
 			},
 			"not matching manifest": {
-				credFulfillment: []byte(`{
+				credResponse: []byte(`{
                       "id":"a30e3b91-fb77-4d22-95fa-871689c322e2",
                       "manifest_id":"invalid",
                       "descriptor_map": {}
                     }`),
-				error: "credential fulfillment not matching",
+				error: "credential response not matching",
 			},
 			"matching descriptor not found in manifest": {
-				credFulfillment: []byte(`{
+				credResponse: []byte(`{
                       "id":"a30e3b91-fb77-4d22-95fa-871689c322e2",
                       "manifest_id":"dcc75a16-19f5-4273-84ce-4da69ee2b7fe",
                       "descriptor_map":[
@@ -458,12 +458,12 @@ func TestResolveFulfillment(t *testing.T) {
 
 		for testName, testData := range testTable {
 			t.Run(testName, func(t *testing.T) {
-				var credFulfillment map[string]interface{}
-				require.NoError(t, json.Unmarshal(testData.credFulfillment, &credFulfillment))
+				var credResponse map[string]interface{}
+				require.NoError(t, json.Unmarshal(testData.credResponse, &credResponse))
 
-				fulfillment.CustomFields["credential_fulfillment"] = credFulfillment
+				response.CustomFields["credential_response"] = credResponse
 
-				results, err := manifest.ResolveFulfillment(fulfillment)
+				results, err := manifest.ResolveResponse(response)
 				require.Empty(t, results)
 				if testData.error == "" {
 					require.NoError(t, err)
@@ -478,7 +478,7 @@ func TestResolveFulfillment(t *testing.T) {
 	})
 
 	t.Run("Failures", func(t *testing.T) {
-		fulfillment := makePresentationFromBytes(t, vpMultipleWithCredentialFulfillment, t.Name())
+		response := makePresentationFromBytes(t, vpMultipleWithCredentialResponse, t.Name())
 		manifest := &cm.CredentialManifest{}
 		require.NoError(t, manifest.UnmarshalJSON(credentialManifestMultipleVCs))
 
@@ -499,13 +499,13 @@ func TestResolveFulfillment(t *testing.T) {
 				require.NoError(t, json.Unmarshal([]byte(incorrectProperties), &descr.Display.Properties))
 			}
 		}
-		results, err := manifest.ResolveFulfillment(fulfillment)
+		results, err := manifest.ResolveResponse(response)
 		require.Empty(t, results)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to resolve credential by descriptor")
 
 		// unsupported formats
-		var credFulfillment map[string]interface{}
+		var credResponse map[string]interface{}
 		require.NoError(t, json.Unmarshal([]byte(`{
                       "id":"a30e3b91-fb77-4d22-95fa-871689c322e2",
                       "manifest_id":"dcc75a16-19f5-4273-84ce-4da69ee2b7fe",
@@ -521,27 +521,27 @@ func TestResolveFulfillment(t *testing.T) {
                           "path":"$.verifiableCredential[1]"
                         }
                       ]
-                    }`), &credFulfillment))
+                    }`), &credResponse))
 
-		fulfillment.CustomFields["credential_fulfillment"] = credFulfillment
+		response.CustomFields["credential_response"] = credResponse
 
-		results, err = manifest.ResolveFulfillment(fulfillment)
+		results, err = manifest.ResolveResponse(response)
 		require.Empty(t, results)
 		require.NoError(t, err)
 
 		// marshal presentation error
-		fulfillment.CustomFields["invalid"] = make(chan int)
-		results, err = manifest.ResolveFulfillment(fulfillment)
+		response.CustomFields["invalid"] = make(chan int)
+		results, err = manifest.ResolveResponse(response)
 		require.Empty(t, results)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to marshal vp")
 
-		// missing credential fulfillment
-		delete(fulfillment.CustomFields, "credential_fulfillment")
-		results, err = manifest.ResolveFulfillment(fulfillment)
+		// missing credential response
+		delete(response.CustomFields, "credential_response")
+		results, err = manifest.ResolveResponse(response)
 		require.Empty(t, results)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "invalid credential fulfillment")
+		require.Contains(t, err.Error(), "invalid credential response")
 	})
 }
 

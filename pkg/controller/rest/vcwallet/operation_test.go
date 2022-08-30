@@ -1773,9 +1773,9 @@ func TestOperation_ResolveCredentialManifest(t *testing.T) {
 
 	t.Run("resolve credential manifest", func(t *testing.T) {
 		request := &vcwallet.ResolveCredentialManifestRequest{
-			WalletAuth:  vcwallet.WalletAuth{UserID: sampleUser1, Auth: token},
-			Manifest:    testdata.CredentialManifestMultipleVCs,
-			Fulfillment: testdata.CredentialFulfillmentWithMultipleVCs,
+			WalletAuth: vcwallet.WalletAuth{UserID: sampleUser1, Auth: token},
+			Manifest:   testdata.CredentialManifestMultipleVCs,
+			Response:   testdata.CredentialResponseWithMultipleVCs,
 		}
 
 		rq := httptest.NewRequest(http.MethodPost, ResolveCredentialManifestPath, getReader(t, request))

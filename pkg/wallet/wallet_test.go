@@ -2765,7 +2765,7 @@ func TestWallet_ResolveCredentialManifest(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, token)
 
-	fulfillmentVP, err := verifiable.ParsePresentation(testdata.CredentialFulfillmentWithMultipleVCs,
+	responseVP, err := verifiable.ParsePresentation(testdata.CredentialResponseWithMultipleVCs,
 		verifiable.WithPresDisabledProofCheck(),
 		verifiable.WithPresJSONLDDocumentLoader(mockctx.JSONLDDocumentLoader()))
 	require.NoError(t, err)
@@ -2783,14 +2783,14 @@ func TestWallet_ResolveCredentialManifest(t *testing.T) {
 			resultCount int
 			error       string
 		}{
-			"testing resolve by raw credential fulfillment": {
+			"testing resolve by raw credential response": {
 				manifest:    testdata.CredentialManifestMultipleVCs,
-				resolve:     ResolveRawFulfillment(testdata.CredentialFulfillmentWithMultipleVCs),
+				resolve:     ResolveRawResponse(testdata.CredentialResponseWithMultipleVCs),
 				resultCount: 2,
 			},
-			"testing resolve by credential fulfillment": {
+			"testing resolve by credential response": {
 				manifest:    testdata.CredentialManifestMultipleVCs,
-				resolve:     ResolveFulfillment(fulfillmentVP),
+				resolve:     ResolveResponse(responseVP),
 				resultCount: 2,
 			},
 			"testing resolve by raw credential": {
@@ -2814,9 +2814,9 @@ func TestWallet_ResolveCredentialManifest(t *testing.T) {
 				resultCount: 0,
 				error:       "invalid option",
 			},
-			"testing failure - resolve by invalid raw fulfillment": {
+			"testing failure - resolve by invalid raw response": {
 				manifest:    testdata.CredentialManifestMultipleVCs,
-				resolve:     ResolveRawFulfillment([]byte("{}")),
+				resolve:     ResolveRawResponse([]byte("{}")),
 				resultCount: 0,
 				error:       "verifiable presentation is not valid",
 			},
@@ -2828,7 +2828,7 @@ func TestWallet_ResolveCredentialManifest(t *testing.T) {
 			},
 			"testing failure - invalid credential manifest": {
 				manifest:    []byte("{}"),
-				resolve:     ResolveFulfillment(fulfillmentVP),
+				resolve:     ResolveResponse(responseVP),
 				resultCount: 0,
 				error:       "invalid credential manifest",
 			},
