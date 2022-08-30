@@ -377,7 +377,7 @@ func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) erro
 		}
 
 		if connectionRecord.State == StateIDCompleted {
-			err = s.connectionStore.SaveDID(connectionRecord.TheirDID, connectionRecord.RecipientKeys...)
+			err = s.connectionStore.SaveDIDByResolving(connectionRecord.TheirDID, connectionRecord.RecipientKeys...)
 			if err != nil {
 				return fmt.Errorf("save theirDID: %w", err)
 			}

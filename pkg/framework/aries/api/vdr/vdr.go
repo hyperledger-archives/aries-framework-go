@@ -21,6 +21,9 @@ const (
 
 	// DIDCommV2ServiceType is the DID Communications V2 service type.
 	DIDCommV2ServiceType = "DIDCommMessaging"
+
+	// LegacyServiceType is the DID Communication V1 indy based service type.
+	LegacyServiceType = "IndyAgent"
 )
 
 // Registry vdr registry.
