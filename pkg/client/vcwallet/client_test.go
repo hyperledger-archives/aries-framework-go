@@ -1734,9 +1734,9 @@ func TestClient_ResolveCredentialManifest(t *testing.T) {
 	err = vcWallet.Open(wallet.WithUnlockByPassphrase(samplePassPhrase))
 	require.NoError(t, err)
 
-	t.Run("test resolving credential fulfillment", func(t *testing.T) {
+	t.Run("test resolving credential response", func(t *testing.T) {
 		resolved, err := vcWallet.ResolveCredentialManifest(testdata.CredentialManifestMultipleVCs,
-			wallet.ResolveRawFulfillment(testdata.CredentialFulfillmentWithMultipleVCs))
+			wallet.ResolveRawResponse(testdata.CredentialResponseWithMultipleVCs))
 		require.NoError(t, err)
 		require.Len(t, resolved, 2)
 	})

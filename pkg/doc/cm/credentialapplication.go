@@ -255,7 +255,7 @@ func WithExistingPresentationForPresentCredentialApplication(
 }
 
 // PresentCredentialApplication creates a minimal Presentation (without proofs) with Credential Application data based
-// on credentialManifest. The WithExistingPresentationForPresentCredentialFulfillment can be used to add the Credential
+// on credentialManifest. The WithExistingPresentationForPresentCredentialResponse can be used to add the Credential
 // Application data to an existing Presentation object instead. If the
 // "https://identity.foundation/presentation-exchange/submission/v1" context is found, it will be replaced with
 // the "https://identity.foundation/credential-manifest/application/v1" context. Note that any existing proofs are

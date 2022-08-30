@@ -407,7 +407,7 @@ func (o *Operation) ProposeCredential(rw http.ResponseWriter, req *http.Request)
 
 // RequestCredential swagger:route POST /vcwallet/request-credential vcwallet requestCredReq
 //
-// Sends request credential message from wallet to issuer and optionally waits for credential fulfillment.
+// Sends request credential message from wallet to issuer and optionally waits for credential response.
 // https://w3c-ccg.github.io/universal-wallet-interop-spec/#requestcredential
 //
 // Currently Supporting : 0453-issueCredentialV2
@@ -422,7 +422,7 @@ func (o *Operation) RequestCredential(rw http.ResponseWriter, req *http.Request)
 
 // ResolveCredentialManifest swagger:route POST /vcwallet/resolve-credential-manifest vcwallet resolveCredManifest
 //
-// Resolves given credential manifest by credential fulfillment or credential.
+// Resolves given credential manifest by credential response or credential.
 // Supports: https://identity.foundation/credential-manifest/
 //
 // Responses:

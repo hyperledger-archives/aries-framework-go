@@ -13,8 +13,8 @@ import _ "embed" // required for tests only
 var (
 	//go:embed samples/wallet/credential_manifest_multiple_vcs.json
 	CredentialManifestMultipleVCs []byte
-	//go:embed samples/wallet/VP_with_multiple_VCs_and_credential_fulfillment.json
-	CredentialFulfillmentWithMultipleVCs []byte
+	//go:embed samples/wallet/VP_with_multiple_VCs_and_credential_response.json
+	CredentialResponseWithMultipleVCs []byte
 	//go:embed samples/wallet/sample_udc_vc.json
 	SampleUDCVC []byte
 	//go:embed samples/wallet/sample_udc_vc_signed.json

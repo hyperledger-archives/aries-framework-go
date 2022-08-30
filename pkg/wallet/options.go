@@ -453,28 +453,28 @@ func WaitForDone(timeout time.Duration) ConcludeInteractionOptions {
 
 // resolveManifestOpts contains option to resolve credential manifest.
 type resolveManifestOpts struct {
-	fulfillment    *verifiable.Presentation
-	rawFulfillment json.RawMessage
-	descriptorID   string
-	credentialID   string
-	credential     *verifiable.Credential
-	rawCredential  json.RawMessage
+	response      *verifiable.Presentation
+	rawResponse   json.RawMessage
+	descriptorID  string
+	credentialID  string
+	credential    *verifiable.Credential
+	rawCredential json.RawMessage
 }
 
 // ResolveManifestOption is option to resolve credential manifests.
 type ResolveManifestOption func(opts *resolveManifestOpts)
 
-// ResolveFulfillment options for resolving credential fulfillment presentation.
-func ResolveFulfillment(fulfillment *verifiable.Presentation) ResolveManifestOption {
+// ResolveResponse options for resolving credential response presentation.
+func ResolveResponse(response *verifiable.Presentation) ResolveManifestOption {
 	return func(opts *resolveManifestOpts) {
-		opts.fulfillment = fulfillment
+		opts.response = response
 	}
 }
 
-// ResolveRawFulfillment options for resolving raw bytes of credential fulfillment presentation.
-func ResolveRawFulfillment(fulfillment json.RawMessage) ResolveManifestOption {
+// ResolveRawResponse options for resolving raw bytes of credential response presentation.
+func ResolveRawResponse(response json.RawMessage) ResolveManifestOption {
 	return func(opts *resolveManifestOpts) {
-		opts.rawFulfillment = fulfillment
+		opts.rawResponse = response
 	}
 }
 

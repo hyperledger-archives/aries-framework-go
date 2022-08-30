@@ -1793,13 +1793,13 @@ func TestCommand_ResolveCredentialManifest(t *testing.T) {
 		WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token},
 	})
 
-	t.Run("successfully resolve credential fulfillment", func(t *testing.T) {
+	t.Run("successfully resolve credential response", func(t *testing.T) {
 		cmd := New(mockctx, &Config{})
 
 		request := &ResolveCredentialManifestRequest{
-			WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token},
-			Manifest:    testdata.CredentialManifestMultipleVCs,
-			Fulfillment: testdata.CredentialFulfillmentWithMultipleVCs,
+			WalletAuth: WalletAuth{UserID: sampleUser1, Auth: token},
+			Manifest:   testdata.CredentialManifestMultipleVCs,
+			Response:   testdata.CredentialResponseWithMultipleVCs,
 		}
 
 		var b bytes.Buffer

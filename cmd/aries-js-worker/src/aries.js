@@ -1436,9 +1436,9 @@ const Aries = function (opts) {
 
             /**
              *
-             * sends request credential message from wallet to issuer and optionally waits for credential fulfillment.
+             * sends request credential message from wallet to issuer and optionally waits for credential response.
              *
-             *  Returns credential fulfillment and web redirect info.
+             *  Returns credential response and web redirect info.
              *
              * @returns {Promise<Object>}
              */
@@ -1448,7 +1448,7 @@ const Aries = function (opts) {
 
             /**
              *
-             * ResolveCredentialManifest resolves given credential manifest by credential fulfillment or credential.
+             * ResolveCredentialManifest resolves given credential manifest by credential response or credential.
              * Supports: https://identity.foundation/credential-manifest/
              *
              *  Returns resolved descriptors.

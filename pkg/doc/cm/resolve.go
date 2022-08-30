@@ -25,7 +25,7 @@ type ResolvedProperty struct {
 	Value  interface{} `json:"value"`
 }
 
-// ResolvedDescriptor typically represents results of resolving manifests by credential fulfillment.
+// ResolvedDescriptor typically represents results of resolving manifests by credential response.
 // Typically represents a DataDisplayDescriptor that's had its various "template" fields resolved
 // into concrete values based on a Verifiable Credential.
 type ResolvedDescriptor struct {
@@ -60,21 +60,21 @@ func RawCredentialToResolve(raw json.RawMessage) CredentialToResolveOption {
 	}
 }
 
-// ResolveFulfillment resolves given credential fulfillment and returns results.
-// Currently supports only 'ldp_vc' format of fulfillment credentials.
-func (cm *CredentialManifest) ResolveFulfillment(fulfillment *verifiable.Presentation) ([]*ResolvedDescriptor, error) { //nolint:funlen,gocyclo,lll
+// ResolveResponse resolves given credential response and returns results.
+// Currently supports only 'ldp_vc' format of response credentials.
+func (cm *CredentialManifest) ResolveResponse(response *verifiable.Presentation) ([]*ResolvedDescriptor, error) { //nolint:funlen,gocyclo,lll
 	var results []*ResolvedDescriptor
 
-	credentialFulfillmentMap, ok := lookUpMap(fulfillment.CustomFields, "credential_fulfillment")
+	credentialResponseMap, ok := lookUpMap(response.CustomFields, "credential_response")
 	if !ok {
-		return nil, errors.New("invalid credential fulfillment")
+		return nil, errors.New("invalid credential response")
 	}
 
-	if manifestID, k := credentialFulfillmentMap["manifest_id"]; !k || cm.ID != manifestID {
-		return nil, errors.New("credential fulfillment not matching")
+	if manifestID, k := credentialResponseMap["manifest_id"]; !k || cm.ID != manifestID {
+		return nil, errors.New("credential response not matching")
 	}
 
-	descriptorMaps, ok := lookUpArray(credentialFulfillmentMap, "descriptor_map")
+	descriptorMaps, ok := lookUpArray(credentialResponseMap, "descriptor_map")
 	if !ok {
 		return nil, errors.New("invalid descriptor map")
 	}
@@ -87,7 +87,7 @@ func (cm *CredentialManifest) ResolveFulfillment(fulfillment *verifiable.Present
 
 	builder := gval.Full(jsonpath.PlaceholderExtension())
 
-	vpBits, err := fulfillment.MarshalJSON()
+	vpBits, err := response.MarshalJSON()
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal vp: %w", err)
 	}

@@ -324,7 +324,7 @@ func (o *Command) ProposeCredential(rw io.Writer, req io.Reader) command.Error {
 }
 
 // RequestCredential sends request credential message from wallet to issuer and
-// optionally waits for credential fulfillment.
+// optionally waits for credential response.
 // https://w3c-ccg.github.io/universal-wallet-interop-spec/#requestcredential
 //
 // Currently Supporting : 0453-issueCredentialV2

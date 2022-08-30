@@ -26,4 +26,4 @@ Feature: WACI Issuance (Go API, DIDComm V2 + Issue Credential V3)
     Then "Holder" accepts the offer and sends a Credential Application to the Issuer
     And "Issuer" accepts the Credential Application and sends a credential to the Holder
     Then "Holder" accepts the credential
-    And Holder checks that the expected credential was received in a Credential Fulfillment attachment
+    And Holder checks that the expected credential was received in a Credential Response attachment
