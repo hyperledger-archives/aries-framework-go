@@ -341,6 +341,85 @@ func Test_ValidateJSONLD_CornerErrorCases(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "compact JSON-LD document")
 	})
+
+	t.Run("JSON-LD WithStrictContextURIPosition invalid context", func(t *testing.T) {
+		vcJSONTemplate := `
+{
+  "@context": "https://www.w3.org/2018/credentials/v1",
+  "id": "http://example.com/credentials/4643",
+  "type": [
+    "VerifiableCredential"
+  ],
+  "issuer": "https://example.com/issuers/14",
+  "issuanceDate": "2018-02-24T05:28:04Z",
+  "credentialSubject": "did:example:abcdef1234567"
+}
+`
+
+		err := ValidateJSONLD(vcJSONTemplate,
+			WithDocumentLoader(createTestDocumentLoader(t)),
+			WithStrictContextURIPosition("https://www.w3.org/2018/credentials/v1"),
+			WithStrictContextURIPosition("https://www.w3.org/2018/credentials/examples/v1"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "doc context URIs amount mismatch")
+	})
+
+	t.Run("JSON-LD WithStrictContextURIPosition invalid context URI amount", func(t *testing.T) {
+		vcJSONTemplate := `
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1"
+  ],
+  "id": "http://example.com/credentials/4643",
+  "type": [
+    "VerifiableCredential"
+  ],
+  "issuer": "https://example.com/issuers/14",
+  "issuanceDate": "2018-02-24T05:28:04Z",
+  "credentialSubject": "did:example:abcdef1234567"
+}
+`
+
+		err := ValidateJSONLD(vcJSONTemplate,
+			WithDocumentLoader(createTestDocumentLoader(t)),
+			WithStrictContextURIPosition("https://www.w3.org/2018/credentials/v1"),
+			WithStrictContextURIPosition("https://www.w3.org/2018/credentials/examples/v1"),
+		)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "doc context URIs amount mismatch")
+	})
+
+	t.Run("JSON-LD WithStrictContextURIPosition validate context URI position", func(t *testing.T) {
+		vcJSONTemplate := `
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+	"https://www.w3.org/2018/credentials/examples/v1"
+  ],
+  "id": "http://example.com/credentials/4643",
+  "type": [
+    "VerifiableCredential"
+  ],
+  "issuer": "https://example.com/issuers/14",
+  "issuanceDate": "2018-02-24T05:28:04Z",
+  "credentialSubject": "did:example:abcdef1234567"
+}
+`
+
+		err := ValidateJSONLD(vcJSONTemplate,
+			WithDocumentLoader(createTestDocumentLoader(t)),
+			WithStrictContextURIPosition("https://www.w3.org/2018/credentials/examples/v1"),
+		)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid context URI on position")
+
+		err = ValidateJSONLD(vcJSONTemplate,
+			WithDocumentLoader(createTestDocumentLoader(t)),
+			WithStrictContextURIPosition("https://www.w3.org/2018/credentials/v1"),
+			WithStrictContextURIPosition("https://www.w3.org/2018/credentials/examples/v1"),
+		)
+		require.NoError(t, err)
+	})
 }
 
 // nolint:gochecknoglobals // needed to avoid Go compiler perf optimizations for benchmarks.

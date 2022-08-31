@@ -1667,6 +1667,14 @@ func TestCredential_validateCredential(t *testing.T) {
 			"referenceNumber": 83294847,
 		}
 		r.Error(validateCredential(&Credential{}, vc.byteJSON(t), vcOpts))
+
+		// remove strict validation
+		vcOpts.strictValidation = false
+		r.NoError(validateCredential(&Credential{}, vc.byteJSON(t), vcOpts))
+
+		// remove base context
+		vc.Context = []string{"https://trustbloc.github.io/context/vc/examples-v1.jsonld"}
+		r.Error(validateCredential(&Credential{}, vc.byteJSON(t), vcOpts))
 	})
 
 	t.Run("test baseContextValidation constraint", func(t *testing.T) {
@@ -1876,6 +1884,30 @@ func TestParseUnverifiedCredential(t *testing.T) {
 		vcUnverified.JWT = ""
 
 		require.Equal(t, vc, vcUnverified)
+	})
+
+	t.Run("ParseUnverifiedCredential() for JWS error cases", func(t *testing.T) {
+		// Prepare JWS.
+		vc, err := parseTestCredential(t, []byte(validCredential))
+		require.NoError(t, err)
+
+		// Manually change URI on 0 position
+		vc.Context = append([]string{"https://w3id.org/security/bbs/v1"}, vc.Context...)
+
+		credClaims, err := vc.JWTClaims(true)
+		require.NoError(t, err)
+
+		jws, err := credClaims.MarshalJWS(EdDSA, signer, "any")
+		require.NoError(t, err)
+
+		// Parse VC with JWS proof.
+		vcUnverified, err := ParseCredential([]byte(jws),
+			WithJSONLDDocumentLoader(createTestDocumentLoader(t)),
+			WithDisabledProofCheck(),
+			WithJSONLDValidation()) // Apply only JSON-LD validation
+		require.Error(t, err)
+		require.ErrorContains(t, err, "invalid context URI on position")
+		require.Nil(t, vcUnverified)
 	})
 
 	t.Run("ParseUnverifiedCredential() for Linked Data proof", func(t *testing.T) {

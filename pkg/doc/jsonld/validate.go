@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/piprate/json-gold/ld"
 
@@ -20,6 +21,7 @@ type validateOpts struct {
 	strict               bool
 	jsonldDocumentLoader ld.DocumentLoader
 	externalContext      []string
+	contextURIPositions  []string
 }
 
 // ValidateOpts sets jsonld validation options.
@@ -43,6 +45,15 @@ func WithExternalContext(externalContext []string) ValidateOpts {
 func WithStrictValidation(checkStructure bool) ValidateOpts {
 	return func(opts *validateOpts) {
 		opts.strict = checkStructure
+	}
+}
+
+// WithStrictContextURIPosition sets strict validation of URI position within context property.
+// The index of uri in underlying slice represents the position of given uri in @context array.
+// Can be used for verifiable credential base context validation.
+func WithStrictContextURIPosition(uri string) ValidateOpts {
+	return func(opts *validateOpts) {
+		opts.contextURIPositions = append(opts.contextURIPositions, uri)
 	}
 }
 
@@ -78,6 +89,43 @@ func ValidateJSONLD(doc string, options ...ValidateOpts) error {
 
 	if opts.strict && !mapsHaveSameStructure(docMap, docCompactedMap) {
 		return errors.New("JSON-LD doc has different structure after compaction")
+	}
+
+	err = validateContextURIPosition(opts.contextURIPositions, docMap)
+	if err != nil {
+		return fmt.Errorf("validate context URI position: %w", err)
+	}
+
+	return nil
+}
+
+func validateContextURIPosition(contextURIPositions []string, docMap map[string]interface{}) error {
+	if len(contextURIPositions) == 0 {
+		return nil
+	}
+
+	var docContexts []interface{}
+
+	switch t := docMap["@context"].(type) {
+	case string:
+		docContexts = append(docContexts, t)
+	case []interface{}:
+		docContexts = append(docContexts, t...)
+	}
+
+	if len(docContexts) < len(contextURIPositions) {
+		return errors.New("doc context URIs amount mismatch")
+	}
+
+	for position, uri := range contextURIPositions {
+		docURI, ok := docContexts[position].(string)
+		if !ok {
+			return fmt.Errorf("unsupported URI type %s", reflect.TypeOf(docContexts[position]).String())
+		}
+
+		if !strings.EqualFold(docURI, uri) {
+			return fmt.Errorf("invalid context URI on position %d, %s expected", position, uri)
+		}
 	}
 
 	return nil
