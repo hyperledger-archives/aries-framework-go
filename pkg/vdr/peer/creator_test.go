@@ -13,6 +13,7 @@ import (
 	"crypto/rand"
 	"testing"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/model"
@@ -160,6 +161,23 @@ func TestBuild(t *testing.T) {
 			result.DIDDocument.Service[0].RecipientKeys[0])
 	})
 
+	t.Run("inlined recipient keys for legacy didcomm", func(t *testing.T) {
+		expected := getSigningKey()
+		c, err := New(sProvider)
+		require.NoError(t, err)
+
+		result, err := c.Create(
+			&did.Doc{VerificationMethod: []did.VerificationMethod{expected}, Service: []did.Service{{
+				Type: vdr.LegacyServiceType,
+			}}})
+
+		require.NoError(t, err)
+		require.NotEmpty(t, result.DIDDocument.Service)
+		require.NotEmpty(t, result.DIDDocument.Service[0].RecipientKeys)
+		require.Equal(t, base58.Encode(expected.Value),
+			result.DIDDocument.Service[0].RecipientKeys[0])
+	})
+
 	t.Run("create using Service with empty type and bad DefaultServiceType opt (not string)", func(t *testing.T) {
 		expected, keyAgreement := getSigningAndKeyAgreementKey(t, false, km)
 		c, err := New(sProvider)
@@ -227,7 +245,7 @@ func TestBuild(t *testing.T) {
 		require.EqualError(t, err, "create peer DID : defaultServiceEndpoint not string")
 	})
 
-	serviceTypes := []string{vdr.DIDCommServiceType, vdr.DIDCommV2ServiceType}
+	serviceTypes := []string{vdr.DIDCommServiceType, vdr.DIDCommV2ServiceType, vdr.LegacyServiceType}
 
 	for _, svcType := range serviceTypes {
 		t.Run("test success - create using Service with P-256 keys as jsonWebKey2020 with service type: "+svcType,
@@ -249,6 +267,10 @@ func TestBuild(t *testing.T) {
 
 				if svcType == vdr.DIDCommV2ServiceType {
 					expectedKey = keyAgreement.VerificationMethod.ID
+				}
+
+				if svcType == vdr.LegacyServiceType {
+					expectedKey = base58.Encode(expected.Value)
 				}
 
 				require.NoError(t, err)

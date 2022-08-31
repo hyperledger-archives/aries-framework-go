@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/model"
@@ -97,7 +98,7 @@ func build(didDoc *did.Doc, docOpts *vdrapi.DIDMethodOpts) (*did.DocResolution, 
 		// nolint:nestif
 		if uri == "" && docOpts.Values[DefaultServiceEndpoint] != nil {
 			switch didDoc.Service[i].Type {
-			case vdrapi.DIDCommServiceType, "IndyAgent":
+			case vdrapi.DIDCommServiceType, vdrapi.LegacyServiceType:
 				v, ok := docOpts.Values[DefaultServiceEndpoint].(string)
 				if !ok {
 					return nil, fmt.Errorf("defaultServiceEndpoint not string")
@@ -222,6 +223,11 @@ func applyDIDCommKeys(i int, didDoc *did.Doc) {
 	if didDoc.Service[i].Type == vdrapi.DIDCommServiceType {
 		didKey, _ := fingerprint.CreateDIDKey(didDoc.VerificationMethod[0].Value)
 		didDoc.Service[i].RecipientKeys = []string{didKey}
+		didDoc.Service[i].Priority = 0
+	}
+
+	if didDoc.Service[i].Type == vdrapi.LegacyServiceType {
+		didDoc.Service[i].RecipientKeys = []string{base58.Encode(didDoc.VerificationMethod[0].Value)}
 		didDoc.Service[i].Priority = 0
 	}
 }

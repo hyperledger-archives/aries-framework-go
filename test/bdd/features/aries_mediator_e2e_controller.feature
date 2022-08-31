@@ -89,3 +89,7 @@ Feature: DIDComm V1 Transport between two Agents through DIDComm Routers [REST B
 
     Then   "Carl,Dave" waits for post state event "completed" to web notifier
     And   "Carl,Dave" retrieves connection record through controller and validates that connection state is "completed"
+
+    # Carl and Dave unregisters their routers in order to enable above flow with another protocol (legacy connection)
+    Then   "Carl" unregisters the router with connection "carl-router-connID,carl-second-router-connID"
+    And   "Dave" unregisters the router with connection "dave-router-connID,dave-second-router-connID"
