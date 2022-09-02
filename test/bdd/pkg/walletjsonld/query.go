@@ -28,5 +28,6 @@ func (s *SDKSteps) getQuery(queryType wallet.QueryType, didID string) (json.RawM
 		return []byte(fmt.Sprintf(presentationDefinitionFmt, didID)), nil
 	}
 
+	// QueryByFrame is not covered in tests, since BBS isn't usable yet for JWT credentials
 	return nil, fmt.Errorf("invalid queryType %v", queryType)
 }

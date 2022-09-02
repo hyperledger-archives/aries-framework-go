@@ -69,18 +69,21 @@ func (s *SDKSteps) RegisterSteps(gs *godog.Suite) {
 	gs.Step(`^"([^"]*)" creates wallet profile$`, s.createWalletProfile)
 	gs.Step(`^"([^"]*)" opens wallet$`, s.openWallet)
 	gs.Step(`^"([^"]*)" closes wallet$`, s.closeWallet)
-	gs.Step(`^"([^"]*)" issues credentials at "([^"]*)" regarding "([^"]*)" to "([^"]*)"$`, s.issueCredential)
+	gs.Step(`^"([^"]*)" issues "([^"]*)" credentials at "([^"]*)" regarding "([^"]*)" to "([^"]*)"$`, s.issueCredential)
 	gs.Step(`^"([^"]*)" adds credentials to the wallet issued by "([^"]*)"$`, s.addCredentialsToWallet)
+	gs.Step(`^"([^"]*)" verifies credential issued by "([^"]*)"$`, s.holderVerifiesCredentialsFromIssuer)
 	gs.Step(`^"([^"]*)" queries credentials issued by "([^"]*)" using "([^"]*)" query type$`, s.queryPresentations)
 	gs.Step(`^"([^"]*)" resolves query$`, s.resolveCredentialsQuery)
-	gs.Step(`^"([^"]*)" adds presentations proof$`, s.addResolvedPresentationProof)
+	gs.Step(`^"([^"]*)" adds "([^"]*)" presentations proof$`, s.addResolvedPresentationProof)
 	gs.Step(`^"([^"]*)" receives presentations `+
 		`signed by "([^"]*)" and verifies it$`, s.receivePresentationsAndVerify)
+	gs.Step(`^"([^"]*)" verifies presentations signed by "([^"]*)" with credentials issued by "([^"]*)"$`,
+		s.receivePresentationsAndVerifyWithIssuer)
 	gs.Step(`^"([^"]*)" receives credentials from presentation `+
 		`signed by "([^"]*)" and verifies it$`, s.receiveCredentialsAndVerify)
 	gs.Step(`^"([^"]*)" creates credentials at "([^"]*)" `+
 		`regarding "([^"]*)" without proof$`, s.createUnsecuredCredential)
-	gs.Step(`^"([^"]*)" issues credentials using the wallet$`, s.issueCredentialsUsingWallet)
+	gs.Step(`^"([^"]*)" issues "([^"]*)" credentials using the wallet$`, s.issueCredentialsUsingWallet)
 	gs.Step(`^"([^"]*)" queries all credentials from "([^"]*)"$`, s.queryAllCredentials)
 	gs.Step(`^"([^"]*)" receives "([^"]*)" credentials$`, s.checkGetAllAmount)
 	gs.Step(`^"([^"]*)" verifies credentials issued by "([^"]*)"$`, s.verifyGetAllCredential)
@@ -130,6 +133,19 @@ func mapCryptoKeyType(crypto string) kms.KeyType {
 		return kms.ECDSAP256IEEEP1363
 	case secp384r1Crypto:
 		return kms.ECDSAP384IEEEP1363
+	default:
+		panic("unsupported crypto type: " + crypto)
+	}
+}
+
+func mapCryptoJWSAlg(crypto string) verifiable.JWSAlgorithm {
+	switch crypto {
+	case ed25519Crypto:
+		return verifiable.EdDSA
+	case secp256r1Crypto:
+		return verifiable.ECDSASecp256r1
+	case secp384r1Crypto:
+		return verifiable.ECDSASecp384r1
 	default:
 		panic("unsupported crypto type: " + crypto)
 	}

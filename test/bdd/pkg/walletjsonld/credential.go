@@ -19,10 +19,17 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/peer"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
-func (s *SDKSteps) issueCredential(issuer, issuedAt, subject, holder string) error {
+const (
+	jsonLDFormat = "JSON-LD"
+	jwtFormat    = "JWT"
+)
+
+func (s *SDKSteps) issueCredential(issuer, credentialType, issuedAt, subject, _ string) error {
 	err := s.createKeyPairLocalKMS(issuer, s.crypto)
 	if err != nil {
 		return err
@@ -38,7 +45,15 @@ func (s *SDKSteps) issueCredential(issuer, issuedAt, subject, holder string) err
 		return err
 	}
 
-	vcBytes, err := s.addCredentialProof(vcToIssue, issuer)
+	var vcBytes []byte
+
+	switch credentialType {
+	case jsonLDFormat:
+		vcBytes, err = s.addCredentialProof(vcToIssue, issuer)
+	case jwtFormat:
+		vcBytes, err = s.jwtSignCredential(vcToIssue, issuer)
+	}
+
 	if err != nil {
 		return err
 	}
@@ -74,7 +89,7 @@ func (s *SDKSteps) createUnsecuredCredential(holder, issuedAt, subject string) e
 	return nil
 }
 
-func (s *SDKSteps) resolveCredentialsQuery(holder string) error {
+func (s *SDKSteps) resolveCredentialsQuery(_ string) error {
 	walletInstance := s.wallet
 	if walletInstance == nil {
 		return fmt.Errorf("empty wallet")
@@ -95,13 +110,22 @@ func (s *SDKSteps) resolveCredentialsQuery(holder string) error {
 	return nil
 }
 
-func (s *SDKSteps) issueCredentialsUsingWallet(holder string) error {
+func (s *SDKSteps) issueCredentialsUsingWallet(holder, credFormat string) error {
 	walletInstance := s.wallet
 	if walletInstance == nil {
 		return fmt.Errorf("empty wallet")
 	}
 
-	vcBytes, err := s.issueCredentialsWallet(holder, s.vcBytes[holder], walletInstance)
+	var proofFormat wallet.ProofFormat
+
+	switch credFormat {
+	case jwtFormat:
+		proofFormat = wallet.ExternalJWTProofFormat
+	case jsonLDFormat:
+		proofFormat = wallet.EmbeddedLDProofFormat
+	}
+
+	vcBytes, err := s.issueCredentialsWallet(holder, s.vcBytes[holder], walletInstance, proofFormat)
 	if err != nil {
 		return err
 	}
@@ -111,7 +135,12 @@ func (s *SDKSteps) issueCredentialsUsingWallet(holder string) error {
 	return nil
 }
 
-func (s *SDKSteps) issueCredentialsWallet(agent string, vcUnsecured []byte, walletInstance *wallet.Wallet) ([]byte, error) { //nolint:lll
+func (s *SDKSteps) issueCredentialsWallet(
+	agent string,
+	vcUnsecured []byte,
+	walletInstance *wallet.Wallet,
+	proofFormat wallet.ProofFormat,
+) ([]byte, error) {
 	vc, err := walletInstance.Issue(s.token, vcUnsecured, &wallet.ProofOptions{
 		Controller: s.getPublicDID(agent).ID,
 		ProofType:  wallet.JSONWebSignature2020,
@@ -119,6 +148,7 @@ func (s *SDKSteps) issueCredentialsWallet(agent string, vcUnsecured []byte, wall
 			r := verifiable.SignatureJWS
 			return &r
 		}(),
+		ProofFormat: proofFormat,
 	})
 	if err != nil {
 		return nil, err
@@ -127,7 +157,7 @@ func (s *SDKSteps) issueCredentialsWallet(agent string, vcUnsecured []byte, wall
 	return vc.MarshalJSON()
 }
 
-func (s *SDKSteps) receiveCredentialsAndVerify(verifier, issuer string) error {
+func (s *SDKSteps) receiveCredentialsAndVerify(_, issuer string) error {
 	for _, vp := range s.query.resolved {
 		for _, rawVc := range vp.Credentials() {
 			vc, ok := rawVc.(*verifiable.Credential)
@@ -169,7 +199,7 @@ func (s *SDKSteps) verifyCredential(issuer string, vcBytes []byte) error {
 	return nil
 }
 
-func (s *SDKSteps) verifyGetAllCredential(verifier, issuer string) error {
+func (s *SDKSteps) verifyGetAllCredential(_, issuer string) error {
 	vcBytes := s.getAllCredentialsResult[s.getCredentialID(issuer)]
 
 	return s.verifyCredential(issuer, vcBytes)
@@ -229,16 +259,66 @@ func (s *SDKSteps) addCredentialProof(vc *verifiable.Credential, issuer string) 
 	return vc.MarshalJSON()
 }
 
+func (s *SDKSteps) jwtSignCredential(vc *verifiable.Credential, issuer string) ([]byte, error) {
+	doc := s.getPublicDID(issuer)
+	cr := s.bddContext.AgentCtx[issuer].Crypto()
+	kh := s.bddContext.KeyHandles[issuer]
+	signer := newCryptoSigner(cr, kh)
+
+	vc.Issuer.ID = doc.ID
+
+	claims, err := vc.JWTClaims(false)
+	if err != nil {
+		return nil, fmt.Errorf("creating JWT claims for VC: %w", err)
+	}
+
+	jws, err := claims.MarshalJWS(mapCryptoJWSAlg(s.crypto), signer, doc.ID+doc.VerificationMethod[0].ID)
+	if err != nil {
+		return nil, err
+	}
+
+	vc.JWT = jws
+
+	return vc.MarshalJSON()
+}
+
 func (s *SDKSteps) addCredentialsToWallet(holder, issuer string) error {
 	walletInstance := s.wallet
 	if walletInstance == nil {
 		return fmt.Errorf("empty wallet")
 	}
 
+	holderVDR := s.bddContext.AgentCtx[holder].VDRegistry()
+
+	issuerDoc := s.bddContext.PublicDIDDocs[issuer]
+
+	_, err := holderVDR.Create(peer.DIDMethod, issuerDoc, vdrapi.WithOption("store", true))
+	if err != nil {
+		return fmt.Errorf("failed to save issuer DID in holder VDR: %w", err)
+	}
+
 	return walletInstance.Add(s.token, wallet.Credential, s.vcBytes[issuer])
 }
 
-func (s *SDKSteps) queryAllCredentials(verifier, holder string) error {
+func (s *SDKSteps) holderVerifiesCredentialsFromIssuer(holder, issuer string) error {
+	walletInstance := s.wallet
+	if walletInstance == nil {
+		return fmt.Errorf("empty wallet")
+	}
+
+	ok, err := walletInstance.Verify(s.token, wallet.WithRawCredentialToVerify(s.vcBytes[issuer]))
+	if err != nil {
+		return err
+	}
+
+	if !ok {
+		return fmt.Errorf("failed to verify credential using wallet API")
+	}
+
+	return nil
+}
+
+func (s *SDKSteps) queryAllCredentials(_, _ string) error {
 	walletInstance := s.wallet
 	if walletInstance == nil {
 		return fmt.Errorf("empty wallet")
@@ -254,7 +334,7 @@ func (s *SDKSteps) queryAllCredentials(verifier, holder string) error {
 	return nil
 }
 
-func (s *SDKSteps) checkGetAllAmount(verifier, amount string) error {
+func (s *SDKSteps) checkGetAllAmount(_, amount string) error {
 	receivedAmount := len(s.getAllCredentialsResult)
 	if strconv.Itoa(receivedAmount) != amount {
 		return fmt.Errorf("received invalid credentials amount, expected: %s, got: %d", amount, receivedAmount)

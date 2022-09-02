@@ -14,7 +14,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
-func (s *SDKSteps) queryPresentations(verifier, issuer, rawQueryType string) error {
+func (s *SDKSteps) queryPresentations(_, issuer, rawQueryType string) error {
 	queryType, err := wallet.GetQueryType(rawQueryType)
 	if err != nil {
 		return err
@@ -33,7 +33,7 @@ func (s *SDKSteps) queryPresentations(verifier, issuer, rawQueryType string) err
 	return nil
 }
 
-func (s *SDKSteps) addResolvedPresentationProof(holder string) error {
+func (s *SDKSteps) addResolvedPresentationProof(holder, proofFormat string) error {
 	err := s.createKeyPairWallet(holder, s.crypto)
 	if err != nil {
 		return err
@@ -49,14 +49,24 @@ func (s *SDKSteps) addResolvedPresentationProof(holder string) error {
 		return fmt.Errorf("empty wallet")
 	}
 
-	err = s.signPresentations(holder, walletInstance)
+	var format wallet.ProofFormat
+
+	switch proofFormat {
+	case jwtFormat:
+		format = wallet.ExternalJWTProofFormat
+	case jsonLDFormat:
+		format = wallet.EmbeddedLDProofFormat
+	}
+
+	err = s.signPresentations(holder, walletInstance, format)
 
 	return err
 }
 
 func (s *SDKSteps) signPresentations(
 	agent string,
-	walletInstance *wallet.Wallet) error {
+	walletInstance *wallet.Wallet,
+	format wallet.ProofFormat) error {
 	presentations := make([]*verifiable.Presentation, 0, len(s.query.resolved))
 
 	for _, vp := range s.query.resolved {
@@ -70,6 +80,7 @@ func (s *SDKSteps) signPresentations(
 					r := verifiable.SignatureJWS
 					return &r
 				}(),
+				ProofFormat: format,
 			},
 			wallet.WithPresentationToProve(vp),
 		)
@@ -85,14 +96,14 @@ func (s *SDKSteps) signPresentations(
 	return nil
 }
 
-func (s *SDKSteps) receivePresentationsAndVerify(verifier, issuer string) error {
+func (s *SDKSteps) receivePresentationsAndVerify(_, issuer string) error {
 	for _, vp := range s.query.resolved {
 		b, err := vp.MarshalJSON()
 		if err != nil {
 			return err
 		}
 
-		_, err = s.verifyPresentation(issuer, b)
+		err = s.verifyPresentation(issuer, b)
 		if err != nil {
 			return err
 		}
@@ -101,7 +112,30 @@ func (s *SDKSteps) receivePresentationsAndVerify(verifier, issuer string) error 
 	return nil
 }
 
-func (s *SDKSteps) verifyPresentation(agent string, vp []byte) (*verifiable.Presentation, error) {
+func (s *SDKSteps) receivePresentationsAndVerifyWithIssuer(_, holder, issuer string) error {
+	issuerDoc := s.bddContext.PublicDIDDocs[issuer]
+
+	for _, vp := range s.query.resolved {
+		b, err := vp.MarshalJSON()
+		if err != nil {
+			return err
+		}
+
+		err = s.verifyPresentation(holder, b)
+		if err != nil {
+			return fmt.Errorf(
+				"verify presentation: %w, issuer DID = %s, holder DID = %s",
+				err,
+				issuerDoc.ID,
+				s.bddContext.PublicDIDDocs[holder].ID,
+			)
+		}
+	}
+
+	return nil
+}
+
+func (s *SDKSteps) verifyPresentation(agent string, vp []byte) error {
 	vdr := s.bddContext.AgentCtx[agent].VDRegistry()
 	pKeyFetcher := verifiable.NewVDRKeyResolver(vdr).PublicKeyFetcher()
 	loader := s.bddContext.AgentCtx[agent].JSONLDDocumentLoader()
@@ -110,12 +144,12 @@ func (s *SDKSteps) verifyPresentation(agent string, vp []byte) (*verifiable.Pres
 		verifiable.WithPresPublicKeyFetcher(pKeyFetcher),
 		verifiable.WithPresJSONLDDocumentLoader(loader))
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if presentation == nil {
-		return nil, errors.New("received nil presentation")
+		return errors.New("received nil presentation")
 	}
 
-	return presentation, nil
+	return nil
 }
