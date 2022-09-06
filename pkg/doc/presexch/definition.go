@@ -572,10 +572,18 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential,
 
 		var applicable bool
 
+		// if credential.JWT is set, credential will marshal to a JSON string.
+		// temporarily clear credential.JWT to avoid this.
+
+		credJWT := credential.JWT
+		credential.JWT = ""
+
 		credentialSrc, err := json.Marshal(credential)
 		if err != nil {
 			continue
 		}
+
+		credential.JWT = credJWT
 
 		var credentialMap map[string]interface{}
 
