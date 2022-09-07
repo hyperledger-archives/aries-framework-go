@@ -23,14 +23,21 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
 	. "github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 )
 
 const errMsgSchema = "credentials do not satisfy requirements"
@@ -79,7 +86,66 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 	})
 
 	t.Run("Checks submission requirements", func(t *testing.T) {
-		issuerID := uuid.New().String()
+		issuerID := "did:example:76e12ec712ebc6f1c221ebfeb1f"
+
+		vc1JWT := &verifiable.Credential{
+			Issued:  util.NewTime(time.Now()),
+			Context: []string{verifiable.ContextURI},
+			Types:   []string{verifiable.VCType},
+			ID:      "http://example.edu/credentials/1872",
+			Subject: []verifiable.Subject{{ID: issuerID}},
+			Issuer:  verifiable.Issuer{ID: issuerID},
+			CustomFields: map[string]interface{}{
+				"first_name": "Jesse",
+				"last_name":  "Travis",
+				"age":        17,
+			},
+			// vc as jwt does not use proof, do not set it here.
+		}
+
+		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
+		require.NoError(t, err)
+
+		vc1JWT.JWT = createEdDSAJWS(t, vc1JWT, ed25519Signer, "76e12ec712ebc6f1c221ebfeb1f", true)
+
+		candidateVCs := []*verifiable.Credential{
+			vc1JWT,
+			{
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
+				ID:      "http://example.edu/credentials/1872",
+				CustomFields: map[string]interface{}{
+					"first_name": "Jesse",
+				},
+				Proofs: []verifiable.Proof{{"type": "JsonWebSignature2020"}},
+			},
+			{
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
+				ID:      "http://example.edu/credentials/1872",
+				Subject: []verifiable.Subject{{ID: issuerID}},
+				Issuer:  verifiable.Issuer{ID: issuerID},
+				CustomFields: map[string]interface{}{
+					"first_name": "Jesse",
+					"last_name":  "Travis",
+					"age":        17,
+				},
+				Proofs: []verifiable.Proof{{"type": "JsonWebSignature2020"}},
+			},
+			{
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
+				ID:      "http://example.edu/credentials/1872",
+				Subject: []verifiable.Subject{{ID: issuerID}},
+				Issuer:  verifiable.Issuer{ID: issuerID},
+				CustomFields: map[string]interface{}{
+					"first_name": "Jesse",
+					"last_name":  "Travis",
+					"age":        2,
+				},
+				Proofs: []verifiable.Proof{{"type": "JsonWebSignature2020"}},
+			},
+		}
 
 		tests := []struct {
 			name    string
@@ -105,6 +171,27 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				format: FormatLDPVC,
 				vFormat: &Format{
 					LdpVC: &LdpType{ProofType: []string{"JsonWebSignature2020"}},
+				},
+			},
+			{
+				name:   "test JWT format",
+				format: FormatJWT,
+				vFormat: &Format{
+					Jwt: &JwtType{Alg: []string{"EdDSA"}},
+				},
+			},
+			{
+				name:   "test JWTVC format",
+				format: FormatJWTVC,
+				vFormat: &Format{
+					JwtVC: &JwtType{Alg: []string{"EdDSA"}},
+				},
+			},
+			{
+				name:   "test JWTVP format",
+				format: FormatJWTVP,
+				vFormat: &Format{
+					JwtVP: &JwtType{Alg: []string{"EdDSA"}},
 				},
 			},
 		}
@@ -205,46 +292,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 					Format: tc.vFormat,
 				}
 
-				vp, err := pd.CreateVP([]*verifiable.Credential{
-					{
-						Context: []string{verifiable.ContextURI},
-						Types:   []string{verifiable.VCType},
-						ID:      uuid.New().String(),
-						CustomFields: map[string]interface{}{
-							"first_name": "Jesse",
-						},
-						// since Format in InputDescriptor works only with proofs, need to add it in the vc.
-						Proofs: []verifiable.Proof{{"type": "JsonWebSignature2020"}},
-					},
-					{
-						Context: []string{verifiable.ContextURI},
-						Types:   []string{verifiable.VCType},
-						ID:      uuid.New().String(),
-						Subject: []verifiable.Subject{{ID: issuerID}},
-						Issuer:  verifiable.Issuer{ID: issuerID},
-						CustomFields: map[string]interface{}{
-							"first_name": "Jesse",
-							"last_name":  "Travis",
-							"age":        17,
-						},
-						// since Format in InputDescriptor works only with proofs, need to add it in the vc.
-						Proofs: []verifiable.Proof{{"type": "JsonWebSignature2020"}},
-					},
-					{
-						Context: []string{verifiable.ContextURI},
-						Types:   []string{verifiable.VCType},
-						ID:      uuid.New().String(),
-						Subject: []verifiable.Subject{{ID: issuerID}},
-						Issuer:  verifiable.Issuer{ID: issuerID},
-						CustomFields: map[string]interface{}{
-							"first_name": "Jesse",
-							"last_name":  "Travis",
-							"age":        2,
-						},
-						// since Format in InputDescriptor works only with proofs, need to add it in the vc.
-						Proofs: []verifiable.Proof{{"type": "JsonWebSignature2020"}},
-					},
-				}, lddl)
+				vp, err := pd.CreateVP(candidateVCs, lddl)
 
 				require.NoError(t, err)
 				require.NotNil(t, vp)
@@ -1471,6 +1519,41 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		checkSubmission(t, vp, pd)
 		checkVP(t, vp)
 	})
+}
+
+func createEdDSAJWS(t *testing.T, cred *verifiable.Credential, signer verifiable.Signer,
+	keyID string, minimize bool) string {
+	t.Helper()
+
+	jwtClaims, err := cred.JWTClaims(minimize)
+	require.NoError(t, err)
+	vcJWT, err := jwtClaims.MarshalJWS(verifiable.EdDSA, signer, cred.Issuer.ID+"#keys-"+keyID)
+	require.NoError(t, err)
+
+	return vcJWT
+}
+
+func createKMS() (*localkms.LocalKMS, error) {
+	p, err := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
+	if err != nil {
+		return nil, err
+	}
+
+	return localkms.New("local-lock://custom/master/key/", p)
+}
+
+func newCryptoSigner(keyType kms.KeyType) (signature.Signer, error) {
+	localKMS, err := createKMS()
+	if err != nil {
+		return nil, err
+	}
+
+	tinkCrypto, err := tinkcrypto.New()
+	if err != nil {
+		return nil, err
+	}
+
+	return signature.NewCryptoSigner(tinkCrypto, localKMS, keyType)
 }
 
 func checkSubmission(t *testing.T, vp *verifiable.Presentation, pd *PresentationDefinition) {

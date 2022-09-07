@@ -56,7 +56,14 @@ const vpStrFromWallet = `
     "UniversityDegreeCredential"
   ],
   "verifiableCredential": [
-    {
+    %s
+  ],
+  "holder": "%s"
+}
+`
+
+const vcStrFromWallet = `
+{
       "@context": [
         "https://www.w3.org/2018/credentials/v1",
         "https://www.w3.org/2018/credentials/examples/v1"
@@ -84,9 +91,6 @@ const vpStrFromWallet = `
         "UniversityDegreeCredential"
       ]
     }
-  ],
-  "holder": "%s"
-}
 `
 
 const (
@@ -128,8 +132,10 @@ func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" sends a propose presentation v3 to the "([^"]*)"$`, a.sendProposePresentationV3)
 	s.Step(`^"([^"]*)" negotiates about the request presentation with a proposal$`, a.negotiateRequestPresentation)
 	s.Step(`^"([^"]*)" negotiates about the request presentation v3 with a proposal$`, a.negotiateRequestPresentationV3)
-	s.Step(`^"([^"]*)" accepts a request and sends a presentation to the "([^"]*)"$`, a.acceptRequestPresentation)
-	s.Step(`^"([^"]*)" accepts a request and sends a presentation v3 to the "([^"]*)"$`, a.acceptRequestPresentationV3)
+	s.Step(`^"([^"]*)" accepts a request and sends a presentation to the "([^"]*)" with format "([^"]*)"$`,
+		a.acceptRequestPresentation)
+	s.Step(`^"([^"]*)" accepts a request and sends a presentation v3 to the "([^"]*)" with format "([^"]*)"$`,
+		a.acceptRequestPresentationV3)
 	s.Step(`^"([^"]*)" accepts a request and sends credentials with BBS to the "([^"]*)" and proof "([^"]*)"$`,
 		a.acceptRequestPresentationBBS)
 	s.Step(`^"([^"]*)" accepts a request v3 and sends credentials with BBS to the "([^"]*)" and proof "([^"]*)"$`,
@@ -383,7 +389,8 @@ func (a *SDKSteps) getActionID(agent string) (string, error) {
 	}
 }
 
-func (a *SDKSteps) acceptRequestPresentation(prover, verifier string) error {
+//nolint:funlen,gocyclo
+func (a *SDKSteps) acceptRequestPresentation(prover, verifier, format string) error {
 	PIID, err := a.getActionID(prover)
 	if err != nil {
 		return err
@@ -397,19 +404,6 @@ func (a *SDKSteps) acceptRequestPresentation(prover, verifier string) error {
 	loader, err := bddverifiable.CreateDocumentLoader()
 	if err != nil {
 		return err
-	}
-
-	vp, err := verifiable.ParsePresentation(
-		[]byte(fmt.Sprintf(vpStrFromWallet, conn.MyDID, conn.MyDID)),
-		verifiable.WithPresJSONLDDocumentLoader(loader),
-		verifiable.WithPresDisabledProofCheck())
-	if err != nil {
-		return fmt.Errorf("failed to decode VP JSON: %w", err)
-	}
-
-	jwtClaims, err := vp.JWTClaims([]string{conn.MyDID}, true)
-	if err != nil {
-		return fmt.Errorf("failed to create JWT claims of VP: %w", err)
 	}
 
 	doc, err := a.bddContext.AgentCtx[prover].VDRegistry().Resolve(conn.MyDID)
@@ -426,7 +420,67 @@ func (a *SDKSteps) acceptRequestPresentation(prover, verifier string) error {
 		return fmt.Errorf("failed to key kid for kms: %w", err)
 	}
 
-	vpJWS, err := jwtClaims.MarshalJWS(verifiable.EdDSA, newSigner(km, cr, kid), pubKey.ID)
+	ed25519Signer := newSigner(km, cr, kid)
+
+	vc := fmt.Sprintf(vcStrFromWallet, conn.MyDID)
+
+	switch format {
+	case presexch.FormatJWTVC, presexch.FormatJWTVP, presexch.FormatJWT:
+		jwtVC := &verifiable.Credential{
+			Issued:  util.NewTime(time.Date(2010, 01, 01, 19, 23, 24, 0, time.UTC)), //nolint:gocritic
+			Context: []string{verifiable.ContextURI, "https://www.w3.org/2018/credentials/examples/v1"},
+			Types:   []string{verifiable.VCType, "UniversityDegreeCredential"},
+			ID:      "http://example.edu/credentials/1872",
+			Subject: []verifiable.Subject{{
+				ID: conn.MyDID,
+				CustomFields: verifiable.CustomFields{
+					"degree": map[string]string{
+						"type":       "BachelorDegree",
+						"university": "MIT",
+					},
+					"name":   "Jayden Doe",
+					"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+				},
+			}},
+			Issuer: verifiable.Issuer{
+				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+				CustomFields: verifiable.CustomFields{
+					"name": "Example University",
+				},
+			},
+			Expired: util.NewTime(time.Date(2020, 01, 01, 19, 23, 24, 0, time.UTC)), //nolint:gocritic
+			CustomFields: map[string]interface{}{
+				"referenceNumber": 83294847, //nolint:gomnd
+			},
+		}
+
+		jwtVC.JWT, err = createEdDSAJWS(jwtVC, ed25519Signer, pubKey.ID, true)
+		if err != nil {
+			return fmt.Errorf("failed to create EdDSA JWT: %w", err)
+		}
+
+		jwtVCMarshalled, e := jwtVC.MarshalJSON()
+		if e != nil {
+			return fmt.Errorf("failed to marshal JWT vc: %w", e)
+		}
+
+		vc = string(jwtVCMarshalled)
+	}
+
+	vp, err := verifiable.ParsePresentation(
+		[]byte(fmt.Sprintf(vpStrFromWallet, vc, conn.MyDID)),
+		verifiable.WithPresJSONLDDocumentLoader(loader),
+		verifiable.WithPresDisabledProofCheck())
+	if err != nil {
+		return fmt.Errorf("failed to decode VP JSON: %w", err)
+	}
+
+	jwtClaims, err := vp.JWTClaims([]string{conn.MyDID}, true)
+	if err != nil {
+		return fmt.Errorf("failed to create JWT claims of VP: %w", err)
+	}
+
+	vpJWS, err := jwtClaims.MarshalJWS(verifiable.EdDSA, ed25519Signer, pubKey.ID)
 	if err != nil {
 		return fmt.Errorf("failed to sign VP inside JWT: %w", err)
 	}
@@ -440,7 +494,8 @@ func (a *SDKSteps) acceptRequestPresentation(prover, verifier string) error {
 	}, nil)
 }
 
-func (a *SDKSteps) acceptRequestPresentationV3(prover, verifier string) error {
+//nolint:funlen,gocyclo
+func (a *SDKSteps) acceptRequestPresentationV3(prover, verifier, format string) error {
 	PIID, err := a.getActionID(prover)
 	if err != nil {
 		return err
@@ -454,19 +509,6 @@ func (a *SDKSteps) acceptRequestPresentationV3(prover, verifier string) error {
 	loader, err := bddverifiable.CreateDocumentLoader()
 	if err != nil {
 		return err
-	}
-
-	vp, err := verifiable.ParsePresentation(
-		[]byte(fmt.Sprintf(vpStrFromWallet, proverDID, proverDID)),
-		verifiable.WithPresJSONLDDocumentLoader(loader),
-		verifiable.WithPresDisabledProofCheck())
-	if err != nil {
-		return fmt.Errorf("failed to decode VP JSON: %w", err)
-	}
-
-	jwtClaims, err := vp.JWTClaims([]string{proverDID}, true)
-	if err != nil {
-		return fmt.Errorf("failed to create JWT claims of VP: %w", err)
 	}
 
 	doc, err := a.bddContext.AgentCtx[prover].VDRegistry().Resolve(proverDID)
@@ -483,7 +525,67 @@ func (a *SDKSteps) acceptRequestPresentationV3(prover, verifier string) error {
 		return fmt.Errorf("failed to key kid for kms: %w", err)
 	}
 
-	vpJWS, err := jwtClaims.MarshalJWS(verifiable.EdDSA, newSigner(km, cr, kid), pubKey.ID)
+	ed25519Signer := newSigner(km, cr, kid)
+
+	vc := fmt.Sprintf(vcStrFromWallet, proverDID)
+
+	switch format {
+	case presexch.FormatJWTVC, presexch.FormatJWTVP, presexch.FormatJWT:
+		jwtVC := &verifiable.Credential{
+			Issued:  util.NewTime(time.Date(2010, 01, 01, 19, 23, 24, 0, time.UTC)), //nolint:gocritic
+			Context: []string{verifiable.ContextURI, "https://www.w3.org/2018/credentials/examples/v1"},
+			Types:   []string{verifiable.VCType, "UniversityDegreeCredential"},
+			ID:      "http://example.edu/credentials/1872",
+			Subject: []verifiable.Subject{{
+				ID: proverDID,
+				CustomFields: verifiable.CustomFields{
+					"degree": map[string]string{
+						"type":       "BachelorDegree",
+						"university": "MIT",
+					},
+					"name":   "Jayden Doe",
+					"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+				},
+			}},
+			Issuer: verifiable.Issuer{
+				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+				CustomFields: verifiable.CustomFields{
+					"name": "Example University",
+				},
+			},
+			Expired: util.NewTime(time.Date(2020, 01, 01, 19, 23, 24, 0, time.UTC)), //nolint:gocritic
+			CustomFields: map[string]interface{}{
+				"referenceNumber": 83294847, //nolint:gomnd
+			},
+		}
+
+		jwtVC.JWT, err = createEdDSAJWS(jwtVC, ed25519Signer, pubKey.ID, true)
+		if err != nil {
+			return fmt.Errorf("failed to create EdDSA JWT: %w", err)
+		}
+
+		jwtVCMarshalled, e := jwtVC.MarshalJSON()
+		if e != nil {
+			return fmt.Errorf("failed to marshal JWT vc: %w", e)
+		}
+
+		vc = string(jwtVCMarshalled)
+	}
+
+	vp, err := verifiable.ParsePresentation(
+		[]byte(fmt.Sprintf(vpStrFromWallet, vc, proverDID)),
+		verifiable.WithPresJSONLDDocumentLoader(loader),
+		verifiable.WithPresDisabledProofCheck())
+	if err != nil {
+		return fmt.Errorf("failed to decode VP JSON: %w", err)
+	}
+
+	jwtClaims, err := vp.JWTClaims([]string{proverDID}, true)
+	if err != nil {
+		return fmt.Errorf("failed to create JWT claims of VP: %w", err)
+	}
+
+	vpJWS, err := jwtClaims.MarshalJWS(verifiable.EdDSA, ed25519Signer, pubKey.ID)
 	if err != nil {
 		return fmt.Errorf("failed to sign VP inside JWT: %w", err)
 	}
@@ -495,6 +597,20 @@ func (a *SDKSteps) acceptRequestPresentationV3(prover, verifier string) error {
 			},
 		}},
 	}, nil)
+}
+
+func createEdDSAJWS(vc *verifiable.Credential, signer verifiable.Signer, keyID string, minimize bool) (string, error) {
+	jwtClaims, err := vc.JWTClaims(minimize)
+	if err != nil {
+		return "", err
+	}
+
+	vcJWT, err := jwtClaims.MarshalJWS(verifiable.EdDSA, signer, vc.Issuer.ID+"#keys-"+keyID)
+	if err != nil {
+		return "", err
+	}
+
+	return vcJWT, nil
 }
 
 func (a *SDKSteps) acceptRequestPresentationBBS(prover, _, proof string) error { // nolint: funlen

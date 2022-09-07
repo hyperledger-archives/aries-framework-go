@@ -23,6 +23,7 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
@@ -1012,7 +1013,7 @@ func filterFormat(format *Format, credentials []*verifiable.Credential) (string,
 		)
 
 		if credential.JWT != "" {
-			pJWT, err := jwt.Parse(credential.JWT)
+			pJWT, err := jwt.Parse(credential.JWT, jwt.WithSignatureVerifier(&noVerifier{}))
 			if err != nil {
 				logger.Warnf("unmarshal credential error: %w", err)
 
@@ -1060,6 +1061,14 @@ func filterFormat(format *Format, credentials []*verifiable.Credential) (string,
 	}
 
 	return "", nil
+}
+
+// noVerifier is used when no JWT signature verification is needed.
+// To be used with precaution.
+type noVerifier struct{}
+
+func (v noVerifier) Verify(_ jose.Headers, _, _, _ []byte) error {
+	return nil
 }
 
 func algMatch(credAlg string, jwtType *JwtType) bool {
