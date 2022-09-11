@@ -514,6 +514,7 @@ func TestPresentation_decodeCredentials(t *testing.T) {
 
 	// single credential - JWS
 	opts := defaultPresentationOpts()
+	opts.jsonldCredentialOpts.jsonldDocumentLoader = createTestDocumentLoader(t)
 	opts.publicKeyFetcher = SingleKey(signer.PublicKeyBytes(), kms.ED25519)
 	dCreds, err := decodeCredentials(jws, opts)
 	r.NoError(err)

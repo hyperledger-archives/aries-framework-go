@@ -500,7 +500,11 @@ func decodeCredentials(rawCred interface{}, opts *presentationOpts) ([]interface
 				return nil, fmt.Errorf("decode credential of presentation: %w", err)
 			}
 
-			return credDecoded, nil
+			vc, err := ParseCredential(credDecoded,
+				WithJSONLDDocumentLoader(opts.jsonldCredentialOpts.jsonldDocumentLoader),
+				WithDisabledProofCheck())
+
+			return vc, err
 		}
 
 		// return credential in a structure format as is
