@@ -616,6 +616,9 @@ func (a *SDKSteps) createFramework(agentID string, autoTrigger bool, opts ...ari
 		return fmt.Errorf("failed to create context: %w", err)
 	}
 
+	// TODO: clear bddcontext agent data for given agent name before initializing new one
+	a.bddContext.DeleteSDKAgent(agentID)
+
 	a.bddContext.Agents[agentID] = agent
 	a.bddContext.AgentCtx[agentID] = ctx
 	a.bddContext.Messengers[agentID] = agent.Messenger()

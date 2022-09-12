@@ -17,7 +17,7 @@ Feature: Verifiable Credential flows in universal wallet SDK
     And "Berkley" issues "<format>" credentials at "2022-04-12" regarding "Master Degree" to "Alice"
     Then "Alice" adds credentials to the wallet issued by "Berkley"
     And "Alice" verifies credential issued by "Berkley"
-    When "Vanna" queries credentials issued by "Berkley" using "<queryType>" query type
+    When "Vanna" queries "<format>" credentials issued by "Berkley" using "<queryType>" query type
     Then "Alice" resolves query
     And "Alice" adds "<format>" presentations proof
     And "Alice" closes wallet
@@ -43,7 +43,7 @@ Feature: Verifiable Credential flows in universal wallet SDK
     And "Alice" issues "<format>" credentials using the wallet
     Then "Alice" adds credentials to the wallet issued by "Alice"
     And "Alice" verifies credential issued by "Alice"
-    When "Vanna" queries credentials issued by "Alice" using "PresentationExchange" query type
+    When "Vanna" queries "<format>" credentials issued by "Alice" using "<queryType>" query type
     And "Alice" resolves query
     And "Alice" adds "<format>" presentations proof
     And "Alice" closes wallet
