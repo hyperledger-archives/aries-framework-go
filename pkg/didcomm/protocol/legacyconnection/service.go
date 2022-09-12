@@ -45,7 +45,9 @@ const (
 	// ResponseMsgType defines the legacy-connection response message type.
 	ResponseMsgType = PIURI + "/response"
 	// AckMsgType defines the legacy-connection ack message type.
-	AckMsgType             = "https://didcomm.org/notification/1.0/ack"
+	AckMsgType = "https://didcomm.org/notification/1.0/ack"
+	// ProblemReportMsgType defines the protocol problem-report message type.
+	ProblemReportMsgType   = PIURI + "/problem-report"
 	routerConnsMetadataKey = "routerConnections"
 )
 
@@ -295,7 +297,8 @@ func (s *Service) Accept(msgType string) bool {
 	return msgType == InvitationMsgType ||
 		msgType == RequestMsgType ||
 		msgType == ResponseMsgType ||
-		msgType == AckMsgType
+		msgType == AckMsgType ||
+		msgType == ProblemReportMsgType
 }
 
 // HandleOutbound handles outbound connection messages.
@@ -317,6 +320,10 @@ func (s *Service) nextState(msgType, thID string) (state, error) {
 	}
 
 	logger.Debugf("retrieved current state [%s] using nsThID [%s]", current.Name(), nsThID)
+
+	if msgType == ProblemReportMsgType {
+		return &responded{}, nil
+	}
 
 	next, err := stateFromMsgType(msgType)
 	if err != nil {
@@ -636,7 +643,7 @@ func (s *Service) connectionRecord(msg service.DIDCommMsg, ctx service.DIDCommCo
 		return s.requestMsgRecord(msg, ctx)
 	case ResponseMsgType:
 		return s.responseMsgRecord(msg)
-	case AckMsgType:
+	case AckMsgType, ProblemReportMsgType:
 		return s.fetchConnectionRecord(theirNSPrefix, msg)
 	}
 
