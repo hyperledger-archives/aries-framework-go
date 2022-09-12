@@ -89,6 +89,11 @@ type Format struct {
 	LdpVP *LdpType `json:"ldp_vp,omitempty"`
 }
 
+func (f *Format) notNil() bool {
+	return f != nil &&
+		(f.Jwt != nil || f.JwtVC != nil || f.JwtVP != nil || f.Ldp != nil || f.LdpVC != nil || f.LdpVP != nil)
+}
+
 // JwtType contains alg.
 type JwtType struct {
 	Alg []string `json:"alg,omitempty"`
@@ -383,7 +388,7 @@ func (pd *PresentationDefinition) applyRequirement(req *requirement, creds []*ve
 
 	for _, descriptor := range req.InputDescriptors {
 		format := pd.Format
-		if descriptor.Format != nil {
+		if descriptor.Format.notNil() {
 			format = descriptor.Format
 		}
 
@@ -394,7 +399,7 @@ func (pd *PresentationDefinition) applyRequirement(req *requirement, creds []*ve
 			return "", nil, err
 		}
 
-		if format != nil {
+		if format.notNil() {
 			vpFormat, filtered = filterFormat(format, filtered)
 		}
 

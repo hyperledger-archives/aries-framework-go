@@ -34,10 +34,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/outofband"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/presentproof"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/rfc0593"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/vcwallet"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/verifiable"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/waci"
-	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/walletjsonld"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/webkms"
 )
 
@@ -219,7 +219,7 @@ func features() []feature {
 		webkms.NewCryptoSDKSteps(),
 		waci.NewIssuanceDIDCommV1SDKSteps(),
 		waci.NewIssuanceDIDCommV2SDKSteps(),
-		walletjsonld.NewSDKSteps(),
+		vcwallet.NewSDKSteps(),
 		legacyconnection.NewLegacyConnectionControllerSteps(),
 	}
 }

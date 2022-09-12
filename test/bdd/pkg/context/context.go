@@ -38,7 +38,7 @@ type BDDContext struct {
 	RouteCallbacks     map[string]chan interface{}
 	PublicDIDDocs      map[string]*did.Doc
 	PublicKeys         map[string]*jwk.JWK
-	PublicEncKeys      map[string][]byte
+	PublicEncKeys      map[string][]byte // TODO: PublicEndKeys values are never set.
 	KeyHandles         map[string]interface{}
 	PublicDIDs         map[string]string
 	PeerDIDs           map[string]string
@@ -95,6 +95,44 @@ func (b *BDDContext) Destroy() {
 			logger.Warnf("failed to teardown aries framework : %s", err.Error())
 		}
 	}
+}
+
+// DeleteSDKAgent deletes an SDK agent, clearing all of its BDDContext data.
+func (b *BDDContext) DeleteSDKAgent(agentName string) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	if conn, ok := b.webSocketConns[agentName]; ok {
+		err := conn.Close(websocket.StatusNormalClosure, "bddtests destroy context")
+		if err != nil {
+			logger.Warnf("failed to close websocket connection for [%s] : %v", agentName, err)
+		}
+
+		delete(b.webSocketConns, agentName)
+	}
+
+	if agent, ok := b.Agents[agentName]; ok {
+		if err := agent.Close(); err != nil {
+			logger.Warnf("failed to teardown aries framework : %s", err.Error())
+		}
+
+		delete(b.Agents, agentName)
+	}
+
+	delete(b.OutOfBandClients, agentName)
+	delete(b.OutOfBandV2Clients, agentName)
+	delete(b.DIDExchangeClients, agentName)
+	delete(b.RouteClients, agentName)
+	delete(b.RouteCallbacks, agentName)
+	delete(b.PublicDIDDocs, agentName)
+	delete(b.PublicKeys, agentName)
+	delete(b.PublicEncKeys, agentName)
+	delete(b.KeyHandles, agentName)
+	delete(b.PublicDIDs, agentName)
+	delete(b.PeerDIDs, agentName)
+	delete(b.Messengers, agentName)
+	delete(b.ConnectionIDs, agentName)
+	delete(b.AgentCtx, agentName)
 }
 
 // RegisterWebhookURL registers given url to agent id for webhook.

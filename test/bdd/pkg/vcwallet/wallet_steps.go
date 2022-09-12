@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package walletjsonld
+package vcwallet
 
 import (
 	_ "embed" //nolint:gci // required for go:embed
@@ -73,6 +73,8 @@ func (s *SDKSteps) RegisterSteps(gs *godog.Suite) {
 	gs.Step(`^"([^"]*)" adds credentials to the wallet issued by "([^"]*)"$`, s.addCredentialsToWallet)
 	gs.Step(`^"([^"]*)" verifies credential issued by "([^"]*)"$`, s.holderVerifiesCredentialsFromIssuer)
 	gs.Step(`^"([^"]*)" queries credentials issued by "([^"]*)" using "([^"]*)" query type$`, s.queryPresentations)
+	gs.Step(`^"([^"]*)" queries "([^"]*)" credentials issued by "([^"]*)" using "([^"]*)" query type$`,
+		s.queryPresentationWithFormat)
 	gs.Step(`^"([^"]*)" resolves query$`, s.resolveCredentialsQuery)
 	gs.Step(`^"([^"]*)" adds "([^"]*)" presentations proof$`, s.addResolvedPresentationProof)
 	gs.Step(`^"([^"]*)" receives presentations `+

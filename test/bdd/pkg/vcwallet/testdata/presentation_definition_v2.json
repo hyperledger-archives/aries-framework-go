@@ -1,0 +1,22 @@
+{
+  "id": "ec2f83c5-eac4-4d04-b41e-6636d6670a2e",
+  "input_descriptors": [
+    {
+      "id": "105b1d58-71f8-4d1e-be71-36c9c6f600c9",
+      "constraints": {
+        "fields": [
+          {
+            "path": [
+              "$.issuer.id"
+            ],
+            "filter": {
+              "type": "string",
+              "const": "%s"
+            }
+          }
+        ]
+      },
+      "format":%s
+    }
+  ]
+}

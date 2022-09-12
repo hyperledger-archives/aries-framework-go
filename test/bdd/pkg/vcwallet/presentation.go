@@ -4,23 +4,30 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package walletjsonld
+package vcwallet
 
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 func (s *SDKSteps) queryPresentations(_, issuer, rawQueryType string) error {
-	queryType, err := wallet.GetQueryType(rawQueryType)
+	return s.queryPresentationWithFormat("", "", issuer, rawQueryType)
+}
+
+func (s *SDKSteps) queryPresentationWithFormat(_, format, issuer, rawQueryType string) error {
+	queryTypeString := strings.Split(rawQueryType, "-")[0]
+
+	queryType, err := wallet.GetQueryType(queryTypeString)
 	if err != nil {
 		return err
 	}
 
-	query, err := s.getQuery(queryType, s.getPublicDID(issuer).ID)
+	query, err := s.getQuery(rawQueryType, s.getPublicDID(issuer).ID, format)
 	if err != nil {
 		return err
 	}
