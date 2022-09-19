@@ -162,6 +162,16 @@ func (cm *CredentialManifest) ResolveCredential(descriptorID string, credential 
 
 		fallthrough
 	case len(opts.rawCredential) > 0:
+		if opts.rawCredential[0] != '{' {
+			// try to parse as jwt vc
+			var jwtCred []byte
+
+			jwtCred, err = verifiable.JWTVCToJSON(opts.rawCredential)
+			if err == nil {
+				opts.rawCredential = jwtCred
+			}
+		}
+
 		err = json.Unmarshal(opts.rawCredential, &vcmap)
 		if err != nil {
 			return nil, err

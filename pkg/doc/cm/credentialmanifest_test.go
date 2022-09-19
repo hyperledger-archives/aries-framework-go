@@ -45,6 +45,8 @@ var (
 var (
 	//go:embed testdata/credential_university_degree.jsonld
 	validVC []byte // nolint:gochecknoglobals
+	//go:embed testdata/credential_university_degree_jwt.txt
+	validJWTVC []byte // nolint:gochecknoglobals
 )
 
 // miscellaneous samples.
@@ -546,73 +548,73 @@ func TestResolveResponse(t *testing.T) {
 }
 
 func TestResolveCredential(t *testing.T) {
-	t.Run("Successes - resolve credential instance", func(t *testing.T) {
-		manifest := &cm.CredentialManifest{}
-		require.NoError(t, manifest.UnmarshalJSON(credentialManifestUniversityDegree))
+	t.Run("Successes", func(t *testing.T) {
+		testCases := []struct {
+			name         string
+			credResolver func(t *testing.T) cm.CredentialToResolveOption
+		}{
+			{
+				name: "resolve credential struct",
+				credResolver: func(t *testing.T) cm.CredentialToResolveOption {
+					t.Helper()
 
-		vc := parseTestCredential(t, validVC)
+					vc := parseTestCredential(t, validVC)
 
-		result, err := manifest.ResolveCredential("bachelors_degree", cm.CredentialToResolve(vc))
-		require.NoError(t, err)
-		require.NotEmpty(t, result)
-		require.Equal(t, result.Title, "Bachelor of Applied Science")
-		require.Equal(t, result.Subtitle, "Electrical Systems Specialty")
-
-		expected := map[string]*cm.ResolvedProperty{
-			"With distinction": {
-				Label: "With distinction",
-				Value: true,
-				Schema: cm.Schema{
-					Type: "boolean",
+					return cm.CredentialToResolve(vc)
 				},
 			},
-			"Years studied": {
-				Label: "Years studied",
-				Value: float64(4),
-				Schema: cm.Schema{
-					Type: "number",
+			{
+				name: "resolve raw JSON-LD credential",
+				credResolver: func(t *testing.T) cm.CredentialToResolveOption {
+					t.Helper()
+
+					return cm.RawCredentialToResolve(validVC)
 				},
 			},
-		}
+			{
+				name: "resolve raw JWT credential",
+				credResolver: func(t *testing.T) cm.CredentialToResolveOption {
+					t.Helper()
 
-		for _, property := range result.Properties {
-			expectedVal, ok := expected[property.Label]
-			require.True(t, ok, "unexpected label '%s' in resolved properties", property.Label)
-			require.EqualValues(t, expectedVal, property)
-		}
-	})
-
-	t.Run("Successes - resolve raw Credential", func(t *testing.T) {
-		manifest := &cm.CredentialManifest{}
-		require.NoError(t, manifest.UnmarshalJSON(credentialManifestUniversityDegree))
-
-		result, err := manifest.ResolveCredential("bachelors_degree", cm.RawCredentialToResolve(validVC))
-		require.NoError(t, err)
-		require.NotEmpty(t, result)
-		require.Equal(t, result.Title, "Bachelor of Applied Science")
-		require.Equal(t, result.Subtitle, "Electrical Systems Specialty")
-
-		expected := map[string]*cm.ResolvedProperty{
-			"With distinction": {
-				Label: "With distinction",
-				Value: true,
-				Schema: cm.Schema{
-					Type: "boolean",
-				},
-			},
-			"Years studied": {
-				Label: "Years studied",
-				Value: float64(4),
-				Schema: cm.Schema{
-					Type: "number",
+					return cm.RawCredentialToResolve(validJWTVC)
 				},
 			},
 		}
 
-		for _, property := range result.Properties {
-			expectedVal, ok := expected[property.Label]
-			require.True(t, ok, "unexpected label '%s' in resolved properties", property.Label)
-			require.EqualValues(t, expectedVal, property)
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				manifest := &cm.CredentialManifest{}
+				require.NoError(t, manifest.UnmarshalJSON(credentialManifestUniversityDegree))
+
+				result, err := manifest.ResolveCredential("bachelors_degree", tc.credResolver(t))
+				require.NoError(t, err)
+				require.NotEmpty(t, result)
+				require.Equal(t, result.Title, "Bachelor of Applied Science")
+				require.Equal(t, result.Subtitle, "Electrical Systems Specialty")
+
+				expected := map[string]*cm.ResolvedProperty{
+					"With distinction": {
+						Label: "With distinction",
+						Value: true,
+						Schema: cm.Schema{
+							Type: "boolean",
+						},
+					},
+					"Years studied": {
+						Label: "Years studied",
+						Value: float64(4),
+						Schema: cm.Schema{
+							Type: "number",
+						},
+					},
+				}
+
+				for _, property := range result.Properties {
+					expectedVal, ok := expected[property.Label]
+					require.True(t, ok, "unexpected label '%s' in resolved properties", property.Label)
+					require.EqualValues(t, expectedVal, property)
+				}
+			})
 		}
 	})
 

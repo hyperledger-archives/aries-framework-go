@@ -613,7 +613,7 @@ func decodeRawPresentation(vpData []byte, vpOpts *presentationOpts) ([]byte, *ra
 			return nil, nil, "", fmt.Errorf("decoding of Verifiable Presentation from unsecured JWT: %w", err)
 		}
 
-		if _, err := checkEmbeddedProof(rawBytes, embeddedProofCheckOpts); err != nil {
+		if err := checkEmbeddedProof(rawBytes, embeddedProofCheckOpts); err != nil {
 			return nil, nil, "", err
 		}
 
@@ -625,7 +625,7 @@ func decodeRawPresentation(vpData []byte, vpOpts *presentationOpts) ([]byte, *ra
 		return nil, nil, "", err
 	}
 
-	_, err = checkEmbeddedProof(vpBytes, embeddedProofCheckOpts)
+	err = checkEmbeddedProof(vpBytes, embeddedProofCheckOpts)
 	if err != nil {
 		return nil, nil, "", err
 	}

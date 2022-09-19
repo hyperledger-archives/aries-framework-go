@@ -2798,6 +2798,11 @@ func TestWallet_ResolveCredentialManifest(t *testing.T) {
 				resolve:     ResolveRawCredential("udc_output", testdata.SampleUDCVC),
 				resultCount: 1,
 			},
+			"testing resolve by raw JWT credential": {
+				manifest:    testdata.CredentialManifestMultipleVCs,
+				resolve:     ResolveRawCredential("udc_output", testdata.SampleUDCJWTVC),
+				resultCount: 1,
+			},
 			"testing resolve by credential": {
 				manifest:    testdata.CredentialManifestMultipleVCs,
 				resolve:     ResolveCredential("udc_output", vc),
