@@ -17,6 +17,8 @@ var (
 	CredentialResponseWithMultipleVCs []byte
 	//go:embed samples/wallet/sample_udc_vc.json
 	SampleUDCVC []byte
+	//go:embed samples/wallet/sample_udc_jwtvc.txt
+	SampleUDCJWTVC []byte
 	//go:embed samples/wallet/sample_udc_vc_signed.json
 	SampleUDCVCWithProof []byte
 	//go:embed samples/wallet/sample_udc_vc_with_credschema.json

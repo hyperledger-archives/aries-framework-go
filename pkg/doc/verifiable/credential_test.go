@@ -1542,6 +1542,29 @@ func TestContextToSerialize(t *testing.T) {
 			}))
 }
 
+func Test_JWTVCToJSON(t *testing.T) {
+	signer, err := newCryptoSigner(kms.ED25519Type)
+	require.NoError(t, err)
+
+	vcSource, err := parseTestCredential(t, []byte(validCredential))
+	require.NoError(t, err)
+
+	jwtClaims, err := vcSource.JWTClaims(true)
+	require.NoError(t, err)
+
+	jws, err := jwtClaims.MarshalJWS(EdDSA, signer, "any")
+	require.NoError(t, err)
+
+	t.Run("success", func(t *testing.T) {
+		jsonCred, err := JWTVCToJSON([]byte(jws))
+		require.NoError(t, err)
+
+		vcActual, err := parseTestCredential(t, jsonCred, WithDisabledProofCheck())
+		require.NoError(t, err)
+		require.Equal(t, vcSource, vcActual)
+	})
+}
+
 func TestParseCredentialFromRaw(t *testing.T) {
 	issuer, err := json.Marshal("did:example:76e12ec712ebc6f1c221ebfeb1f")
 	require.NoError(t, err)

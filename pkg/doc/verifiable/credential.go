@@ -6,6 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -419,10 +420,10 @@ func (i *Issuer) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON unmarshals issuer from JSON.
-func (i *Issuer) UnmarshalJSON(bytes []byte) error {
+func (i *Issuer) UnmarshalJSON(data []byte) error {
 	var issuerID string
 
-	if err := json.Unmarshal(bytes, &issuerID); err == nil {
+	if err := json.Unmarshal(data, &issuerID); err == nil {
 		// as string
 		i.ID = issuerID
 		return nil
@@ -435,7 +436,7 @@ func (i *Issuer) UnmarshalJSON(bytes []byte) error {
 
 	i.CustomFields = make(CustomFields)
 
-	err := jsonutil.UnmarshalWithCustomFields(bytes, alias, i.CustomFields)
+	err := jsonutil.UnmarshalWithCustomFields(data, alias, i.CustomFields)
 	if err != nil {
 		return fmt.Errorf("unmarshal Issuer: %w", err)
 	}
@@ -469,10 +470,10 @@ func (s *Subject) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON unmarshals Subject from JSON.
-func (s *Subject) UnmarshalJSON(bytes []byte) error {
+func (s *Subject) UnmarshalJSON(data []byte) error {
 	var subjectID string
 
-	if err := json.Unmarshal(bytes, &subjectID); err == nil {
+	if err := json.Unmarshal(data, &subjectID); err == nil {
 		// as string
 		s.ID = subjectID
 		return nil
@@ -484,7 +485,7 @@ func (s *Subject) UnmarshalJSON(bytes []byte) error {
 
 	s.CustomFields = make(CustomFields)
 
-	err := jsonutil.UnmarshalWithCustomFields(bytes, alias, s.CustomFields)
+	err := jsonutil.UnmarshalWithCustomFields(data, alias, s.CustomFields)
 	if err != nil {
 		return fmt.Errorf("unmarshal Subject: %w", err)
 	}
@@ -997,21 +998,21 @@ func newCredential(raw *rawCredential) (*Credential, error) {
 	}, nil
 }
 
-func parseTypedID(bytes json.RawMessage) ([]TypedID, error) {
-	if len(bytes) == 0 {
+func parseTypedID(data json.RawMessage) ([]TypedID, error) {
+	if len(data) == 0 {
 		return nil, nil
 	}
 
 	var singleTypedID TypedID
 
-	err := json.Unmarshal(bytes, &singleTypedID)
+	err := json.Unmarshal(data, &singleTypedID)
 	if err == nil {
 		return []TypedID{singleTypedID}, nil
 	}
 
 	var composedTypedID []TypedID
 
-	err = json.Unmarshal(bytes, &composedTypedID)
+	err = json.Unmarshal(data, &composedTypedID)
 	if err == nil {
 		return composedTypedID, nil
 	}
@@ -1061,20 +1062,21 @@ func decodeRaw(vcData []byte, vcOpts *credentialOpts) ([]byte, string, error) {
 	}
 
 	if jwt.IsJWTUnsecured(vcStr) { // Embedded proof.
-		vcDecodedBytes, err := decodeCredJWTUnsecured(vcStr)
-		if err != nil {
-			return nil, "", fmt.Errorf("unsecured JWT decoding: %w", err)
+		vcData, e = decodeCredJWTUnsecured(vcStr)
+		if e != nil {
+			return nil, "", fmt.Errorf("unsecured JWT decoding: %w", e)
 		}
-
-		vc, err := checkEmbeddedProof(vcDecodedBytes, getEmbeddedProofCheckOpts(vcOpts))
-
-		return vc, "", err
 	}
 
 	// Embedded proof.
-	vc, e := checkEmbeddedProof(vcData, getEmbeddedProofCheckOpts(vcOpts))
+	return vcData, "", checkEmbeddedProof(vcData, getEmbeddedProofCheckOpts(vcOpts))
+}
 
-	return vc, "", e
+// JWTVCToJSON parses a JWT VC without verifying, and returns the JSON VC contents.
+func JWTVCToJSON(vc []byte) ([]byte, error) {
+	vc = bytes.Trim(vc, "\"' ")
+
+	return decodeCredJWS(string(vc), false, nil)
 }
 
 func getEmbeddedProofCheckOpts(vcOpts *credentialOpts) *embeddedProofCheckOpts {

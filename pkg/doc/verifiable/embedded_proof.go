@@ -56,15 +56,15 @@ type embeddedProofCheckOpts struct {
 	jsonldCredentialOpts
 }
 
-func checkEmbeddedProof(docBytes []byte, opts *embeddedProofCheckOpts) ([]byte, error) {
+func checkEmbeddedProof(docBytes []byte, opts *embeddedProofCheckOpts) error {
 	if opts.disabledProofCheck {
-		return docBytes, nil
+		return nil
 	}
 
 	var jsonldDoc map[string]interface{}
 
 	if err := json.Unmarshal(docBytes, &jsonldDoc); err != nil {
-		return nil, fmt.Errorf("embedded proof is not JSON: %w", err)
+		return fmt.Errorf("embedded proof is not JSON: %w", err)
 	}
 
 	delete(jsonldDoc, "jwt")
@@ -72,21 +72,21 @@ func checkEmbeddedProof(docBytes []byte, opts *embeddedProofCheckOpts) ([]byte, 
 	proofElement, ok := jsonldDoc["proof"]
 	if !ok || proofElement == nil {
 		// do not make a check if there is no proof defined as proof presence is not mandatory
-		return docBytes, nil
+		return nil
 	}
 
 	proofs, err := getProofs(proofElement)
 	if err != nil {
-		return nil, fmt.Errorf("check embedded proof: %w", err)
+		return fmt.Errorf("check embedded proof: %w", err)
 	}
 
 	ldpSuites, err := getSuites(proofs, opts)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if opts.publicKeyFetcher == nil {
-		return nil, errors.New("public key fetcher is not defined")
+		return errors.New("public key fetcher is not defined")
 	}
 
 	checkedDoc := docBytes
@@ -99,10 +99,10 @@ func checkEmbeddedProof(docBytes []byte, opts *embeddedProofCheckOpts) ([]byte, 
 
 	err = checkLinkedDataProof(checkedDoc, ldpSuites, opts.publicKeyFetcher, &opts.jsonldCredentialOpts)
 	if err != nil {
-		return nil, fmt.Errorf("check embedded proof: %w", err)
+		return fmt.Errorf("check embedded proof: %w", err)
 	}
 
-	return docBytes, nil
+	return nil
 }
 
 // nolint:gocyclo
