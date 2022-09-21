@@ -46,8 +46,8 @@ func newJWTCredClaims(vc *Credential, minimizeVC bool) (*JWTCredClaims, error) {
 		NotBefore: josejwt.NewNumericDate(vc.Issued.Time), // nbf
 		ID:        vc.ID,                                  // jti
 		Subject:   subjectID,                              // sub
-		IssuedAt:  josejwt.NewNumericDate(vc.Issued.Time), // iat (not in spec, follow the interop project approach)
 	}
+
 	if vc.Expired != nil {
 		jwtClaims.Expiry = josejwt.NewNumericDate(vc.Expired.Time) // exp
 	}
