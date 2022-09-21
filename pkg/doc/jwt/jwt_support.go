@@ -188,7 +188,6 @@ func prepareJWSHeaders(headers map[string]interface{}, alg string) map[string]in
 		newHeaders[k] = v
 	}
 
-	newHeaders[jose.HeaderType] = TypeJWT
 	newHeaders[jose.HeaderAlgorithm] = alg
 
 	return newHeaders
