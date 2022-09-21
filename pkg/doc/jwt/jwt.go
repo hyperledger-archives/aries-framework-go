@@ -91,7 +91,6 @@ func (s unsecuredJWTSigner) Sign(_ []byte) ([]byte, error) {
 func (s unsecuredJWTSigner) Headers() jose.Headers {
 	return map[string]interface{}{
 		jose.HeaderAlgorithm: AlgorithmNone,
-		jose.HeaderType:      TypeJWT,
 	}
 }
 

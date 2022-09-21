@@ -27,7 +27,6 @@ type jwtSigner struct {
 func getJWTSigner(signer Signer, algorithm string) *jwtSigner {
 	headers := map[string]interface{}{
 		jose.HeaderAlgorithm: algorithm,
-		jose.HeaderType:      jwt.TypeJWT,
 	}
 
 	return &jwtSigner{signer: signer, headers: headers}
