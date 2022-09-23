@@ -19,6 +19,7 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -84,8 +85,8 @@ func TestEncryptDecrypt(t *testing.T) {
 		tmpCrypto := New(defaultKeystoreURL, blankClient)
 
 		_, _, err = tmpCrypto.Encrypt(plaintext, aad, defaultKeyURL)
-		require.Contains(t, err.Error(), fmt.Sprintf("posting Encrypt plaintext failed [%s, Post \"%s\": x509: "+
-			"certificate signed by unknown authority", defaultKeyURL+encryptURI, defaultKeyURL+encryptURI))
+		require.Contains(t, err.Error(), fmt.Sprintf("posting Encrypt plaintext failed [%s, Post \"%s\": %s",
+			defaultKeyURL+encryptURI, defaultKeyURL+encryptURI, getCertsErrorSubText()))
 
 		badURL := "``#$%"
 		_, _, err = tmpCrypto.Encrypt(plaintext, aad, badURL)
@@ -99,8 +100,8 @@ func TestEncryptDecrypt(t *testing.T) {
 		tmpCrypto := New(defaultKeystoreURL, blankClient)
 
 		_, err = tmpCrypto.Decrypt(nil, aad, nil, defaultKeyURL)
-		require.Contains(t, err.Error(), fmt.Sprintf("posting Decrypt ciphertext failed [%s, Post \"%s\": x509: "+
-			"certificate signed by unknown authority", defaultKeyURL+decryptURI, defaultKeyURL+decryptURI))
+		require.Contains(t, err.Error(), fmt.Sprintf("posting Decrypt ciphertext failed [%s, Post \"%s\": %s",
+			defaultKeyURL+decryptURI, defaultKeyURL+decryptURI, getCertsErrorSubText()))
 	})
 
 	t.Run("Encrypt json marshal failure", func(t *testing.T) {
@@ -299,8 +300,8 @@ func TestSignVerify(t *testing.T) {
 		tmpCrypto := New(defaultKeystoreURL, blankClient)
 
 		_, err = tmpCrypto.Sign(nil, defaultKeyURL)
-		require.Contains(t, err.Error(), fmt.Sprintf("posting Sign message failed [%s, Post \"%s\": x509: "+
-			"certificate signed by unknown authority", defaultKeyURL+signURI, defaultKeyURL+signURI))
+		require.Contains(t, err.Error(), fmt.Sprintf("posting Sign message failed [%s, Post \"%s\": %s",
+			defaultKeyURL+signURI, defaultKeyURL+signURI, getCertsErrorSubText()))
 	})
 
 	t.Run("Verify Post request failure", func(t *testing.T) {
@@ -308,8 +309,8 @@ func TestSignVerify(t *testing.T) {
 		tmpCrypto := New(defaultKeystoreURL, blankClient)
 
 		err = tmpCrypto.Verify(nil, nil, defaultKeyURL)
-		require.Contains(t, err.Error(), fmt.Sprintf("posting Verify signature failed [%s, Post \"%s\": x509: "+
-			"certificate signed by unknown authority", defaultKeyURL+verifyURI, defaultKeyURL+verifyURI))
+		require.Contains(t, err.Error(), fmt.Sprintf("posting Verify signature failed [%s, Post \"%s\": %s",
+			defaultKeyURL+verifyURI, defaultKeyURL+verifyURI, getCertsErrorSubText()))
 	})
 
 	t.Run("Sign json marshal failure", func(t *testing.T) {
@@ -472,8 +473,8 @@ func TestComputeVerifyMAC(t *testing.T) {
 		tmpCrypto := New(defaultKeystoreURL, blankClient)
 
 		_, err = tmpCrypto.ComputeMAC(nil, defaultKeyURL)
-		require.Contains(t, err.Error(), fmt.Sprintf("posting ComputeMAC request failed [%s, Post \"%s\": x509: certificate"+
-			" signed by unknown authority", defaultKeyURL+computeMACURI, defaultKeyURL+computeMACURI))
+		require.Contains(t, err.Error(), fmt.Sprintf("posting ComputeMAC request failed [%s, Post \"%s\": %s",
+			defaultKeyURL+computeMACURI, defaultKeyURL+computeMACURI, getCertsErrorSubText()))
 	})
 
 	t.Run("VerifyMAC Post request failure", func(t *testing.T) {
@@ -481,8 +482,8 @@ func TestComputeVerifyMAC(t *testing.T) {
 		tmpCrypto := New(defaultKeystoreURL, blankClient)
 
 		err = tmpCrypto.VerifyMAC(nil, nil, defaultKeyURL)
-		require.Contains(t, err.Error(), fmt.Sprintf("posting VerifyMAC request failed [%s, Post \"%s\": x509: "+
-			"certificate signed by unknown authority", defaultKeyURL+verifyMACURI, defaultKeyURL+verifyMACURI))
+		require.Contains(t, err.Error(), fmt.Sprintf("posting VerifyMAC request failed [%s, Post \"%s\": %s",
+			defaultKeyURL+verifyMACURI, defaultKeyURL+verifyMACURI, getCertsErrorSubText()))
 	})
 
 	t.Run("ComputeMAC json marshal failure", func(t *testing.T) {
@@ -645,8 +646,8 @@ func TestWrapUnWrapKey(t *testing.T) {
 		tmpCrypto := New(defaultKeystoreURL, blankClient)
 
 		_, err = tmpCrypto.WrapKey(cek, apu, apv, recipentPubKey)
-		require.Contains(t, err.Error(), fmt.Sprintf("posting WrapKey failed [%s, Post \"%s\": x509: certificate"+
-			" signed by unknown authority", defaultKeystoreURL+wrapURI, defaultKeystoreURL+wrapURI))
+		require.Contains(t, err.Error(), fmt.Sprintf("posting WrapKey failed [%s, Post \"%s\": %s",
+			defaultKeystoreURL+wrapURI, defaultKeystoreURL+wrapURI, getCertsErrorSubText()))
 	})
 
 	t.Run("UnwrapKey Post request failure", func(t *testing.T) {
@@ -654,8 +655,8 @@ func TestWrapUnWrapKey(t *testing.T) {
 		tmpCrypto := New(defaultKeystoreURL, blankClient)
 
 		_, err = tmpCrypto.UnwrapKey(wKey, defaultKeyURL)
-		require.Contains(t, err.Error(), fmt.Sprintf("posting UnwrapKey failed [%s, Post \"%s\": x509: "+
-			"certificate signed by unknown authority", defaultKeyURL+unwrapURI, defaultKeyURL+unwrapURI))
+		require.Contains(t, err.Error(), fmt.Sprintf("posting UnwrapKey failed [%s, Post \"%s\": %s",
+			defaultKeyURL+unwrapURI, defaultKeyURL+unwrapURI, getCertsErrorSubText()))
 	})
 
 	t.Run("WrapKey json marshal failure", func(t *testing.T) {
@@ -1000,8 +1001,8 @@ func TestBBSSignVerify_DeriveProofVerifyProof(t *testing.T) {
 		tmpCrypto := New(defaultKeystoreURL, blankClient)
 
 		_, err = tmpCrypto.SignMulti(nil, defaultKeyURL)
-		require.Contains(t, err.Error(), fmt.Sprintf("posting BBS+ Sign message failed [%s, Post \"%s\": x509: "+
-			"certificate signed by unknown authority", defaultKeyURL+signMultiURI, defaultKeyURL+signMultiURI))
+		require.Contains(t, err.Error(), fmt.Sprintf("posting BBS+ Sign message failed [%s, Post \"%s\": %s",
+			defaultKeyURL+signMultiURI, defaultKeyURL+signMultiURI, getCertsErrorSubText()))
 	})
 
 	t.Run("BBS+ Verify Post request failure", func(t *testing.T) {
@@ -1009,8 +1010,8 @@ func TestBBSSignVerify_DeriveProofVerifyProof(t *testing.T) {
 		tmpCrypto := New(defaultKeystoreURL, blankClient)
 
 		err = tmpCrypto.VerifyMulti(nil, nil, defaultKeyURL)
-		require.Contains(t, err.Error(), fmt.Sprintf("posting BBS+ Verify signature failed [%s, Post \"%s\": x509: "+
-			"certificate signed by unknown authority", defaultKeyURL+verifyMultiURI, defaultKeyURL+verifyMultiURI))
+		require.Contains(t, err.Error(), fmt.Sprintf("posting BBS+ Verify signature failed [%s, Post \"%s\": %s",
+			defaultKeyURL+verifyMultiURI, defaultKeyURL+verifyMultiURI, getCertsErrorSubText()))
 	})
 
 	t.Run("BBS+ Derive Proof Post request failure", func(t *testing.T) {
@@ -1018,9 +1019,8 @@ func TestBBSSignVerify_DeriveProofVerifyProof(t *testing.T) {
 		tmpCrypto := New(defaultKeystoreURL, blankClient)
 
 		_, err = tmpCrypto.DeriveProof(nil, nil, nil, nil, defaultKeyURL)
-		require.Contains(t, err.Error(), fmt.Sprintf("posting BBS+ Derive proof message failed [%s, Post \"%s\": "+
-			"x509: certificate signed by unknown authority", defaultKeyURL+deriveProofURI,
-			defaultKeyURL+deriveProofURI))
+		require.Contains(t, err.Error(), fmt.Sprintf("posting BBS+ Derive proof message failed [%s, Post \"%s\": %s",
+			defaultKeyURL+deriveProofURI, defaultKeyURL+deriveProofURI, getCertsErrorSubText()))
 	})
 
 	t.Run("BBS+ Verify Proof Post request failure", func(t *testing.T) {
@@ -1028,9 +1028,8 @@ func TestBBSSignVerify_DeriveProofVerifyProof(t *testing.T) {
 		tmpCrypto := New(defaultKeystoreURL, blankClient)
 
 		err = tmpCrypto.VerifyProof(nil, nil, nil, defaultKeyURL)
-		require.Contains(t, err.Error(), fmt.Sprintf("posting BBS+ Verify proof failed [%s, Post \"%s\": "+
-			"x509: certificate signed by unknown authority", defaultKeyURL+verifyProofURI,
-			defaultKeyURL+verifyProofURI))
+		require.Contains(t, err.Error(), fmt.Sprintf("posting BBS+ Verify proof failed [%s, Post \"%s\": %s",
+			defaultKeyURL+verifyProofURI, defaultKeyURL+verifyProofURI, getCertsErrorSubText()))
 	})
 
 	t.Run("BBS+ Sign json marshal failure", func(t *testing.T) {
@@ -1592,4 +1591,12 @@ func mockAddHeadersFuncError(_ *http.Request) (*http.Header, error) {
 
 func matchPath(r *http.Request, uri string) bool {
 	return strings.LastIndex(r.URL.Path, uri) == len(r.URL.Path)-len(uri)
+}
+
+func getCertsErrorSubText() string {
+	if runtime.GOOS == "darwin" {
+		return "x509: “*.example.com” certificate is not trusted"
+	}
+
+	return "x509: certificate signed by unknown authority"
 }

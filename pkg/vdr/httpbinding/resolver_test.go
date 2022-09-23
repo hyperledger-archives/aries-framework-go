@@ -285,7 +285,7 @@ func TestRead_HTTPGetFailed(t *testing.T) {
 	require.NoError(t, err)
 	_, err = resolver.Read("did:example:334455")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "HTTP Get request failed")
+	require.Contains(t, err.Error(), "unsupported response from DID resolver")
 }
 
 func TestDIDResolver_Accept(t *testing.T) {
