@@ -16,6 +16,8 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr"
@@ -25,7 +27,10 @@ import (
 var logger = log.New("aries-framework/doc/verifiable")
 
 const (
-	// ContextV1 of the DID document is the current V1 context name.
+	// ContextV0 is did configuration context version 0.
+	ContextV0 = "https://identity.foundation/.well-known/contexts/did-configuration-v0.0.jsonld"
+
+	// ContextV1 is did configuration context version 1.
 	ContextV1 = "https://identity.foundation/.well-known/did-configuration/v1"
 
 	domainLinkageCredentialType = "DomainLinkageCredential"
@@ -81,7 +86,9 @@ func VerifyDIDAndDomain(didConfig []byte, did, domain string, opts ...DIDConfigu
 		return fmt.Errorf("JSON unmarshalling of DID configuration bytes failed: %w", err)
 	}
 
-	credentials, err := getCredentials(raw.LinkedDIDs, did, domain, didCfgOpts)
+	credOpts := getParseCredentialOptions(true, didCfgOpts)
+
+	credentials, err := getCredentials(raw.LinkedDIDs, did, domain, credOpts...)
 	if err != nil {
 		return err
 	}
@@ -89,13 +96,7 @@ func VerifyDIDAndDomain(didConfig []byte, did, domain string, opts ...DIDConfigu
 	logger.Debugf("found %d domain linkage credential(s) for DID[%s] and domain[%s]", len(credentials), did, domain)
 
 	for _, credBytes := range credentials {
-		var credOpts []verifiable.CredentialOpt
-
-		credOpts = append(credOpts,
-			verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(didCfgOpts.vdrRegistry).PublicKeyFetcher()),
-			verifiable.WithNoCustomSchemaCheck(),
-			verifiable.WithJSONLDDocumentLoader(didCfgOpts.jsonldDocumentLoader),
-			verifiable.WithStrictValidation())
+		credOpts := getParseCredentialOptions(false, didCfgOpts)
 
 		// this time we are parsing credential with proof check so DID will be resolved
 		// and public key from did will be used to verify proof
@@ -106,7 +107,7 @@ func VerifyDIDAndDomain(didConfig []byte, did, domain string, opts ...DIDConfigu
 		}
 
 		// failed to verify credential proof - log info and continue to next one
-		logger.Debugf("skipping domain linkage credential for DID[%s] and domain[%s] due to error: %s",
+		logger.Warnf("skipping domain linkage credential for DID[%s] and domain[%s] due to error: %s",
 			did, domain, err.Error())
 	}
 
@@ -127,8 +128,8 @@ func getDIDConfigurationOpts(opts []DIDConfigurationOpt) *didConfigOpts {
 }
 
 func verifyDidConfigurationProperties(data []byte) error {
-	requiredKeys := []string{contextProperty, linkedDIDsProperty}
-	allowedKeys := []string{contextProperty, linkedDIDsProperty}
+	requiredProperties := []string{contextProperty, linkedDIDsProperty}
+	allowedProperties := []string{contextProperty, linkedDIDsProperty}
 
 	var didCfgMap map[string]interface{}
 
@@ -139,15 +140,27 @@ func verifyDidConfigurationProperties(data []byte) error {
 		return errors.New("DID configuration payload is not provided")
 	}
 
-	for _, required := range requiredKeys {
-		if _, ok := didCfgMap[required]; !ok {
-			return fmt.Errorf("key '%s' is required", required)
+	if err := verifyRequiredProperties(didCfgMap, requiredProperties); err != nil {
+		return fmt.Errorf("did configuration: %w ", err)
+	}
+
+	return verifyAllowedProperties(didCfgMap, allowedProperties)
+}
+
+func verifyRequiredProperties(values map[string]interface{}, requiredProperties []string) error {
+	for _, key := range requiredProperties {
+		if _, ok := values[key]; !ok {
+			return fmt.Errorf("property '%s' is required", key)
 		}
 	}
 
-	for key := range didCfgMap {
-		if !contains(key, allowedKeys) {
-			return fmt.Errorf("key '%s' is not allowed", key)
+	return nil
+}
+
+func verifyAllowedProperties(values map[string]interface{}, allowedProperty []string) error {
+	for key := range values {
+		if !contains(key, allowedProperty) {
+			return fmt.Errorf("property '%s' is not allowed", key)
 		}
 	}
 
@@ -155,6 +168,18 @@ func verifyDidConfigurationProperties(data []byte) error {
 }
 
 func isValidDomainLinkageCredential(vc *verifiable.Credential, did, origin string) error {
+	// validate JWT format if credential has been parsed from JWT format
+	// https://identity.foundation/.well-known/resources/did-configuration/#json-web-token-proof-format
+	if vc.JWT != "" {
+		return validateJWT(vc, did, origin)
+	}
+
+	// validate domain linkage credential rules:
+	// https://identity.foundation/.well-known/resources/did-configuration/#domain-linkage-credential
+	return validateDomainLinkageCredential(vc, did, origin)
+}
+
+func validateDomainLinkageCredential(vc *verifiable.Credential, did, origin string) error {
 	if !contains(domainLinkageCredentialType, vc.Types) {
 		return fmt.Errorf("credential is not of %s type", domainLinkageCredentialType)
 	}
@@ -176,6 +201,85 @@ func isValidDomainLinkageCredential(vc *verifiable.Credential, did, origin strin
 	}
 
 	return validateSubject(vc.Subject, did, origin)
+}
+
+func validateJWT(vc *verifiable.Credential, did, origin string) error {
+	jsonWebToken, err := jwt.Parse(vc.JWT, jwt.WithSignatureVerifier(&noVerifier{}))
+	if err != nil {
+		return fmt.Errorf("parse JWT: %w", err)
+	}
+
+	if err := validateJWTHeader(jsonWebToken.Headers); err != nil {
+		return err
+	}
+
+	if err := validateJWTPayload(vc, jsonWebToken.Payload, did); err != nil {
+		return err
+	}
+
+	if err := validateDomainLinkageCredential(vc, did, origin); err != nil {
+		return err
+	}
+
+	// TODO: vc MUST be equal to the LD Proof Format without the proof property
+	// Having issues with time format being lost when parsing VC from JWT
+	return nil
+}
+
+func validateJWTHeader(headers jose.Headers) error {
+	_, ok := headers.Algorithm()
+	if !ok {
+		return fmt.Errorf("alg MUST be present in the JWT Header")
+	}
+
+	_, ok = headers.KeyID()
+	if !ok {
+		return fmt.Errorf("kid MUST be present in the JWT Header")
+	}
+
+	// relaxing rule 'typ MUST NOT be present in the JWT Header' due to interop
+	typ, ok := headers.Type()
+	if ok && typ != jwt.TypeJWT {
+		return fmt.Errorf("typ is not JWT")
+	}
+
+	allowed := []string{jose.HeaderAlgorithm, jose.HeaderKeyID, jose.HeaderType}
+
+	err := verifyAllowedProperties(headers, allowed)
+	if err != nil {
+		return fmt.Errorf("JWT Header: %w", err)
+	}
+
+	return nil
+}
+
+func validateJWTPayload(vc *verifiable.Credential, payload map[string]interface{}, did string) error {
+	// iat added for interop
+	allowedProperties := []string{"exp", "iss", "nbf", "sub", "vc", "iat"}
+
+	err := verifyAllowedProperties(payload, allowedProperties)
+	if err != nil {
+		return fmt.Errorf("JWT Payload: %w", err)
+	}
+
+	return validateJWTClaims(vc, did)
+}
+
+func validateJWTClaims(vc *verifiable.Credential, did string) error {
+	jwtClaims, err := vc.JWTClaims(false)
+	if err != nil {
+		return err
+	}
+
+	if jwtClaims.Issuer != did {
+		return fmt.Errorf("iss MUST be equal to credentialSubject.id")
+	}
+
+	if jwtClaims.Subject != did {
+		return fmt.Errorf("sub MUST be equal to credentialSubject.id")
+	}
+
+	return nil
 }
 
 func contains(v string, values []string) bool {
@@ -207,10 +311,6 @@ func validateSubject(subject interface{}, did, origin string) error {
 			return fmt.Errorf("credentialSubject.id MUST be a DID: %w", err)
 		}
 
-		if subject.ID != did {
-			return fmt.Errorf("credential subject ID[%s] is different from requested did[%s]", subject.ID, did)
-		}
-
 		objOrigin, ok := subject.CustomFields["origin"]
 		if !ok {
 			return fmt.Errorf("credentialSubject.origin MUST be present")
@@ -221,6 +321,15 @@ func validateSubject(subject interface{}, did, origin string) error {
 			return fmt.Errorf("credentialSubject.origin MUST be string")
 		}
 
+		// domain linkage credential format is valid - now check did configuration resource verification rules
+		// https://identity.foundation/.well-known/resources/did-configuration/#did-configuration-resource-verification
+
+		// subject ID must equal requested DID
+		if subject.ID != did {
+			return fmt.Errorf("credential subject ID[%s] is different from requested DID[%s]", subject.ID, did)
+		}
+
+		// subject origin must match the origin the resource was requested from
 		err = validateOrigin(sOrigin, origin)
 		if err != nil {
 			return err
@@ -255,7 +364,7 @@ func validateOrigin(origin1, origin2 string) error {
 	return nil
 }
 
-func getCredentials(linkedDIDs []interface{}, did, domain string, opts *didConfigOpts) ([][]byte, error) {
+func getCredentials(linkedDIDs []interface{}, did, domain string, opts ...verifiable.CredentialOpt) ([][]byte, error) {
 	var credentialsForDIDAndDomain [][]byte
 
 	for _, linkedDID := range linkedDIDs {
@@ -276,24 +385,16 @@ func getCredentials(linkedDIDs []interface{}, did, domain string, opts *didConfi
 			return nil, fmt.Errorf("unexpected interface[%T] for linked DID", linkedDID)
 		}
 
-		var credOpts []verifiable.CredentialOpt
-
-		credOpts = append(credOpts,
-			verifiable.WithDisabledProofCheck(),
-			verifiable.WithNoCustomSchemaCheck(),
-			verifiable.WithJSONLDDocumentLoader(opts.jsonldDocumentLoader),
-			verifiable.WithStrictValidation())
-
-		vc, err := verifiable.ParseCredential(rawBytes, credOpts...)
+		vc, err := verifiable.ParseCredential(rawBytes, opts...)
 		if err != nil {
 			// failed to parse credential - continue to next one
-			logger.Debugf("skipping credential due to error: %s", string(rawBytes), err.Error())
+			logger.Infof("skipping credential due to error: %s", string(rawBytes), err.Error())
 
 			continue
 		}
 
 		if vc.Issuer.ID != did {
-			logger.Debugf("skipping credential since issuer[%s] is different from DID[%s]", vc.Issuer.ID, did)
+			logger.Infof("skipping credential since issuer[%s] is different from DID[%s]", vc.Issuer.ID, did)
 
 			continue
 		}
@@ -314,4 +415,30 @@ func getCredentials(linkedDIDs []interface{}, did, domain string, opts *didConfi
 	}
 
 	return credentialsForDIDAndDomain, nil
+}
+
+// noVerifier is used when no JWT signature verification is needed.
+// To be used with precaution.
+type noVerifier struct{}
+
+func (v noVerifier) Verify(_ jose.Headers, _, _, _ []byte) error {
+	return nil
+}
+
+func getParseCredentialOptions(disableProofCheck bool, opts *didConfigOpts) []verifiable.CredentialOpt {
+	var credOpts []verifiable.CredentialOpt
+
+	credOpts = append(credOpts,
+		verifiable.WithNoCustomSchemaCheck(),
+		verifiable.WithJSONLDDocumentLoader(opts.jsonldDocumentLoader),
+		verifiable.WithStrictValidation())
+
+	if disableProofCheck {
+		credOpts = append(credOpts, verifiable.WithDisabledProofCheck())
+	} else {
+		credOpts = append(credOpts,
+			verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(opts.vdrRegistry).PublicKeyFetcher()))
+	}
+
+	return credOpts
 }

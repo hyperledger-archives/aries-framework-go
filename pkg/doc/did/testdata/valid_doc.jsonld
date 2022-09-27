@@ -30,7 +30,7 @@
   "service": [
     {
       "id": "did:example:123456789abcdefghi#inbox",
-      "type": "SocialWebInboxService",
+      "type": ["SocialWebInboxService"],
       "serviceEndpoint": "https://social.example.com/83hfh37dj",
       "spamCost": {
         "amount": "0.50",
