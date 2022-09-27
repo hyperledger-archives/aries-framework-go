@@ -406,7 +406,7 @@ func TestValid(t *testing.T) {
 		eServices := []Service{
 			{
 				ID:              "did:example:123456789abcdefghi#inbox",
-				Type:            "SocialWebInboxService",
+				Type:            []interface{}{"SocialWebInboxService"},
 				ServiceEndpoint: model.NewDIDCommV1Endpoint("https://social.example.com/83hfh37dj"),
 				Properties:      map[string]interface{}{"spamCost": map[string]interface{}{"amount": "0.50", "currency": "USD"}},
 			},
@@ -1808,6 +1808,22 @@ func TestDIDSchemas(t *testing.T) {
 	})
 }
 
+func TestServiceTypeSchema(t *testing.T) {
+	t.Run("success - an array of strings", func(t *testing.T) {
+		doc, err := ParseDocument([]byte(multipleServiceTypes))
+		require.NoError(t, err)
+		require.NotEmpty(t, doc)
+		require.Equal(t, doc.Service[0].Type, []interface{}{"SocialWebInboxService", "SomeOtherService"})
+	})
+
+	t.Run("error - not an array of strings", func(t *testing.T) {
+		doc, err := ParseDocument([]byte(invalidServiceType))
+		require.Error(t, err)
+		require.Empty(t, doc)
+		require.Contains(t, err.Error(), "Invalid type. Expected: string, given: integer")
+	})
+}
+
 func TestNewEmbeddedVerificationMethod(t *testing.T) {
 	vm := NewEmbeddedVerification(&VerificationMethod{}, Authentication)
 	require.NotNil(t, vm)
@@ -2213,4 +2229,32 @@ const docV011WithVerificationRelationships = `{
 		"controller": "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH",
 		"publicKeyBase58": "B12NYF8RrR3h41TDCTJojY59usg3mbtbjnFs7Eud1Y6u"
 	}]
+}`
+
+const multipleServiceTypes = `
+{
+  "@context": ["https://www.w3.org/ns/did/v1"],
+  "id": "did:example:21tDAKCERh95uGgKbJNHYp",
+  "service": [
+    {
+      "id": "did:example:123456789abcdefghi#inbox",
+      "type": ["SocialWebInboxService","SomeOtherService"],
+      "serviceEndpoint": "https://social.example.com/83hfh37dj"
+    }
+  ],
+  "created": "2002-10-10T17:00:00Z"
+}`
+
+const invalidServiceType = `
+{
+  "@context": ["https://www.w3.org/ns/did/v1"],
+  "id": "did:example:21tDAKCERh95uGgKbJNHYp",
+  "service": [
+    {
+      "id": "did:example:123456789abcdefghi#inbox",
+      "type": [123, "SomeType"],
+      "serviceEndpoint": "https://social.example.com/83hfh37dj"
+    }
+  ],
+  "created": "2002-10-10T17:00:00Z"
 }`

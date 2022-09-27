@@ -1,3 +1,4 @@
+//go:build ACAPyInterop
 // +build ACAPyInterop
 
 /*
@@ -58,8 +59,11 @@ func convertPeerToSov(doc *did.Doc) (*did.Doc, error) {
 }
 
 func interopRecipientKey(doc *did.Doc) (string, error) {
-	if doc.Service[0].Type == "IndyAgent" {
+	serviceType := didcommutil.GetServiceType(doc.Service[0].Type)
+
+	if serviceType == "IndyAgent" {
 		return recipientKey(doc)
 	}
+
 	return "", fmt.Errorf("recipientKeyAsDIDKey: invalid DID Doc service type: '%v'", doc.Service[0].Type)
 }
