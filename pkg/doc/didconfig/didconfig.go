@@ -27,7 +27,10 @@ import (
 var logger = log.New("aries-framework/doc/verifiable")
 
 const (
-	// ContextV1 of the DID document is the current V1 context name.
+	// ContextV0 is did configuration context version 0.
+	ContextV0 = "https://identity.foundation/.well-known/contexts/did-configuration-v0.0.jsonld"
+
+	// ContextV1 is did configuration context version 1.
 	ContextV1 = "https://identity.foundation/.well-known/did-configuration/v1"
 
 	domainLinkageCredentialType = "DomainLinkageCredential"
@@ -104,7 +107,7 @@ func VerifyDIDAndDomain(didConfig []byte, did, domain string, opts ...DIDConfigu
 		}
 
 		// failed to verify credential proof - log info and continue to next one
-		logger.Debugf("skipping domain linkage credential for DID[%s] and domain[%s] due to error: %s",
+		logger.Warnf("skipping domain linkage credential for DID[%s] and domain[%s] due to error: %s",
 			did, domain, err.Error())
 	}
 
