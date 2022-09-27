@@ -4,7 +4,7 @@
 
 module github.com/hyperledger/aries-framework-go/cmd/aries-agent-rest
 
-go 1.17
+go 1.19
 
 require (
 	github.com/cenkalti/backoff/v4 v4.1.2

@@ -1078,7 +1078,7 @@ func TestDownloadCustomSchema(t *testing.T) {
 
 		customSchema, err := getJSONSchema(testServer.URL, noCacheOpts)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "load credential schema")
+		require.Contains(t, err.Error(), "credential schema endpoint HTTP failure")
 		require.Nil(t, customSchema)
 	})
 
