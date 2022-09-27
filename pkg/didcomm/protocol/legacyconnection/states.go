@@ -27,6 +27,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/kmsdidkey"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/didcommutil"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/didkeyutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
@@ -337,7 +338,7 @@ func (ctx *context) handleInboundRequest(request *Request, options *options,
 
 	var serviceType string
 	if len(requestDidDoc.Service) > 0 {
-		serviceType = requestDidDoc.Service[0].Type
+		serviceType = didcommutil.GetServiceType(requestDidDoc.Service[0].Type)
 	} else {
 		serviceType = legacyDIDCommServiceType
 	}
@@ -579,7 +580,7 @@ func (ctx *context) getMyDIDDoc(pubDID string, routerConnections []string, servi
 	}
 
 	if newService {
-		switch newDID.Service[0].Type {
+		switch didcommutil.GetServiceType(newDID.Service[0].Type) {
 		case didCommServiceType, legacyDIDCommServiceType:
 			newDID.Service[0].RecipientKeys = []string{base58.Encode(newDID.VerificationMethod[0].Value)}
 		default:
@@ -832,7 +833,9 @@ func isDIDCommV2(mediaTypeProfiles []string) bool {
 
 // returns the did:key ID of the first element in the doc's destination RecipientKeys.
 func recipientKey(doc *did.Doc) (string, error) {
-	switch doc.Service[0].Type {
+	serviceType := didcommutil.GetServiceType(doc.Service[0].Type)
+
+	switch serviceType {
 	case vdrapi.DIDCommServiceType, legacyDIDCommServiceType:
 		dest, err := service.CreateDestination(doc)
 		if err != nil {

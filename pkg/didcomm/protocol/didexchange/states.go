@@ -24,6 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/didcommutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	connectionstore "github.com/hyperledger/aries-framework-go/pkg/store/connection"
@@ -455,7 +456,7 @@ func (ctx *context) handleInboundRequest(request *Request, options *options,
 
 	var serviceType string
 	if len(requestDidDoc.Service) > 0 {
-		serviceType = requestDidDoc.Service[0].Type
+		serviceType = didcommutil.GetServiceType(requestDidDoc.Service[0].Type)
 	} else {
 		accept, e := destination.ServiceEndpoint.Accept()
 		if e != nil {
@@ -713,6 +714,7 @@ func (ctx *context) getMyDIDDoc(pubDID string, routerConnections []string, servi
 			}
 		case didCommV2ServiceType:
 			svc = did.Service{
+				Type: didCommV2ServiceType,
 				ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
 					{URI: serviceEndpoint, RoutingKeys: routingKeys},
 				}),
@@ -736,7 +738,7 @@ func (ctx *context) getMyDIDDoc(pubDID string, routerConnections []string, servi
 	}
 
 	if newService {
-		switch newDID.Service[0].Type {
+		switch didcommutil.GetServiceType(newDID.Service[0].Type) {
 		case didCommServiceType, "IndyAgent":
 			recKey, _ := fingerprint.CreateDIDKey(newDID.VerificationMethod[0].Value)
 			newDID.Service[0].RecipientKeys = []string{recKey}
@@ -748,6 +750,9 @@ func (ctx *context) getMyDIDDoc(pubDID string, routerConnections []string, servi
 			}
 
 			newDID.Service[0].RecipientKeys = recKeys
+
+		default:
+			return nil, fmt.Errorf("getMyDIDDoc: invalid DID Doc service type: '%v'", newDID.Service[0].Type)
 		}
 	}
 
@@ -1123,6 +1128,8 @@ func (ctx *context) getServiceBlock(i *OOBInvitation) (*did.Service, error) {
 		// RFC0587: In case the accept property is set in both the DID service block and the out-of-band message,
 		// the out-of-band property takes precedence.
 		if isDIDCommV2(i.MediaTypeProfiles) {
+			block.Type = didCommV2ServiceType
+
 			uri, err := block.ServiceEndpoint.URI()
 			if err != nil {
 				logger.Debugf("block ServiceEndpoint URI empty for DIDcomm V2, skipping it.")
@@ -1137,6 +1144,7 @@ func (ctx *context) getServiceBlock(i *OOBInvitation) (*did.Service, error) {
 				{URI: uri, Accept: i.MediaTypeProfiles, RoutingKeys: routingKeys},
 			})
 		} else {
+			block.Type = didCommServiceType
 			block.Accept = i.MediaTypeProfiles
 		}
 	}
@@ -1251,7 +1259,9 @@ func recipientKeyAsDIDKey(doc *did.Doc) (string, error) {
 		err error
 	)
 
-	switch doc.Service[0].Type {
+	serviceType := didcommutil.GetServiceType(doc.Service[0].Type)
+
+	switch serviceType {
 	case vdrapi.DIDCommServiceType:
 		return recipientKey(doc)
 	case vdrapi.DIDCommV2ServiceType:

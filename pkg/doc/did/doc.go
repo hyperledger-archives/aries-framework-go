@@ -373,7 +373,7 @@ func (pk *VerificationMethod) JSONWebKey() *jwk.JWK {
 // Service DID doc service.
 type Service struct {
 	ID                       string                 `json:"id"`
-	Type                     string                 `json:"type"`
+	Type                     interface{}            `json:"type"`
 	Priority                 uint                   `json:"priority,omitempty"`
 	RecipientKeys            []string               `json:"recipientKeys,omitempty"`
 	RoutingKeys              []string               `json:"routingKeys,omitempty"`
@@ -700,12 +700,15 @@ func populateServices(didID, baseURI string, rawServices []map[string]interface{
 		}
 
 		service := Service{
-			ID: id, Type: stringEntry(rawService[jsonldType]), relativeURL: isRelative,
+			ID:                       id,
+			Type:                     rawService[jsonldType],
+			relativeURL:              isRelative,
 			ServiceEndpoint:          sp,
 			RecipientKeys:            recipientKeys,
 			Priority:                 uintEntry(rawService[jsonldPriority]),
 			RoutingKeys:              routingKeys,
-			recipientKeysRelativeURL: recipientKeysRelativeURL, routingKeysRelativeURL: routingKeysRelativeURL,
+			recipientKeysRelativeURL: recipientKeysRelativeURL,
+			routingKeysRelativeURL:   routingKeysRelativeURL,
 		}
 
 		delete(rawService, jsonldID)

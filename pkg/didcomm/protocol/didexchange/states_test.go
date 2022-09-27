@@ -1828,7 +1828,7 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 			keyType:          kms.ED25519Type,
 			keyAgreementType: kms.X25519ECDHKWType,
 		}
-		didDoc, err := ctx.getMyDIDDoc("", nil, "")
+		didDoc, err := ctx.getMyDIDDoc("", nil, didCommServiceType)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "creator error")
 		require.Nil(t, didDoc)
@@ -1848,10 +1848,11 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 			keyType:            kms.ED25519Type,
 			keyAgreementType:   kms.X25519ECDHKWType,
 		}
-		didDoc, err := ctx.getMyDIDDoc("", nil, "")
+		didDoc, err := ctx.getMyDIDDoc("", nil, didCommV2ServiceType)
 		require.NoError(t, err)
 		require.NotNil(t, didDoc)
 	})
+
 	t.Run("successfully created peer did with didcomm V2 service bloc", func(t *testing.T) {
 		connRec, err := connection.NewRecorder(&protocol.MockProvider{})
 		require.NoError(t, err)
@@ -1909,6 +1910,27 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "did doc - add key to the router")
 		require.Nil(t, didDoc)
+	})
+
+	t.Run("error - invalid service type", func(t *testing.T) {
+		connRec, err := connection.NewRecorder(&protocol.MockProvider{})
+		require.NoError(t, err)
+		didConnStore, err := didstore.NewConnectionStore(&protocol.MockProvider{})
+		require.NoError(t, err)
+		customKMS := newKMS(t, mockstorage.NewMockStoreProvider())
+		ctx := context{
+			kms:                customKMS,
+			vdRegistry:         &mockvdr.MockVDRegistry{CreateValue: mockdiddoc.GetMockDIDDoc(t, false)},
+			connectionRecorder: connRec,
+			connectionStore:    didConnStore,
+			routeSvc:           &mockroute.MockMediatorSvc{},
+			keyType:            kms.ED25519Type,
+			keyAgreementType:   kms.X25519ECDHKWType,
+		}
+		didDoc, err := ctx.getMyDIDDoc("", nil, "")
+		require.Error(t, err)
+		require.Nil(t, didDoc)
+		require.Contains(t, err.Error(), "getMyDIDDoc: invalid DID Doc service type: ''")
 	})
 }
 

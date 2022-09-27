@@ -181,7 +181,19 @@ const (
           "type": "string"
         },
         "type": {
-          "type": "string"
+			"oneOf": [
+			  {
+				"type": "string"
+			  },
+			  {
+				"type": "array",
+				"items": [
+				  {
+					"type": "string"
+				  }
+				]
+              }
+		   	]
         },
         "serviceEndpoint": {
            "oneOf": [
@@ -377,7 +389,19 @@ const (
           "type": "string"
         },
         "type": {
-          "type": "string"
+			"oneOf": [
+			  {
+				"type": "string"
+			  },
+			  {
+				"type": "array",
+				"items": [
+				  {
+					"type": "string"
+				  }
+				]
+              }
+		   	]
         },
         "serviceEndpoint": {
            "oneOf": [
@@ -543,7 +567,19 @@ const (
           "type": "string"
         },
         "type": {
-          "type": "string"
+			"oneOf": [
+			  {
+				"type": "string"
+			  },
+			  {
+				"type": "array",
+				"items": [
+				  {
+					"type": "string"
+				  }
+				]
+              }
+		   	]
         },
         "serviceEndpoint": {
            "oneOf": [
