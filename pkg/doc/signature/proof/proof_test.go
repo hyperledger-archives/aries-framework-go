@@ -155,6 +155,183 @@ func TestProof(t *testing.T) {
 	})
 }
 
+func TestInvalidInterfaceTypeShouldNotPanic(t *testing.T) {
+	t.Run("does not panic if type is not a string", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			require.Nil(t, r)
+		}()
+		_, err := NewProof(map[string]interface{}{
+			"type":               123,
+			"creator":            "didID",
+			"verificationMethod": "did:example:123456#key1",
+			"created":            "2018-03-15T00:00:00Z",
+			"domain":             "abc.com",
+			"nonce":              "",
+			"proofValue":         proofValueBase64,
+		})
+		require.NoError(t, err)
+	})
+
+	t.Run("does not panic if created is not a string", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			require.Nil(t, r)
+		}()
+		_, err := NewProof(map[string]interface{}{
+			"type":               "type",
+			"creator":            "didID",
+			"verificationMethod": "did:example:123456#key1",
+			"created":            123,
+			"domain":             "abc.com",
+			"nonce":              "",
+			"proofValue":         proofValueBase64,
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "parsing time")
+	})
+
+	t.Run("does not panic if creator is not a string", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			require.Nil(t, r)
+		}()
+		_, err := NewProof(map[string]interface{}{
+			"type":               "type",
+			"creator":            123,
+			"verificationMethod": "did:example:123456#key1",
+			"created":            "2018-03-15T00:00:00Z",
+			"domain":             "abc.com",
+			"nonce":              "",
+			"proofValue":         proofValueBase64,
+		})
+		require.NoError(t, err)
+	})
+
+	t.Run("does not panic if verificationMethod is not a string", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			require.Nil(t, r)
+		}()
+		_, err := NewProof(map[string]interface{}{
+			"type":               "type",
+			"creator":            "didID",
+			"verificationMethod": 123,
+			"created":            "2018-03-15T00:00:00Z",
+			"domain":             "abc.com",
+			"nonce":              "",
+			"proofValue":         proofValueBase64,
+		})
+		require.NoError(t, err)
+	})
+
+	t.Run("does not panic if proofValue is not a string", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			require.Nil(t, r)
+		}()
+		_, err := NewProof(map[string]interface{}{
+			"type":               "type",
+			"creator":            "didID",
+			"verificationMethod": "did:example:123456#key1",
+			"created":            "2018-03-15T00:00:00Z",
+			"domain":             "abc.com",
+			"nonce":              "",
+			"proofValue":         123,
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "signature is not defined")
+	})
+
+	t.Run("does not panic if jws is not a string", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			require.Nil(t, r)
+		}()
+		_, err := NewProof(map[string]interface{}{
+			"type":               "type",
+			"creator":            "didID",
+			"verificationMethod": "did:example:123456#key1",
+			"created":            "2018-03-15T00:00:00Z",
+			"domain":             "abc.com",
+			"nonce":              "",
+			"jws":                123,
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "signature is not defined")
+	})
+
+	t.Run("does not panic if proofPurpose is not a string", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			require.Nil(t, r)
+		}()
+		_, err := NewProof(map[string]interface{}{
+			"type":               "type",
+			"creator":            "didID",
+			"verificationMethod": "did:example:123456#key1",
+			"created":            "2018-03-15T00:00:00Z",
+			"domain":             "abc.com",
+			"nonce":              "",
+			"proofValue":         proofValueBase64,
+			"proofPurpose":       123,
+		})
+		require.NoError(t, err)
+	})
+
+	t.Run("does not panic if domain is not a string", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			require.Nil(t, r)
+		}()
+		_, err := NewProof(map[string]interface{}{
+			"type":               "type",
+			"creator":            "didID",
+			"verificationMethod": "did:example:123456#key1",
+			"created":            "2018-03-15T00:00:00Z",
+			"domain":             123,
+			"nonce":              "",
+			"proofValue":         proofValueBase64,
+		})
+		require.NoError(t, err)
+	})
+
+	t.Run("does not panic if nonce is not a string", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			require.Nil(t, r)
+		}()
+		_, err := NewProof(map[string]interface{}{
+			"type":               "type",
+			"creator":            "didID",
+			"verificationMethod": "did:example:123456#key1",
+			"created":            "2018-03-15T00:00:00Z",
+			"domain":             "abc.com",
+			"nonce":              123,
+			"proofValue":         proofValueBase64,
+		})
+		require.NoError(t, err)
+	})
+
+	t.Run("does not panic if challenge is not a string", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			require.Nil(t, r)
+		}()
+		_, err := NewProof(map[string]interface{}{
+			"type":               "type",
+			"creator":            "didID",
+			"verificationMethod": "did:example:123456#key1",
+			"created":            "2018-03-15T00:00:00Z",
+			"domain":             "abc.com",
+			"nonce":              "",
+			"proofValue":         proofValueBase64,
+			"challenge":          123,
+		})
+		require.NoError(t, err)
+	})
+}
+
 func TestInvalidProofValue(t *testing.T) {
 	// invalid proof value
 	p, err := NewProof(map[string]interface{}{

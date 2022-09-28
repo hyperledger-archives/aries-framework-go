@@ -167,7 +167,11 @@ func stringEntry(entry interface{}) string {
 		return ""
 	}
 
-	return entry.(string)
+	if strVal, ok := entry.(string); ok {
+		return strVal
+	}
+
+	return ""
 }
 
 // JSONLdObject returns map that represents JSON LD Object.
