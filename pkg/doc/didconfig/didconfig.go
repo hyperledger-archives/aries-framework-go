@@ -24,7 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 )
 
-var logger = log.New("aries-framework/doc/verifiable")
+var logger = log.New("aries-framework/doc/didconfig")
 
 const (
 	// ContextV0 is did configuration context version 0.
