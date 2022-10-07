@@ -6,12 +6,14 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	jsonld "github.com/piprate/json-gold/ld"
-	"github.com/xeipuuv/gojsonschema"
+	"github.com/santhosh-tekuri/jsonschema"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	docjsonld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
@@ -157,7 +159,12 @@ const basePresentationSchema = `
 `
 
 //nolint:gochecknoglobals
-var basePresentationSchemaLoader = gojsonschema.NewStringLoader(basePresentationSchema)
+var (
+	schemaName         = "presentationSchema"
+	schemaCompiler     = jsonschema.NewCompiler()
+	_                  = schemaCompiler.AddResource(schemaName, strings.NewReader(basePresentationSchema))
+	presentationSchema = schemaCompiler.MustCompile(schemaName)
+)
 
 // MarshalledCredential defines marshalled Verifiable Credential enclosed into Presentation.
 // MarshalledCredential can be passed to verifiable.ParseCredential().
@@ -568,16 +575,9 @@ func validateVPJSONLD(vpBytes []byte, opts *presentationOpts) error {
 }
 
 func validateVPJSONSchema(data []byte) error {
-	loader := gojsonschema.NewStringLoader(string(data))
-
-	result, err := gojsonschema.Validate(basePresentationSchemaLoader, loader)
+	err := presentationSchema.Validate(bytes.NewReader(data))
 	if err != nil {
-		return fmt.Errorf("validation of verifiable credential: %w", err)
-	}
-
-	if !result.Valid() {
-		errMsg := describeSchemaValidationError(result, "verifiable presentation")
-		return errors.New(errMsg)
+		return fmt.Errorf("verifiable presentation is not valid: %w", err)
 	}
 
 	return nil
