@@ -304,7 +304,7 @@ func TestValidateVP_Context(t *testing.T) {
 		require.NoError(t, err)
 		vp, err := newTestPresentation(t, bytes)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "@context is required")
+		require.Contains(t, err.Error(), "missing properties: \"@context\"")
 		require.Nil(t, vp)
 	})
 
@@ -319,7 +319,7 @@ func TestValidateVP_Context(t *testing.T) {
 		require.NoError(t, err)
 		vp, err := newTestPresentation(t, bytes)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "does not match: \"https://www.w3.org/2018/credentials/v1\"")
+		require.Contains(t, err.Error(), "must be \"https://www.w3.org/2018/credentials/v1\"")
 		require.Nil(t, vp)
 	})
 
@@ -342,7 +342,7 @@ func TestValidateVP_Context(t *testing.T) {
 		require.NoError(t, err)
 		vp, err := newTestPresentation(t, bytes)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "does not match: \"https://www.w3.org/2018/credentials/v1\"")
+		require.Contains(t, err.Error(), "must be \"https://www.w3.org/2018/credentials/v1\"")
 		require.Nil(t, vp)
 	})
 }
@@ -356,7 +356,7 @@ func TestValidateVP_ID(t *testing.T) {
 		require.NoError(t, err)
 		vp, err := newTestPresentation(t, bytes)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "id: Does not match format 'uri'")
+		require.Contains(t, err.Error(), "\"not valid presentation ID URL\" is not valid \"uri\"")
 		require.Nil(t, vp)
 	})
 }
@@ -402,7 +402,7 @@ func TestValidateVP_Type(t *testing.T) {
 		require.NoError(t, err)
 		vp, err := newTestPresentation(t, bytes)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "type is required")
+		require.Contains(t, err.Error(), "missing properties: \"type\"")
 		require.Nil(t, vp)
 	})
 
@@ -414,7 +414,7 @@ func TestValidateVP_Type(t *testing.T) {
 		require.NoError(t, err)
 		vp, err := newTestPresentation(t, bytes)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Does not match pattern '^VerifiablePresentation$'")
+		require.Contains(t, err.Error(), "does not match pattern \"^VerifiablePresentation$\"")
 		require.Nil(t, vp)
 	})
 }
@@ -428,7 +428,7 @@ func TestValidateVP_Holder(t *testing.T) {
 		require.NoError(t, err)
 		vp, err := newTestPresentation(t, bytes)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "holder: Does not match format 'uri'")
+		require.Contains(t, err.Error(), "not valid presentation Holder URL\" is not valid \"uri\"")
 		require.Nil(t, vp)
 	})
 }
