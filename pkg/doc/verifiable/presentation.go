@@ -493,16 +493,17 @@ func decodeCredentials(rawCred interface{}, opts *presentationOpts) ([]interface
 		if sCred, ok := cred.(string); ok {
 			bCred := []byte(sCred)
 
-			// TODO: check if JWT VPs require the raw JWT for their JWT VCs
-			//  if so, save the raw JWT strings returned from decodeRaw()
-			credDecoded, _, err := decodeRaw(bCred, mapOpts(opts))
-			if err != nil {
-				return nil, fmt.Errorf("decode credential of presentation: %w", err)
+			credOpts := []CredentialOpt{
+				WithPublicKeyFetcher(opts.publicKeyFetcher),
+				WithEmbeddedSignatureSuites(opts.ldpSuites...),
+				WithJSONLDDocumentLoader(opts.jsonldCredentialOpts.jsonldDocumentLoader),
 			}
 
-			vc, err := ParseCredential(credDecoded,
-				WithJSONLDDocumentLoader(opts.jsonldCredentialOpts.jsonldDocumentLoader),
-				WithDisabledProofCheck())
+			if opts.disabledProofCheck {
+				credOpts = append(credOpts, WithDisabledProofCheck())
+			}
+
+			vc, err := ParseCredential(bCred, credOpts...)
 
 			return vc, err
 		}
@@ -539,14 +540,6 @@ func decodeCredentials(rawCred interface{}, opts *presentationOpts) ([]interface
 		}
 
 		return []interface{}{c}, nil
-	}
-}
-
-func mapOpts(vpOpts *presentationOpts) *credentialOpts {
-	return &credentialOpts{
-		publicKeyFetcher:   vpOpts.publicKeyFetcher,
-		disabledProofCheck: vpOpts.disabledProofCheck,
-		ldpSuites:          vpOpts.ldpSuites,
 	}
 }
 

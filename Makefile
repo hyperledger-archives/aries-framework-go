@@ -27,7 +27,7 @@ MOCKGEN=$(GOBIN_PATH)/mockgen
 GOMOCKS=pkg/internal/gomocks
 
 .PHONY: all
-all: clean checks unit-test unit-test-ursa unit-test-wasm unit-test-mobile bdd-test
+all: clean checks unit-test unit-test-wasm unit-test-mobile bdd-test
 
 .PHONY: checks
 checks: license lint generate-openapi-spec

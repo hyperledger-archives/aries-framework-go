@@ -535,9 +535,9 @@ func ExamplePresentation_MarshalledCredentials() {
 		panic("Expected 1 credential inside presentation")
 	}
 
-	// Decoded credential. Note that no public key fetcher is passed as the VC was already decoded (and proof verified)
-	// when VP was decoded.
+	// Decoded credential.
 	vcDecoded, err := verifiable.ParseCredential(vpCreds[0],
+		verifiable.WithDisabledProofCheck(),
 		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))
 	if err != nil {
 		panic(fmt.Errorf("failed to decode VC: %w", err))
@@ -550,32 +550,7 @@ func ExamplePresentation_MarshalledCredentials() {
 
 	fmt.Println(string(vcDecodedJSON))
 
-	// Output: {
-	//	"@context": [
-	//		"https://www.w3.org/2018/credentials/v1",
-	//		"https://www.w3.org/2018/credentials/examples/v1"
-	//	],
-	//	"credentialSubject": {
-	//		"degree": {
-	//			"type": "BachelorDegree",
-	//			"university": "MIT"
-	//		},
-	//		"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-	//		"name": "Jayden Doe",
-	//		"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
-	//	},
-	//	"expirationDate": "2020-01-01T19:23:24Z",
-	//	"id": "http://example.edu/credentials/1872",
-	//	"issuanceDate": "2010-01-01T19:23:24Z",
-	//	"issuer": {
-	//		"id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
-	//		"name": "Example University"
-	//	},
-	//	"type": [
-	//		"VerifiableCredential",
-	//		"UniversityDegreeCredential"
-	//	]
-	//}
+	// Output: "eyJhbGciOiJFZERTQSIsImtpZCI6Imkta2lkIn0.eyJleHAiOjE1Nzc5MDY2MDQsImlzcyI6ImRpZDpleGFtcGxlOjc2ZTEyZWM3MTJlYmM2ZjFjMjIxZWJmZWIxZiIsImp0aSI6Imh0dHA6Ly9leGFtcGxlLmVkdS9jcmVkZW50aWFscy8xODcyIiwibmJmIjoxMjYyMzczODA0LCJzdWIiOiJkaWQ6ZXhhbXBsZTplYmZlYjFmNzEyZWJjNmYxYzI3NmUxMmVjMjEiLCJ2YyI6eyJAY29udGV4dCI6WyJodHRwczovL3d3dy53My5vcmcvMjAxOC9jcmVkZW50aWFscy92MSIsImh0dHBzOi8vd3d3LnczLm9yZy8yMDE4L2NyZWRlbnRpYWxzL2V4YW1wbGVzL3YxIl0sImNyZWRlbnRpYWxTdWJqZWN0Ijp7ImRlZ3JlZSI6eyJ0eXBlIjoiQmFjaGVsb3JEZWdyZWUiLCJ1bml2ZXJzaXR5IjoiTUlUIn0sImlkIjoiZGlkOmV4YW1wbGU6ZWJmZWIxZjcxMmViYzZmMWMyNzZlMTJlYzIxIiwibmFtZSI6IkpheWRlbiBEb2UiLCJzcG91c2UiOiJkaWQ6ZXhhbXBsZTpjMjc2ZTEyZWMyMWViZmViMWY3MTJlYmM2ZjEifSwiaXNzdWVyIjp7Im5hbWUiOiJFeGFtcGxlIFVuaXZlcnNpdHkifSwidHlwZSI6WyJWZXJpZmlhYmxlQ3JlZGVudGlhbCIsIlVuaXZlcnNpdHlEZWdyZWVDcmVkZW50aWFsIl19fQ.COLYWo9n7_L9_izlnllsoWxAUva_-8RqW1ebazRYOWtx3_YygnzCjKkc4_t_PLd2EbNRydKxAnpIZluN3VG1AA"
 }
 
 //nolint:gocyclo
