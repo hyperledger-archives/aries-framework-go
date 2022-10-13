@@ -443,7 +443,7 @@ func (a *SDKSteps) acceptRequestPresentation(prover, verifier, format string) er
 				},
 			}},
 			Issuer: verifiable.Issuer{
-				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+				ID: pubKey.Controller,
 				CustomFields: verifiable.CustomFields{
 					"name": "Example University",
 				},
@@ -548,7 +548,7 @@ func (a *SDKSteps) acceptRequestPresentationV3(prover, verifier, format string) 
 				},
 			}},
 			Issuer: verifiable.Issuer{
-				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+				ID: pubKey.Controller,
 				CustomFields: verifiable.CustomFields{
 					"name": "Example University",
 				},
@@ -605,7 +605,7 @@ func createEdDSAJWS(vc *verifiable.Credential, signer verifiable.Signer, keyID s
 		return "", err
 	}
 
-	vcJWT, err := jwtClaims.MarshalJWS(verifiable.EdDSA, signer, vc.Issuer.ID+"#keys-"+keyID)
+	vcJWT, err := jwtClaims.MarshalJWS(verifiable.EdDSA, signer, keyID)
 	if err != nil {
 		return "", err
 	}

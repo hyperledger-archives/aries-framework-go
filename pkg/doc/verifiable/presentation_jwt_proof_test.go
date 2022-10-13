@@ -9,6 +9,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -215,33 +216,34 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 		vpJWS, err := jwtClaims.MarshalJWS(EdDSA, holderSigner, "holder-key")
 		r.NoError(err)
 
+		publicKeyFetcher := func(issuerID, keyID string) (*verifier.PublicKey, error) {
+			switch keyID {
+			case "holder-key":
+				return &verifier.PublicKey{
+					Type:  kms.ED25519,
+					Value: holderSigner.PublicKeyBytes(),
+				}, nil
+			case "issuer-key":
+				return &verifier.PublicKey{
+					Type:  kms.RSARS256,
+					Value: issuerSigner.PublicKeyBytes(),
+				}, nil
+			default:
+				return nil, errors.New("unexpected key")
+			}
+		}
+
 		// Decode VP
-		vpDecoded, err := newTestPresentation(t, []byte(vpJWS), WithPresPublicKeyFetcher(
-			func(issuerID, keyID string) (*verifier.PublicKey, error) {
-				switch keyID {
-				case "holder-key":
-					return &verifier.PublicKey{
-						Type:  kms.ED25519,
-						Value: holderSigner.PublicKeyBytes(),
-					}, nil
-				case "issuer-key":
-					return &verifier.PublicKey{
-						Type:  kms.RSARS256,
-						Value: issuerSigner.PublicKeyBytes(),
-					}, nil
-				default:
-					return nil, errors.New("unexpected key")
-				}
-			}))
+		vpDecoded, err := newTestPresentation(t, []byte(vpJWS), WithPresPublicKeyFetcher(publicKeyFetcher))
 		r.NoError(err)
 		vpCreds, err := vpDecoded.MarshalledCredentials()
 		r.NoError(err)
 		r.Len(vpCreds, 1)
 
-		vcDecoded, err := parseTestCredential(t, vpCreds[0])
+		vcDecoded, err := parseTestCredential(t, vpCreds[0], WithPublicKeyFetcher(publicKeyFetcher))
 		r.NoError(err)
 
-		r.Equal(vc.stringJSON(t), vcDecoded.stringJSON(t))
+		r.Equal(fmt.Sprintf("%q", vcJWS), vcDecoded.stringJSON(t))
 	})
 
 	t.Run("Presentation with VC defined as VC struct", func(t *testing.T) {
