@@ -123,3 +123,27 @@ func reverseBytes(s []byte) []byte {
 
 	return s
 }
+
+func i2os2(value uint16) []byte {
+	bytes := make([]byte, 2)
+
+	binary.BigEndian.PutUint16(bytes, value)
+
+	return bytes
+}
+
+func i2os4(value uint32) []byte {
+	bytes := make([]byte, 4)
+
+	binary.BigEndian.PutUint32(bytes, value)
+
+	return bytes
+}
+
+func i2os8(value uint64) []byte {
+	bytes := make([]byte, 8)
+
+	binary.BigEndian.PutUint64(bytes, value)
+
+	return bytes
+}
