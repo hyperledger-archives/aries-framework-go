@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 // Package bbs12381g2pub contains BBS+ signing primitives and keys. Although it can be used directly, it is recommended
 // to use BBS+ keys created by the kms along with the framework's Crypto service.
 // The default local Crypto service is found at: "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
-//  while the remote Crypto service is found at: "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
+// while the remote Crypto service is found at: "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
 package bbs12381g2pub
 
 import (
@@ -203,12 +203,18 @@ func (bbs *BBSG2Pub) SignWithKey(messages [][]byte, privKey *PrivateKey) ([]byte
 		return nil, fmt.Errorf("build generators from public key: %w", err)
 	}
 
-	messagesFr := make([]*SignatureMessage, len(messages))
-	for i := range messages {
-		messagesFr[i] = ParseSignatureMessage(messages[i])
+	es_builder := newEcnodeForHashBuilder()
+	es_builder.addScalar(privKey.FR)
+	es_builder.addScalar(pubKeyWithGenerators.domain)
+
+	messagesFr := make([]*SignatureMessage, messagesCount)
+	for i, msg := range messages {
+		messagesFr[i] = ParseSignatureMessage(msg)
+		es_builder.addBytes(msg)
 	}
 
-	e, s := createRandSignatureFr(), createRandSignatureFr()
+	es := Hash2scalars(es_builder.build(), 2)
+	e, s := es[0], es[1]
 	exp := bls12381.NewFr().Set(privKey.FR)
 	exp.Add(exp, e)
 	exp.Inverse(exp)
@@ -233,10 +239,11 @@ func computeB(s *bls12381.Fr, messages []*SignatureMessage, key *PublicKeyWithGe
 	cb := newCommitmentBuilder(len(messages) + basesOffset)
 
 	cb.add(g1.One(), bls12381.NewFr().One())
-	cb.add(key.h0, s)
+	cb.add(key.Q1, s)
+	cb.add(key.Q2, key.domain)
 
 	for i := 0; i < len(messages); i++ {
-		cb.add(key.h[i], messages[i].FR)
+		cb.add(key.H[i], messages[i].FR)
 	}
 
 	return cb.build()
@@ -304,4 +311,39 @@ func ParseProofNonce(proofNonceBytes []byte) *ProofNonce {
 // ToBytes converts ProofNonce into bytes.
 func (pn *ProofNonce) ToBytes() []byte {
 	return frToRepr(pn.fr).ToBytes()
+}
+
+type encodeForHashBuilder struct {
+	bytes []byte //TODO check encoding functions per type below
+}
+
+func newEcnodeForHashBuilder() *encodeForHashBuilder {
+	return &encodeForHashBuilder{
+		bytes: make([]byte, 0),
+	}
+}
+
+func (db *encodeForHashBuilder) addInt(value int) {
+	db.bytes = append(db.bytes, i2os8(uint64(value))...)
+}
+
+func (db *encodeForHashBuilder) addPointG1(value *bls12381.PointG1) {
+	db.bytes = append(db.bytes, g1.ToBytes(value)...)
+}
+
+func (db *encodeForHashBuilder) addPointG2(value *bls12381.PointG2) {
+	db.bytes = append(db.bytes, g2.ToBytes(value)...)
+}
+
+func (db *encodeForHashBuilder) addScalar(value *bls12381.Fr) {
+	db.bytes = append(db.bytes, value.ToBytes()...)
+}
+
+func (db *encodeForHashBuilder) addBytes(value []byte) {
+	db.bytes = append(db.bytes, i2os8(uint64(len(value)))...)
+	db.bytes = append(db.bytes, value...)
+}
+
+func (db *encodeForHashBuilder) build() []byte {
+	return db.bytes
 }

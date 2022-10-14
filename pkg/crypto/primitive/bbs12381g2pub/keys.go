@@ -14,8 +14,8 @@ import (
 	"io"
 
 	bls12381 "github.com/kilic/bls12-381"
-	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/hkdf"
+	"golang.org/x/crypto/sha3"
 
 	bls12381intern "github.com/hyperledger/aries-framework-go/internal/third_party/kilic/bls12-381"
 )
@@ -23,6 +23,13 @@ import (
 const (
 	seedSize        = frCompressedSize
 	generateKeySalt = "BBS-SIG-KEYGEN-SALT-"
+	csId            = "BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_"
+	seedDST         = csId + "SIG_GENERATOR_SEED_"
+	generatorDST    = csId + "SIG_GENERATOR_DST_"
+	generatorSeed   = csId + "MESSAGE_GENERATOR_SEED"
+	h2s_dst         = csId + "H2S_"
+	expandLen       = (384 + 128) / 8
+	seedLen         = ((251 + 128) + 7) / 8
 )
 
 // PublicKey defines BLS Public Key.
@@ -38,48 +45,52 @@ type PrivateKey struct {
 // PublicKeyWithGenerators extends PublicKey with a blinding generator h0, a commitment to the secret key w,
 // and a generator for each message h.
 type PublicKeyWithGenerators struct {
-	h0 *bls12381.PointG1
-	h  []*bls12381.PointG1
+	Q1 *bls12381.PointG1
+	Q2 *bls12381.PointG1
+	H  []*bls12381.PointG1
 
 	w *bls12381.PointG2
 
 	messagesCount int
+
+	domain *bls12381.Fr
 }
 
 // ToPublicKeyWithGenerators creates PublicKeyWithGenerators from the PublicKey.
 func (pk *PublicKey) ToPublicKeyWithGenerators(messagesCount int) (*PublicKeyWithGenerators, error) {
-	offset := g2UncompressedSize + 1
+	genCnt := messagesCount + 2
 
-	data := calcData(pk, messagesCount)
+	generators := make([]*bls12381.PointG1, genCnt)
 
-	h0, err := hashToG1(data)
-	if err != nil {
-		return nil, fmt.Errorf("create G1 point from hash")
+	n := uint32(1)
+	v, _ := bls12381intern.ExpandMsgXOF(sha3.NewShake256(), []byte(generatorSeed), []byte(seedDST), seedLen)
+	for i := 0; i < genCnt; i++ {
+		v = append(v, i2os4(n)...)
+		v, _ = bls12381intern.ExpandMsgXOF(sha3.NewShake256(), v, []byte(seedDST), seedLen)
+		n++
+
+		//TODO check if candidate is uniq
+		generators[i], _ = hashToG1(v, []byte(generatorDST))
 	}
 
-	h := make([]*bls12381.PointG1, messagesCount)
-
-	for i := 1; i <= messagesCount; i++ {
-		dataCopy := make([]byte, len(data))
-		copy(dataCopy, data)
-
-		iBytes := uint32ToBytes(uint32(i))
-
-		for j := 0; j < len(iBytes); j++ {
-			dataCopy[j+offset] = iBytes[j]
-		}
-
-		h[i-1], err = hashToG1(dataCopy)
-		if err != nil {
-			return nil, fmt.Errorf("create G1 point from hash: %w", err)
-		}
+	domain_builder := newEcnodeForHashBuilder()
+	domain_builder.addPointG2(pk.PointG2)
+	domain_builder.addInt(messagesCount)
+	for _, gen := range generators {
+		domain_builder.addPointG1(gen)
 	}
+	domain_builder.addBytes([]byte(csId))
+	//TODO header ??
+
+	domain := Hash2scalar(domain_builder.build())
 
 	return &PublicKeyWithGenerators{
-		h0:            h0,
-		h:             h,
+		Q1:            generators[0],
+		Q2:            generators[1],
+		H:             generators[2:],
 		w:             pk.PointG2,
 		messagesCount: messagesCount,
+		domain:        domain,
 	}, nil
 }
 
@@ -213,4 +224,31 @@ func newHKDF(h func() hash.Hash, ikm, salt, info []byte, length int) ([]byte, er
 	}
 
 	return result, nil
+}
+
+func Hash2scalar(message []byte) *bls12381.Fr {
+	return Hash2scalars(message, 1)[0]
+}
+
+func Hash2scalars(msg []byte, cnt int) []*bls12381.Fr {
+	bufLen := cnt * expandLen
+	msgLen := len(msg)
+
+	msgExt := make([]byte, msgLen+1+4)
+	copy(msgExt, msg)
+	copy(msgExt[msgLen+1:], i2os4(uint32(msgLen)))
+
+	out := make([]*bls12381.Fr, cnt)
+	for round, completed := byte(0), false; !completed; {
+		msgExt[msgLen] = round
+		buf, _ := bls12381intern.ExpandMsgXOF(sha3.NewShake256(), msgExt, []byte(h2s_dst), bufLen)
+
+		ok := true
+		for i := 0; i < cnt && ok; i++ {
+			out[i] = bls12381.NewFr().FromBytes(buf[i*expandLen : (i+1)*expandLen])
+			ok = !out[i].IsZero()
+		}
+		completed = ok
+	}
+	return out
 }
