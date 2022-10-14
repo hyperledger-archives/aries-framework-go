@@ -169,13 +169,7 @@ func (bbs *BBSG2Pub) DeriveProof(messages [][]byte, sigBytes, nonce, pubKeyBytes
 		return nil, fmt.Errorf("init proof of knowledge signature: %w", err)
 	}
 
-	challengeBytes := pokSignature.ToBytes()
-
-	proofNonce := ParseProofNonce(nonce)
-	proofNonceBytes := proofNonce.ToBytes()
-	challengeBytes = append(challengeBytes, proofNonceBytes...)
-
-	proofChallenge := frFromOKM(challengeBytes)
+	proofChallenge := pokSignature.CalculateChallenge(publicKeyWithGenerators.domain, nonce)
 
 	proof := pokSignature.GenerateProof(proofChallenge)
 

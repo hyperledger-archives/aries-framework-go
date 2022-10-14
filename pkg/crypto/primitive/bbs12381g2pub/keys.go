@@ -94,30 +94,10 @@ func (pk *PublicKey) ToPublicKeyWithGenerators(messagesCount int) (*PublicKeyWit
 	}, nil
 }
 
-func calcData(key *PublicKey, messagesCount int) []byte {
-	data := g2.ToUncompressed(key.PointG2)
-
-	data = append(data, 0, 0, 0, 0, 0, 0)
-
-	mcBytes := uint32ToBytes(uint32(messagesCount))
-
-	data = append(data, mcBytes...)
-
-	return data
-}
-
-func hashToG1(data []byte) (*bls12381.PointG1, error) {
-	dstG1 := []byte("BLS12381G1_XMD:BLAKE2B_SSWU_RO_BBS+_SIGNATURES:1_0_0")
-
-	hashFunc := func() hash.Hash {
-		// We pass a null key so error is impossible here.
-		h, _ := blake2b.New512(nil) //nolint:errcheck
-		return h
-	}
-
+func hashToG1(data []byte, dst []byte) (*bls12381.PointG1, error) {
 	g := bls12381intern.NewG1()
 
-	p, err := g.HashToCurveGeneric(data, dstG1, hashFunc)
+	p, err := g.HashToCurveGenericXOF(data, dst, sha3.NewShake256())
 	if err != nil {
 		return nil, err
 	}

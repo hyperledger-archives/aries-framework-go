@@ -28,36 +28,30 @@ type PoKOfSignatureProof struct {
 // GetBytesForChallenge creates bytes for proof challenge.
 func (sp *PoKOfSignatureProof) GetBytesForChallenge(revealedMessages map[int]*SignatureMessage,
 	pubKey *PublicKeyWithGenerators) []byte {
-	hiddenCount := pubKey.messagesCount - len(revealedMessages)
-
-	bytesLen := (7 + hiddenCount) * g1UncompressedSize //nolint:gomnd
-	bytes := make([]byte, 0, bytesLen)
-
-	bytes = append(bytes, g1.ToUncompressed(sp.aBar)...)
-	bytes = append(bytes, g1.ToUncompressed(sp.aPrime)...)
-	bytes = append(bytes, g1.ToUncompressed(pubKey.h0)...)
-	bytes = append(bytes, g1.ToUncompressed(sp.proofVC1.commitment)...)
-	bytes = append(bytes, g1.ToUncompressed(sp.d)...)
-	bytes = append(bytes, g1.ToUncompressed(pubKey.h0)...)
-
-	for i := range pubKey.h {
-		if _, ok := revealedMessages[i]; !ok {
-			bytes = append(bytes, g1.ToUncompressed(pubKey.h[i])...)
-		}
+	challengeBytes := g1.ToUncompressed(sp.aPrime)
+	challengeBytes = append(challengeBytes, g1.ToUncompressed(sp.aBar)...)
+	challengeBytes = append(challengeBytes, g1.ToUncompressed(sp.d)...)
+	challengeBytes = append(challengeBytes, g1.ToUncompressed(sp.proofVC1.commitment)...)
+	challengeBytes = append(challengeBytes, g1.ToUncompressed(sp.proofVC2.commitment)...)
+	r := len(revealedMessages)
+	idxs := make([]byte, 8*r)
+	msgs := make([]byte, 0)
+	challengeBytes = append(challengeBytes, i2os8(uint64(r))...)
+	for i, m := range revealedMessages {
+		idxs = append(idxs, i2os8(uint64(i))...)
+		msgs = append(msgs, m.FR.ToBytes()...)
 	}
+	challengeBytes = append(challengeBytes, idxs...)
+	challengeBytes = append(challengeBytes, msgs...)
 
-	bytes = append(bytes, g1.ToUncompressed(sp.proofVC2.commitment)...)
-
-	return bytes
+	return challengeBytes
 }
 
 // Verify verifies PoKOfSignatureProof.
 func (sp *PoKOfSignatureProof) Verify(challenge *bls12381.Fr, pubKey *PublicKeyWithGenerators,
 	revealedMessages map[int]*SignatureMessage, messages []*SignatureMessage) error {
-	aBar := new(bls12381.PointG1)
-	g1.Neg(aBar, sp.aBar)
 
-	ok := compareTwoPairings(sp.aPrime, pubKey.w, aBar, g2.One())
+	ok := compareTwoPairings(sp.aPrime, pubKey.w, sp.aBar, g2.One())
 	if !ok {
 		return errors.New("bad signature")
 	}
@@ -71,7 +65,7 @@ func (sp *PoKOfSignatureProof) Verify(challenge *bls12381.Fr, pubKey *PublicKeyW
 }
 
 func (sp *PoKOfSignatureProof) verifyVC1Proof(challenge *bls12381.Fr, pubKey *PublicKeyWithGenerators) error {
-	basesVC1 := []*bls12381.PointG1{sp.aPrime, pubKey.h0}
+	basesVC1 := []*bls12381.PointG1{sp.aPrime, pubKey.Q1, pubKey.Q2}
 	aBarD := new(bls12381.PointG1)
 	g1.Sub(aBarD, sp.aBar, sp.d)
 
@@ -88,7 +82,7 @@ func (sp *PoKOfSignatureProof) verifyVC2Proof(challenge *bls12381.Fr, pubKey *Pu
 	revealedMessagesCount := len(revealedMessages)
 
 	basesVC2 := make([]*bls12381.PointG1, 0, 2+pubKey.messagesCount-revealedMessagesCount)
-	basesVC2 = append(basesVC2, sp.d, pubKey.h0)
+	basesVC2 = append(basesVC2, sp.d, pubKey.Q1, pubKey.Q2)
 
 	basesDisclosed := make([]*bls12381.PointG1, 0, 1+revealedMessagesCount)
 	exponents := make([]*bls12381.Fr, 0, 1+revealedMessagesCount)
@@ -98,13 +92,13 @@ func (sp *PoKOfSignatureProof) verifyVC2Proof(challenge *bls12381.Fr, pubKey *Pu
 
 	revealedMessagesInd := 0
 
-	for i := range pubKey.h {
+	for i, hi := range pubKey.H {
 		if _, ok := revealedMessages[i]; ok {
-			basesDisclosed = append(basesDisclosed, pubKey.h[i])
+			basesDisclosed = append(basesDisclosed, hi)
 			exponents = append(exponents, messages[revealedMessagesInd].FR)
 			revealedMessagesInd++
 		} else {
-			basesVC2 = append(basesVC2, pubKey.h[i])
+			basesVC2 = append(basesVC2, hi)
 		}
 	}
 
