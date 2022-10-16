@@ -52,7 +52,7 @@ type DefaultSigningInputVerifier func(joseHeaders Headers, payload, signingInput
 
 // Verify verifies JWS signature.
 func (s DefaultSigningInputVerifier) Verify(joseHeaders Headers, payload, _, signature []byte) error {
-	signingInputData, err := signingInput(joseHeaders, payload)
+	signingInputData, err := signingInput(joseHeaders, "", payload)
 	if err != nil {
 		return err
 	}
@@ -184,7 +184,7 @@ func sign(joseHeaders Headers, payload []byte, signer Signer) ([]byte, error) {
 		return nil, fmt.Errorf("check JOSE headers: %w", err)
 	}
 
-	sigInput, err := signingInput(joseHeaders, payload)
+	sigInput, err := signingInput(joseHeaders, "", payload)
 	if err != nil {
 		return nil, fmt.Errorf("prepare JWS verification data: %w", err)
 	}
@@ -252,7 +252,7 @@ func parseCompacted(jwsCompact string, verifier SignatureVerifier, opts *jwsPars
 		return nil, err
 	}
 
-	sInput, err := signingInput(joseHeaders, payload)
+	sInput, err := signingInput(joseHeaders, parts[jwsHeaderPart], payload)
 	if err != nil {
 		return nil, fmt.Errorf("build signing input: %w", err)
 	}
@@ -309,7 +309,7 @@ func parseCompactedHeaders(parts []string) (Headers, error) {
 	return joseHeaders, nil
 }
 
-func signingInput(headers Headers, payload []byte) ([]byte, error) {
+func signingInput(headers Headers, header string, payload []byte) ([]byte, error) {
 	headersBytes, err := json.Marshal(headers)
 	if err != nil {
 		return nil, fmt.Errorf("serialize JWS headers: %w", err)
@@ -323,7 +323,12 @@ func signingInput(headers Headers, payload []byte) ([]byte, error) {
 		}
 	}
 
-	headersStr := base64.RawURLEncoding.EncodeToString(headersBytes)
+	// Will pass original header string for validation
+	headersStr := header
+
+	if headersStr == "" {
+		headersStr = base64.RawURLEncoding.EncodeToString(headersBytes)
+	}
 
 	var payloadStr string
 
