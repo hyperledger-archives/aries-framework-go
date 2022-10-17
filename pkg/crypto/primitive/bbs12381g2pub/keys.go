@@ -23,13 +23,16 @@ import (
 const (
 	seedSize        = frCompressedSize
 	generateKeySalt = "BBS-SIG-KEYGEN-SALT-"
-	csId            = "BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_"
-	seedDST         = csId + "SIG_GENERATOR_SEED_"
-	generatorDST    = csId + "SIG_GENERATOR_DST_"
-	generatorSeed   = csId + "MESSAGE_GENERATOR_SEED"
-	h2s_dst         = csId + "H2S_"
-	expandLen       = (384 + 128) / 8
-	seedLen         = ((251 + 128) + 7) / 8
+	csID            = "BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_"
+	seedDST         = csID + "SIG_GENERATOR_SEED_"
+	generatorDST    = csID + "SIG_GENERATOR_DST_"
+	generatorSeed   = csID + "MESSAGE_GENERATOR_SEED"
+	h2sDST          = csID + "H2S_"
+	logP2           = 384
+	logR2           = 251
+	k               = 128
+	expandLen       = (logP2 + k) / 8
+	seedLen         = ((logR2 + k) + 7) / 8 //nolint:gomnd
 )
 
 // PublicKey defines BLS Public Key.
@@ -58,31 +61,26 @@ type PublicKeyWithGenerators struct {
 
 // ToPublicKeyWithGenerators creates PublicKeyWithGenerators from the PublicKey.
 func (pk *PublicKey) ToPublicKeyWithGenerators(messagesCount int) (*PublicKeyWithGenerators, error) {
-	genCnt := messagesCount + 2
+	specGenCnt := 2
+	genCnt := messagesCount + specGenCnt
 
-	generators := make([]*bls12381.PointG1, genCnt)
-
-	n := uint32(1)
-	v, _ := bls12381intern.ExpandMsgXOF(sha3.NewShake256(), []byte(generatorSeed), []byte(seedDST), seedLen)
-	for i := 0; i < genCnt; i++ {
-		v = append(v, i2os4(n)...)
-		v, _ = bls12381intern.ExpandMsgXOF(sha3.NewShake256(), v, []byte(seedDST), seedLen)
-		n++
-
-		//TODO check if candidate is uniq
-		generators[i], _ = hashToG1(v, []byte(generatorDST))
+	generators, err := createGenerators(genCnt)
+	if err != nil {
+		return nil, err
 	}
 
-	domain_builder := newEcnodeForHashBuilder()
-	domain_builder.addPointG2(pk.PointG2)
-	domain_builder.addInt(messagesCount)
+	domainBuilder := newEcnodeForHashBuilder()
+	domainBuilder.addPointG2(pk.PointG2)
+	domainBuilder.addInt(messagesCount)
+
 	for _, gen := range generators {
-		domain_builder.addPointG1(gen)
+		domainBuilder.addPointG1(gen)
 	}
-	domain_builder.addBytes([]byte(csId))
-	//TODO header ??
 
-	domain := Hash2scalar(domain_builder.build())
+	domainBuilder.addBytes([]byte(csID))
+	// TODO use header. Probably should be a parameter to this func
+
+	domain := Hash2scalar(domainBuilder.build())
 
 	return &PublicKeyWithGenerators{
 		Q1:            generators[0],
@@ -94,7 +92,7 @@ func (pk *PublicKey) ToPublicKeyWithGenerators(messagesCount int) (*PublicKeyWit
 	}, nil
 }
 
-func hashToG1(data []byte, dst []byte) (*bls12381.PointG1, error) {
+func hashToG1(data, dst []byte) (*bls12381.PointG1, error) {
 	g := bls12381intern.NewG1()
 
 	p, err := g.HashToCurveGenericXOF(data, dst, sha3.NewShake256())
@@ -103,6 +101,35 @@ func hashToG1(data []byte, dst []byte) (*bls12381.PointG1, error) {
 	}
 
 	return g1.FromBytes(g.ToBytes(p))
+}
+
+func createGenerators(cnt int) ([]*bls12381.PointG1, error) {
+	generators := make([]*bls12381.PointG1, cnt)
+
+	v, err := bls12381intern.ExpandMsgXOF(sha3.NewShake256(), []byte(generatorSeed), []byte(seedDST), seedLen)
+	if err != nil {
+		return nil, err
+	}
+
+	n := uint32(1)
+	for i := 0; i < cnt; i++ {
+		v = append(v, uint32ToBytes(n)...)
+
+		v, err = bls12381intern.ExpandMsgXOF(sha3.NewShake256(), v, []byte(seedDST), seedLen)
+		if err != nil {
+			return nil, err
+		}
+
+		n++
+
+		// TODO check if candidate is uniq
+		generators[i], err = hashToG1(v, []byte(generatorDST))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return generators, nil
 }
 
 // UnmarshalPrivateKey unmarshals PrivateKey.
@@ -206,29 +233,36 @@ func newHKDF(h func() hash.Hash, ikm, salt, info []byte, length int) ([]byte, er
 	return result, nil
 }
 
+// Hash2scalar convert message represented in bytes to Fr.
 func Hash2scalar(message []byte) *bls12381.Fr {
 	return Hash2scalars(message, 1)[0]
 }
 
+// Hash2scalars convert messages represented in bytes to Fr.
 func Hash2scalars(msg []byte, cnt int) []*bls12381.Fr {
 	bufLen := cnt * expandLen
 	msgLen := len(msg)
+	roundSz := 1
+	msgLenSz := 4
 
-	msgExt := make([]byte, msgLen+1+4)
+	msgExt := make([]byte, msgLen+roundSz+msgLenSz)
 	copy(msgExt, msg)
-	copy(msgExt[msgLen+1:], i2os4(uint32(msgLen)))
+	copy(msgExt[msgLen+1:], uint32ToBytes(uint32(msgLen)))
 
 	out := make([]*bls12381.Fr, cnt)
+
 	for round, completed := byte(0), false; !completed; {
 		msgExt[msgLen] = round
-		buf, _ := bls12381intern.ExpandMsgXOF(sha3.NewShake256(), msgExt, []byte(h2s_dst), bufLen)
+		buf, _ := bls12381intern.ExpandMsgXOF(sha3.NewShake256(), msgExt, []byte(h2sDST), bufLen) //nolint:errcheck
 
 		ok := true
 		for i := 0; i < cnt && ok; i++ {
 			out[i] = bls12381.NewFr().FromBytes(buf[i*expandLen : (i+1)*expandLen])
 			ok = !out[i].IsZero()
 		}
+
 		completed = ok
 	}
+
 	return out
 }

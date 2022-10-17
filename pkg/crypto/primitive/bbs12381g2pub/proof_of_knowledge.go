@@ -71,6 +71,9 @@ func NewPoKOfSignature(signature *Signature, messages []*SignatureMessage, revea
 	}
 
 	for _, ind := range revealedIndexes {
+		if ind >= len(messages) {
+			return nil, fmt.Errorf("invalid revealed index: requested index %d is larger than %d messages count", ind, len(messages))
+		}
 		revealedMessages[ind] = messages[ind]
 	}
 
@@ -94,12 +97,11 @@ func newVC1Signature(aPrime *bls12381.PointG1, q1 *bls12381.PointG1,
 	secrets1 := make([]*bls12381.Fr, 2)
 
 	committing1.Commit(aPrime)
-	secrets1[0] = e
-
 	committing1.Commit(q1)
-	secrets1[1] = r2
-
 	pokVC1 := committing1.Finish()
+
+	secrets1[0] = e
+	secrets1[1] = r2
 
 	return pokVC1, secrets1
 }
@@ -112,10 +114,9 @@ func newVC2Signature(d *bls12381.PointG1, r3 *bls12381.Fr, pubKey *PublicKeyWith
 	secrets2 := make([]*bls12381.Fr, 0, baseSecretsCount+messagesCount)
 
 	committing2.Commit(d)
-	secrets2 = append(secrets2, r3)
-
 	committing2.Commit(pubKey.Q1)
-	secrets2 = append(secrets2, sPrime)
+
+	secrets2 = append(secrets2, r3, sPrime)
 
 	for i := 0; i < messagesCount; i++ {
 		if _, ok := revealedMessages[i]; ok {
@@ -131,40 +132,30 @@ func newVC2Signature(d *bls12381.PointG1, r3 *bls12381.Fr, pubKey *PublicKeyWith
 		secrets2 = append(secrets2, hiddenFRCopy)
 	}
 
-	pokVC2 := committing2.Finish()
+	pokVC2 := committing2.FinishNegFirst()
 
 	return pokVC2, secrets2
 }
 
-// ToBytes converts PoKOfSignature to bytes.
-func (pos *PoKOfSignature) ToBytes() []byte {
-	challengeBytes := g1.ToUncompressed(pos.aPrime)
-	challengeBytes = append(challengeBytes, g1.ToUncompressed(pos.aBar)...)
-	challengeBytes = append(challengeBytes, g1.ToUncompressed(pos.d)...)
-	challengeBytes = append(challengeBytes, g1.ToUncompressed(pos.pokVC1.commitment)...)
-	challengeBytes = append(challengeBytes, g1.ToUncompressed(pos.pokVC2.commitment)...)
-	r := len(pos.revealedMessages)
-	idxs := make([]byte, 8*r)
-	msgs := make([]byte, 0)
-	challengeBytes = append(challengeBytes, i2os8(uint64(r))...)
-	for i, m := range pos.revealedMessages {
-		idxs = append(idxs, i2os8(uint64(i))...)
-		msgs = append(msgs, m.FR.ToBytes()...)
-	}
-	challengeBytes = append(challengeBytes, idxs...)
-	challengeBytes = append(challengeBytes, msgs...)
-
-	return challengeBytes
+// CalculateChallenge calculates challenge for the (PoKOfSignature, domain, nonce).
+func (pos *PoKOfSignature) CalculateChallenge(msgCnt int, domain *bls12381.Fr, nonce []byte) *bls12381.Fr {
+	return calculateChallenge(
+		pos.aPrime, pos.aBar, pos.d,
+		pos.pokVC1.commitment, pos.pokVC2.commitment,
+		pos.revealedMessages, msgCnt, domain, nonce)
 }
 
 // GenerateProof generates PoKOfSignatureProof proof from PoKOfSignature signature.
 func (pos *PoKOfSignature) GenerateProof(challengeHash *bls12381.Fr) *PoKOfSignatureProof {
+	vc1 := pos.pokVC1.GenerateProof(challengeHash, pos.secrets1)
+	vc2 := pos.pokVC2.GenerateProof(challengeHash, pos.secrets2)
+
 	return &PoKOfSignatureProof{
 		aPrime:   pos.aPrime,
 		aBar:     pos.aBar,
 		d:        pos.d,
-		proofVC1: pos.pokVC1.GenerateProof(challengeHash, pos.secrets1),
-		proofVC2: pos.pokVC2.GenerateProof(challengeHash, pos.secrets2),
+		proofVC1: vc1,
+		proofVC2: vc2,
 	}
 }
 
@@ -173,17 +164,6 @@ type ProverCommittedG1 struct {
 	bases           []*bls12381.PointG1
 	blindingFactors []*bls12381.Fr
 	commitment      *bls12381.PointG1
-}
-
-// ToBytes converts ProverCommittedG1 to bytes.
-func (g *ProverCommittedG1) ToBytes() []byte {
-	bytes := make([]byte, 0)
-
-	for _, base := range g.bases {
-		bytes = append(bytes, g1.ToUncompressed(base)...)
-	}
-
-	return append(bytes, g1.ToUncompressed(g.commitment)...)
 }
 
 // GenerateProof generates proof ProofG1 for all secrets.
@@ -237,11 +217,16 @@ func (pc *ProverCommittingG1) Finish() *ProverCommittedG1 {
 	}
 }
 
-// Modified Finish() for case where first element should be neg
-func (pc *ProverCommittingG1) FinishMod() *ProverCommittedG1 {
-	blindings := make([]*bls12381.Fr, 0)
+// FinishNegFirst is modified Finish() for case where first element should be neg while calc
+// TODO: this is a hack to align the current impl and a draft update of BBS spec.
+// As soon as the spec would be stable enough, this should be removed
+// and probably some re-design of helpers and/or structures will be required.
+func (pc *ProverCommittingG1) FinishNegFirst() *ProverCommittedG1 {
+	blindings := make([]*bls12381.Fr, len(pc.blindingFactors))
 	copy(blindings, pc.blindingFactors)
+
 	negFirst := bls12381.NewFr()
+
 	negFirst.Neg(blindings[0])
 	blindings[0] = negFirst
 	commitment := sumOfG1Products(pc.bases, blindings)

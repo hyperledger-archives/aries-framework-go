@@ -51,16 +51,6 @@ func frToRepr(fr *bls12381.Fr) *bls12381.Fr {
 	return frRepr
 }
 
-func messagesToFr(messages [][]byte) []*SignatureMessage {
-	messagesFr := make([]*SignatureMessage, len(messages))
-
-	for i := range messages {
-		messagesFr[i] = ParseSignatureMessage(messages[i])
-	}
-
-	return messagesFr
-}
-
 func createRandSignatureFr() *bls12381.Fr {
 	fr, _ := bls12381.NewFr().Rand(rand.Reader) //nolint:errcheck
 

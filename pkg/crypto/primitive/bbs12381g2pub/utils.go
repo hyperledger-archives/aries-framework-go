@@ -9,12 +9,22 @@ package bbs12381g2pub
 import (
 	"encoding/binary"
 	"errors"
+
+	bls12381 "github.com/kilic/bls12-381"
 )
 
 func uint32ToBytes(value uint32) []byte {
 	bytes := make([]byte, 4)
 
 	binary.BigEndian.PutUint32(bytes, value)
+
+	return bytes
+}
+
+func uint64ToBytes(value uint64) []byte {
+	bytes := make([]byte, 8)
+
+	binary.BigEndian.PutUint64(bytes, value)
 
 	return bytes
 }
@@ -124,26 +134,36 @@ func reverseBytes(s []byte) []byte {
 	return s
 }
 
-func i2os2(value uint16) []byte {
-	bytes := make([]byte, 2)
+func calculateChallenge(aPrime, aBar, d, c1, c2 *bls12381.PointG1,
+	msgsMap map[int]*SignatureMessage, msgCnt int, domain *bls12381.Fr, nonce []byte) *bls12381.Fr {
+	r := len(msgsMap)
+	idxSz := 8
 
-	binary.BigEndian.PutUint16(bytes, value)
+	challengeBytes := g1.ToUncompressed(aPrime)
+	challengeBytes = append(challengeBytes, g1.ToUncompressed(aBar)...)
+	challengeBytes = append(challengeBytes, g1.ToUncompressed(d)...)
+	challengeBytes = append(challengeBytes, g1.ToUncompressed(c1)...)
+	challengeBytes = append(challengeBytes, g1.ToUncompressed(c2)...)
+	challengeBytes = append(challengeBytes, uint64ToBytes(uint64(r))...)
 
-	return bytes
-}
+	idxs := make([]byte, r*idxSz)
+	msgs := make([]byte, 0)
 
-func i2os4(value uint32) []byte {
-	bytes := make([]byte, 4)
+	for i := 0; i < msgCnt; i++ {
+		if m, ok := msgsMap[i]; ok {
+			idxs = append(idxs, uint64ToBytes(uint64(i))...)
+			msgs = append(msgs, m.FR.ToBytes()...)
+		}
+	}
 
-	binary.BigEndian.PutUint32(bytes, value)
+	challengeBytes = append(challengeBytes, idxs...)
+	challengeBytes = append(challengeBytes, msgs...)
+	challengeBytes = append(challengeBytes, domain.ToBytes()...)
+	proofNonce := ParseProofNonce(nonce)
+	proofNonceBytes := proofNonce.ToBytes()
+	challengeBytes = append(challengeBytes, proofNonceBytes...)
 
-	return bytes
-}
+	challenge := Hash2scalar(challengeBytes)
 
-func i2os8(value uint64) []byte {
-	bytes := make([]byte, 8)
-
-	binary.BigEndian.PutUint64(bytes, value)
-
-	return bytes
+	return challenge
 }

@@ -43,12 +43,6 @@ const (
 	// Number of bytes in G1 X coordinate.
 	g1CompressedSize = 48
 
-	// Number of bytes in G1 X and Y coordinates.
-	g1UncompressedSize = 96
-
-	// Number of bytes in G2 X(a, b) and Y(a, b) coordinates.
-	g2UncompressedSize = 192
-
 	// Number of bytes in scalar compressed form.
 	frCompressedSize = 32
 
@@ -75,7 +69,7 @@ func (bbs *BBSG2Pub) Verify(messages [][]byte, sigBytes, pubKeyBytes []byte) err
 		return fmt.Errorf("build generators from public key: %w", err)
 	}
 
-	messagesFr := messagesToFr(messages)
+	messagesFr := ParseSignatureMessages(messages)
 
 	return signature.Verify(messagesFr, publicKeyWithGenerators)
 }
@@ -106,7 +100,7 @@ func (bbs *BBSG2Pub) VerifyProof(messagesBytes [][]byte, proof, nonce, pubKeyByt
 		return fmt.Errorf("parse signature proof: %w", err)
 	}
 
-	messages := messagesToFr(messagesBytes)
+	messages := ParseSignatureMessages(messagesBytes)
 
 	pubKey, err := UnmarshalPublicKey(pubKeyBytes)
 	if err != nil {
@@ -127,13 +121,9 @@ func (bbs *BBSG2Pub) VerifyProof(messagesBytes [][]byte, proof, nonce, pubKeyByt
 		revealedMessages[payload.revealed[i]] = messages[i]
 	}
 
-	challengeBytes := signatureProof.GetBytesForChallenge(revealedMessages, publicKeyWithGenerators)
-	proofNonce := ParseProofNonce(nonce)
-	proofNonceBytes := proofNonce.ToBytes()
-	challengeBytes = append(challengeBytes, proofNonceBytes...)
-	proofChallenge := frFromOKM(challengeBytes)
+	challenge := signatureProof.CalculateChallenge(revealedMessages, publicKeyWithGenerators, nonce)
 
-	return signatureProof.Verify(proofChallenge, publicKeyWithGenerators, revealedMessages, messages)
+	return signatureProof.Verify(challenge, publicKeyWithGenerators, revealedMessages, messages)
 }
 
 // DeriveProof derives a proof of BBS+ signature with some messages disclosed.
@@ -147,7 +137,7 @@ func (bbs *BBSG2Pub) DeriveProof(messages [][]byte, sigBytes, nonce, pubKeyBytes
 
 	messagesCount := len(messages)
 
-	messagesFr := messagesToFr(messages)
+	messagesFr := ParseSignatureMessages(messages)
 
 	pubKey, err := UnmarshalPublicKey(pubKeyBytes)
 	if err != nil {
@@ -169,7 +159,7 @@ func (bbs *BBSG2Pub) DeriveProof(messages [][]byte, sigBytes, nonce, pubKeyBytes
 		return nil, fmt.Errorf("init proof of knowledge signature: %w", err)
 	}
 
-	proofChallenge := pokSignature.CalculateChallenge(publicKeyWithGenerators.domain, nonce)
+	proofChallenge := pokSignature.CalculateChallenge(messagesCount, publicKeyWithGenerators.domain, nonce)
 
 	proof := pokSignature.GenerateProof(proofChallenge)
 
@@ -197,25 +187,24 @@ func (bbs *BBSG2Pub) SignWithKey(messages [][]byte, privKey *PrivateKey) ([]byte
 		return nil, fmt.Errorf("build generators from public key: %w", err)
 	}
 
-	es_builder := newEcnodeForHashBuilder()
-	es_builder.addScalar(privKey.FR)
-	es_builder.addScalar(pubKeyWithGenerators.domain)
+	esBuilder := newEcnodeForHashBuilder()
+	esBuilder.addScalar(privKey.FR)
+	esBuilder.addScalar(pubKeyWithGenerators.domain)
 
-	messagesFr := make([]*SignatureMessage, messagesCount)
-	for i, msg := range messages {
-		messagesFr[i] = ParseSignatureMessage(msg)
-		es_builder.addBytes(msg)
+	for _, msg := range messages {
+		esBuilder.addBytes(msg)
 	}
 
-	es := Hash2scalars(es_builder.build(), 2)
+	es := Hash2scalars(esBuilder.build(), 2)
 	e, s := es[0], es[1]
 	exp := bls12381.NewFr().Set(privKey.FR)
 	exp.Add(exp, e)
 	exp.Inverse(exp)
 
-	sig := g1.New()
+	messagesFr := ParseSignatureMessages(messages)
 	b := computeB(s, messagesFr, pubKeyWithGenerators)
 
+	sig := g1.New()
 	g1.MulScalar(sig, b, frToRepr(exp))
 
 	signature := &Signature{
@@ -230,9 +219,12 @@ func (bbs *BBSG2Pub) SignWithKey(messages [][]byte, privKey *PrivateKey) ([]byte
 func computeB(s *bls12381.Fr, messages []*SignatureMessage, key *PublicKeyWithGenerators) *bls12381.PointG1 {
 	const basesOffset = 2
 
+	bindingBasis := g1.One()
+	bindingExp := bls12381.NewFr().One()
+
 	cb := newCommitmentBuilder(len(messages) + basesOffset)
 
-	cb.add(g1.One(), bls12381.NewFr().One())
+	cb.add(bindingBasis, bindingExp)
 	cb.add(key.Q1, s)
 	cb.add(key.Q2, key.domain)
 
@@ -308,7 +300,7 @@ func (pn *ProofNonce) ToBytes() []byte {
 }
 
 type encodeForHashBuilder struct {
-	bytes []byte //TODO check encoding functions per type below
+	bytes []byte // TODO check encoding functions per type below
 }
 
 func newEcnodeForHashBuilder() *encodeForHashBuilder {
@@ -318,7 +310,7 @@ func newEcnodeForHashBuilder() *encodeForHashBuilder {
 }
 
 func (db *encodeForHashBuilder) addInt(value int) {
-	db.bytes = append(db.bytes, i2os8(uint64(value))...)
+	db.bytes = append(db.bytes, uint64ToBytes(uint64(value))...)
 }
 
 func (db *encodeForHashBuilder) addPointG1(value *bls12381.PointG1) {
@@ -334,7 +326,7 @@ func (db *encodeForHashBuilder) addScalar(value *bls12381.Fr) {
 }
 
 func (db *encodeForHashBuilder) addBytes(value []byte) {
-	db.bytes = append(db.bytes, i2os8(uint64(len(value)))...)
+	db.bytes = append(db.bytes, uint64ToBytes(uint64(len(value)))...)
 	db.bytes = append(db.bytes, value...)
 }
 
