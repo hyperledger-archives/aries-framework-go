@@ -54,7 +54,8 @@ type InputDescriptorMapping struct {
 
 // MatchOptions is a holder of options that can set when matching a submission against definitions.
 type MatchOptions struct {
-	CredentialOptions []verifiable.CredentialOpt
+	CredentialOptions       []verifiable.CredentialOpt
+	DisableSchemaValidation bool
 }
 
 // MatchOption is an option that sets an option for when matching.
@@ -64,6 +65,13 @@ type MatchOption func(*MatchOptions)
 func WithCredentialOptions(options ...verifiable.CredentialOpt) MatchOption {
 	return func(m *MatchOptions) {
 		m.CredentialOptions = options
+	}
+}
+
+// WithDisableSchemaValidation used to disable schema validation.
+func WithDisableSchemaValidation() MatchOption {
+	return func(m *MatchOptions) {
+		m.DisableSchemaValidation = true
 	}
 }
 
@@ -113,6 +121,9 @@ func (pd *PresentationDefinition) Match(vp *verifiable.Presentation, // nolint:g
 				descriptorMapProperty, mapping.ID)
 		}
 
+		// TODO need to revisit this logic
+		mapping = pd.getPathNestedIfExists(mapping)
+
 		vc, selectErr := selectByPath(builder, typelessVP, mapping.Path, opts)
 		if selectErr != nil {
 			return nil, fmt.Errorf("failed to select vc from submission: %w", selectErr)
@@ -121,7 +132,7 @@ func (pd *PresentationDefinition) Match(vp *verifiable.Presentation, // nolint:g
 		inputDescriptor := pd.inputDescriptor(mapping.ID)
 
 		passed := filterSchema(inputDescriptor.Schema, []*verifiable.Credential{vc}, contextLoader)
-		if len(passed) == 0 {
+		if len(passed) == 0 && !opts.DisableSchemaValidation {
 			return nil, fmt.Errorf(
 				"input descriptor id [%s] requires schemas %+v which do not match vc with @context [%+v] and types [%+v] selected by path [%s]", // nolint:lll
 				inputDescriptor.ID, inputDescriptor.Schema, vc.Context, vc.Types, mapping.Path)
@@ -138,6 +149,14 @@ func (pd *PresentationDefinition) Match(vp *verifiable.Presentation, // nolint:g
 	}
 
 	return result, nil
+}
+
+func (pd *PresentationDefinition) getPathNestedIfExists(mapping *InputDescriptorMapping) *InputDescriptorMapping {
+	if mapping.PathNested != nil {
+		return pd.getPathNestedIfExists(mapping.PathNested)
+	}
+
+	return mapping
 }
 
 // Ensures the matched credentials meet the submission requirements.
