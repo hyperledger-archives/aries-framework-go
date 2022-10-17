@@ -30,7 +30,7 @@ func TestJWTCredClaimsMarshalJWS(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("Marshal signed JWT", func(t *testing.T) {
-		jws, err := jwtClaims.MarshalJWS(RS256, signer, "any")
+		jws, err := jwtClaims.MarshalJWS(RS256, signer, "did:123#key1")
 		require.NoError(t, err)
 
 		vcBytes, err := decodeCredJWS(jws, true, func(issuerID, keyID string) (*verifier.PublicKey, error) {

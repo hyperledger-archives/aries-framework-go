@@ -113,7 +113,7 @@ func createCredJWS(t *testing.T, vp *Presentation, signer Signer) string {
 	require.NoError(t, err)
 	require.NotNil(t, claims)
 
-	jws, err := claims.MarshalJWS(RS256, signer, "any")
+	jws, err := claims.MarshalJWS(RS256, signer, "did:123#key1")
 	require.NoError(t, err)
 
 	return jws

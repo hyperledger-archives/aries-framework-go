@@ -507,7 +507,7 @@ func TestPresentation_decodeCredentials(t *testing.T) {
 	jwtClaims, err := vc.JWTClaims(false)
 	r.NoError(err)
 
-	jws, err := jwtClaims.MarshalJWS(EdDSA, signer, "k1")
+	jws, err := jwtClaims.MarshalJWS(EdDSA, signer, "did:123#k1")
 	r.NoError(err)
 
 	// single credential - JWS

@@ -12,6 +12,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/square/go-jose/v3/json"
 	"golang.org/x/crypto/ed25519"
@@ -28,8 +29,6 @@ const (
 	// signatureRS256 defines RS256 alg.
 	signatureRS256 = "RS256"
 )
-
-const issuerClaim = "iss"
 
 // KeyResolver resolves public key based on what and kid.
 type KeyResolver interface {
@@ -151,14 +150,13 @@ func verifySignature(resolver KeyResolver, signatureVerifier signatureVerifier,
 		return fmt.Errorf("read claims from JSON Web Token: %w", err)
 	}
 
-	issuer, err := getIssuerClaim(claims)
-	if err != nil {
-		return fmt.Errorf("read issuer claim: %w", err)
-	}
-
 	kid, _ := joseHeaders.KeyID()
 
-	pubKey, err := resolver.Resolve(issuer, kid)
+	if !strings.HasPrefix(kid, "did:") {
+		return fmt.Errorf("kid %s is not DID", kid)
+	}
+
+	pubKey, err := resolver.Resolve(strings.Split(kid, "#")[0], strings.Split(kid, "#")[1])
 	if err != nil {
 		return err
 	}
@@ -205,18 +203,4 @@ func VerifyRS256(pubKey *verifier.PublicKey, message, signature []byte) error {
 	hashed := hash.Sum(nil)
 
 	return rsa.VerifyPKCS1v15(pubKeyRsa, crypto.SHA256, hashed, signature)
-}
-
-func getIssuerClaim(claims map[string]interface{}) (string, error) {
-	v, ok := claims[issuerClaim]
-	if !ok {
-		return "", errors.New("issuer claim is not defined")
-	}
-
-	s, ok := v.(string)
-	if !ok {
-		return "", errors.New("issuer claim is not a string")
-	}
-
-	return s, nil
 }
