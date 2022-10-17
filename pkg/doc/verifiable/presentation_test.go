@@ -348,16 +348,14 @@ func TestValidateVP_Context(t *testing.T) {
 }
 
 func TestValidateVP_ID(t *testing.T) {
-	t.Run("rejects verifiable presentation with non-url ID", func(t *testing.T) {
+	t.Run("accept verifiable presentation with string ID", func(t *testing.T) {
 		raw := &rawPresentation{}
 		require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
-		raw.ID = "not valid presentation ID URL"
+		raw.ID = "id"
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		vp, err := newTestPresentation(t, bytes)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "id: Does not match format 'uri'")
-		require.Nil(t, vp)
+		_, err = newTestPresentation(t, bytes)
+		require.NoError(t, err)
 	})
 }
 

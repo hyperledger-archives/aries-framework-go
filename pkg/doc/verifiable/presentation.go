@@ -56,8 +56,7 @@ const basePresentationSchema = `
       ]
     },
     "id": {
-      "type": "string",
-      "format": "uri"
+      "type": "string"
     },
     "type": {
       "oneOf": [
