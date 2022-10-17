@@ -195,7 +195,7 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 	issuerSigner, err := newCryptoSigner(kms.RSARS256Type)
 	r.NoError(err)
 
-	vcJWS, err := vcJWTClaims.MarshalJWS(RS256, issuerSigner, "issuer-key")
+	vcJWS, err := vcJWTClaims.MarshalJWS(RS256, issuerSigner, "did:123#issuer-key")
 	r.NoError(err)
 	r.NotNil(vcJWS)
 
@@ -213,7 +213,7 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 		jwtClaims, err := vp.JWTClaims([]string{}, true)
 		require.NoError(t, err)
 
-		vpJWS, err := jwtClaims.MarshalJWS(EdDSA, holderSigner, "holder-key")
+		vpJWS, err := jwtClaims.MarshalJWS(EdDSA, holderSigner, "did:123#holder-key")
 		r.NoError(err)
 
 		publicKeyFetcher := func(issuerID, keyID string) (*verifier.PublicKey, error) {
@@ -260,7 +260,7 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 		jwtClaims, err := vp.JWTClaims([]string{}, true)
 		require.NoError(t, err)
 
-		vpJWS, err := jwtClaims.MarshalJWS(EdDSA, holderSigner, "holder-key")
+		vpJWS, err := jwtClaims.MarshalJWS(EdDSA, holderSigner, "did:123#holder-key")
 		r.NoError(err)
 
 		// Decode VP
@@ -290,7 +290,7 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 		jwtClaims, err := vp.JWTClaims([]string{}, true)
 		require.NoError(t, err)
 
-		vpJWS, err := jwtClaims.MarshalJWS(EdDSA, holderSigner, "holder-key")
+		vpJWS, err := jwtClaims.MarshalJWS(EdDSA, holderSigner, "did:123#holder-key")
 		r.NoError(err)
 
 		// Decode VP

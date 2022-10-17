@@ -38,13 +38,18 @@ func getTestKeyResolver(pubKey *verifier.PublicKey, err error) KeyResolver {
 func TestNewVerifier(t *testing.T) {
 	r := require.New(t)
 
+	validHeaders := map[string]interface{}{
+		"alg": "EdDSA",
+		"kid": "did:123#key1",
+	}
+
 	t.Run("Verify JWT signed by EdDSA", func(t *testing.T) {
 		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 		r.NoError(err)
 
 		signer := NewEd25519Signer(privKey)
 
-		token, err := NewSigned(&Claims{Issuer: "Mike"}, nil, signer)
+		token, err := NewSigned(&Claims{Issuer: "Mike"}, validHeaders, signer)
 		r.NoError(err)
 		jws, err := token.Serialize(false)
 		r.NoError(err)
@@ -64,7 +69,7 @@ func TestNewVerifier(t *testing.T) {
 
 		pubKey := &privKey.PublicKey
 
-		signer := NewRS256Signer(privKey, nil)
+		signer := NewRS256Signer(privKey, validHeaders)
 
 		token, err := NewSigned(&Claims{Issuer: "Mike"}, nil, signer)
 		r.NoError(err)
@@ -94,26 +99,13 @@ func TestBasicVerifier_Verify(t *testing.T) { // error corner cases
 
 	validHeaders := map[string]interface{}{
 		"alg": "EdDSA",
+		"kid": "did:123#key1",
 	}
 
 	// Invalid claims
 	err = v.Verify(validHeaders, []byte("invalid JSON claims"), nil, nil)
 	r.Error(err)
 	r.Contains(err.Error(), "read claims from JSON Web Token")
-
-	// Issuer claim is not defined
-	claimsWithoutIssuer, err := json.Marshal(map[string]interface{}{})
-	r.NoError(err)
-	err = v.Verify(validHeaders, claimsWithoutIssuer, nil, nil)
-	r.Error(err)
-	r.Contains(err.Error(), "issuer claim is not defined")
-
-	// Issuer claim is not a string
-	claimsWithInvalidIssuer, err := json.Marshal(map[string]interface{}{"iss": 444})
-	r.NoError(err)
-	err = v.Verify(validHeaders, claimsWithInvalidIssuer, nil, nil)
-	r.Error(err)
-	r.Contains(err.Error(), "issuer claim is not a string")
 
 	validClaims, err := json.Marshal(map[string]interface{}{"iss": "Bob"})
 	r.NoError(err)
