@@ -56,7 +56,7 @@ func (sp *PoKOfSignatureProof) Verify(challenge *bls12381.Fr, pubKey *PublicKeyW
 func (sp *PoKOfSignatureProof) verifyVC1Proof(challenge *bls12381.Fr, pubKey *PublicKeyWithGenerators) error {
 	basesVC1 := []*bls12381.PointG1{sp.aPrime, pubKey.q1}
 	aBarD := new(bls12381.PointG1)
-	g1.Sub(aBarD, sp.aBar, sp.d)
+	g1.Add(aBarD, sp.aBar, sp.d)
 
 	err := sp.proofVC1.Verify(basesVC1, aBarD, challenge)
 	if err != nil {
@@ -70,14 +70,11 @@ func (sp *PoKOfSignatureProof) verifyVC2Proof(challenge *bls12381.Fr, pubKey *Pu
 	revealedMessages map[int]*SignatureMessage, messages []*SignatureMessage) error {
 	revealedMessagesCount := len(revealedMessages)
 
-	negD := g1.New()
-	g1.Neg(negD, sp.d)
-
 	bindingBasis := g1.One()
 	bindingExp := bls12381.NewFr().One()
 
 	basesVC2 := make([]*bls12381.PointG1, 0, 2+pubKey.messagesCount-revealedMessagesCount)
-	basesVC2 = append(basesVC2, negD, pubKey.q1)
+	basesVC2 = append(basesVC2, sp.d, pubKey.q1)
 
 	disclousedElementsCnt := 1 /* binding */ + 1 /* domain */ + revealedMessagesCount
 	basesDisclosed := make([]*bls12381.PointG1, 0, disclousedElementsCnt)

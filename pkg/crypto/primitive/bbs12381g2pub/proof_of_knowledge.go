@@ -53,6 +53,7 @@ func NewPoKOfSignature(signature *Signature, messages []*SignatureMessage, revea
 	cbD.add(b, r1)
 	cbD.add(pubKey.q1, r2)
 	d := cbD.build()
+	g1.Neg(d, d)
 
 	sPrime := bls12381.NewFr()
 	sPrime.Mul(r2, r3)
@@ -131,7 +132,7 @@ func newVC2Signature(d *bls12381.PointG1, r3 *bls12381.Fr, pubKey *PublicKeyWith
 		secrets2 = append(secrets2, hiddenFRCopy)
 	}
 
-	pokVC2 := committing2.FinishNegFirst()
+	pokVC2 := committing2.Finish()
 
 	return pokVC2, secrets2
 }
@@ -208,27 +209,6 @@ func (pc *ProverCommittingG1) Commit(base *bls12381.PointG1) {
 // Finish helps to generate ProverCommittedG1 after commitment of all base points.
 func (pc *ProverCommittingG1) Finish() *ProverCommittedG1 {
 	commitment := sumOfG1Products(pc.bases, pc.blindingFactors)
-
-	return &ProverCommittedG1{
-		bases:           pc.bases,
-		blindingFactors: pc.blindingFactors,
-		commitment:      commitment,
-	}
-}
-
-// FinishNegFirst is modified Finish() for case where first element should be neg while calc
-// TODO: this is a hack to align the current impl and a draft update of BBS spec.
-// As soon as the spec would be stable enough, this should be removed
-// and probably some re-design of helpers and/or structures will be required.
-func (pc *ProverCommittingG1) FinishNegFirst() *ProverCommittedG1 {
-	blindings := make([]*bls12381.Fr, len(pc.blindingFactors))
-	copy(blindings, pc.blindingFactors)
-
-	negFirst := bls12381.NewFr()
-
-	negFirst.Neg(blindings[0])
-	blindings[0] = negFirst
-	commitment := sumOfG1Products(pc.bases, blindings)
 
 	return &ProverCommittedG1{
 		bases:           pc.bases,
