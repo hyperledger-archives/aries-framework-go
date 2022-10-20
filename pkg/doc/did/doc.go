@@ -1317,7 +1317,7 @@ func (r *didKeyResolver) Resolve(id string) (*verifier.PublicKey, error) {
 // ErrKeyNotFound is returned when key is not found.
 var ErrKeyNotFound = errors.New("key not found")
 
-// nolint:funlen,gocognit,gocyclo
+// nolint:funlen,gocognit,gocyclo,nestif
 func populateRawServices(services []Service, didID, baseURI string) []map[string]interface{} {
 	var rawServices []map[string]interface{}
 
@@ -1389,7 +1389,7 @@ func populateRawServices(services []Service, didID, baseURI string) []map[string
 
 		rawService[jsonldType] = services[i].Type
 
-		if services[i].ServiceEndpoint.Type() == model.DIDCommV2 { // DIDComm V2
+		if services[i].ServiceEndpoint.Type() == model.DIDCommV2 { //nolint: gocritic
 			serviceEndpointMap := []map[string]interface{}{{"uri": sepURI}}
 			if len(sepAccept) > 0 {
 				serviceEndpointMap[0]["accept"] = sepAccept
@@ -1400,8 +1400,15 @@ func populateRawServices(services []Service, didID, baseURI string) []map[string
 			}
 
 			rawService[jsonldServicePoint] = serviceEndpointMap
-		} else { // DIDComm V1, default is generic endpoint as string URI
+		} else if services[i].ServiceEndpoint.Type() == model.DIDCommV1 {
 			rawService[jsonldServicePoint] = sepURI
+		} else {
+			bytes, err := services[i].ServiceEndpoint.MarshalJSON()
+			if err != nil {
+				logger.Warnf(err.Error())
+			}
+
+			rawService[jsonldServicePoint] = json.RawMessage(bytes)
 		}
 
 		rawService[jsonldPriority] = services[i].Priority
