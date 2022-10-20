@@ -77,34 +77,32 @@ func TestPrivateKey_PublicKey(t *testing.T) {
 		require.Equal(t, publicKeyB58, base58.Encode(publicKeyBytes))
 		require.NoError(t, err)
 	})
+}
 
-	t.Run("generators", func(t *testing.T) {
-		msgCnt := 2
-		_, privKey, err := generateKeyPairRandom()
-		require.NoError(t, err)
+func TestGenerators(t *testing.T) {
+	msgCnt := 2
+	generators, err := bbs.CreateGenerators(msgCnt + 2)
+	require.NoError(t, err)
 
-		pkExt, err := privKey.PublicKey().ToPublicKeyWithGenerators(msgCnt)
-		require.NoError(t, err)
+	bytes := bls12381.NewG1().ToCompressed(generators[0])
+	require.Equal(t,
+		"b60acd4b0dc13b580394d2d8bc6c07d452df8e2a7eff93bc9da965b57e076cae640c2858fb0c2eaf242b1bd11107d635",
+		hex.EncodeToString(bytes))
 
-		bytes := bls12381.NewG1().ToCompressed(pkExt.Q1)
-		require.Equal(t,
-			"b60acd4b0dc13b580394d2d8bc6c07d452df8e2a7eff93bc9da965b57e076cae640c2858fb0c2eaf242b1bd11107d635",
-			hex.EncodeToString(bytes))
-		bytes = bls12381.NewG1().ToCompressed(pkExt.Q2)
-		require.Equal(t,
-			"ad03f655b4c94f312b051aba45977c924bc5b4b1780c969534c183784c7275b70b876db641579604328c0975eaa0a137",
-			hex.EncodeToString(bytes))
+	bytes = bls12381.NewG1().ToCompressed(generators[1])
+	require.Equal(t,
+		"ad03f655b4c94f312b051aba45977c924bc5b4b1780c969534c183784c7275b70b876db641579604328c0975eaa0a137",
+		hex.EncodeToString(bytes))
 
-		require.Equal(t, msgCnt, len(pkExt.H))
-		bytes = bls12381.NewG1().ToCompressed(pkExt.H[0])
-		require.Equal(t,
-			"b63ae18d3edd64a2edd381290f0c68bebabaf3d37bc9dbb0bd5ad8daf03bbd2c48260255ba73f3389d2d5ad82303ac25",
-			hex.EncodeToString(bytes))
-		bytes = bls12381.NewG1().ToCompressed(pkExt.H[1])
-		require.Equal(t,
-			"b0b92b79a3e1fc59f39c6b9f78f00b873121c6a4c1814b94c07848efd172762fefbc48447a16f9ba8ed1b638e2933029",
-			hex.EncodeToString(bytes))
-	})
+	bytes = bls12381.NewG1().ToCompressed(generators[2])
+	require.Equal(t,
+		"b63ae18d3edd64a2edd381290f0c68bebabaf3d37bc9dbb0bd5ad8daf03bbd2c48260255ba73f3389d2d5ad82303ac25",
+		hex.EncodeToString(bytes))
+
+	bytes = bls12381.NewG1().ToCompressed(generators[3])
+	require.Equal(t,
+		"b0b92b79a3e1fc59f39c6b9f78f00b873121c6a4c1814b94c07848efd172762fefbc48447a16f9ba8ed1b638e2933029",
+		hex.EncodeToString(bytes))
 }
 
 func TestPublicKey_Marshal(t *testing.T) {

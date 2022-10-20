@@ -37,10 +37,10 @@ func (sp *PoKOfSignatureProof) CalculateChallenge(revealedMessages map[int]*Sign
 // Verify verifies PoKOfSignatureProof.
 func (sp *PoKOfSignatureProof) Verify(challenge *bls12381.Fr, pubKey *PublicKeyWithGenerators,
 	revealedMessages map[int]*SignatureMessage, messages []*SignatureMessage) error {
-	aPrimeNeg := g1.New()
-	aPrimeNeg = g1.Neg(aPrimeNeg, sp.aPrime)
+	aBar := new(bls12381.PointG1)
+	g1.Neg(aBar, sp.aBar)
 
-	ok := compareTwoPairings(aPrimeNeg, pubKey.w, sp.aBar, g2.One())
+	ok := compareTwoPairings(sp.aPrime, pubKey.w, aBar, g2.One())
 	if !ok {
 		return errors.New("bad signature")
 	}
@@ -54,7 +54,7 @@ func (sp *PoKOfSignatureProof) Verify(challenge *bls12381.Fr, pubKey *PublicKeyW
 }
 
 func (sp *PoKOfSignatureProof) verifyVC1Proof(challenge *bls12381.Fr, pubKey *PublicKeyWithGenerators) error {
-	basesVC1 := []*bls12381.PointG1{sp.aPrime, pubKey.Q1}
+	basesVC1 := []*bls12381.PointG1{sp.aPrime, pubKey.q1}
 	aBarD := new(bls12381.PointG1)
 	g1.Sub(aBarD, sp.aBar, sp.d)
 
@@ -77,18 +77,18 @@ func (sp *PoKOfSignatureProof) verifyVC2Proof(challenge *bls12381.Fr, pubKey *Pu
 	bindingExp := bls12381.NewFr().One()
 
 	basesVC2 := make([]*bls12381.PointG1, 0, 2+pubKey.messagesCount-revealedMessagesCount)
-	basesVC2 = append(basesVC2, negD, pubKey.Q1)
+	basesVC2 = append(basesVC2, negD, pubKey.q1)
 
 	disclousedElementsCnt := 1 /* binding */ + 1 /* domain */ + revealedMessagesCount
 	basesDisclosed := make([]*bls12381.PointG1, 0, disclousedElementsCnt)
 	exponentsDisclosed := make([]*bls12381.Fr, 0, disclousedElementsCnt)
 
-	basesDisclosed = append(basesDisclosed, bindingBasis, pubKey.Q2)
+	basesDisclosed = append(basesDisclosed, bindingBasis, pubKey.q2)
 	exponentsDisclosed = append(exponentsDisclosed, bindingExp, pubKey.domain)
 
 	revealedMessagesInd := 0
 
-	for i, hi := range pubKey.H {
+	for i, hi := range pubKey.h {
 		if _, ok := revealedMessages[i]; ok {
 			basesDisclosed = append(basesDisclosed, hi)
 			exponentsDisclosed = append(exponentsDisclosed, messages[revealedMessagesInd].FR)

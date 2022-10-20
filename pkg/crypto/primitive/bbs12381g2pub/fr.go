@@ -11,6 +11,16 @@ import (
 
 	bls12381 "github.com/kilic/bls12-381"
 	"golang.org/x/crypto/blake2b"
+	"golang.org/x/crypto/sha3"
+
+	bls12381intern "github.com/hyperledger/aries-framework-go/internal/third_party/kilic/bls12-381"
+)
+
+const (
+	logP2     = 384
+	k         = 128
+	h2sDST    = csID + "H2S_"
+	expandLen = (logP2 + k) / 8
 )
 
 func parseFr(data []byte) *bls12381.Fr {
@@ -55,4 +65,38 @@ func createRandSignatureFr() *bls12381.Fr {
 	fr, _ := bls12381.NewFr().Rand(rand.Reader) //nolint:errcheck
 
 	return frToRepr(fr)
+}
+
+// Hash2scalar convert message represented in bytes to Fr.
+func Hash2scalar(message []byte) *bls12381.Fr {
+	return Hash2scalars(message, 1)[0]
+}
+
+// Hash2scalars convert messages represented in bytes to Fr.
+func Hash2scalars(msg []byte, cnt int) []*bls12381.Fr {
+	bufLen := cnt * expandLen
+	msgLen := len(msg)
+	roundSz := 1
+	msgLenSz := 4
+
+	msgExt := make([]byte, msgLen+roundSz+msgLenSz)
+	copy(msgExt, msg)
+	copy(msgExt[msgLen+1:], uint32ToBytes(uint32(msgLen)))
+
+	out := make([]*bls12381.Fr, cnt)
+
+	for round, completed := byte(0), false; !completed; {
+		msgExt[msgLen] = round
+		buf, _ := bls12381intern.ExpandMsgXOF(sha3.NewShake256(), msgExt, []byte(h2sDST), bufLen) //nolint:errcheck
+
+		ok := true
+		for i := 0; i < cnt && ok; i++ {
+			out[i] = bls12381.NewFr().FromBytes(buf[i*expandLen : (i+1)*expandLen])
+			ok = !out[i].IsZero()
+		}
+
+		completed = ok
+	}
+
+	return out
 }

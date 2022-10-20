@@ -51,14 +51,14 @@ func NewPoKOfSignature(signature *Signature, messages []*SignatureMessage, revea
 	commitmentBasesCount := 2
 	cbD := newCommitmentBuilder(commitmentBasesCount)
 	cbD.add(b, r1)
-	cbD.add(pubKey.Q1, r2)
+	cbD.add(pubKey.q1, r2)
 	d := cbD.build()
 
 	sPrime := bls12381.NewFr()
 	sPrime.Mul(r2, r3)
 	sPrime.Add(sPrime, signature.S)
 
-	pokVC1, secrets1 := newVC1Signature(aPrime, pubKey.Q1, signature.E, r2)
+	pokVC1, secrets1 := newVC1Signature(aPrime, pubKey.q1, signature.E, r2)
 
 	revealedMessages := make(map[int]*SignatureMessage, len(revealedIndexes))
 
@@ -113,7 +113,7 @@ func newVC2Signature(d *bls12381.PointG1, r3 *bls12381.Fr, pubKey *PublicKeyWith
 	secrets2 := make([]*bls12381.Fr, 0, baseSecretsCount+messagesCount)
 
 	committing2.Commit(d)
-	committing2.Commit(pubKey.Q1)
+	committing2.Commit(pubKey.q1)
 
 	secrets2 = append(secrets2, r3, sPrime)
 
@@ -122,7 +122,7 @@ func newVC2Signature(d *bls12381.PointG1, r3 *bls12381.Fr, pubKey *PublicKeyWith
 			continue
 		}
 
-		committing2.Commit(pubKey.H[i])
+		committing2.Commit(pubKey.h[i])
 
 		sourceFR := messages[i].FR
 		hiddenFRCopy := bls12381.NewFr()

@@ -21,18 +21,12 @@ import (
 )
 
 const (
-	seedSize        = frCompressedSize
-	generateKeySalt = "BBS-SIG-KEYGEN-SALT-"
-	csID            = "BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_"
-	seedDST         = csID + "SIG_GENERATOR_SEED_"
-	generatorDST    = csID + "SIG_GENERATOR_DST_"
-	generatorSeed   = csID + "MESSAGE_GENERATOR_SEED"
-	h2sDST          = csID + "H2S_"
-	logP2           = 384
-	logR2           = 251
-	k               = 128
-	expandLen       = (logP2 + k) / 8
-	seedLen         = ((logR2 + k) + 7) / 8 //nolint:gomnd
+	seedSize      = frCompressedSize
+	seedDST       = csID + "SIG_GENERATOR_SEED_"
+	generatorDST  = csID + "SIG_GENERATOR_DST_"
+	generatorSeed = csID + "MESSAGE_GENERATOR_SEED"
+	logR2         = 251
+	seedLen       = ((logR2 + k) + 7) / 8 //nolint:gomnd
 )
 
 // PublicKey defines BLS Public Key.
@@ -48,9 +42,9 @@ type PrivateKey struct {
 // PublicKeyWithGenerators extends PublicKey with a blinding generator h0, a commitment to the secret key w,
 // and a generator for each message h.
 type PublicKeyWithGenerators struct {
-	Q1 *bls12381.PointG1
-	Q2 *bls12381.PointG1
-	H  []*bls12381.PointG1
+	q1 *bls12381.PointG1
+	q2 *bls12381.PointG1
+	h  []*bls12381.PointG1
 
 	w *bls12381.PointG2
 
@@ -64,7 +58,7 @@ func (pk *PublicKey) ToPublicKeyWithGenerators(messagesCount int) (*PublicKeyWit
 	specGenCnt := 2
 	genCnt := messagesCount + specGenCnt
 
-	generators, err := createGenerators(genCnt)
+	generators, err := CreateGenerators(genCnt)
 	if err != nil {
 		return nil, err
 	}
@@ -83,9 +77,9 @@ func (pk *PublicKey) ToPublicKeyWithGenerators(messagesCount int) (*PublicKeyWit
 	domain := Hash2scalar(domainBuilder.build())
 
 	return &PublicKeyWithGenerators{
-		Q1:            generators[0],
-		Q2:            generators[1],
-		H:             generators[2:],
+		q1:            generators[0],
+		q2:            generators[1],
+		h:             generators[2:],
 		w:             pk.PointG2,
 		messagesCount: messagesCount,
 		domain:        domain,
@@ -103,7 +97,8 @@ func hashToG1(data, dst []byte) (*bls12381.PointG1, error) {
 	return g1.FromBytes(g.ToBytes(p))
 }
 
-func createGenerators(cnt int) ([]*bls12381.PointG1, error) {
+// CreateGenerators create `cnt` determenistic generators.
+func CreateGenerators(cnt int) ([]*bls12381.PointG1, error) {
 	generators := make([]*bls12381.PointG1, cnt)
 
 	v, err := bls12381intern.ExpandMsgXOF(sha3.NewShake256(), []byte(generatorSeed), []byte(seedDST), seedLen)
@@ -202,6 +197,7 @@ func GenerateKeyPair(h func() hash.Hash, seed []byte) (*PublicKey, *PrivateKey, 
 }
 
 func generateOKM(ikm []byte, h func() hash.Hash) ([]byte, error) {
+	generateKeySalt := "BBS-SIG-KEYGEN-SALT-"
 	salt := []byte(generateKeySalt)
 	info := make([]byte, 2)
 
@@ -231,38 +227,4 @@ func newHKDF(h func() hash.Hash, ikm, salt, info []byte, length int) ([]byte, er
 	}
 
 	return result, nil
-}
-
-// Hash2scalar convert message represented in bytes to Fr.
-func Hash2scalar(message []byte) *bls12381.Fr {
-	return Hash2scalars(message, 1)[0]
-}
-
-// Hash2scalars convert messages represented in bytes to Fr.
-func Hash2scalars(msg []byte, cnt int) []*bls12381.Fr {
-	bufLen := cnt * expandLen
-	msgLen := len(msg)
-	roundSz := 1
-	msgLenSz := 4
-
-	msgExt := make([]byte, msgLen+roundSz+msgLenSz)
-	copy(msgExt, msg)
-	copy(msgExt[msgLen+1:], uint32ToBytes(uint32(msgLen)))
-
-	out := make([]*bls12381.Fr, cnt)
-
-	for round, completed := byte(0), false; !completed; {
-		msgExt[msgLen] = round
-		buf, _ := bls12381intern.ExpandMsgXOF(sha3.NewShake256(), msgExt, []byte(h2sDST), bufLen) //nolint:errcheck
-
-		ok := true
-		for i := 0; i < cnt && ok; i++ {
-			out[i] = bls12381.NewFr().FromBytes(buf[i*expandLen : (i+1)*expandLen])
-			ok = !out[i].IsZero()
-		}
-
-		completed = ok
-	}
-
-	return out
 }

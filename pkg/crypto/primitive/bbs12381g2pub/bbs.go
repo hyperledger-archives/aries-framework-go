@@ -48,6 +48,9 @@ const (
 
 	// Number of bytes in scalar uncompressed form.
 	frUncompressedSize = 48
+
+	// Ciphersuite ID for BLS12-381 and SHAKE-256 combination.
+	csID = "BBS_BLS12381G1_XOF:SHAKE-256_SSWU_RO_"
 )
 
 // Verify makes BLS BBS12-381 signature verification.
@@ -225,11 +228,11 @@ func computeB(s *bls12381.Fr, messages []*SignatureMessage, key *PublicKeyWithGe
 	cb := newCommitmentBuilder(len(messages) + basesOffset)
 
 	cb.add(bindingBasis, bindingExp)
-	cb.add(key.Q1, s)
-	cb.add(key.Q2, key.domain)
+	cb.add(key.q1, s)
+	cb.add(key.q2, key.domain)
 
 	for i := 0; i < len(messages); i++ {
-		cb.add(key.H[i], messages[i].FR)
+		cb.add(key.h[i], messages[i].FR)
 	}
 
 	return cb.build()
