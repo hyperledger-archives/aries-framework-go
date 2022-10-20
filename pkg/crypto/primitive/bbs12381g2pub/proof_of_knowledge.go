@@ -35,18 +35,15 @@ func NewPoKOfSignature(signature *Signature, messages []*SignatureMessage, revea
 		return nil, fmt.Errorf("verify input signature: %w", err)
 	}
 
-	r1, r2 := createRandSignatureFr(), createRandSignatureFr()
-
 	b := computeB(signature.S, messages, pubKey)
 
-	r3 := bls12381.NewFr()
+	r1, r2, r3 := createRandSignatureFr(), createRandSignatureFr(), bls12381.NewFr()
 	r3.Inverse(r1)
 
 	aPrime := g1.New()
 	g1.MulScalar(aPrime, signature.A, frToRepr(r1))
 
-	aBar := g1.New()
-	aBarDenom := g1.New()
+	aBar, aBarDenom := g1.New(), g1.New()
 	g1.MulScalar(aBarDenom, aPrime, frToRepr(signature.E))
 	g1.MulScalar(aBar, b, frToRepr(r1))
 	g1.Sub(aBar, aBar, aBarDenom)
@@ -72,8 +69,10 @@ func NewPoKOfSignature(signature *Signature, messages []*SignatureMessage, revea
 
 	for _, ind := range revealedIndexes {
 		if ind >= len(messages) {
-			return nil, fmt.Errorf("invalid revealed index: requested index %d is larger than %d messages count", ind, len(messages))
+			return nil, fmt.Errorf("invalid revealed index: requested index %d is larger than %d messages count",
+				ind, len(messages))
 		}
+
 		revealedMessages[ind] = messages[ind]
 	}
 
