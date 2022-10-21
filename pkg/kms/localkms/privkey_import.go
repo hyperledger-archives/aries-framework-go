@@ -24,17 +24,19 @@ import (
 	bbspb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/bbs_go_proto"
 	clpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/cl_go_proto"
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
+	secp256k1pb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/secp256k1_go_proto"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 const (
-	ecdsaSignerTypeURL   = "type.googleapis.com/google.crypto.tink.EcdsaPrivateKey"
-	ed25519SignerTypeURL = "type.googleapis.com/google.crypto.tink.Ed25519PrivateKey"
-	bbsSignerKeyTypeURL  = "type.hyperledger.org/hyperledger.aries.crypto.tink.BBSPrivateKey"
-
+	ecdsaSignerTypeURL           = "type.googleapis.com/google.crypto.tink.EcdsaPrivateKey"
+	ed25519SignerTypeURL         = "type.googleapis.com/google.crypto.tink.Ed25519PrivateKey"
+	bbsSignerKeyTypeURL          = "type.hyperledger.org/hyperledger.aries.crypto.tink.BBSPrivateKey"
+	secp256k1SignerTypeURL       = "type.googleapis.com/google.crypto.tink.secp256k1PrivateKey"
 	nistpECDHKWPrivateKeyTypeURL = "type.hyperledger.org/hyperledger.aries.crypto.tink.NistPEcdhKwPrivateKey"
 )
 
+//nolint:funlen,gocyclo
 func (l *LocalKMS) importECDSAKey(privKey *ecdsa.PrivateKey, kt kms.KeyType,
 	opts ...kms.PrivateKeyOpts) (string, *keyset.Handle, error) {
 	var params *ecdsapb.EcdsaParams
@@ -83,6 +85,18 @@ func (l *LocalKMS) importECDSAKey(privKey *ecdsa.PrivateKey, kt kms.KeyType,
 			Encoding: ecdsapb.EcdsaSignatureEncoding_IEEE_P1363,
 			HashType: commonpb.HashType_SHA512,
 		}
+	case kms.ECDSASecp256k1DER:
+		return l.importSecp256K1Key(privKey, &secp256k1pb.Secp256K1Params{
+			HashType: commonpb.HashType_SHA256,
+			Curve:    secp256k1pb.BitcoinCurveType_SECP256K1,
+			Encoding: secp256k1pb.Secp256K1SignatureEncoding_Bitcoin_DER,
+		})
+	case kms.ECDSASecp256k1IEEEP1363:
+		return l.importSecp256K1Key(privKey, &secp256k1pb.Secp256K1Params{
+			HashType: commonpb.HashType_SHA256,
+			Curve:    secp256k1pb.BitcoinCurveType_SECP256K1,
+			Encoding: secp256k1pb.Secp256K1SignatureEncoding_Bitcoin_IEEE_P1363,
+		})
 	default:
 		return "", nil, fmt.Errorf("import private EC key failed: invalid ECDSA key type")
 	}
@@ -93,6 +107,18 @@ func (l *LocalKMS) importECDSAKey(privKey *ecdsa.PrivateKey, kt kms.KeyType,
 	}
 
 	ks := newKeySet(ecdsaSignerTypeURL, mKeyValue, tinkpb.KeyData_ASYMMETRIC_PRIVATE)
+
+	return l.importKeySet(ks, opts...)
+}
+
+func (l *LocalKMS) importSecp256K1Key(privKey *ecdsa.PrivateKey, params *secp256k1pb.Secp256K1Params,
+	opts ...kms.PrivateKeyOpts) (string, *keyset.Handle, error) {
+	mKeyValue, err := getMarshalledECDSASecp256K1PrivateKey(privKey, params)
+	if err != nil {
+		return "", nil, fmt.Errorf("import private EC secp256k1 key failed: %w", err)
+	}
+
+	ks := newKeySet(secp256k1SignerTypeURL, mKeyValue, tinkpb.KeyData_ASYMMETRIC_PRIVATE)
 
 	return l.importKeySet(ks, opts...)
 }
@@ -155,6 +181,12 @@ func (l *LocalKMS) importKeySet(ks *tinkpb.Keyset, opts ...kms.PrivateKeyOpts) (
 func getMarshalledECDSAPrivateKey(privKey *ecdsa.PrivateKey, params *ecdsapb.EcdsaParams) ([]byte, error) {
 	pubKeyProto := newProtoECDSAPublicKey(&privKey.PublicKey, params)
 	return proto.Marshal(newProtoECDSAPrivateKey(pubKeyProto, privKey.D.Bytes()))
+}
+
+func getMarshalledECDSASecp256K1PrivateKey(privKey *ecdsa.PrivateKey,
+	params *secp256k1pb.Secp256K1Params) ([]byte, error) {
+	pubKeyProto := newProtoSecp256K1PublicKey(&privKey.PublicKey, params)
+	return proto.Marshal(newProtoECDSASecp256K1PrivateKey(pubKeyProto, privKey.D.Bytes()))
 }
 
 func (l *LocalKMS) importEd25519Key(privKey ed25519.PrivateKey, kt kms.KeyType,
@@ -230,6 +262,16 @@ func validECPrivateKey(privateKey *ecdsa.PrivateKey) error {
 // newProtoECDSAPrivateKey creates a ECDSAPrivateKey with the specified parameters.
 func newProtoECDSAPrivateKey(publicKey *ecdsapb.EcdsaPublicKey, keyValue []byte) *ecdsapb.EcdsaPrivateKey {
 	return &ecdsapb.EcdsaPrivateKey{
+		Version:   0,
+		PublicKey: publicKey,
+		KeyValue:  keyValue,
+	}
+}
+
+// newProtoECDSASecp256K1PrivateKey creates a Secp256K1PrivateKey with the specified parameters.
+func newProtoECDSASecp256K1PrivateKey(publicKey *secp256k1pb.Secp256K1PublicKey,
+	keyValue []byte) *secp256k1pb.Secp256K1PrivateKey {
+	return &secp256k1pb.Secp256K1PrivateKey{
 		Version:   0,
 		PublicKey: publicKey,
 		KeyValue:  keyValue,

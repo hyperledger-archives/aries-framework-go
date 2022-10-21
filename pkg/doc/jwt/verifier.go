@@ -98,7 +98,7 @@ func GetVerifier(publicKey *verifier.PublicKey) (*BasicVerifier, error) {
 		v = verifier.NewECDSAES521SignatureVerifier()
 	case kmsapi.ED25519Type:
 		v = verifier.NewEd25519SignatureVerifier()
-	case kmsapi.ECDSASecp256k1TypeIEEEP1363:
+	case kmsapi.ECDSASecp256k1DER, kmsapi.ECDSASecp256k1TypeIEEEP1363:
 		v = verifier.NewECDSASecp256k1SignatureVerifier()
 	case kmsapi.RSAPS256Type:
 		v = verifier.NewRSAPS256SignatureVerifier()

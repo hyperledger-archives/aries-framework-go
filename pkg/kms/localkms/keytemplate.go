@@ -19,10 +19,11 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/bbs"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/secp256k1"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
-// nolint:gocyclo
+// nolint:gocyclo,funlen
 func keyTemplate(keyType kms.KeyType, _ ...kms.KeyOpts) (*tinkpb.KeyTemplate, error) {
 	switch keyType {
 	case kms.AES128GCMType:
@@ -67,6 +68,10 @@ func keyTemplate(keyType kms.KeyType, _ ...kms.KeyOpts) (*tinkpb.KeyTemplate, er
 		return ecdh.X25519ECDHKWKeyTemplate(), nil
 	case kms.BLS12381G2Type:
 		return bbs.BLS12381G2KeyTemplate(), nil
+	case kms.ECDSASecp256k1DER:
+		return secp256k1.DERKeyTemplate()
+	case kms.ECDSASecp256k1IEEEP1363:
+		return secp256k1.IEEEP1363KeyTemplate()
 	default:
 		return nil, fmt.Errorf("getKeyTemplate: key type '%s' unrecognized", keyType)
 	}

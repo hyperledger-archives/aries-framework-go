@@ -263,9 +263,10 @@ func (r *RemoteCrypto) doHTTPRequest(method, destination string, mReq []byte) (*
 // Encrypt will remotely encrypt msg and aad using a matching AEAD primitive in a remote key handle at keyURL of
 // a public key.
 // returns:
-// 		cipherText in []byte
-//		nonce in []byte
-//		error in case of errors during encryption
+//
+//	cipherText in []byte
+//	nonce in []byte
+//	error in case of errors during encryption
 func (r *RemoteCrypto) Encrypt(msg, aad []byte, keyURL interface{}) ([]byte, []byte, error) {
 	startEncrypt := time.Now()
 	destination := fmt.Sprintf("%s", keyURL) + encryptURI
@@ -312,8 +313,9 @@ func (r *RemoteCrypto) Encrypt(msg, aad []byte, keyURL interface{}) ([]byte, []b
 // Decrypt will remotely decrypt cipher with aad and given nonce using a matching AEAD primitive in a remote key handle
 // at keyURL of a private key.
 // returns:
-//		plainText in []byte
-//		error in case of errors
+//
+//	plainText in []byte
+//	error in case of errors
 func (r *RemoteCrypto) Decrypt(cipher, aad, nonce []byte, keyURL interface{}) ([]byte, error) {
 	startDecrypt := time.Now()
 	destination := fmt.Sprintf("%s", keyURL) + decryptURI
@@ -360,8 +362,9 @@ func (r *RemoteCrypto) Decrypt(cipher, aad, nonce []byte, keyURL interface{}) ([
 
 // Sign will remotely sign msg using a matching signature primitive in remote kh key handle at keyURL of a private key.
 // returns:
-// 		signature in []byte
-//		error in case of errors
+//
+//	signature in []byte
+//	error in case of errors
 func (r *RemoteCrypto) Sign(msg []byte, keyURL interface{}) ([]byte, error) {
 	startSign := time.Now()
 	destination := fmt.Sprintf("%s", keyURL) + signURI
@@ -407,7 +410,8 @@ func (r *RemoteCrypto) Sign(msg []byte, keyURL interface{}) ([]byte, error) {
 // Verify will remotely verify a signature for the given msg using a matching signature primitive in a remote key
 // handle at keyURL of a public key.
 // returns:
-// 		error in case of errors or nil if signature verification was successful
+//
+//	error in case of errors or nil if signature verification was successful
 func (r *RemoteCrypto) Verify(signature, msg []byte, keyURL interface{}) error {
 	startVerify := time.Now()
 	destination := fmt.Sprintf("%s", keyURL) + verifyURI
@@ -539,8 +543,9 @@ func (r *RemoteCrypto) VerifyMAC(mac, data []byte, keyURL interface{}) error {
 // 'opts' allows setting the option sender key handle using WithSender() option where the sender key handle consists
 // of a remote key located in the option as a keyURL. This option allows ECDH-1PU key wrapping (aka Authcrypt).
 // The absence of this option uses ECDH-ES key wrapping (aka Anoncrypt).
-// 		RecipientWrappedKey containing the wrapped cek value
-// 		error in case of errors
+//
+//	RecipientWrappedKey containing the wrapped cek value
+//	error in case of errors
 func (r *RemoteCrypto) WrapKey(cek, apu, apv []byte, recPubKey *crypto.PublicKey, // nolint:funlen
 	opts ...crypto.WrapKeyOpts) (*crypto.RecipientWrappedKey, error) {
 	startWrapKey := time.Now()
@@ -621,8 +626,9 @@ func (r *RemoteCrypto) buildWrappedKeyResponse(respBody []byte, dest string) (*c
 // of a remote key located in the option as a keyURL. This options allows ECDH-1PU key unwrapping (aka Authcrypt).
 // The absence of this option uses ECDH-ES key unwrapping (aka Anoncrypt).
 // returns:
-// 		unwrapped key in raw bytes
-// 		error in case of errors
+//
+//	unwrapped key in raw bytes
+//	error in case of errors
 func (r *RemoteCrypto) UnwrapKey(recWK *crypto.RecipientWrappedKey, keyURL interface{},
 	opts ...crypto.WrapKeyOpts) ([]byte, error) {
 	startUnwrapKey := time.Now()
@@ -700,8 +706,9 @@ func ksToCryptoPublicKey(ks interface{}) (*crypto.PublicKey, error) {
 
 // SignMulti will create a BBS+ signature of messages using the signer's private key handle found at signerKeyURL.
 // returns:
-// 		signature in []byte
-//		error in case of errors
+//
+//	signature in []byte
+//	error in case of errors
 func (r *RemoteCrypto) SignMulti(messages [][]byte, signerKeyURL interface{}) ([]byte, error) {
 	startSign := time.Now()
 	destination := fmt.Sprintf("%s", signerKeyURL) + signMultiURI
@@ -746,7 +753,8 @@ func (r *RemoteCrypto) SignMulti(messages [][]byte, signerKeyURL interface{}) ([
 
 // VerifyMulti will BBS+ verify a signature of messages against the signer's public key handle found at signerKeyURL.
 // returns:
-// 		error in case of errors or nil if signature verification was successful
+//
+//	error in case of errors or nil if signature verification was successful
 func (r *RemoteCrypto) VerifyMulti(messages [][]byte, signature []byte, signerKeyURL interface{}) error {
 	startVerify := time.Now()
 	destination := fmt.Sprintf("%s", signerKeyURL) + verifyMultiURI
@@ -781,7 +789,8 @@ func (r *RemoteCrypto) VerifyMulti(messages [][]byte, signature []byte, signerKe
 // VerifyProof will verify a BBS+ signature proof (generated e.g. by Verifier's DeriveProof() call) for revealedMessages
 // with the signer's public key handle found at signerKeyURL.
 // returns:
-// 		error in case of errors or nil if signature proof verification was successful
+//
+//	error in case of errors or nil if signature proof verification was successful
 func (r *RemoteCrypto) VerifyProof(revealedMessages [][]byte, proof, nonce []byte, signerKeyURL interface{}) error {
 	startVerifyProof := time.Now()
 	destination := fmt.Sprintf("%s", signerKeyURL) + verifyProofURI
@@ -817,8 +826,9 @@ func (r *RemoteCrypto) VerifyProof(revealedMessages [][]byte, proof, nonce []byt
 // DeriveProof will create a BBS+ signature proof for a list of revealed messages using BBS signature (can be built
 // using a Signer's SignMulti() call) and the signer's public key handle found at signerKeyURL.
 // returns:
-// 		signature proof in []byte
-//		error in case of errors
+//
+//	signature proof in []byte
+//	error in case of errors
 func (r *RemoteCrypto) DeriveProof(messages [][]byte, bbsSignature, nonce []byte, revealedIndexes []int,
 	signerKeyURL interface{}) ([]byte, error) {
 	startDeriveProof := time.Now()
@@ -867,8 +877,9 @@ func (r *RemoteCrypto) DeriveProof(messages [][]byte, bbsSignature, nonce []byte
 
 // Blind will blind provided values with MasterSecret provided in a kh
 // returns:
-// 		blinded values in []byte
-//		error in case of errors
+//
+//	blinded values in []byte
+//	error in case of errors
 func (r *RemoteCrypto) Blind(kh interface{}, values ...map[string]interface{}) ([][]byte, error) {
 	startBlind := time.Now()
 	destination := fmt.Sprintf("%s", kh) + blindURI
@@ -913,8 +924,9 @@ func (r *RemoteCrypto) Blind(kh interface{}, values ...map[string]interface{}) (
 
 // GetCorrectnessProof will return correctness proof for a public key handle
 // returns:
-// 		correctness proof in []byte
-//		error in case of errors
+//
+//	correctness proof in []byte
+//	error in case of errors
 func (r *RemoteCrypto) GetCorrectnessProof(kh interface{}) ([]byte, error) {
 	startGet := time.Now()
 	destination := fmt.Sprintf("%s", kh) + correctnessProofURI
@@ -951,9 +963,10 @@ func (r *RemoteCrypto) GetCorrectnessProof(kh interface{}) ([]byte, error) {
 // SignWithSecrets will generate a signature and related correctness proof
 // for the provided values using secrets and related DID
 // returns:
-// 		signature in []byte
-// 		correctness proof in []byte
-//		error in case of errors
+//
+//	signature in []byte
+//	correctness proof in []byte
+//	error in case of errors
 func (r *RemoteCrypto) SignWithSecrets(kh interface{}, values map[string]interface{},
 	secrets []byte, correctnessProof []byte, nonces [][]byte, did string) ([]byte, []byte, error) {
 	startSign := time.Now()
@@ -984,7 +997,7 @@ func (r *RemoteCrypto) SignWithSecrets(kh interface{}, values map[string]interfa
 		return nil, nil, fmt.Errorf("posting CL SignWithSecrets returned http error: %s", resp.Status)
 	}
 
-	respBody, err := ioutil.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, nil, fmt.Errorf("read response for CL SignWithSecrets failed [%s, %w]", destination, err)
 	}

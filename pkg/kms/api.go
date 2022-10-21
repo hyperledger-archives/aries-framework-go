@@ -115,6 +115,8 @@ const (
 	ECDSAP384DER = "ECDSAP384DER"
 	// ECDSAP521DER key type value.
 	ECDSAP521DER = "ECDSAP521DER"
+	// ECDSASecp256k1DER key type value.
+	ECDSASecp256k1DER = "ECDSASecp256k1DER"
 	// ECDSAP256IEEEP1363 key type value.
 	ECDSAP256IEEEP1363 = "ECDSAP256IEEEP1363"
 	// ECDSAP384IEEEP1363 key type value.
@@ -163,6 +165,8 @@ const (
 	XChaCha20Poly1305Type = KeyType(XChaCha20Poly1305)
 	// ECDSAP256TypeDER key type value.
 	ECDSAP256TypeDER = KeyType(ECDSAP256DER)
+	// ECDSASecp256k1TypeDER key type value.
+	ECDSASecp256k1TypeDER = KeyType(ECDSASecp256k1DER)
 	// ECDSAP384TypeDER key type value.
 	ECDSAP384TypeDER = KeyType(ECDSAP384DER)
 	// ECDSAP521TypeDER key type value.

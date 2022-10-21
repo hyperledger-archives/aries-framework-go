@@ -14,6 +14,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/btcsuite/btcd/btcec"
+
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	kmsapi "github.com/hyperledger/aries-framework-go/pkg/kms"
 )
@@ -60,6 +62,8 @@ func (s *CryptoSigner) Alg() string {
 			return p384Alg
 		case elliptic.P521():
 			return p521Alg
+		case btcec.S256():
+			return secp256Alg
 		}
 	case ed25519.PublicKey:
 		return alg

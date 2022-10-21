@@ -17,7 +17,9 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"reflect"
 
+	"github.com/btcsuite/btcd/btcec"
 	hybrid "github.com/google/tink/go/hybrid/subtle"
 
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
@@ -32,8 +34,10 @@ var errInvalidKeyType = errors.New("key type is not supported")
 // CreateKID creates a KID value based on the marshalled keyBytes of type kt. This function should be called for
 // asymmetric public keys only (ECDSA DER or IEEE-P1363, ED25519, X25519, BLS12381G2).
 // returns:
-//  - base64 raw (no padding) URL encoded KID
-//  - error in case of error
+//   - base64 raw (no padding) URL encoded KID
+//   - error in case of error
+//
+//nolint:gocyclo
 func CreateKID(keyBytes []byte, kt kms.KeyType) (string, error) {
 	if len(keyBytes) == 0 {
 		return "", errors.New("createKID: empty key")
@@ -61,6 +65,13 @@ func CreateKID(keyBytes []byte, kt kms.KeyType) (string, error) {
 		}
 
 		return bbsKID, nil
+	case kms.ECDSASecp256k1TypeDER, kms.ECDSASecp256k1TypeIEEEP1363:
+		secp256k1KID, err := secp256k1Thumbprint(keyBytes, kt)
+		if err != nil {
+			return "", fmt.Errorf("createKID: %w", err)
+		}
+
+		return secp256k1KID, nil
 	}
 
 	j, err := BuildJWK(keyBytes, kt)
@@ -76,6 +87,100 @@ func CreateKID(keyBytes []byte, kt kms.KeyType) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(tp), nil
 }
 
+func secp256k1Thumbprint(keyBytes []byte, kt kms.KeyType) (string, error) {
+	switch kt {
+	case kms.ECDSASecp256k1IEEEP1363:
+	case kms.ECDSASecp256k1DER:
+	default:
+		return "", fmt.Errorf("secp256k1Thumbprint: invalid key type: %s", kt)
+	}
+
+	j, err := BuildJWK(keyBytes, kt)
+	if err != nil {
+		return "", fmt.Errorf("secp256k1Thumbprint: failed to build jwk: %w", err)
+	}
+
+	var input string
+
+	switch key := j.Key.(type) {
+	case *ecdsa.PublicKey:
+		input, err = secp256k1ThumbprintInput(key.Curve, key.X, key.Y)
+		if err != nil {
+			return "", fmt.Errorf("secp256k1Thumbprint: failed to get public key thumbprint input: %w", err)
+		}
+	case *ecdsa.PrivateKey:
+		input, err = secp256k1ThumbprintInput(key.Curve, key.X, key.Y)
+		if err != nil {
+			return "", fmt.Errorf("secp256k1Thumbprint: failed to get private key thumbprint input: %w", err)
+		}
+	default:
+		return "", fmt.Errorf("secp256k1Thumbprint: unknown key type '%s'", reflect.TypeOf(key))
+	}
+
+	h := crypto.SHA256.New()
+	_, _ = h.Write([]byte(input))
+
+	return base64.RawURLEncoding.EncodeToString(h.Sum(nil)), nil
+}
+
+func secp256k1ThumbprintInput(curve elliptic.Curve, x, y *big.Int) (string, error) {
+	ecSecp256K1ThumbprintTemplate := `{"crv":"SECP256K1","kty":"EC","x":"%s","y":"%s"}`
+
+	coordLength := curveSize(curve)
+
+	if len(x.Bytes()) > coordLength || len(y.Bytes()) > coordLength {
+		return "", errors.New("invalid elliptic secp256k1 key (too large)")
+	}
+
+	return fmt.Sprintf(ecSecp256K1ThumbprintTemplate,
+		newFixedSizeBuffer(x.Bytes(), coordLength).base64(),
+		newFixedSizeBuffer(y.Bytes(), coordLength).base64()), nil
+}
+
+// byteBuffer represents a slice of bytes that can be serialized to url-safe base64.
+type byteBuffer struct {
+	data []byte
+}
+
+func (b *byteBuffer) base64() string {
+	return base64.RawURLEncoding.EncodeToString(b.data)
+}
+
+func newBuffer(data []byte) *byteBuffer {
+	if data == nil {
+		return nil
+	}
+
+	return &byteBuffer{
+		data: data,
+	}
+}
+
+func newFixedSizeBuffer(data []byte, length int) *byteBuffer {
+	if len(data) > length {
+		panic("newFixedSizeBuffer: invalid call to newFixedSizeBuffer (len(data) > length)")
+	}
+
+	pad := make([]byte, length-len(data))
+
+	return newBuffer(append(pad, data...))
+}
+
+// Get size of curve in bytes.
+func curveSize(crv elliptic.Curve) int {
+	bits := crv.Params().BitSize
+	byteSize := 8
+
+	div := bits / byteSize
+	mod := bits % byteSize
+
+	if mod == 0 {
+		return div
+	}
+
+	return div + 1
+}
+
 // BuildJWK builds a go jose JWK from keyBytes with key type kt.
 func BuildJWK(keyBytes []byte, kt kms.KeyType) (*jwk.JWK, error) {
 	var (
@@ -84,7 +189,7 @@ func BuildJWK(keyBytes []byte, kt kms.KeyType) (*jwk.JWK, error) {
 	)
 
 	switch kt {
-	case kms.ECDSAP256TypeDER, kms.ECDSAP384TypeDER, kms.ECDSAP521TypeDER:
+	case kms.ECDSAP256TypeDER, kms.ECDSAP384TypeDER, kms.ECDSAP521TypeDER, kms.ECDSASecp256k1DER:
 		j, err = generateJWKFromDERECDSA(keyBytes)
 		if err != nil {
 			return nil, fmt.Errorf("buildJWK: failed to build JWK from ecdsa DER key: %w", err)
@@ -96,7 +201,7 @@ func BuildJWK(keyBytes []byte, kt kms.KeyType) (*jwk.JWK, error) {
 	//	if err != nil {
 	//		return nil, fmt.Errorf("buildJWK: failed to build JWK from ed25519 key: %w", err)
 	//	}
-	case kms.ECDSAP256TypeIEEEP1363, kms.ECDSAP384TypeIEEEP1363, kms.ECDSAP521TypeIEEEP1363:
+	case kms.ECDSAP256TypeIEEEP1363, kms.ECDSAP384TypeIEEEP1363, kms.ECDSAP521TypeIEEEP1363, kms.ECDSASecp256k1IEEEP1363:
 		c := getCurveByKMSKeyType(kt)
 		x, y := elliptic.Unmarshal(c, keyBytes)
 
@@ -169,6 +274,8 @@ func getCurveByKMSKeyType(kt kms.KeyType) elliptic.Curve {
 		return elliptic.P384()
 	case kms.ECDSAP521TypeIEEEP1363:
 		return elliptic.P521()
+	case kms.ECDSASecp256k1TypeIEEEP1363:
+		return btcec.S256()
 	}
 
 	// should never be called but added for linting

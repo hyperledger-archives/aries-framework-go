@@ -20,6 +20,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/btcsuite/btcd/btcec"
 	commonpb "github.com/google/tink/go/proto/common_go_proto"
 	"github.com/stretchr/testify/require"
 
@@ -271,4 +272,25 @@ func TestCreateBLS12381G2KID(t *testing.T) {
 
 	_, err = CreateKID(append(pubKeyBytes, []byte("larger key")...), kms.BLS12381G2Type)
 	require.EqualError(t, err, "createKID: invalid BBS+ key")
+}
+
+func TestCreateSecp256K1KID(t *testing.T) {
+	secp256k1Key, err := ecdsa.GenerateKey(btcec.S256(), rand.Reader)
+	require.NoError(t, err)
+
+	pubKeyBytes := elliptic.Marshal(secp256k1Key.Curve, secp256k1Key.X, secp256k1Key.Y)
+
+	t.Run("create kid for secp256k1 in DER format", func(t *testing.T) {
+		t.Skipf("Secp256k1 keys are not DER compliant")
+
+		kid, e := CreateKID(pubKeyBytes, kms.ECDSASecp256k1TypeDER)
+		require.NoError(t, e)
+		require.NotEmpty(t, kid)
+	})
+
+	t.Run("create kid for secp256k1 in IEEE-1363 format", func(t *testing.T) {
+		kid2, e := CreateKID(pubKeyBytes, kms.ECDSASecp256k1TypeIEEEP1363)
+		require.NoError(t, e)
+		require.NotEmpty(t, kid2)
+	})
 }

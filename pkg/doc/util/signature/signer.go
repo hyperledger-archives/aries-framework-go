@@ -27,7 +27,7 @@ func NewCryptoSigner(crypto cryptoapi.Crypto, kms kmsapi.KeyManager, keyType kms
 		kmsapi.ED25519Type:
 		return signer.NewCryptoSigner(crypto, kms, keyType)
 
-	case kmsapi.ECDSASecp256k1TypeIEEEP1363:
+	case kmsapi.ECDSASecp256k1DER, kmsapi.ECDSASecp256k1TypeIEEEP1363:
 		// TODO use crypto signer when available (https://github.com/hyperledger/aries-framework-go/issues/1285)
 		return signer.NewECDSASecp256k1Signer()
 
