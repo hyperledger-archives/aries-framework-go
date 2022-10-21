@@ -22,6 +22,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/btcsuite/btcd/btcec"
 	"github.com/google/tink/go/keyset"
 	"github.com/google/tink/go/subtle/random"
 	"github.com/stretchr/testify/require"
@@ -332,9 +333,19 @@ func TestLocalKMS_Success(t *testing.T) {
 		kms.NISTP521ECDHKWType,
 		kms.X25519ECDHKWType,
 		kms.BLS12381G2Type,
+		kms.ECDSASecp256k1DER,
+		kms.ECDSASecp256k1IEEEP1363,
 	}
 
 	for _, v := range keyTemplates {
+		if v == kms.ECDSASecp256k1DER {
+			t.Logf("testing create for %s", v)
+			_, _, e := kmsService.Create(v)
+			require.EqualError(t, e, "create: Unable to create kms key: Secp256K1 is not supported by DER format")
+
+			continue
+		}
+
 		// test Create() a new key
 		keyID, newKeyHandle, e := kmsService.Create(v)
 		require.NoError(t, e, "failed on template %v", v)
@@ -470,6 +481,16 @@ func TestLocalKMS_ImportPrivateKey(t *testing.T) { // nolint:gocyclo
 			keyType: kms.ECDSAP521TypeIEEEP1363,
 			curve:   elliptic.P521(),
 		},
+		/*{
+			tcName:  "import private key using ECDSAP256DER type",
+			keyType: kms.ECDSASecp256k1DER,
+			curve:   btcec.S256(),
+		},*/
+		{
+			tcName:  "import private key using ECDSAP256IEEEP1363 type",
+			keyType: kms.ECDSASecp256k1IEEEP1363,
+			curve:   btcec.S256(),
+		},
 		{
 			tcName:  "import private key using ED25519Type type",
 			keyType: kms.ED25519Type,
@@ -570,10 +591,11 @@ func TestLocalKMS_ImportPrivateKey(t *testing.T) { // nolint:gocyclo
 			var expectedPubKey []byte
 
 			switch tt.keyType {
-			case kms.ECDSAP256TypeDER, kms.ECDSAP384TypeDER, kms.ECDSAP521TypeDER:
+			case kms.ECDSAP256TypeDER, kms.ECDSAP384TypeDER, kms.ECDSAP521TypeDER, kms.ECDSASecp256k1TypeDER:
 				expectedPubKey, err = x509.MarshalPKIXPublicKey(privKey.Public())
 				require.NoError(t, err)
-			case kms.ECDSAP256TypeIEEEP1363, kms.ECDSAP384TypeIEEEP1363, kms.ECDSAP521TypeIEEEP1363:
+			case kms.ECDSAP256TypeIEEEP1363, kms.ECDSAP384TypeIEEEP1363, kms.ECDSAP521TypeIEEEP1363,
+				kms.ECDSASecp256k1TypeIEEEP1363:
 				expectedPubKey = elliptic.Marshal(tt.curve, privKey.X, privKey.Y)
 			case kms.NISTP256ECDHKWType, kms.NISTP384ECDHKWType, kms.NISTP521ECDHKWType:
 				var curveName string
@@ -585,6 +607,8 @@ func TestLocalKMS_ImportPrivateKey(t *testing.T) { // nolint:gocyclo
 					curveName = "NIST_P384"
 				case "P-521":
 					curveName = "NIST_P521"
+				case "secp256k1":
+					curveName = "SECP256K1"
 				}
 
 				cryptoKey := &crypto.PublicKey{

@@ -23,6 +23,8 @@ import (
 
 	bbspb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/bbs_go_proto"
 	clpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/cl_go_proto"
+	secp256k1pb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/secp256k1_go_proto"
+	secp256k1subtle "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/secp256k1/subtle"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -180,6 +182,28 @@ func getMarshalledProtoKeyAndKeyURL(pubKey []byte, kt kms.KeyType,
 		if err != nil {
 			return nil, "", err
 		}
+	case kms.ECDSASecp256k1DER:
+		tURL = secp256k1VerifierTypeURL
+
+		keyValue, err = getMarshalledECDSASecp256K1DERKey(
+			pubKey,
+			"SECP256K1",
+			secp256k1pb.BitcoinCurveType_SECP256K1,
+			commonpb.HashType_SHA256)
+		if err != nil {
+			return nil, "", err
+		}
+	case kms.ECDSASecp256k1IEEEP1363:
+		tURL = secp256k1VerifierTypeURL
+
+		keyValue, err = getMarshalledECDSASecp256K1IEEEP1363Key(
+			pubKey,
+			"SECP256K1",
+			secp256k1pb.BitcoinCurveType_SECP256K1,
+			commonpb.HashType_SHA256)
+		if err != nil {
+			return nil, "", err
+		}
 	default:
 		return nil, "", fmt.Errorf("invalid key type")
 	}
@@ -213,6 +237,32 @@ func getMarshalledECDSADERKey(marshaledPubKey []byte, curveName string, c common
 	return getMarshalledECDSAKey(ecPubKey, params)
 }
 
+func getMarshalledECDSASecp256K1DERKey(marshaledPubKey []byte, curveName string, c secp256k1pb.BitcoinCurveType,
+	h commonpb.HashType) ([]byte, error) {
+	curve := secp256k1subtle.GetCurve(curveName)
+	if curve == nil {
+		return nil, fmt.Errorf("undefined curve")
+	}
+
+	pubKey, err := x509.ParsePKIXPublicKey(marshaledPubKey)
+	if err != nil {
+		return nil, err
+	}
+
+	ecPubKey, ok := pubKey.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, fmt.Errorf("public key reader: not an ecdsa public key")
+	}
+
+	params := &secp256k1pb.Secp256K1Params{
+		Curve:    c,
+		Encoding: secp256k1pb.Secp256K1SignatureEncoding_Bitcoin_DER,
+		HashType: h,
+	}
+
+	return getMarshalledSecp256Key(ecPubKey, params)
+}
+
 func getMarshalledECDSAIEEEP1363Key(marshaledPubKey []byte, curveName string, c commonpb.EllipticCurveType,
 	h commonpb.HashType) ([]byte, error) {
 	curve := subtle.GetCurve(curveName)
@@ -235,12 +285,48 @@ func getMarshalledECDSAIEEEP1363Key(marshaledPubKey []byte, curveName string, c 
 	return getMarshalledECDSAKey(&ecdsa.PublicKey{X: x, Y: y, Curve: curve}, params)
 }
 
+func getMarshalledECDSASecp256K1IEEEP1363Key(marshaledPubKey []byte, curveName string, c secp256k1pb.BitcoinCurveType,
+	h commonpb.HashType) ([]byte, error) {
+	curve := secp256k1subtle.GetCurve(curveName)
+	if curve == nil {
+		return nil, fmt.Errorf("undefined curve")
+	}
+
+	x, y := elliptic.Unmarshal(curve, marshaledPubKey)
+
+	if x == nil || y == nil {
+		return nil, fmt.Errorf("failed to unamrshal public ecdsa key")
+	}
+
+	params := &secp256k1pb.Secp256K1Params{
+		Curve:    c,
+		Encoding: secp256k1pb.Secp256K1SignatureEncoding_Bitcoin_IEEE_P1363,
+		HashType: h,
+	}
+
+	return getMarshalledSecp256Key(&ecdsa.PublicKey{X: x, Y: y, Curve: curve}, params)
+}
+
 func getMarshalledECDSAKey(ecPubKey *ecdsa.PublicKey, params *ecdsapb.EcdsaParams) ([]byte, error) {
 	return proto.Marshal(newProtoECDSAPublicKey(ecPubKey, params))
 }
 
+func getMarshalledSecp256Key(ecPubKey *ecdsa.PublicKey, params *secp256k1pb.Secp256K1Params) ([]byte, error) {
+	return proto.Marshal(newProtoSecp256K1PublicKey(ecPubKey, params))
+}
+
 func newProtoECDSAPublicKey(ecPubKey *ecdsa.PublicKey, params *ecdsapb.EcdsaParams) *ecdsapb.EcdsaPublicKey {
 	return &ecdsapb.EcdsaPublicKey{
+		Version: 0,
+		X:       ecPubKey.X.Bytes(),
+		Y:       ecPubKey.Y.Bytes(),
+		Params:  params,
+	}
+}
+
+func newProtoSecp256K1PublicKey(ecPubKey *ecdsa.PublicKey,
+	params *secp256k1pb.Secp256K1Params) *secp256k1pb.Secp256K1PublicKey {
+	return &secp256k1pb.Secp256K1PublicKey{
 		Version: 0,
 		X:       ecPubKey.X.Bytes(),
 		Y:       ecPubKey.Y.Bytes(),

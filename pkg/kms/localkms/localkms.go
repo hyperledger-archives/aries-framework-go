@@ -79,12 +79,16 @@ func (l *LocalKMS) HealthCheck() error {
 
 // Create a new key/keyset/key handle for the type kt
 // Returns:
-//  - keyID of the handle
-//  - handle instance (to private key)
-//  - error if failure
+//   - keyID of the handle
+//   - handle instance (to private key)
+//   - error if failure
 func (l *LocalKMS) Create(kt kms.KeyType, opts ...kms.KeyOpts) (string, interface{}, error) {
 	if kt == "" {
 		return "", nil, fmt.Errorf("failed to create new key, missing key type")
+	}
+
+	if kt == kms.ECDSASecp256k1DER {
+		return "", nil, fmt.Errorf("create: Unable to create kms key: Secp256K1 is not supported by DER format")
 	}
 
 	keyTemplate, err := getKeyTemplate(kt, opts...)
@@ -107,8 +111,8 @@ func (l *LocalKMS) Create(kt kms.KeyType, opts ...kms.KeyOpts) (string, interfac
 
 // Get key handle for the given keyID
 // Returns:
-//  - handle instance (to private key)
-//  - error if failure
+//   - handle instance (to private key)
+//   - error if failure
 func (l *LocalKMS) Get(keyID string) (interface{}, error) {
 	return l.getKeySet(keyID)
 }
@@ -116,9 +120,9 @@ func (l *LocalKMS) Get(keyID string) (interface{}, error) {
 // Rotate a key referenced by keyID and return a new handle of a keyset including old key and
 // new key with type kt. It also returns the updated keyID as the first return value
 // Returns:
-//  - new KeyID
-//  - handle instance (to private key)
-//  - error if failure
+//   - new KeyID
+//   - handle instance (to private key)
+//   - error if failure
 func (l *LocalKMS) Rotate(kt kms.KeyType, keyID string, opts ...kms.KeyOpts) (string, interface{}, error) {
 	kh, err := l.getKeySet(keyID)
 	if err != nil {
@@ -222,8 +226,8 @@ func (l *LocalKMS) getKeySet(id string) (*keyset.Handle, error) {
 // ExportPubKeyBytes will fetch a key referenced by id then gets its public key in raw bytes and returns it.
 // The key must be an asymmetric key.
 // Returns:
-//  - marshalled public key []byte
-//  - error if it fails to export the public key bytes
+//   - marshalled public key []byte
+//   - error if it fails to export the public key bytes
 func (l *LocalKMS) ExportPubKeyBytes(id string) ([]byte, kms.KeyType, error) {
 	kh, err := l.getKeySet(id)
 	if err != nil {
@@ -280,9 +284,9 @@ func (l *LocalKMS) exportPubKeyBytes(kh *keyset.Handle) ([]byte, kms.KeyType, er
 // CreateAndExportPubKeyBytes will create a key of type kt and export its public key in raw bytes and returns it.
 // The key must be an asymmetric key.
 // Returns:
-//  - keyID of the new handle created.
-//  - marshalled public key []byte
-//  - error if it fails to export the public key bytes
+//   - keyID of the new handle created.
+//   - marshalled public key []byte
+//   - error if it fails to export the public key bytes
 func (l *LocalKMS) CreateAndExportPubKeyBytes(kt kms.KeyType, opts ...kms.KeyOpts) (string, []byte, error) {
 	kid, _, err := l.Create(kt, opts...)
 	if err != nil {
@@ -312,9 +316,9 @@ func (l *LocalKMS) PubKeyBytesToHandle(pubKey []byte, kt kms.KeyType, opts ...km
 // 'opts' allows setting the keysetID of the imported key using WithKeyID() option. If the ID is already used,
 // then an error is returned.
 // Returns:
-//  - keyID of the handle
-//  - handle instance (to private key)
-//  - error if import failure (key empty, invalid, doesn't match keyType, unsupported keyType or storing key failed)
+//   - keyID of the handle
+//   - handle instance (to private key)
+//   - error if import failure (key empty, invalid, doesn't match keyType, unsupported keyType or storing key failed)
 func (l *LocalKMS) ImportPrivateKey(privKey interface{}, kt kms.KeyType,
 	opts ...kms.PrivateKeyOpts) (string, interface{}, error) {
 	switch pk := privKey.(type) {
