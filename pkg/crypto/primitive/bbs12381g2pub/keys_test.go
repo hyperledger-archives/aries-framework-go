@@ -127,10 +127,11 @@ func TestParseMattrKeys(t *testing.T) {
 	pubKeyBytes := base58.Decode(pubKeyB58)
 
 	messagesBytes := [][]byte{[]byte("message1"), []byte("message2")}
-	signatureBytes, err := bbs.New().Sign(messagesBytes, privKeyBytes)
+	signatureBytes, err := bbs.New().Sign(nil, messagesBytes, privKeyBytes)
 	require.NoError(t, err)
 
-	err = bbs.New().Verify(messagesBytes, signatureBytes, pubKeyBytes)
+	err = bbs.New().Verify(nil,
+		messagesBytes, signatureBytes, pubKeyBytes)
 	require.NoError(t, err)
 }
 

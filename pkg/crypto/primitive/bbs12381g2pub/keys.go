@@ -54,7 +54,7 @@ type PublicKeyWithGenerators struct {
 }
 
 // ToPublicKeyWithGenerators creates PublicKeyWithGenerators from the PublicKey.
-func (pk *PublicKey) ToPublicKeyWithGenerators(messagesCount int) (*PublicKeyWithGenerators, error) {
+func (pk *PublicKey) ToPublicKeyWithGenerators(messagesCount int, header []byte) (*PublicKeyWithGenerators, error) {
 	specGenCnt := 2
 	genCnt := messagesCount + specGenCnt
 
@@ -72,7 +72,7 @@ func (pk *PublicKey) ToPublicKeyWithGenerators(messagesCount int) (*PublicKeyWit
 	}
 
 	domainBuilder.addCsID()
-	// TODO use header. Probably should be a parameter to this func
+	domainBuilder.addBytes(header)
 
 	domain := Hash2scalar(domainBuilder.build())
 

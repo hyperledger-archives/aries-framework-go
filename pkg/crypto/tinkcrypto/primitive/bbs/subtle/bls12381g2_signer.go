@@ -32,5 +32,5 @@ func NewBLS12381G2Signer(privateKey []byte) *BLS12381G2Signer {
 // 		signature in []byte
 //		error in case of errors
 func (s *BLS12381G2Signer) Sign(messages [][]byte) ([]byte, error) {
-	return s.bbsPrimitive.Sign(messages, s.privateKeyBytes)
+	return s.bbsPrimitive.Sign(nil, messages, s.privateKeyBytes)
 }

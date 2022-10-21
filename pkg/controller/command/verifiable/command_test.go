@@ -2934,7 +2934,7 @@ func newBBSSigner(privKey *bbs12381g2pub.PrivateKey) (*bbsSigner, error) {
 func (s *bbsSigner) Sign(data []byte) ([]byte, error) {
 	msgs := s.textToLines(string(data))
 
-	return bbs12381g2pub.New().Sign(msgs, s.privKeyBytes)
+	return bbs12381g2pub.New().Sign(nil, msgs, s.privKeyBytes)
 }
 
 func (s *bbsSigner) Alg() string {

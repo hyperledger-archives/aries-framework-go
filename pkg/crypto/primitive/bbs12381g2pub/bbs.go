@@ -54,7 +54,7 @@ const (
 )
 
 // Verify makes BLS BBS12-381 signature verification.
-func (bbs *BBSG2Pub) Verify(messages [][]byte, sigBytes, pubKeyBytes []byte) error {
+func (bbs *BBSG2Pub) Verify(header []byte, messages [][]byte, sigBytes, pubKeyBytes []byte) error {
 	signature, err := ParseSignature(sigBytes)
 	if err != nil {
 		return fmt.Errorf("parse signature: %w", err)
@@ -67,7 +67,7 @@ func (bbs *BBSG2Pub) Verify(messages [][]byte, sigBytes, pubKeyBytes []byte) err
 
 	messagesCount := len(messages)
 
-	publicKeyWithGenerators, err := pubKey.ToPublicKeyWithGenerators(messagesCount)
+	publicKeyWithGenerators, err := pubKey.ToPublicKeyWithGenerators(messagesCount, header)
 	if err != nil {
 		return fmt.Errorf("build generators from public key: %w", err)
 	}
@@ -78,7 +78,7 @@ func (bbs *BBSG2Pub) Verify(messages [][]byte, sigBytes, pubKeyBytes []byte) err
 }
 
 // Sign signs the one or more messages using private key in compressed form.
-func (bbs *BBSG2Pub) Sign(messages [][]byte, privKeyBytes []byte) ([]byte, error) {
+func (bbs *BBSG2Pub) Sign(header []byte, messages [][]byte, privKeyBytes []byte) ([]byte, error) {
 	privKey, err := UnmarshalPrivateKey(privKeyBytes)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshal private key: %w", err)
@@ -88,11 +88,11 @@ func (bbs *BBSG2Pub) Sign(messages [][]byte, privKeyBytes []byte) ([]byte, error
 		return nil, errors.New("messages are not defined")
 	}
 
-	return bbs.SignWithKey(messages, privKey)
+	return bbs.SignWithKey(header, messages, privKey)
 }
 
 // VerifyProof verifies BBS+ signature proof for one ore more revealed messages.
-func (bbs *BBSG2Pub) VerifyProof(messagesBytes [][]byte, proof, nonce, pubKeyBytes []byte) error {
+func (bbs *BBSG2Pub) VerifyProof(header []byte, messagesBytes [][]byte, proof, nonce, pubKeyBytes []byte) error {
 	payload, err := parsePoKPayload(proof)
 	if err != nil {
 		return fmt.Errorf("parse signature proof: %w", err)
@@ -110,7 +110,7 @@ func (bbs *BBSG2Pub) VerifyProof(messagesBytes [][]byte, proof, nonce, pubKeyByt
 		return fmt.Errorf("parse public key: %w", err)
 	}
 
-	publicKeyWithGenerators, err := pubKey.ToPublicKeyWithGenerators(payload.messagesCount)
+	publicKeyWithGenerators, err := pubKey.ToPublicKeyWithGenerators(payload.messagesCount, header)
 	if err != nil {
 		return fmt.Errorf("build generators from public key: %w", err)
 	}
@@ -130,7 +130,7 @@ func (bbs *BBSG2Pub) VerifyProof(messagesBytes [][]byte, proof, nonce, pubKeyByt
 }
 
 // DeriveProof derives a proof of BBS+ signature with some messages disclosed.
-func (bbs *BBSG2Pub) DeriveProof(messages [][]byte, sigBytes, nonce, pubKeyBytes []byte,
+func (bbs *BBSG2Pub) DeriveProof(header []byte, messages [][]byte, sigBytes, nonce, pubKeyBytes []byte,
 	revealedIndexes []int) ([]byte, error) {
 	if len(revealedIndexes) == 0 {
 		return nil, errors.New("no message to reveal")
@@ -147,7 +147,7 @@ func (bbs *BBSG2Pub) DeriveProof(messages [][]byte, sigBytes, nonce, pubKeyBytes
 		return nil, fmt.Errorf("parse public key: %w", err)
 	}
 
-	publicKeyWithGenerators, err := pubKey.ToPublicKeyWithGenerators(messagesCount)
+	publicKeyWithGenerators, err := pubKey.ToPublicKeyWithGenerators(messagesCount, header)
 	if err != nil {
 		return nil, fmt.Errorf("build generators from public key: %w", err)
 	}
@@ -179,13 +179,13 @@ func (bbs *BBSG2Pub) DeriveProof(messages [][]byte, sigBytes, nonce, pubKeyBytes
 }
 
 // SignWithKey signs the one or more messages using BBS+ key pair.
-func (bbs *BBSG2Pub) SignWithKey(messages [][]byte, privKey *PrivateKey) ([]byte, error) {
+func (bbs *BBSG2Pub) SignWithKey(header []byte, messages [][]byte, privKey *PrivateKey) ([]byte, error) {
 	var err error
 
 	pubKey := privKey.PublicKey()
 	messagesCount := len(messages)
 
-	pubKeyWithGenerators, err := pubKey.ToPublicKeyWithGenerators(messagesCount)
+	pubKeyWithGenerators, err := pubKey.ToPublicKeyWithGenerators(messagesCount, header)
 	if err != nil {
 		return nil, fmt.Errorf("build generators from public key: %w", err)
 	}

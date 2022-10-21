@@ -30,7 +30,7 @@ func newBBSSigner(privKey *bbs.PrivateKey) (*bbsSigner, error) {
 func (s *bbsSigner) Sign(data []byte) ([]byte, error) {
 	msgs := s.textToLines(string(data))
 
-	return bbs.New().Sign(msgs, s.privKeyBytes)
+	return bbs.New().Sign(nil, msgs, s.privKeyBytes)
 }
 
 func (s *bbsSigner) Alg() string {

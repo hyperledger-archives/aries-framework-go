@@ -26,16 +26,16 @@ func TestBlsG2Pub_Verify(t *testing.T) {
 	require.NoError(t, err)
 
 	sigBytes := hexStringToBytesTest(t,
-		"836370c0f9fee53a4518e3294d2cd9880e9ced5a92fd21f20af898cf76c43a1fa88b3b8a0347313b83cb2f52055c3b56"+
-			"24f8ea83101ff3429b07708c790975a43a1893fa848e1ffec1ab97c61196823d"+
-			"28c3baa5900943929f3b0fdf36665fa43db9ee82dd855551bb9e7aaa6cc5c764")
+		"84d9677e651d7e039ff1bd3c6c37a6d465b23ebcc1291cf0082cd94c3971ff2ec64d8ddfd0c2f68d37429f6c751003a7"+
+			"5435cae4b55250e5a3e357b7bd52589ff830820cd5e07a6125d846245efacccb"+
+			"5814139b8bef5b329b3a269f576565d33bf6254916468f9e997a685ac68508a6")
 
 	messagesBytes := default10messages(t)
 
 	bls := bbs12381g2pub.New()
 
 	t.Run("valid signature", func(t *testing.T) {
-		err = bls.Verify(messagesBytes, sigBytes, pkBytes)
+		err = bls.Verify(nil, messagesBytes, sigBytes, pkBytes)
 		require.NoError(t, err)
 	})
 
@@ -45,13 +45,13 @@ func TestBlsG2Pub_Verify(t *testing.T) {
 		copy(invalidMessagesBytes, messagesBytes)
 		invalidMessagesBytes[0] = invalidMessagesBytes[1]
 
-		err = bls.Verify(invalidMessagesBytes, sigBytes, pkBytes)
+		err = bls.Verify(nil, invalidMessagesBytes, sigBytes, pkBytes)
 		require.Error(t, err)
 		require.EqualError(t, err, "invalid BLS12-381 signature")
 	})
 
 	t.Run("invalid input public key", func(t *testing.T) {
-		err = bls.Verify(messagesBytes, sigBytes, []byte("invalid"))
+		err = bls.Verify(nil, messagesBytes, sigBytes, []byte("invalid"))
 		require.Error(t, err)
 		require.EqualError(t, err, "parse public key: invalid size of public key")
 
@@ -60,13 +60,13 @@ func TestBlsG2Pub_Verify(t *testing.T) {
 		_, err = rand.Read(pkBytesInvalid)
 		require.NoError(t, err)
 
-		err = bls.Verify(messagesBytes, sigBytes, pkBytesInvalid)
+		err = bls.Verify(nil, messagesBytes, sigBytes, pkBytesInvalid)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "parse public key: deserialize public key")
 	})
 
 	t.Run("invalid input signature", func(t *testing.T) {
-		err = bls.Verify(messagesBytes, []byte("invalid"), pkBytes)
+		err = bls.Verify(nil, messagesBytes, []byte("invalid"), pkBytes)
 		require.Error(t, err)
 		require.EqualError(t, err, "parse signature: invalid size of signature")
 
@@ -75,7 +75,7 @@ func TestBlsG2Pub_Verify(t *testing.T) {
 		_, err = rand.Read(sigBytesInvalid)
 		require.NoError(t, err)
 
-		err = bls.Verify(messagesBytes, sigBytesInvalid, pkBytes)
+		err = bls.Verify(nil, messagesBytes, sigBytesInvalid, pkBytes)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "parse signature: deserialize G1 compressed signature")
 	})
@@ -89,7 +89,7 @@ func TestBBSG2Pub_SignWithKeyPair(t *testing.T) {
 
 	messagesBytes := [][]byte{[]byte("message1"), []byte("message2")}
 
-	signatureBytes, err := bls.SignWithKey(messagesBytes, privKey)
+	signatureBytes, err := bls.SignWithKey(nil, messagesBytes, privKey)
 	require.NoError(t, err)
 	require.NotEmpty(t, signatureBytes)
 	require.Len(t, signatureBytes, 112)
@@ -97,7 +97,7 @@ func TestBBSG2Pub_SignWithKeyPair(t *testing.T) {
 	pubKeyBytes, err := pubKey.Marshal()
 	require.NoError(t, err)
 
-	require.NoError(t, bls.Verify(messagesBytes, signatureBytes, pubKeyBytes))
+	require.NoError(t, bls.Verify(nil, messagesBytes, signatureBytes, pubKeyBytes))
 }
 
 func TestBBSG2Pub_Sign(t *testing.T) {
@@ -111,7 +111,7 @@ func TestBBSG2Pub_Sign(t *testing.T) {
 	privKeyBytes, err := privKey.Marshal()
 	require.NoError(t, err)
 
-	signatureBytes, err := bls.Sign(messagesBytes, privKeyBytes)
+	signatureBytes, err := bls.Sign(nil, messagesBytes, privKeyBytes)
 	require.NoError(t, err)
 	require.NotEmpty(t, signatureBytes)
 	require.Len(t, signatureBytes, 112)
@@ -119,16 +119,16 @@ func TestBBSG2Pub_Sign(t *testing.T) {
 	pubKeyBytes, err := pubKey.Marshal()
 	require.NoError(t, err)
 
-	require.NoError(t, bls.Verify(messagesBytes, signatureBytes, pubKeyBytes))
+	require.NoError(t, bls.Verify(nil, messagesBytes, signatureBytes, pubKeyBytes))
 
 	// invalid private key bytes
-	signatureBytes, err = bls.Sign(messagesBytes, []byte("invalid"))
+	signatureBytes, err = bls.Sign(nil, messagesBytes, []byte("invalid"))
 	require.Error(t, err)
 	require.EqualError(t, err, "unmarshal private key: invalid size of private key")
 	require.Nil(t, signatureBytes)
 
 	// at least one message must be passed
-	signatureBytes, err = bls.Sign([][]byte{}, privKeyBytes)
+	signatureBytes, err = bls.Sign(nil, [][]byte{}, privKeyBytes)
 	require.Error(t, err)
 	require.EqualError(t, err, "messages are not defined")
 	require.Nil(t, signatureBytes)
@@ -136,23 +136,17 @@ func TestBBSG2Pub_Sign(t *testing.T) {
 
 func TestBBSG2Pub_SignWithPredefinedKeys(t *testing.T) {
 	privateKeyBytes := hexStringToBytesTest(t, "47d2ede63ab4c329092b342ab526b1079dbc2595897d4f2ab2de4d841cbe7d56")
-
-	// TODO   "header": "11223344556677889900aabbccddeeff"
-
+	header := hexStringToBytesTest(t, "11223344556677889900aabbccddeeff")
 	messagesBytes := default10messages(t)
 
 	bls := bbs12381g2pub.New()
-	signature, err := bls.Sign(messagesBytes, privateKeyBytes)
+	signature, err := bls.Sign(header, messagesBytes, privateKeyBytes)
 	require.NoError(t, err)
 
 	expectedSignatureBytes := hexStringToBytesTest(t,
-		"836370c0f9fee53a4518e3294d2cd9880e9ced5a92fd21f20af898cf76c43a1fa88b3b8a0347313b83cb2f52055c3b56"+
-			"24f8ea83101ff3429b07708c790975a43a1893fa848e1ffec1ab97c61196823d"+
-			"28c3baa5900943929f3b0fdf36665fa43db9ee82dd855551bb9e7aaa6cc5c764")
-	// TODO signature defined in the spec
-	// "9157456791e4f9cae1130372f7cf37709ba661e43df5c23cc1c76be91abff7e2603e2ddaaa71fc42bd6f9d44bd58315b"+
-	// "09ee5cc4e7614edde358f2c497b6b05c8b118fae3f71a52af482dceffccb3785"+
-	// "1907573c03d2890dffbd1f660cdf89c425d4e0498bbf73dd96ff15ad9a8b581a")
+		"9157456791e4f9cae1130372f7cf37709ba661e43df5c23cc1c76be91abff7e2603e2ddaaa71fc42bd6f9d44bd58315b"+
+			"09ee5cc4e7614edde358f2c497b6b05c8b118fae3f71a52af482dceffccb3785"+
+			"1907573c03d2890dffbd1f660cdf89c425d4e0498bbf73dd96ff15ad9a8b581a")
 
 	require.Equal(t, expectedSignatureBytes, signature)
 }
@@ -166,7 +160,7 @@ func TestBBSG2Pub_VerifyProof_SeveralDisclosedMessages(t *testing.T) {
 	pkBytes, err := privateKey.PublicKey().Marshal()
 	require.NoError(t, err)
 
-	proofBytes := hexStringToBytesTest(t, "000a0005b6f1890b66d4ffaaceda451c4986e36553b4db2622057e8a96b2f29e9274bb8f0249f305088269e39772ec845c267b6c84d60886cec2615e3f0b18a58b4ee97404fcaecff3889b1361df37baaf75bb4c11cb427dcbb91aac11ef32f2d4568540b1e527b52626a4f081f43182f2fcdb3f0197eb6b22d3050be87ece2c719e79b948f00be75d10b851641c6de2b84a49040000007480ce09f9513044ce742c18eb796a6cda777b836931675c7a6b76910c15debf9aa991165bc54a50d1899c00742ecd75dc000000026ae46e197c2fd0f0d7233b7eb8235b85bbbb10664c6b4c69bc645bd4e211df754f14ae46e8358107caab0e91c7a39c7b8d3bb57d6f932a2bc786877fa271bc39a8c3a8823f9246239ed8fe58da4de9bb47d4e535e27e11a764c2ae5d2d9bf5bf38db5d9e71d61d3bbc40896afc79f64f0000000a19de08e7f3ef1dca5b05363a0cf765c5c455a89fcf61513c100d9219d87f60db11ef7535cdc6f6fd6820eb8cfd8b4f89fa80321ec0121daded6257496c7ed24b4b0894a65c2abcdbfec475a10167c58f3801d3dd2563d788b6a9310ba908849135b34c5fa902e08c4f26bcd3fdd197146ee4f5d89b6bc0bd54046b68d07fcf5e42941fb950d223a508639add65e90e52380524c5cc5fef3fdca7a0f12e03f1c7559ff3467e9650230ff491699edb25daafa162c3c1dbd467d94cb2c0d63ec3305a7c022dce4952135fa1d7945af17ec131563a9d1925297945df74b46e19175f234885eea5e7b1b3b0f11aabb7f587271aeae106a6e9a4ea6662d82d5530f05d04bbe0001b8858cca3160df6dfdbcdbf4bf0dd7897f0394615026d81c4b955c13c9a99852c667c08d40de2522b138ae66de5055f9dc79df43a2a2c6522f459a1") //nolint:lll
+	proofBytes := hexStringToBytesTest(t, "000a0005ab1a7238bc9ba5065c9d1f395720f97b8d68208e89edb1fa8f1cde16c07b7771a46359ef198317ca71cfae5937200485b3e62de95b4d05a95c8d882197c56e582f74b5e6e1e4ae866a93fa13ae32690b8ea1bbbd7f1138f18a750ede1915a6d2898eec5b19028f2765585f36be4f152bd4ac2ad280743bed14ec78e0cdbf80f0547b37b1de62d71144f03e1fdec89b05000000748adcb65ca0ed38b9c6d1649bef5cd942175affdb9c7ad5212b371f0472d39228dc6c220cc80846fb2f44911b7aed2f32000000020910a8400998e7903a401b439d9a84723e46c9f0c03a9949ac9ee2d545caf72a50cd0f2f340a04a22ffbc8c4c6aa15af1ae972c18bbe6b463707836fb08d624089a4b92531729d0ce3f44ca36b47331a4c9a51af11d5b0f9bf4b55d8d09db24c8df59c6ad111ae0f9af56e16681a53df0000000a5916c0c291dc659d25699f2b182e2fbafe091bdf7a0667a4e4f047e80fa3d64214ee7f20d63f31472ec2eeac73ca01e51c2e420f3a26cda4e0cbe82e64f92a62075131c9dfde53d16e8c3e1d0b56bd6ac203f07af450cb94b019c6bb667df2465f9317c9ac178e58f638eb52751638fd54a211ab0ab3aeee8d87a69392de458f6ddb6b9f007589f6bdb5376eeffc4f64f7c7c0c426197be97f4f83a1a6f06ff74473dde98edbb444976ef4083237a859807d1a4c1e94fe68b69609fa00431e4b4622a39bd74791ce4b1f7545291b5ded098a757f680cbe1612312c8f841a8d0b077e5cf3eb5cf85f0ed9a3a061c3aa447c9a6bc87808d3ee1f293d157d1f41f14edd5cd0b1fcb5112d7e09386a276f396d4f31f1660bb65f0206eb92d669d2800f1e0f418be23895ad0cac055f973b50c38d57df54563e5493dd7910308ed9a6") //nolint:lll
 
 	// TODO   "header": "11223344556677889900aabbccddeeff"
 	nonce := hexStringToBytesTest(t, "bed231d880675ed101ead304512e043ade9958dd0241ea70b4b3957fba941501")
@@ -177,12 +171,12 @@ func TestBBSG2Pub_VerifyProof_SeveralDisclosedMessages(t *testing.T) {
 	bls := bbs12381g2pub.New()
 
 	t.Run("valid signature", func(t *testing.T) {
-		err = bls.VerifyProof(revealedMessagesBytes, proofBytes, nonce, pkBytes)
+		err = bls.VerifyProof(nil, revealedMessagesBytes, proofBytes, nonce, pkBytes)
 		require.NoError(t, err)
 	})
 
 	t.Run("invalid size of signature proof payload", func(t *testing.T) {
-		err = bls.VerifyProof(revealedMessagesBytes, []byte("?"), nonce, pkBytes)
+		err = bls.VerifyProof(nil, revealedMessagesBytes, []byte("?"), nonce, pkBytes)
 		require.Error(t, err)
 		require.EqualError(t, err, "parse signature proof: invalid size of PoK payload")
 	})
@@ -192,7 +186,7 @@ func TestBBSG2Pub_VerifyProof_SeveralDisclosedMessages(t *testing.T) {
 
 		copy(proofBytesCopy, proofBytes)
 
-		err = bls.VerifyProof(revealedMessagesBytes, proofBytesCopy, nonce, pkBytes)
+		err = bls.VerifyProof(nil, revealedMessagesBytes, proofBytesCopy, nonce, pkBytes)
 		require.Error(t, err)
 		require.EqualError(t, err, "parse signature proof: invalid size of signature proof")
 	})
@@ -201,15 +195,15 @@ func TestBBSG2Pub_VerifyProof_SeveralDisclosedMessages(t *testing.T) {
 		proofBytesCopy := make([]byte, len(proofBytes))
 
 		copy(proofBytesCopy, proofBytes)
-		proofBytesCopy[21] = 255 - proofBytesCopy[21]
+		proofBytesCopy[23] = 255 - proofBytesCopy[23]
 
-		err = bls.VerifyProof(revealedMessagesBytes, proofBytesCopy, nonce, pkBytes)
+		err = bls.VerifyProof(nil, revealedMessagesBytes, proofBytesCopy, nonce, pkBytes)
 		require.Error(t, err)
 		require.EqualError(t, err, "parse signature proof: parse G1 point: point is not on curve")
 	})
 
 	t.Run("invalid input public key", func(t *testing.T) {
-		err = bls.VerifyProof(revealedMessagesBytes, proofBytes, nonce, []byte("invalid public key"))
+		err = bls.VerifyProof(nil, revealedMessagesBytes, proofBytes, nonce, []byte("invalid public key"))
 		require.Error(t, err)
 		require.EqualError(t, err, "parse public key: invalid size of public key")
 	})
@@ -226,17 +220,17 @@ func TestBBSG2Pub_DeriveProof(t *testing.T) {
 	messagesBytes := default10messages(t)
 	bls := bbs12381g2pub.New()
 
-	signatureBytes, err := bls.Sign(messagesBytes, privKeyBytes)
+	signatureBytes, err := bls.Sign(nil, messagesBytes, privKeyBytes)
 	require.NoError(t, err)
 
 	pubKeyBytes, err := pubKey.Marshal()
 	require.NoError(t, err)
 
-	require.NoError(t, bls.Verify(messagesBytes, signatureBytes, pubKeyBytes))
+	require.NoError(t, bls.Verify(nil, messagesBytes, signatureBytes, pubKeyBytes))
 
 	nonce := hexStringToBytesTest(t, "bed231d880675ed101ead304512e043ade9958dd0241ea70b4b3957fba941501")
 	revealedIndexes := []int{0, 2}
-	proofBytes, err := bls.DeriveProof(messagesBytes, signatureBytes, nonce, pubKeyBytes, revealedIndexes)
+	proofBytes, err := bls.DeriveProof(nil, messagesBytes, signatureBytes, nonce, pubKeyBytes, revealedIndexes)
 	require.NoError(t, err)
 	require.NotEmpty(t, proofBytes)
 
@@ -245,11 +239,11 @@ func TestBBSG2Pub_DeriveProof(t *testing.T) {
 		revealedMessages[i] = messagesBytes[ind]
 	}
 
-	require.NoError(t, bls.VerifyProof(revealedMessages, proofBytes, nonce, pubKeyBytes))
+	require.NoError(t, bls.VerifyProof(nil, revealedMessages, proofBytes, nonce, pubKeyBytes))
 
 	t.Run("DeriveProof with revealedIndexes larger than revealedMessages count", func(t *testing.T) {
 		revealedIndexes = []int{0, 2, 4, 7, 9, 11}
-		_, err = bls.DeriveProof(messagesBytes, signatureBytes, nonce, pubKeyBytes, revealedIndexes)
+		_, err = bls.DeriveProof(nil, messagesBytes, signatureBytes, nonce, pubKeyBytes, revealedIndexes)
 		require.EqualError(t, err, "init proof of knowledge signature: "+
 			"invalid revealed index: requested index 11 is larger than 10 messages count")
 	})
