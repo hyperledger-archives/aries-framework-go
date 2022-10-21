@@ -38,8 +38,9 @@ func Test_ExtractPrivKey(t *testing.T) {
 	require.EqualError(t, err, "extractPrivKey: can't extract unsupported private key 'type.googleapis.com/"+
 		"google.crypto.tink.AesGcmKey'")
 
-	_, err = extractPrivKey(&keyset.Handle{})
-	require.EqualError(t, err, "extractPrivKey: retrieving private key failed: keyset.Handle: invalid keyset")
+	require.PanicsWithValue(t, "keyset.Handle: keyset must be non nil", func() {
+		_, _ = extractPrivKey(&keyset.Handle{})
+	})
 
 	badPrivateKeyProto := generateECDHAEADPrivateKey(t, commonpb.EllipticCurveType_CURVE25519, // <-- invalid EC curve
 		ecdhpb.KeyType_EC, aead.AES128GCMKeyTemplate(), random.GetRandomBytes(32))

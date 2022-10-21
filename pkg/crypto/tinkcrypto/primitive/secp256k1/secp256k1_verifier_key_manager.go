@@ -9,9 +9,9 @@ package secp256k1
 import (
 	"fmt"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/google/tink/go/keyset"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
+	"google.golang.org/protobuf/proto"
 
 	secp256k1pb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/secp256k1_go_proto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/secp256k1/subtle"

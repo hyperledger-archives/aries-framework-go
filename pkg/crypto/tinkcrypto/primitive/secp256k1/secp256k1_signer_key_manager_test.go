@@ -13,12 +13,12 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/google/tink/go/core/registry"
 	commonpb "github.com/google/tink/go/proto/common_go_proto"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/google/tink/go/subtle/random"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	secp256k1pb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/secp256k1_go_proto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/secp256k1/subtle"
@@ -278,14 +278,6 @@ func TestPublicKeyDataWithInvalidInput(t *testing.T) {
 
 	_, err = pkm.PublicKeyData(serializedKey)
 	require.Error(t, err, "expect an error when input is a modified serialized key")
-
-	// nil
-	_, err = pkm.PublicKeyData(nil)
-	require.Errorf(t, err, "expect an error when input is nil")
-
-	// empty slice
-	_, err = pkm.PublicKeyData([]byte{})
-	require.Errorf(t, err, "expect an error when input is an empty slice")
 }
 
 var errSmallKey = fmt.Errorf("private key doesn't have adequate size")
