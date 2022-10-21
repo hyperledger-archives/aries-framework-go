@@ -52,6 +52,10 @@ func newJWTCredClaims(vc *Credential, minimizeVC bool) (*JWTCredClaims, error) {
 		jwtClaims.Expiry = josejwt.NewNumericDate(vc.Expired.Time) // exp
 	}
 
+	if vc.Issued != nil {
+		jwtClaims.IssuedAt = josejwt.NewNumericDate(vc.Issued.Time)
+	}
+
 	var raw *rawCredential
 
 	if minimizeVC {
