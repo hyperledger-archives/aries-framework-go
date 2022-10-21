@@ -303,7 +303,7 @@ func (pn *ProofNonce) ToBytes() []byte {
 }
 
 type encodeForHashBuilder struct {
-	bytes []byte // TODO check encoding functions per type below
+	bytes []byte
 }
 
 func newEcnodeForHashBuilder() *encodeForHashBuilder {
@@ -317,11 +317,11 @@ func (db *encodeForHashBuilder) addInt(value int) {
 }
 
 func (db *encodeForHashBuilder) addPointG1(value *bls12381.PointG1) {
-	db.bytes = append(db.bytes, g1.ToBytes(value)...)
+	db.bytes = append(db.bytes, g1.ToCompressed(value)...)
 }
 
 func (db *encodeForHashBuilder) addPointG2(value *bls12381.PointG2) {
-	db.bytes = append(db.bytes, g2.ToBytes(value)...)
+	db.bytes = append(db.bytes, g2.ToCompressed(value)...)
 }
 
 func (db *encodeForHashBuilder) addScalar(value *bls12381.Fr) {
@@ -329,8 +329,12 @@ func (db *encodeForHashBuilder) addScalar(value *bls12381.Fr) {
 }
 
 func (db *encodeForHashBuilder) addBytes(value []byte) {
-	db.bytes = append(db.bytes, uint64ToBytes(uint64(len(value)))...)
+	db.addInt(len(value))
 	db.bytes = append(db.bytes, value...)
+}
+
+func (db *encodeForHashBuilder) addCsID() {
+	db.bytes = append(db.bytes, []byte(csID)...)
 }
 
 func (db *encodeForHashBuilder) build() []byte {

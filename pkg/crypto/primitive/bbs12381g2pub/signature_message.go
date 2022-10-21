@@ -17,7 +17,10 @@ type SignatureMessage struct {
 
 // parseSignatureMessage parses SignatureMessage from bytes.
 func parseSignatureMessage(message []byte) *SignatureMessage {
-	elm := Hash2scalar(message)
+	encodedForHashMsg := newEcnodeForHashBuilder()
+	encodedForHashMsg.addBytes(message)
+
+	elm := Hash2scalar(encodedForHashMsg.build())
 
 	return &SignatureMessage{
 		FR: elm,

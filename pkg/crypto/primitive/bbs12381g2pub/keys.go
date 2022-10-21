@@ -71,7 +71,7 @@ func (pk *PublicKey) ToPublicKeyWithGenerators(messagesCount int) (*PublicKeyWit
 		domainBuilder.addPointG1(gen)
 	}
 
-	domainBuilder.addBytes([]byte(csID))
+	domainBuilder.addCsID()
 	// TODO use header. Probably should be a parameter to this func
 
 	domain := Hash2scalar(domainBuilder.build())
