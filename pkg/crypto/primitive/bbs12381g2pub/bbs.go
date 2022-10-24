@@ -190,12 +190,14 @@ func (bbs *BBSG2Pub) SignWithKey(header []byte, messages [][]byte, privKey *Priv
 		return nil, fmt.Errorf("build generators from public key: %w", err)
 	}
 
+	messagesFr := ParseSignatureMessages(messages)
+
 	esBuilder := newEcnodeForHashBuilder()
 	esBuilder.addScalar(privKey.FR)
 	esBuilder.addScalar(pubKeyWithGenerators.domain)
 
-	for _, msg := range messages {
-		esBuilder.addBytes(msg)
+	for _, msgFr := range messagesFr {
+		esBuilder.addScalar(msgFr.FR)
 	}
 
 	es := Hash2scalars(esBuilder.build(), 2)
@@ -204,7 +206,6 @@ func (bbs *BBSG2Pub) SignWithKey(header []byte, messages [][]byte, privKey *Priv
 	exp.Add(exp, e)
 	exp.Inverse(exp)
 
-	messagesFr := ParseSignatureMessages(messages)
 	b := computeB(s, messagesFr, pubKeyWithGenerators)
 
 	sig := g1.New()
@@ -222,12 +223,9 @@ func (bbs *BBSG2Pub) SignWithKey(header []byte, messages [][]byte, privKey *Priv
 func computeB(s *bls12381.Fr, messages []*SignatureMessage, key *PublicKeyWithGenerators) *bls12381.PointG1 {
 	const basesOffset = 2
 
-	bindingBasis := g1.One()
-	bindingExp := bls12381.NewFr().One()
-
 	cb := newCommitmentBuilder(len(messages) + basesOffset)
 
-	cb.add(bindingBasis, bindingExp)
+	cb.add(key.p1, bls12381.NewFr().One())
 	cb.add(key.q1, s)
 	cb.add(key.q2, key.domain)
 

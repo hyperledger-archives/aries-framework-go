@@ -10,6 +10,10 @@ import (
 	bls12381 "github.com/kilic/bls12-381"
 )
 
+const (
+	dstMapMsg = csID + "MAP_MSG_TO_SCALAR_AS_HASH_"
+)
+
 // SignatureMessage defines a message to be used for a signature check.
 type SignatureMessage struct {
 	FR *bls12381.Fr
@@ -20,7 +24,7 @@ func parseSignatureMessage(message []byte) *SignatureMessage {
 	encodedForHashMsg := newEcnodeForHashBuilder()
 	encodedForHashMsg.addBytes(message)
 
-	elm := Hash2scalar(encodedForHashMsg.build())
+	elm := hash2scalars(encodedForHashMsg.build(), []byte(dstMapMsg), 1)[0]
 
 	return &SignatureMessage{
 		FR: elm,

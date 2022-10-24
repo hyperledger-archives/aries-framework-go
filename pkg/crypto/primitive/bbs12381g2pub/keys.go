@@ -21,12 +21,13 @@ import (
 )
 
 const (
-	seedSize      = frCompressedSize
-	seedDST       = csID + "SIG_GENERATOR_SEED_"
-	generatorDST  = csID + "SIG_GENERATOR_DST_"
-	generatorSeed = csID + "MESSAGE_GENERATOR_SEED"
-	logR2         = 251
-	seedLen       = ((logR2 + k) + 7) / 8 //nolint:gomnd
+	seedSize        = frCompressedSize
+	seedDST         = csID + "SIG_GENERATOR_SEED_"
+	generatorDST    = csID + "SIG_GENERATOR_DST_"
+	generatorSeed   = csID + "MESSAGE_GENERATOR_SEED"
+	generatorBPSeed = csID + "BP_MESSAGE_GENERATOR_SEED"
+	logR2           = 251
+	seedLen         = ((logR2 + k) + 7) / 8 //nolint:gomnd
 )
 
 // PublicKey defines BLS Public Key.
@@ -42,6 +43,7 @@ type PrivateKey struct {
 // PublicKeyWithGenerators extends PublicKey with a blinding generator h0, a commitment to the secret key w,
 // and a generator for each message h.
 type PublicKeyWithGenerators struct {
+	p1 *bls12381.PointG1
 	q1 *bls12381.PointG1
 	q2 *bls12381.PointG1
 	h  []*bls12381.PointG1
@@ -58,7 +60,12 @@ func (pk *PublicKey) ToPublicKeyWithGenerators(messagesCount int, header []byte)
 	specGenCnt := 2
 	genCnt := messagesCount + specGenCnt
 
-	generators, err := CreateGenerators(genCnt)
+	generators, err := CreateMessageGenerators(genCnt)
+	if err != nil {
+		return nil, err
+	}
+
+	bpGenerators, err := crateGenerators(genCnt, []byte(generatorBPSeed))
 	if err != nil {
 		return nil, err
 	}
@@ -77,6 +84,7 @@ func (pk *PublicKey) ToPublicKeyWithGenerators(messagesCount int, header []byte)
 	domain := Hash2scalar(domainBuilder.build())
 
 	return &PublicKeyWithGenerators{
+		p1:            bpGenerators[0],
 		q1:            generators[0],
 		q2:            generators[1],
 		h:             generators[2:],
@@ -97,11 +105,15 @@ func hashToG1(data, dst []byte) (*bls12381.PointG1, error) {
 	return g1.FromBytes(g.ToBytes(p))
 }
 
-// CreateGenerators create `cnt` determenistic generators.
-func CreateGenerators(cnt int) ([]*bls12381.PointG1, error) {
+// CreateMessageGenerators create `cnt` determenistic generators.
+func CreateMessageGenerators(cnt int) ([]*bls12381.PointG1, error) {
+	return crateGenerators(cnt, []byte(generatorSeed))
+}
+
+func crateGenerators(cnt int, seed []byte) ([]*bls12381.PointG1, error) {
 	generators := make([]*bls12381.PointG1, cnt)
 
-	v, err := bls12381intern.ExpandMsgXOF(sha3.NewShake256(), []byte(generatorSeed), []byte(seedDST), seedLen)
+	v, err := bls12381intern.ExpandMsgXOF(sha3.NewShake256(), seed, []byte(seedDST), seedLen)
 	if err != nil {
 		return nil, err
 	}

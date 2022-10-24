@@ -67,21 +67,21 @@ func TestPrivateKey_PublicKey(t *testing.T) {
 
 	t.Run("pre-generated key pair", func(t *testing.T) {
 		// original hex seed 746869732d49532d6a7573742d616e2d546573742d494b4d2d746f2d67656e65726174652d246528724074232d6b6579
-		privateKeyB58 := "5qNVd4Wsp7LPC7vxrbuVMsAkAGif2dA82wm1Wte1zH4Z"
-		publicKeyB58 := "25pRBEBDHvG5ryqsEB5tw6eAa3Ds8bx6jMKhEtXnWjCLNg7ikYokwaNtpggZZY3MvWTxBPCidfxFBq2ZiVVTpioCh6GJLs4iESiEydJca9kmeMkEkqK6ePudqoqLHSv4NA7p" // nolint: lll
+		privateKeyBytes := hexToBytes(t, "47d2ede63ab4c329092b342ab526b1079dbc2595897d4f2ab2de4d841cbe7d56")
+		publicKeyBytesExpeted := hexToBytes(t, "b65b7cbff4e81b723456a13936b6bcc77a078bf6291765f3ae13170072249dd7daa7ec1bd82b818ab60198030b45b8fa159c155fc3841a9ad4045e37161c9f0d9a4f361b93cfdc67d365f3be1a398e56aa173d7a55e01b4a8dd2494e7fb90da7") // nolint: lll
 
-		privateKey, err := bbs.UnmarshalPrivateKey(base58.Decode(privateKeyB58))
+		privateKey, err := bbs.UnmarshalPrivateKey(privateKeyBytes)
 		require.NoError(t, err)
 
 		publicKeyBytes, err := privateKey.PublicKey().Marshal()
-		require.Equal(t, publicKeyB58, base58.Encode(publicKeyBytes))
+		require.Equal(t, publicKeyBytesExpeted, publicKeyBytes)
 		require.NoError(t, err)
 	})
 }
 
 func TestGenerators(t *testing.T) {
 	msgCnt := 2
-	generators, err := bbs.CreateGenerators(msgCnt + 2)
+	generators, err := bbs.CreateMessageGenerators(msgCnt + 2)
 	require.NoError(t, err)
 
 	bytes := bls12381.NewG1().ToCompressed(generators[0])

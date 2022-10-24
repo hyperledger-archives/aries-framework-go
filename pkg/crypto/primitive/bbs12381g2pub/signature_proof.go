@@ -70,9 +70,6 @@ func (sp *PoKOfSignatureProof) verifyVC2Proof(challenge *bls12381.Fr, pubKey *Pu
 	revealedMessages map[int]*SignatureMessage, messages []*SignatureMessage) error {
 	revealedMessagesCount := len(revealedMessages)
 
-	bindingBasis := g1.One()
-	bindingExp := bls12381.NewFr().One()
-
 	basesVC2 := make([]*bls12381.PointG1, 0, 2+pubKey.messagesCount-revealedMessagesCount)
 	basesVC2 = append(basesVC2, sp.d, pubKey.q1)
 
@@ -80,8 +77,8 @@ func (sp *PoKOfSignatureProof) verifyVC2Proof(challenge *bls12381.Fr, pubKey *Pu
 	basesDisclosed := make([]*bls12381.PointG1, 0, disclousedElementsCnt)
 	exponentsDisclosed := make([]*bls12381.Fr, 0, disclousedElementsCnt)
 
-	basesDisclosed = append(basesDisclosed, bindingBasis, pubKey.q2)
-	exponentsDisclosed = append(exponentsDisclosed, bindingExp, pubKey.domain)
+	basesDisclosed = append(basesDisclosed, pubKey.p1, pubKey.q2)
+	exponentsDisclosed = append(exponentsDisclosed, bls12381.NewFr().One(), pubKey.domain)
 
 	revealedMessagesInd := 0
 

@@ -17,10 +17,9 @@ import (
 )
 
 const (
-	logP2     = 384
 	k         = 128
 	h2sDST    = csID + "H2S_"
-	expandLen = (logP2 + k) / 8
+	expandLen = (logR2 + k + 7) / 8 //nolint:gomnd
 )
 
 func parseFr(data []byte) *bls12381.Fr {
@@ -74,20 +73,25 @@ func Hash2scalar(message []byte) *bls12381.Fr {
 
 // Hash2scalars convert messages represented in bytes to Fr.
 func Hash2scalars(msg []byte, cnt int) []*bls12381.Fr {
+	return hash2scalars(msg, []byte(h2sDST), cnt)
+}
+
+func hash2scalars(msg, dst []byte, cnt int) []*bls12381.Fr {
 	bufLen := cnt * expandLen
 	msgLen := len(msg)
 	roundSz := 1
 	msgLenSz := 4
 
 	msgExt := make([]byte, msgLen+roundSz+msgLenSz)
+	// msgExt is a concatenation of: msg || I2OSP(round, 1) || I2OSP(cnt, 4)
 	copy(msgExt, msg)
-	copy(msgExt[msgLen+1:], uint32ToBytes(uint32(msgLen)))
+	copy(msgExt[msgLen+1:], uint32ToBytes(uint32(cnt)))
 
 	out := make([]*bls12381.Fr, cnt)
 
 	for round, completed := byte(0), false; !completed; {
 		msgExt[msgLen] = round
-		buf, _ := bls12381intern.ExpandMsgXOF(sha3.NewShake256(), msgExt, []byte(h2sDST), bufLen) //nolint:errcheck
+		buf, _ := bls12381intern.ExpandMsgXOF(sha3.NewShake256(), msgExt, dst, bufLen) //nolint:errcheck
 
 		ok := true
 		for i := 0; i < cnt && ok; i++ {
