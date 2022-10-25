@@ -173,13 +173,6 @@ func TestServiceHandleOutbound(t *testing.T) {
 			id := <-msgID
 			require.NoError(t, svc.saveGrant(generateGrantMsgPayload(t, id)))
 		}()
-
-		thing, err := svc.HandleOutbound(service.NewDIDCommMsgMap(&Request{
-			ID:   uuid.New().String(),
-			Type: RequestMsgType,
-		}), MYDID, THEIRDID)
-		require.NoError(t, err)
-		println(thing)
 	})
 
 	t.Run("rejects invalid msg types", func(t *testing.T) {

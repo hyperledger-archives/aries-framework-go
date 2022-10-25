@@ -28,7 +28,7 @@ const (
 )
 
 func Test_NewConnectionRecorder(t *testing.T) {
-	t.Run("create create new recorder - success", func(t *testing.T) {
+	t.Run("create new recorder - success", func(t *testing.T) {
 		recorder, err := NewRecorder(&mockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, recorder)

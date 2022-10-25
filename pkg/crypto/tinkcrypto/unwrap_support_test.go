@@ -39,7 +39,7 @@ func Test_ExtractPrivKey(t *testing.T) {
 		"google.crypto.tink.AesGcmKey'")
 
 	require.PanicsWithValue(t, "keyset.Handle: keyset must be non nil", func() {
-		_, _ = extractPrivKey(&keyset.Handle{})
+		_, _ = extractPrivKey(&keyset.Handle{}) //nolint:errcheck // Expected to panic
 	})
 
 	badPrivateKeyProto := generateECDHAEADPrivateKey(t, commonpb.EllipticCurveType_CURVE25519, // <-- invalid EC curve

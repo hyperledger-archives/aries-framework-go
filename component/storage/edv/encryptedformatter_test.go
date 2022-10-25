@@ -98,7 +98,9 @@ func createValidEncryptedFormatter(t *testing.T, options ...edv.EncryptedFormatt
 }
 
 func createKMSAndCrypto(t *testing.T) (kms.KeyManager, cryptoapi.Crypto) {
-	p := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
+	p, err := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
+	require.NoError(t, err)
+
 	kmsSvc, err := localkms.New("local-lock://test/master/key/", p)
 	require.NoError(t, err)
 

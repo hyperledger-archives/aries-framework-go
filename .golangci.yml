@@ -88,6 +88,10 @@ linters-settings:
 linters:
   enable-all: true
   disable:
+    - nolintlint
+    - varnamelen
+    - tenv
+    - tagliatelle
     - testpackage
     - maligned
     - prealloc
@@ -105,6 +109,37 @@ linters:
     - makezero # TODO enable
     - wrapcheck # TODO enable
     - thelper # TODO enable
+    - usestdlibvars
+    - testableexamples
+    - stylecheck
+    - nosnakecase
+    - gci
+    - staticcheck
+    - nonamedreturns
+    - nilnil
+    - ireturn
+    - gomnd
+    - gosimple
+    - errchkjson
+    - errname
+    - dupword
+    - interfacebloat
+    - forcetypeassert
+    - exhaustruct
+    - contextcheck
+    - containedctx
+    - bodyclose
+    - revive
+    - gosec
+    - gofumpt
+    - gofmt
+    - gocritic
+    - goimports
+    - gocognit
+    - forbidigo
+    - nosprintfhostport
+    - typecheck
+    - maintidx
 
 issues:
   exclude-use-default: false
@@ -114,6 +149,13 @@ issues:
         - dupl
         - funlen
         - gomnd
+        - maintidx
+        - gomnd
+        - usestdlibvars
+        - testableexamples
+        - stylecheck
+        - typecheck
+        - maintidx
     - path: example_[^\/]*_test\.go
       linters:
         - dupl
