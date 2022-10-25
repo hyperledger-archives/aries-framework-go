@@ -108,7 +108,6 @@ func (pd *PresentationDefinition) Match(vp *verifiable.Presentation, // nolint:g
 		return nil, fmt.Errorf("failed to parse descriptor map: %w", err)
 	}
 
-	builder := gval.Full(jsonpath.PlaceholderExtension())
 	result := make(map[string]*verifiable.Credential)
 
 	for i := range descriptorMap {
@@ -121,12 +120,9 @@ func (pd *PresentationDefinition) Match(vp *verifiable.Presentation, // nolint:g
 				descriptorMapProperty, mapping.ID)
 		}
 
-		// TODO need to revisit this logic
-		mapping = pd.getPathNestedIfExists(mapping)
-
-		vc, selectErr := selectByPath(builder, typelessVP, mapping.Path, opts)
+		vc, selectErr := selectVC(typelessVP, mapping, opts)
 		if selectErr != nil {
-			return nil, fmt.Errorf("failed to select vc from submission: %w", selectErr)
+			return nil, selectErr
 		}
 
 		inputDescriptor := pd.inputDescriptor(mapping.ID)
@@ -151,12 +147,40 @@ func (pd *PresentationDefinition) Match(vp *verifiable.Presentation, // nolint:g
 	return result, nil
 }
 
-func (pd *PresentationDefinition) getPathNestedIfExists(mapping *InputDescriptorMapping) *InputDescriptorMapping {
-	if mapping.PathNested != nil {
-		return pd.getPathNestedIfExists(mapping.PathNested)
+func selectVC(typelessVerifiable interface{},
+	mapping *InputDescriptorMapping, opts *MatchOptions) (*verifiable.Credential, error) {
+	builder := gval.Full(jsonpath.PlaceholderExtension())
+
+	var vc *verifiable.Credential
+
+	var err error
+
+	for {
+		vc, err = selectByPath(builder, typelessVerifiable, mapping.Path, opts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to select vc from submission: %w", err)
+		}
+
+		if mapping.PathNested == nil {
+			break
+		}
+
+		mapping = mapping.PathNested
+
+		var vcBytes []byte
+
+		vcBytes, err = vc.MarshalJSON()
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal vc: %w", err)
+		}
+
+		err = json.Unmarshal(vcBytes, &typelessVerifiable)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal vc: %w", err)
+		}
 	}
 
-	return mapping
+	return vc, nil
 }
 
 // Ensures the matched credentials meet the submission requirements.
