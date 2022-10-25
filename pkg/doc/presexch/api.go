@@ -156,28 +156,29 @@ func selectVC(typelessVerifiable interface{},
 	var err error
 
 	for {
-		vc, err = selectByPath(builder, typelessVerifiable, mapping.Path, opts)
+		typelessVerifiable, err = selectByPath(builder, typelessVerifiable, mapping.Path)
 		if err != nil {
 			return nil, fmt.Errorf("failed to select vc from submission: %w", err)
 		}
 
-		if mapping.PathNested == nil {
-			break
+		if mapping.PathNested != nil {
+			mapping = mapping.PathNested
+			continue
 		}
 
-		mapping = mapping.PathNested
+		var credBits []byte
 
-		var vcBytes []byte
-
-		vcBytes, err = vc.MarshalJSON()
+		credBits, err = json.Marshal(typelessVerifiable)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal vc: %w", err)
+			return nil, fmt.Errorf("failed to marshal credential: %w", err)
 		}
 
-		err = json.Unmarshal(vcBytes, &typelessVerifiable)
+		vc, err = verifiable.ParseCredential(credBits, opts.CredentialOptions...)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal vc: %w", err)
+			return nil, fmt.Errorf("failed to parse credential: %w", err)
 		}
+
+		break
 	}
 
 	return vc, nil
@@ -263,8 +264,7 @@ func descriptorIDs(input []*InputDescriptor) []string {
 // [The Input Descriptor Mapping Object] MUST include a path property, and its value MUST be a JSONPath
 // string expression that selects the credential to be submit in relation to the identified Input Descriptor
 // identified, when executed against the top-level of the object the Presentation Submission is embedded within.
-func selectByPath(builder gval.Language, vp interface{}, jsonPath string,
-	options *MatchOptions) (*verifiable.Credential, error) {
+func selectByPath(builder gval.Language, vp interface{}, jsonPath string) (interface{}, error) {
 	path, err := builder.NewEvaluable(jsonPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build new json path evaluator: %w", err)
@@ -275,17 +275,7 @@ func selectByPath(builder gval.Language, vp interface{}, jsonPath string,
 		return nil, fmt.Errorf("failed to evaluate json path [%s]: %w", jsonPath, err)
 	}
 
-	credBits, err := json.Marshal(cred)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal credential: %w", err)
-	}
-
-	vc, err := verifiable.ParseCredential(credBits, options.CredentialOptions...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse credential: %w", err)
-	}
-
-	return vc, nil
+	return cred, nil
 }
 
 func stringsContain(s []string, val string) bool {

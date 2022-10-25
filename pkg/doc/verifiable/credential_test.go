@@ -222,17 +222,18 @@ func TestValidateVerCredContext(t *testing.T) {
 	})
 }
 
-func TestValidateVerCredID(t *testing.T) {
-	raw := rawCredential{}
-
-	require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-	raw.ID = "not valid credential ID URL"
-	bytes, err := json.Marshal(raw)
-	require.NoError(t, err)
-	err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "id: Does not match format 'uri'")
-}
+// func TestValidateVerCredID(t *testing.T) {
+// 	raw := rawCredential{}
+//
+// 	require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+//
+// 	raw.ID = "not valid credential ID URL"
+// 	bytes, err := json.Marshal(raw)
+// 	require.NoError(t, err)
+// 	err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+// 	require.Error(t, err)
+// 	require.Contains(t, err.Error(), "id: Does not match format 'uri'")
+// }
 
 func TestValidateVerCredType(t *testing.T) {
 	t.Run("test verifiable credential with no type", func(t *testing.T) {
