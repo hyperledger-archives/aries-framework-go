@@ -35,8 +35,19 @@ func (v *VDR) resolveDID(uri string) ([]byte, error) {
 
 	req.Header.Add("Accept", didLDJson)
 
-	if v.resolveAuthToken != "" {
-		req.Header.Add("Authorization", v.resolveAuthToken)
+	authToken := v.resolveAuthToken
+
+	if v.authTokenProvider != nil {
+		v, errToken := v.authTokenProvider.AuthToken()
+		if errToken != nil {
+			return nil, errToken
+		}
+
+		authToken = "Bearer " + v
+	}
+
+	if authToken != "" {
+		req.Header.Add("Authorization", authToken)
 	}
 
 	resp, err := v.client.Do(req)

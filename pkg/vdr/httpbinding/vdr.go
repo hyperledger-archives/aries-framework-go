@@ -20,12 +20,17 @@ import (
 
 var logger = log.New("aries-framework/vdr/httpbinding")
 
+type authTokenProvider interface {
+	AuthToken() (string, error)
+}
+
 // VDR via HTTP(s) endpoint.
 type VDR struct {
-	endpointURL      string
-	client           *http.Client
-	accept           Accept
-	resolveAuthToken string
+	endpointURL       string
+	client            *http.Client
+	accept            Accept
+	resolveAuthToken  string
+	authTokenProvider authTokenProvider
 }
 
 // Accept is method to accept did method.
@@ -103,6 +108,13 @@ func WithAccept(accept Accept) Option {
 func WithResolveAuthToken(authToken string) Option {
 	return func(opts *VDR) {
 		opts.resolveAuthToken = "Bearer " + authToken
+	}
+}
+
+// WithResolveAuthTokenProvider add auth token provider.
+func WithResolveAuthTokenProvider(p authTokenProvider) Option {
+	return func(opts *VDR) {
+		opts.authTokenProvider = p
 	}
 }
 
