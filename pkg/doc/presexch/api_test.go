@@ -153,6 +153,45 @@ func TestPresentationDefinition_Match(t *testing.T) {
 		require.Equal(t, expectedNested.ID, result.ID)
 	})
 
+	t.Run("match with self referencing", func(t *testing.T) {
+		uri := randomURI()
+		contextLoader := createTestDocumentLoader(t, uri)
+		agent := newAgent(t)
+
+		expected := newSignedJWTVC(t, agent, []string{uri})
+
+		defs := &PresentationDefinition{
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				}},
+			}},
+		}
+
+		matched, err := defs.Match(newVP(t,
+			&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
+				ID:   defs.InputDescriptors[0].ID,
+				Path: "$",
+				PathNested: &InputDescriptorMapping{
+					ID:   defs.InputDescriptors[0].ID,
+					Path: "$.verifiableCredential[0]",
+				},
+			}}},
+			expected,
+		), contextLoader,
+			WithCredentialOptions(
+				verifiable.WithJSONLDDocumentLoader(contextLoader),
+				verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(agent.VDRegistry()).PublicKeyFetcher()),
+			),
+		)
+		require.NoError(t, err)
+		require.Len(t, matched, 1)
+		result, ok := matched[defs.InputDescriptors[0].ID]
+		require.True(t, ok)
+		require.Equal(t, expected.ID, result.ID)
+	})
+
 	t.Run("match one signed credential", func(t *testing.T) {
 		uri := randomURI()
 		contextLoader := createTestDocumentLoader(t, uri)
