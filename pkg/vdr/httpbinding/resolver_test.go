@@ -103,7 +103,7 @@ func TestRead_DIDDoc(t *testing.T) {
 
 		defer func() { testServer.Close() }()
 
-		resolver, err := New(testServer.URL, WithResolveAuthToken("tk1"))
+		resolver, err := New(testServer.URL, WithResolveAuthTokenProvider(&tokenProvider{}))
 		require.NoError(t, err)
 		gotDocument, err := resolver.Read("did:example:334455")
 		require.NoError(t, err)
@@ -289,7 +289,7 @@ func TestRead_HTTPGetFailed(t *testing.T) {
 }
 
 func TestDIDResolver_Accept(t *testing.T) {
-	resolver, err := New("localhost:8080")
+	resolver, err := New("localhost:8080", WithResolveAuthToken("tk1"))
 	require.NoError(t, err)
 	require.True(t, resolver.accept("example"))
 
@@ -298,4 +298,10 @@ func TestDIDResolver_Accept(t *testing.T) {
 	}))
 	require.NoError(t, err)
 	require.False(t, resolver.accept("example"))
+}
+
+type tokenProvider struct{}
+
+func (t *tokenProvider) AuthToken() (string, error) {
+	return "newTK", nil
 }
