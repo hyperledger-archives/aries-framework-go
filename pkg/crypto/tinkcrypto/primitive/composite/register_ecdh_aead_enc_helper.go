@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/golang/protobuf/proto"
 	aead "github.com/google/tink/go/aead/subtle"
 	"github.com/google/tink/go/core/registry"
 	gcmpb "github.com/google/tink/go/proto/aes_gcm_go_proto"
@@ -21,6 +20,7 @@ import (
 	"github.com/google/tink/go/tink"
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/poly1305"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/aead/subtle"
 	cbchmacpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/aes_cbc_hmac_aead_go_proto"

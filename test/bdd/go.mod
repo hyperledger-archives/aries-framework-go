@@ -16,11 +16,11 @@ require (
 	github.com/hyperledger/aries-framework-go v0.1.8-0.20220322085443-50e8f9bd208b
 	github.com/hyperledger/aries-framework-go/component/storage/leveldb v0.0.0-20220322085443-50e8f9bd208b
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220322085443-50e8f9bd208b
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20220606124520-53422361c38c
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20221021224215-368f53b380a4
 	github.com/moby/sys/mount v0.2.0 // indirect
 	github.com/moby/term v0.0.0-20201110203204-bea5bbe245bf // indirect
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
-	github.com/piprate/json-gold v0.4.1
+	github.com/piprate/json-gold v0.4.2
 	github.com/teserakt-io/golang-ed25519 v0.0.0-20210104091850-3888c087a4c8
 	github.com/trustbloc/sidetree-core-go v0.6.0
 	nhooyr.io/websocket v1.8.3
@@ -46,9 +46,9 @@ require (
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/golang/snappy v0.0.3 // indirect
-	github.com/google/tink/go v1.6.1 // indirect
-	github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20220606124520-53422361c38c // indirect
+	github.com/golang/snappy v0.0.4 // indirect
+	github.com/google/tink/go v1.7.0 // indirect
+	github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20221021224215-368f53b380a4 // indirect
 	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
 	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a // indirect
 	github.com/kawamuray/jsonpath v0.0.0-20201211160320-7483bafabd7e // indirect
@@ -56,13 +56,13 @@ require (
 	github.com/klauspost/compress v1.10.0 // indirect
 	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1 // indirect
 	github.com/minio/sha256-simd v0.1.1 // indirect
-	github.com/mitchellh/mapstructure v1.1.2 // indirect
+	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/moby/sys/mountinfo v0.4.0 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/mr-tron/base58 v1.2.0 // indirect
-	github.com/multiformats/go-base32 v0.0.4 // indirect
+	github.com/multiformats/go-base32 v0.1.0 // indirect
 	github.com/multiformats/go-base36 v0.1.0 // indirect
-	github.com/multiformats/go-multibase v0.0.3 // indirect
+	github.com/multiformats/go-multibase v0.1.1 // indirect
 	github.com/multiformats/go-multihash v0.0.14 // indirect
 	github.com/multiformats/go-varint v0.0.5 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
@@ -75,7 +75,7 @@ require (
 	github.com/sirupsen/logrus v1.7.0 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/square/go-jose/v3 v3.0.0-20200630053402-0a67ce9b0693 // indirect
-	github.com/stretchr/testify v1.7.2 // indirect
+	github.com/stretchr/testify v1.8.1 // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
 	github.com/tidwall/gjson v1.6.7 // indirect
 	github.com/tidwall/match v1.0.3 // indirect
@@ -85,11 +85,11 @@ require (
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
-	go.opencensus.io v0.22.5 // indirect
-	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e // indirect
+	go.opencensus.io v0.23.0 // indirect
+	golang.org/x/crypto v0.1.0 // indirect
 	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a // indirect
-	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
-	google.golang.org/protobuf v1.28.0 // indirect
+	golang.org/x/sys v0.1.0 // indirect
+	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 

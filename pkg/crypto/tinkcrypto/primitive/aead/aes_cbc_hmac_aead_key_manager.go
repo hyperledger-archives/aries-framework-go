@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/golang/protobuf/proto"
 	subtleaead "github.com/google/tink/go/aead/subtle"
 	"github.com/google/tink/go/keyset"
 	subtlemac "github.com/google/tink/go/mac/subtle"
@@ -18,6 +17,7 @@ import (
 	hmacpb "github.com/google/tink/go/proto/hmac_go_proto"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/google/tink/go/subtle/random"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/aead/subtle"
 	cbcpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/aes_cbc_go_proto"

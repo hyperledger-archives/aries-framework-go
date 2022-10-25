@@ -12,11 +12,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/google/tink/go/aead"
 	commonpb "github.com/google/tink/go/proto/common_go_proto"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	cbcaead "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/aead"
 	ecdhpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
