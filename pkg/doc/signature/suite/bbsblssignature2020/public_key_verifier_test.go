@@ -20,11 +20,11 @@ import (
 func TestNewG2PublicKeyVerifier(t *testing.T) {
 	verifier := NewG2PublicKeyVerifier()
 
-	pkBase64 := "lOpN7uGZWivVIjs0325N/V0dAhoPomrgfXVpg7pZNdRWwFwJDVxoE7TvRyOx/Qr7GMtShNuS2Px/oScD+SMf08t8eAO78QRNErPzwNpfkP4ppcSTShStFDfFbsv9L9yb"
+	pkBase64 := "iQp7qpSrUoYYvtYylMp61k/8/U8JgiFp+sp6AIppkByvsZ4fpbMjWqePcGkXNuKJE+pE2VqTSOs0meYy3JNj12ksKVoP0DF4ZaFgg+Q+8Gw/npZy50TcWvOBPGyHnxRC"
 	pkBytes, err := base64.RawStdEncoding.DecodeString(pkBase64)
 	require.NoError(t, err)
 
-	sigBase64 := "hPbLkeMZZ6KKzkjWoTVHeMeuLJfYWjmdAU1Vg5fZ/VZnIXxxeXBB+q0/EL8XQmWkOMMwEGA/D2dCb4MDuntKZpvHEHlvaFR6l1A4bYj0t2Jd6bYwGwCwirNbmSeIoEmJeRzJ1cSvsL+jxvLixdDPnw=="
+	sigBase64 := "gcwMuYBElR0ESVFWQqerR7Vfb4+6nJ1zF8iM4BPQ+PmSF2kXPkRSaUtkEgpS1KuFLAMwV4L/18Pu1BMWd0YBzY4MssdCwsQYerREXQNzoDJlQf0IEf91Ucdzn6MJecpEbaYvHJC8ciddUUEuVVQlVg=="
 	sigBytes, err := base64.StdEncoding.DecodeString(sigBase64)
 	require.NoError(t, err)
 
