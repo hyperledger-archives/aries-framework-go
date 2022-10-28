@@ -18,7 +18,7 @@ fi
 
 npm install
 
-cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" src/
+# TODO (#3421): Update the BBS interop tests to support latest Go and Node versions.
 
 # capture exit code if it fails
 npm run test || code=$?

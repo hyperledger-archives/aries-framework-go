@@ -11,7 +11,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.0.2
 	github.com/google/tink/go v1.7.0
 	github.com/google/uuid v1.3.0
-	github.com/hyperledger/aries-framework-go v0.1.9-0.20221021224215-368f53b380a4
+	github.com/hyperledger/aries-framework-go v0.1.9-0.20221025204933-b807371b6f1e
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220322085443-50e8f9bd208b
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20221021224215-368f53b380a4
 	github.com/hyperledger/aries-framework-go/test/component v0.0.0-20220428211718-66cc046674a1
@@ -24,7 +24,6 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
 	github.com/kilic/bls12-381 v0.1.1-0.20210503002446-7b7597926c69 // indirect
-	github.com/kr/text v0.2.0 // indirect
 	github.com/mr-tron/base58 v1.2.0 // indirect
 	github.com/multiformats/go-base32 v0.1.0 // indirect
 	github.com/multiformats/go-base36 v0.1.0 // indirect
