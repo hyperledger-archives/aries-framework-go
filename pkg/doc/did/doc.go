@@ -1467,9 +1467,6 @@ func populateRawVerificationMethod(context, didID, baseURI string,
 		rawVM[jsonldOwner] = vm.Controller
 	} else {
 		rawVM[jsonldController] = vm.Controller
-		if vm.relativeURL {
-			rawVM[jsonldController] = ""
-		}
 	}
 
 	if vm.jsonWebKey != nil { //nolint: gocritic
