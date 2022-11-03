@@ -1,3 +1,4 @@
+//go:build ACAPyInterop
 // +build ACAPyInterop
 
 /*
@@ -119,7 +120,10 @@ func populateRawServicesInterop(services []Service, didID, baseURI string) []map
 		rawService[jsonldServicePoint] = uri
 		rawService[jsonldRecipientKeys] = recipientKeys
 		rawService[jsonldRoutingKeys] = routingKeys
-		rawService[jsonldPriority] = services[i].Priority
+
+		if services[i].Priority != nil {
+			rawService[jsonldPriority] = services[i].Priority
+		}
 
 		rawServices = append(rawServices, rawService)
 	}
@@ -159,9 +163,12 @@ func pubKeyFromDIDKey(didKey string) ([]byte, error) {
 
 // SerializeInterop serializes the DID doc, using normal serialization unless the `interop` build flag is set.
 // Verifications are serialized to accommodate aca-py issue #1104:
-//   https://github.com/hyperledger/aries-cloudagent-python/issues/1104
+//
+//	https://github.com/hyperledger/aries-cloudagent-python/issues/1104
+//
 // Services are serialized to accommodate aca-py issue #1106:
-//   https://github.com/hyperledger/aries-cloudagent-python/issues/1106
+//
+//	https://github.com/hyperledger/aries-cloudagent-python/issues/1106
 func (doc *Doc) SerializeInterop() ([]byte, error) {
 	context := ContextV1Old
 

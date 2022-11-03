@@ -1027,7 +1027,7 @@ func TestChooseTarget(t *testing.T) {
 		expected := map[string]interface{}{
 			"id":              uuid.New().String(),
 			"type":            "did-communication",
-			"priority":        uint(0),
+			"priority":        0,
 			"recipientKeys":   []string{"my ver key"},
 			"serviceEndpoint": commonmodel.NewDIDCommV1Endpoint("my service endpoint"),
 			"RoutingKeys":     []string{"my routing key"},

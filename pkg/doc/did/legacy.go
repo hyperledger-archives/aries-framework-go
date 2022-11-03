@@ -107,7 +107,10 @@ func populateRawServicesLegacy(services []Service, didID, baseURI string) []map[
 		rawService[jsonldServicePoint] = uri
 		rawService[jsonldRecipientKeys] = recipientKeys
 		rawService[jsonldRoutingKeys] = routingKeys
-		rawService[jsonldPriority] = services[i].Priority
+
+		if services[i].Priority != nil {
+			rawService[jsonldPriority] = services[i].Priority
+		}
 
 		rawServices = append(rawServices, rawService)
 	}

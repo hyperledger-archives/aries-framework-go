@@ -20,6 +20,7 @@ import (
 )
 
 // GetMockDIDDoc creates a mock DID Doc for testing.
+//
 //nolint:funlen
 func GetMockDIDDoc(t *testing.T, isDIDCommV2 bool) *did.Doc {
 	t.Helper()
@@ -32,6 +33,13 @@ func GetMockDIDDoc(t *testing.T, isDIDCommV2 bool) *did.Doc {
 			RoutingKeys:     []string{MockDIDKey(t)},
 			Type:            "did-communication",
 			Priority:        0,
+			RecipientKeys:   []string{MockDIDKey(t)},
+		},
+		{
+			ServiceEndpoint: model.NewDIDCommV1Endpoint("https://localhost:9090"),
+			RoutingKeys:     []string{MockDIDKey(t)},
+			Type:            "did-communication",
+			Priority:        1,
 			RecipientKeys:   []string{MockDIDKey(t)},
 		},
 	}
