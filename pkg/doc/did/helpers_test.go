@@ -194,7 +194,54 @@ func TestGetDidCommService(t *testing.T) {
 		s, ok := LookupService(didDoc, didCommServiceType)
 		require.True(t, ok)
 		require.Equal(t, "did-communication", s.Type)
-		require.Equal(t, uint(0), s.Priority)
+		require.Equal(t, 0, s.Priority)
+	})
+
+	t.Run("successfully getting did-communication service - switch order", func(t *testing.T) {
+		didDoc := mockdiddoc.GetMockDIDDoc(t, false)
+		service := didDoc.Service[0]
+		didDoc.Service[0] = didDoc.Service[1]
+		didDoc.Service[1] = service
+
+		s, ok := LookupService(didDoc, didCommServiceType)
+		require.True(t, ok)
+		require.Equal(t, "did-communication", s.Type)
+		require.Equal(t, 0, s.Priority)
+	})
+
+	t.Run("successfully getting did-communication service - first priority nil", func(t *testing.T) {
+		didDoc := mockdiddoc.GetMockDIDDoc(t, false)
+		didDoc.Service[0].Priority = nil
+
+		s, ok := LookupService(didDoc, didCommServiceType)
+		require.True(t, ok)
+		require.Equal(t, "did-communication", s.Type)
+		require.Equal(t, 1, s.Priority)
+	})
+
+	t.Run("successfully getting did-communication service - second priority nil", func(t *testing.T) {
+		didDoc := mockdiddoc.GetMockDIDDoc(t, false)
+		didDoc.Service[1].Priority = nil
+
+		s, ok := LookupService(didDoc, didCommServiceType)
+		require.True(t, ok)
+		require.Equal(t, "did-communication", s.Type)
+		require.Equal(t, 0, s.Priority)
+	})
+
+	t.Run("successfully getting did-communication service - both nil", func(t *testing.T) {
+		didDoc := mockdiddoc.GetMockDIDDoc(t, false)
+		didDoc.Service[0].Priority = nil
+		didDoc.Service[1].Priority = nil
+
+		s, ok := LookupService(didDoc, didCommServiceType)
+		require.True(t, ok)
+		require.Equal(t, "did-communication", s.Type)
+		require.Equal(t, nil, s.Priority)
+
+		uri, err := s.ServiceEndpoint.URI()
+		require.NoError(t, err)
+		require.Equal(t, "https://localhost:8090", uri)
 	})
 
 	t.Run("error due to missing service", func(t *testing.T) {
@@ -209,6 +256,7 @@ func TestGetDidCommService(t *testing.T) {
 	t.Run("error due to missing did-communication service", func(t *testing.T) {
 		didDoc := mockdiddoc.GetMockDIDDoc(t, false)
 		didDoc.Service[0].Type = "some-type"
+		didDoc.Service[1].Type = "other-type"
 
 		s, ok := LookupService(didDoc, didCommServiceType)
 		require.False(t, ok)

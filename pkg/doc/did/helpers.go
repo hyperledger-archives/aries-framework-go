@@ -138,7 +138,7 @@ func LookupService(didDoc *Doc, serviceType string) (*Service, bool) {
 
 	for i := range didDoc.Service {
 		if didDoc.Service[i].Type == serviceType {
-			if index == notFound || didDoc.Service[index].Priority > didDoc.Service[i].Priority {
+			if index == notFound || comparePriority(didDoc.Service[index].Priority, didDoc.Service[i].Priority) {
 				index = i
 			}
 		}
@@ -149,6 +149,22 @@ func LookupService(didDoc *Doc, serviceType string) (*Service, bool) {
 	}
 
 	return &didDoc.Service[index], true
+}
+
+func comparePriority(v1, v2 interface{}) bool {
+	// expecting positive integers plus zero; otherwise cannot compare priority
+	intV1, okV1 := v1.(int)
+	intV2, okV2 := v2.(int)
+
+	if okV1 && okV2 {
+		return intV1 > intV2
+	}
+
+	if !okV1 && !okV2 {
+		return false
+	}
+
+	return !okV1
 }
 
 // LookupDIDCommRecipientKeys gets the DIDComm recipient keys from the did doc which match the given parameters.

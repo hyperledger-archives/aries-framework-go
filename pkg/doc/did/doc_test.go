@@ -157,7 +157,7 @@ func TestValidWithDocBase(t *testing.T) {
 			{
 				ID:                       "did:example:123456789abcdefghi#did-communication",
 				Type:                     "did-communication",
-				Priority:                 0,
+				Priority:                 float64(0),
 				relativeURL:              true,
 				RecipientKeys:            []string{"did:example:123456789abcdefghi#key2"},
 				RoutingKeys:              []string{"did:example:123456789abcdefghi#key2"},
@@ -413,7 +413,7 @@ func TestValid(t *testing.T) {
 			{
 				ID:                       "did:example:123456789abcdefghi#did-communication",
 				Type:                     "did-communication",
-				Priority:                 0,
+				Priority:                 float64(0),
 				RecipientKeys:            []string{"did:example:123456789abcdefghi#key2"},
 				RoutingKeys:              []string{"did:example:123456789abcdefghi#key2"},
 				ServiceEndpoint:          model.NewDIDCommV1Endpoint("https://agent.example.com/"),
@@ -424,7 +424,7 @@ func TestValid(t *testing.T) {
 			{
 				ID:            "did:example:123456789abcdefghi#DIDCommMessaging",
 				Type:          "DIDCommMessaging",
-				Priority:      0,
+				Priority:      float64(0),
 				RecipientKeys: []string{"did:example:123456789abcdefghi#key2"},
 				ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{{
 					URI:         "https://agent.example.com/",

@@ -374,7 +374,7 @@ func (pk *VerificationMethod) JSONWebKey() *jwk.JWK {
 type Service struct {
 	ID                       string                 `json:"id"`
 	Type                     interface{}            `json:"type"`
-	Priority                 uint                   `json:"priority,omitempty"`
+	Priority                 interface{}            `json:"priority,omitempty"`
 	RecipientKeys            []string               `json:"recipientKeys,omitempty"`
 	RoutingKeys              []string               `json:"routingKeys,omitempty"`
 	ServiceEndpoint          model.Endpoint         `json:"serviceEndpoint"`
@@ -705,7 +705,7 @@ func populateServices(didID, baseURI string, rawServices []map[string]interface{
 			relativeURL:              isRelative,
 			ServiceEndpoint:          sp,
 			RecipientKeys:            recipientKeys,
-			Priority:                 uintEntry(rawService[jsonldPriority]),
+			Priority:                 rawService[jsonldPriority],
 			RoutingKeys:              routingKeys,
 			recipientKeysRelativeURL: recipientKeysRelativeURL,
 			routingKeysRelativeURL:   routingKeysRelativeURL,
@@ -1049,15 +1049,6 @@ func stringEntry(entry interface{}) string {
 	}
 
 	return ""
-}
-
-// uintEntry.
-func uintEntry(entry interface{}) uint {
-	if entry == nil {
-		return 0
-	}
-
-	return uint(entry.(float64))
 }
 
 // stringArray.
@@ -1411,7 +1402,9 @@ func populateRawServices(services []Service, didID, baseURI string) []map[string
 			rawService[jsonldServicePoint] = json.RawMessage(bytes)
 		}
 
-		rawService[jsonldPriority] = services[i].Priority
+		if services[i].Priority != nil {
+			rawService[jsonldPriority] = services[i].Priority
+		}
 
 		if len(recipientKeys) > 0 {
 			rawService[jsonldRecipientKeys] = recipientKeys
