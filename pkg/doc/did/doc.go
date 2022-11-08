@@ -686,8 +686,8 @@ func populateServices(didID, baseURI string, rawServices []map[string]interface{
 			} else if epEntry != nil { // DIDComm V2 format (first valid entry for now).
 				entries, ok := epEntry.([]interface{})
 				if ok && len(entries) > 0 {
-					firstEntry, ok := entries[0].(map[string]interface{})
-					if ok {
+					firstEntry, is := entries[0].(map[string]interface{})
+					if is {
 						epURI := stringEntry(firstEntry["uri"])
 						epAccept := stringArray(firstEntry["accept"])
 						epRoutingKeys := stringArray(firstEntry["routingKeys"])
@@ -695,6 +695,12 @@ func populateServices(didID, baseURI string, rawServices []map[string]interface{
 							{URI: epURI, Accept: epAccept, RoutingKeys: epRoutingKeys},
 						})
 					}
+				}
+				coreServices, ok := epEntry.(map[string]interface{}) // DID Core
+				if ok && len(coreServices) > 0 {
+					instances := stringArray(coreServices["instances"])
+					origins := stringArray(coreServices["origins"])
+					sp = model.NewDIDCoreEndpoint(append(instances, origins...))
 				}
 			}
 		}
