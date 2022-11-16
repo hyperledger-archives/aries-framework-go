@@ -29,14 +29,14 @@ SPDX-License-Identifier: Apache-2.0
 //      case event := <-actions:
 //        piid := e.Properties.All()["piid"].(string)
 //
-//        if event.Message.Type() == presentproof.ProposeCredentialMsgType {
+//        if event.Message.Type() == issuecredential.ProposeCredentialMsgTypeV2 {
 //          // If Issuer is willing to accept the proposal.
 //          client.AcceptProposalV2(piid, &OfferCredentialV2{})
 //          // If Issuer is not willing to accept the proposal.
 //          client.DeclineProposal(piid, reason)
 //        }
 //
-//        if event.Message.Type() == presentproof.OfferCredentialMsgType {
+//        if event.Message.Type() == issuecredential.OfferCredentialMsgTypeV2 {
 //          // If Holder is willing to accept the offer.
 //          client.AcceptOfferV2(piid)
 //          // If Holder wants to counter an offer they received with a proposal.
@@ -45,20 +45,20 @@ SPDX-License-Identifier: Apache-2.0
 //          client.DeclineOffer(piid, reason)
 //        }
 //
-//        if event.Message.Type() == presentproof.RequestCredentialMsgType {
+//        if event.Message.Type() == issuecredential.RequestCredentialMsgTypeV2 {
 //          // If Issuer is willing to accept the request.
 //          client.AcceptRequestV2(piid, &IssueCredentialV2{})
 //          // If Issuer is not willing to accept the request.
 //          client.DeclineRequest(piid, reason)
 //        }
-//        if event.Message.Type() == presentproof.IssueCredentialMsgType {
+//        if event.Message.Type() == issuecredential.IssueCredentialMsgTypeV2 {
 //          // If Holder is willing to accept the credentials.
 //          client.AcceptCredential(piid, names)
 //          // If Holder is not willing to accept the credentials.
 //          client.DeclineCredential(piid, reason)
 //        }
 //
-//        if event.Message.Type() == presentproof.ProblemReportMsgType {
+//        if event.Message.Type() == issuecredential.ProblemReportMsgTypeV2 {
 //          // Problem report message is triggered to notify client about the error.
 //          // In that case, there is only one option - accept it.
 //          client.AcceptProblemReport(piid)
