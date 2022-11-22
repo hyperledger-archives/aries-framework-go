@@ -28,6 +28,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/kmssigner"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
@@ -162,13 +163,6 @@ type keyResolver interface {
 	PublicKeyFetcher() verifiable.PublicKeyFetcher
 }
 
-type kmsSigner struct {
-	keyType   kms.KeyType
-	keyHandle interface{}
-	crypto    ariescrypto.Crypto
-	bbs       bool
-}
-
 func getKID(opts *ProofOptions) string {
 	if opts.KID != "" {
 		return opts.KID
@@ -182,7 +176,7 @@ func getKID(opts *ProofOptions) string {
 	return ""
 }
 
-func newKMSSigner(keyManager kms.KeyManager, c ariescrypto.Crypto, kid string) (*kmsSigner, error) {
+func newKMSSigner(keyManager kms.KeyManager, c ariescrypto.Crypto, kid string) (*kmssigner.KMSSigner, error) {
 	keyHandler, err := keyManager.Get(kid)
 	if err != nil {
 		return nil, err
@@ -193,49 +187,7 @@ func newKMSSigner(keyManager kms.KeyManager, c ariescrypto.Crypto, kid string) (
 		return nil, err
 	}
 
-	return &kmsSigner{keyType: kt, keyHandle: keyHandler, crypto: c}, nil
-}
-
-func (s *kmsSigner) textToLines(txt string) [][]byte {
-	lines := strings.Split(txt, "\n")
-	linesBytes := make([][]byte, 0, len(lines))
-
-	for i := range lines {
-		if strings.TrimSpace(lines[i]) != "" {
-			linesBytes = append(linesBytes, []byte(lines[i]))
-		}
-	}
-
-	return linesBytes
-}
-
-func (s *kmsSigner) Sign(data []byte) ([]byte, error) {
-	if s.bbs {
-		return s.crypto.SignMulti(s.textToLines(string(data)), s.keyHandle)
-	}
-
-	v, err := s.crypto.Sign(data, s.keyHandle)
-	if err != nil {
-		return nil, err
-	}
-
-	return v, nil
-}
-
-// Alg return alg.
-func (s *kmsSigner) Alg() string {
-	switch s.keyType {
-	case kms.ECDSAP256IEEEP1363, kms.ECDSAP256DER:
-		return p256Alg
-	case kms.ECDSAP384IEEEP1363, kms.ECDSAP384DER:
-		return p384Alg
-	case kms.ECDSAP521IEEEP1363, kms.ECDSAP521DER:
-		return p521Alg
-	case kms.ED25519:
-		return edAlg
-	}
-
-	return ""
+	return &kmssigner.KMSSigner{KeyType: kt, KeyHandle: keyHandler, Crypto: c}, nil
 }
 
 // provider contains dependencies for the verifiable command and is typically created by using aries.Context().
@@ -909,7 +861,7 @@ func (o *Command) addLinkedDataProof(p provable, opts *ProofOptions) error {
 	case JSONWebSignature2020:
 		signatureSuite = jsonwebsignature2020.New(suite.WithSigner(s))
 	case BbsBlsSignature2020:
-		s.bbs = true
+		s.MultiMsg = true
 		signatureSuite = bbsblssignature2020.New(suite.WithSigner(s))
 	default:
 		return fmt.Errorf("signature type unsupported %s", opts.SignatureType)

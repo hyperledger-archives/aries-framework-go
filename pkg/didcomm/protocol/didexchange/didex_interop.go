@@ -17,6 +17,7 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/didcommutil"
 )
 
 const (
@@ -24,7 +25,9 @@ const (
 )
 
 // Interop: convert a peer did doc to a "sov-like" did doc, to accommodate current behaviour in aca-py,
-//          where sovrin dids are used as peer dids.
+//
+//	where sovrin dids are used as peer dids.
+//
 // TODO interop: aca-py issue https://github.com/hyperledger/aries-cloudagent-python/issues/1048
 func convertPeerToSov(doc *did.Doc) (*did.Doc, error) {
 	if doc == nil {
