@@ -1,5 +1,6 @@
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
+Copyright Avast Software. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
@@ -18,9 +19,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/util/jwkkid"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/test/makemockdoc"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
@@ -1115,44 +1115,7 @@ func createMockDoc(t *testing.T, dr *DIDCommMessageMiddleware, docDID string) *d
 
 	keyType := kms.ECDSAP384TypeIEEEP1363
 
-	return createMockDocOfType(t, dr, docDID, keyType)
-}
-
-func createMockDocOfType(t *testing.T, dr *DIDCommMessageMiddleware, docDID string, keyType kms.KeyType) *did.Doc {
-	t.Helper()
-
-	_, pkb, err := dr.kms.CreateAndExportPubKeyBytes(keyType)
-	require.NoError(t, err)
-
-	var pkJWK *jwk.JWK
-
-	var vm *did.VerificationMethod
-
-	if keyType == kms.ED25519Type {
-		vm = &did.VerificationMethod{
-			ID:         defaultKID,
-			Controller: docDID,
-			Type:       ed25519VerificationKey2018,
-			Value:      pkb,
-		}
-	} else {
-		pkJWK, err = jwkkid.BuildJWK(pkb, keyType)
-		require.NoError(t, err)
-
-		pkJWK.Algorithm = "ECDSA"
-
-		vm, err = did.NewVerificationMethodFromJWK(defaultKID, jsonWebKey2020, docDID, pkJWK)
-		require.NoError(t, err)
-	}
-
-	newDoc := &did.Doc{
-		ID: docDID,
-		VerificationMethod: []did.VerificationMethod{
-			*vm,
-		},
-	}
-
-	return newDoc
+	return makemockdoc.MakeMockDoc(t, dr.kms, docDID, keyType)
 }
 
 func setResolveDocs(dr *DIDCommMessageMiddleware, docs []*did.Doc) {

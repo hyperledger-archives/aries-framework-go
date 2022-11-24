@@ -1,5 +1,6 @@
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
+Copyright Avast Software. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
@@ -36,6 +37,7 @@ type Session struct {
 }
 
 // sessionManagerInstance is key manager store singleton - access only via sessionManager()
+//
 //nolint:gochecknoglobals
 var (
 	sessionManagerInstance  *walletSessionManager
@@ -117,6 +119,14 @@ func (s *walletSessionManager) getSession(authToken string) (*Session, error) {
 	}
 
 	return session, nil
+}
+
+func wrapSessionError(err error) error {
+	if errors.Is(err, ErrInvalidAuthToken) {
+		return ErrWalletLocked
+	}
+
+	return fmt.Errorf("failed to get session: %w", err)
 }
 
 func (s *walletSessionManager) closeSession(userID string) bool {
