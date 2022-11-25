@@ -23,6 +23,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/kmssigner"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
@@ -37,11 +38,6 @@ const (
 
 	// number of sections in verification method.
 	vmSectionCount = 2
-
-	p256Alg = "ES256"
-	p384Alg = "ES384"
-	p521Alg = "ES521"
-	edAlg   = "EdDSA"
 )
 
 // supported key types for import key base58 (all constants defined in lower case).
@@ -69,6 +65,7 @@ var (
 )
 
 // walletKMSInstance is key manager store singleton - access only via keyManager()
+//
 //nolint:gochecknoglobals
 var (
 	walletKMSInstance *walletKeyManager
@@ -186,14 +183,7 @@ func createRemoteKeyManager(opts *unlockOpts, keyServerURL string) *webkms.Remot
 	return webkms.New(keyServerURL, http.DefaultClient, kmsOpts...)
 }
 
-type kmsSigner struct {
-	keyType   kms.KeyType
-	keyHandle interface{}
-	crypto    crypto.Crypto
-	multiMsg  bool
-}
-
-func newKMSSigner(authToken string, c crypto.Crypto, opts *ProofOptions) (*kmsSigner, error) {
+func newKMSSigner(authToken string, c crypto.Crypto, opts *ProofOptions) (*kmssigner.KMSSigner, error) {
 	session, err := sessionManager().getSession(authToken)
 	if err != nil {
 		if errors.Is(err, ErrInvalidAuthToken) {
@@ -223,48 +213,12 @@ func newKMSSigner(authToken string, c crypto.Crypto, opts *ProofOptions) (*kmsSi
 		return nil, err
 	}
 
-	return &kmsSigner{keyType: kt, keyHandle: keyHandler, crypto: c, multiMsg: opts.ProofType == BbsBlsSignature2020}, nil
-}
-
-func (s *kmsSigner) textToLines(txt string) [][]byte {
-	lines := strings.Split(txt, "\n")
-	linesBytes := make([][]byte, 0, len(lines))
-
-	for i := range lines {
-		if strings.TrimSpace(lines[i]) != "" {
-			linesBytes = append(linesBytes, []byte(lines[i]))
-		}
-	}
-
-	return linesBytes
-}
-
-func (s *kmsSigner) Sign(data []byte) ([]byte, error) {
-	if s.multiMsg {
-		return s.crypto.SignMulti(s.textToLines(string(data)), s.keyHandle)
-	}
-
-	v, err := s.crypto.Sign(data, s.keyHandle)
-	if err != nil {
-		return nil, err
-	}
-
-	return v, nil
-}
-
-func (s *kmsSigner) Alg() string {
-	switch s.keyType {
-	case kms.ECDSAP256IEEEP1363, kms.ECDSAP256DER:
-		return p256Alg
-	case kms.ECDSAP384IEEEP1363, kms.ECDSAP384DER:
-		return p384Alg
-	case kms.ECDSAP521IEEEP1363, kms.ECDSAP521DER:
-		return p521Alg
-	case kms.ED25519:
-		return edAlg
-	}
-
-	return ""
+	return &kmssigner.KMSSigner{
+		KeyType:   kt,
+		KeyHandle: keyHandler,
+		Crypto:    c,
+		MultiMsg:  opts.ProofType == BbsBlsSignature2020,
+	}, nil
 }
 
 // importKeyJWK imports private key jwk found in key contents,

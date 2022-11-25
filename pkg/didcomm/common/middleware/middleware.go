@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/jwkkid"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/vmparse"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
@@ -32,7 +33,7 @@ import (
 var logger = log.New("didcomm/common/middleware")
 
 // DIDCommMessageMiddleware performs inbound/outbound message handling tasks that apply to all DIDComm V2 messages.
-//  - Rotates DIDs on outbound messages, and handles inbound messages that rotate DIDs.
+//   - Rotates DIDs on outbound messages, and handles inbound messages that rotate DIDs.
 type DIDCommMessageMiddleware struct {
 	kms               kms.KeyManager
 	crypto            crypto.Crypto
@@ -467,7 +468,7 @@ func (h *DIDCommMessageMiddleware) Create(oldDoc *did.Doc, oldKID, newDID string
 		return "", fmt.Errorf("sender KID not found in doc provided")
 	}
 
-	keyBytes, kty, crv, err := vmToBytesTypeCrv(vm)
+	keyBytes, kty, crv, err := vmparse.VMToBytesTypeCrv(vm)
 	if err != nil {
 		return "", err
 	}
@@ -536,9 +537,10 @@ func (h *DIDCommMessageMiddleware) getUnverifiedJWS(senderDID, fromPrior string,
 }
 
 // Verify verifies a didcomm/v2 DID rotation.
-//  - senderDID: the DID of the sender of the message containing this DID Rotation, known from the envelope
-//    or from the message's `to` field.
-//  - fromPrior: the `from_prior` field of the rotated message.
+//   - senderDID: the DID of the sender of the message containing this DID Rotation, known from the envelope
+//     or from the message's `to` field.
+//   - fromPrior: the `from_prior` field of the rotated message.
+//
 // Returns the sender's old DID (superseded by the new DID), if verification succeeds, or an error otherwise.
 func (h *DIDCommMessageMiddleware) Verify(senderDID, fromPrior string) (string, error) {
 	jws, payload, err := h.getUnverifiedJWS(senderDID, fromPrior)
@@ -570,7 +572,7 @@ func (h *DIDCommMessageMiddleware) verifyJWSAndPayload(jws *jose.JSONWebSignatur
 		return fmt.Errorf("kid not found in doc")
 	}
 
-	keyBytes, kty, _, err := vmToBytesTypeCrv(vm)
+	keyBytes, kty, _, err := vmparse.VMToBytesTypeCrv(vm)
 	if err != nil {
 		return err
 	}
@@ -610,29 +612,5 @@ func (c *cryptoSigner) Headers() jose.Headers {
 
 const (
 	jsonWebKey2020             = "JsonWebKey2020"
-	jwsVerificationKey2020     = "JwsVerificationKey2020"
 	ed25519VerificationKey2018 = "Ed25519VerificationKey2018"
 )
-
-func vmToBytesTypeCrv(vm *did.VerificationMethod) ([]byte, kms.KeyType, string, error) {
-	switch vm.Type {
-	case ed25519VerificationKey2018:
-		return vm.Value, kms.ED25519Type, "Ed25519", nil
-	case jsonWebKey2020, jwsVerificationKey2020:
-		k := vm.JSONWebKey()
-
-		kb, err := k.PublicKeyBytes()
-		if err != nil {
-			return nil, "", "", fmt.Errorf("getting []byte key for verification key: %w", err)
-		}
-
-		kt, err := k.KeyType()
-		if err != nil {
-			return nil, "", "", fmt.Errorf("getting kms.KeyType of verification key: %w", err)
-		}
-
-		return kb, kt, k.Crv, nil
-	default:
-		return nil, "", "", fmt.Errorf("vm.Type '%s' not supported", vm.Type)
-	}
-}

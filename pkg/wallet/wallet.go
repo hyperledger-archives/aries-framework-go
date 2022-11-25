@@ -311,12 +311,11 @@ func (c *Wallet) Close() bool {
 //	Returns exported locked wallet.
 //
 // Supported data models:
-// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Collection
-// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Credential
-// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#DIDResolutionResponse
-//	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
-//	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
-//
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#Collection
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#Credential
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#DIDResolutionResponse
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
 func (c *Wallet) Export(auth string) (json.RawMessage, error) {
 	// TODO to be added #2433
 	return nil, fmt.Errorf("to be implemented")
@@ -330,13 +329,12 @@ func (c *Wallet) Export(auth string) (json.RawMessage, error) {
 //		- auth: token used while exporting the wallet.
 //
 // Supported data models:
-// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Collection
-// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Credential
-// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#DIDResolutionResponse
-//	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
-//	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
-//	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Key
-//
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#Collection
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#Credential
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#DIDResolutionResponse
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#Key
 func (c *Wallet) Import(auth string, contents json.RawMessage) error {
 	// TODO to be added #2433
 	return fmt.Errorf("to be implemented")
@@ -345,13 +343,12 @@ func (c *Wallet) Import(auth string, contents json.RawMessage) error {
 // Add adds given data model to wallet contents store.
 //
 // Supported data models:
-// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Collection
-// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Credential
-// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#DIDResolutionResponse
-//	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
-//	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
-//	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Key
-//
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#Collection
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#Credential
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#DIDResolutionResponse
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#Key
 func (c *Wallet) Add(authToken string, contentType ContentType, content json.RawMessage, options ...AddContentOptions) error { //nolint: lll
 	return c.contents.Save(authToken, contentType, content, options...)
 }
@@ -359,12 +356,11 @@ func (c *Wallet) Add(authToken string, contentType ContentType, content json.Raw
 // Remove removes wallet content by content ID.
 //
 // Supported data models:
-// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Collection
-// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Credential
-// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#DIDResolutionResponse
-//	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
-//	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
-//
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#Collection
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#Credential
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#DIDResolutionResponse
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
 func (c *Wallet) Remove(authToken string, contentType ContentType, contentID string) error {
 	return c.contents.Remove(authToken, contentID, contentType)
 }
@@ -372,12 +368,11 @@ func (c *Wallet) Remove(authToken string, contentType ContentType, contentID str
 // Get fetches a wallet content by content ID.
 //
 // Supported data models:
-// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Collection
-// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Credential
-// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#DIDResolutionResponse
-//	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
-//	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
-//
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#Collection
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#Credential
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#DIDResolutionResponse
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
 func (c *Wallet) Get(authToken string, contentType ContentType, contentID string) (json.RawMessage, error) {
 	return c.contents.Get(authToken, contentID, contentType)
 }
@@ -386,12 +381,11 @@ func (c *Wallet) Get(authToken string, contentType ContentType, contentID string
 // Returns map of key value from content store for given content type.
 //
 // Supported data models:
-// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Collection
-// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#Credential
-// 	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#DIDResolutionResponse
-//	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
-//	- https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
-//
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#Collection
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#Credential
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#DIDResolutionResponse
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#meta-data
+//   - https://w3c-ccg.github.io/universal-wallet-interop-spec/#connection
 func (c *Wallet) GetAll(authToken string, contentType ContentType, options ...GetAllContentsOptions) (map[string]json.RawMessage, error) { //nolint: lll
 	opts := &getAllContentsOpts{}
 
@@ -413,11 +407,10 @@ func (c *Wallet) GetAll(authToken string, contentType ContentType, options ...Ge
 // https://w3c-ccg.github.io/universal-wallet-interop-spec/#query
 //
 // Supported Query Types:
-// 	- https://www.w3.org/TR/json-ld11-framing
-// 	- https://identity.foundation/presentation-exchange
-// 	- https://w3c-ccg.github.io/vp-request-spec/#query-by-example
-// 	- https://w3c-ccg.github.io/vp-request-spec/#did-authentication-request
-//
+//   - https://www.w3.org/TR/json-ld11-framing
+//   - https://identity.foundation/presentation-exchange
+//   - https://w3c-ccg.github.io/vp-request-spec/#query-by-example
+//   - https://w3c-ccg.github.io/vp-request-spec/#did-authentication-request
 func (c *Wallet) Query(authToken string, params ...*QueryParams) ([]*verifiable.Presentation, error) {
 	vcContents, err := c.contents.GetAll(authToken, Credential)
 	if err != nil {
@@ -436,7 +429,6 @@ func (c *Wallet) Query(authToken string, params ...*QueryParams) ([]*verifiable.
 //		- auth token for unlocking kms.
 //		- A verifiable credential with or without proof.
 //		- Proof options.
-//
 func (c *Wallet) Issue(authToken string, credential json.RawMessage,
 	options *ProofOptions) (*verifiable.Credential, error) {
 	vc, err := verifiable.ParseCredential(credential, verifiable.WithDisabledProofCheck(),
@@ -478,11 +470,10 @@ func (c *Wallet) Issue(authToken string, credential json.RawMessage,
 // Prove produces a Verifiable Presentation.
 //
 //	Args:
-// 		- auth token for unlocking kms.
+//		- auth token for unlocking kms.
 //		- list of interfaces (string of credential IDs which can be resolvable to stored credentials in wallet or
 //		raw credential or a presentation).
 //		- proof options
-//
 func (c *Wallet) Prove(authToken string, proofOptions *ProofOptions, credentials ...ProveOptions) (*verifiable.Presentation, error) { //nolint: lll
 	presentation, err := c.resolveOptionsToPresent(authToken, credentials...)
 	if err != nil {
@@ -556,7 +547,6 @@ func (c *Wallet) Verify(authToken string, options VerificationOption) (bool, err
 //	Args:
 //		- credential to derive (ID of the stored credential, raw credential or credential instance).
 //		- derive options.
-//
 func (c *Wallet) Derive(authToken string, credential CredentialToDerive, options *DeriveOptions) (*verifiable.Credential, error) { //nolint: lll
 	vc, err := c.resolveCredentialToDerive(authToken, credential)
 	if err != nil {
@@ -579,7 +569,6 @@ func (c *Wallet) Derive(authToken string, credential CredentialToDerive, options
 //	Args:
 //		- authToken: authorization for performing create key pair operation.
 //		- keyType: type of the key to be created.
-//
 func (c *Wallet) CreateKeyPair(authToken string, keyType kms.KeyType) (*KeyPair, error) {
 	session, err := sessionManager().getSession(authToken)
 	if err != nil {
@@ -601,14 +590,13 @@ func (c *Wallet) CreateKeyPair(authToken string, keyType kms.KeyType) (*KeyPair,
 // Supports: https://identity.foundation/credential-manifest/
 //
 // Args:
-// 		- authToken: authorization for performing operation.
-// 		- manifest: Credential manifest data model in raw format.
-// 		- resolve: options to provide credential response or credential to resolve.
+//   - authToken: authorization for performing operation.
+//   - manifest: Credential manifest data model in raw format.
+//   - resolve: options to provide credential response or credential to resolve.
 //
 // Returns:
-// 		- list of resolved descriptors.
-// 		- error if operation fails.
-//
+//   - list of resolved descriptors.
+//   - error if operation fails.
 func (c *Wallet) ResolveCredentialManifest(authToken string, manifest json.RawMessage, resolve ResolveManifestOption) ([]*cm.ResolvedDescriptor, error) { //nolint: lll,gocyclo
 	credentialManifest := &cm.CredentialManifest{}
 
@@ -671,7 +659,7 @@ func (c *Wallet) ResolveCredentialManifest(authToken string, manifest json.RawMe
 	}
 }
 
-//nolint: funlen,gocyclo
+// nolint: funlen,gocyclo
 func (c *Wallet) resolveOptionsToPresent(auth string, credentials ...ProveOptions) (*verifiable.Presentation, error) {
 	var allCredentials []*verifiable.Credential
 
@@ -815,7 +803,7 @@ func (c *Wallet) verifiableClaimsToJWT(authToken string, claims jwtClaims, optio
 
 	var alg verifiable.JWSAlgorithm
 
-	switch s.keyType {
+	switch s.KeyType {
 	case kms.ED25519Type:
 		alg = verifiable.EdDSA
 	case kms.ECDSAP256TypeIEEEP1363:
