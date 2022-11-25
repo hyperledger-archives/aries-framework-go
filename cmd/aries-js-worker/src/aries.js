@@ -1334,6 +1334,16 @@ const Aries = function (opts) {
 
             /**
              *
+             * Signs a JWT.
+             *
+             * @returns {Promise<Object>}
+             */
+            signJWT: async function (req) {
+                return invoke(aw, pending, this.pkgname, "SignJWT", req, "timeout while signing JWT using wallet")
+            },
+
+            /**
+             *
              * adds proof to a Verifiable Credential.
              *
              * https://w3c-ccg.github.io/universal-wallet-interop-spec/#issue

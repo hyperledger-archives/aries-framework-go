@@ -1,5 +1,6 @@
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
+Copyright Avast Software. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
@@ -82,6 +83,9 @@ const (
 
 	// ResolveCredentialManifestErrorCode for errors while resolving credential manifest from wallet.
 	ResolveCredentialManifestErrorCode
+
+	// SignJWTErrorCode for errors while signing a JWT using wallet.
+	SignJWTErrorCode
 )
 
 // All command operations.
@@ -99,6 +103,7 @@ const (
 	GetMethod                       = "Get"
 	GetAllMethod                    = "GetAll"
 	QueryMethod                     = "Query"
+	SignJWTMethod                   = "SignJWT"
 	IssueMethod                     = "Issue"
 	ProveMethod                     = "Prove"
 	VerifyMethod                    = "Verify"
@@ -203,6 +208,7 @@ func (o *Command) GetHandlers() []command.Handler {
 		cmdutil.NewCommandHandler(CommandName, GetMethod, o.Get),
 		cmdutil.NewCommandHandler(CommandName, GetAllMethod, o.GetAll),
 		cmdutil.NewCommandHandler(CommandName, QueryMethod, o.Query),
+		cmdutil.NewCommandHandler(CommandName, SignJWTMethod, o.SignJWT),
 		cmdutil.NewCommandHandler(CommandName, IssueMethod, o.Issue),
 		cmdutil.NewCommandHandler(CommandName, ProveMethod, o.Prove),
 		cmdutil.NewCommandHandler(CommandName, VerifyMethod, o.Verify),
@@ -535,6 +541,39 @@ func (o *Command) Query(rw io.Writer, req io.Reader) command.Error {
 	return nil
 }
 
+// SignJWT signs a JWT using a key in wallet.
+func (o *Command) SignJWT(rw io.Writer, req io.Reader) command.Error {
+	request := &SignJWTRequest{}
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, SignJWTMethod, err.Error())
+
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	vcWallet, err := wallet.New(request.UserID, o.ctx)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, SignJWTMethod, err.Error())
+
+		return command.NewExecuteError(SignJWTErrorCode, err)
+	}
+
+	jwt, err := vcWallet.SignJWT(request.Auth, request.Headers, request.Claims, request.KID)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, SignJWTMethod, err.Error())
+
+		return command.NewExecuteError(SignJWTErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, &SignJWTResponse{JWT: jwt}, logger)
+
+	logutil.LogDebug(logger, CommandName, SignJWTMethod, logSuccess,
+		logutil.CreateKeyValueString(logUserIDKey, request.UserID))
+
+	return nil
+}
+
 // Issue adds proof to a Verifiable Credential from wallet.
 func (o *Command) Issue(rw io.Writer, req io.Reader) command.Error {
 	request := &IssueRequest{}
@@ -712,7 +751,6 @@ func (o *Command) CreateKeyPair(rw io.Writer, req io.Reader) command.Error {
 // Supports: https://identity.foundation/credential-manifest/
 //
 // Writes list of resolved descriptors to writer or returns error if operation fails.
-//
 func (o *Command) ResolveCredentialManifest(rw io.Writer, req io.Reader) command.Error {
 	request := &ResolveCredentialManifestRequest{}
 
@@ -769,7 +807,7 @@ func prepareProfileOptions(rqst *CreateOrUpdateProfileRequest) []wallet.ProfileO
 }
 
 // prepareUnlockOptions prepares options for unlocking wallet.
-//nolint: lll
+// nolint: lll
 func prepareUnlockOptions(rqst *UnlockWalletRequest, conf *Config) ([]wallet.UnlockOptions, error) { // nolint:funlen,gocyclo
 	var options []wallet.UnlockOptions
 

@@ -1,5 +1,7 @@
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
+Copyright Avast Software. All Rights Reserved.
+
 SPDX-License-Identifier: Apache-2.0
 */
 
@@ -10,7 +12,6 @@ SPDX-License-Identifier: Apache-2.0
 // Holder in JWS form. The Holder can decode received Credential and make sure the signature is valid.
 // The Holder can present the Credential to the Verifier or combine one or more Credentials into a Verifiable
 // Presentation. The Verifier can decode and verify the received Credentials and Presentations.
-//
 package verifiable
 
 import (
@@ -22,6 +23,7 @@ import (
 	"github.com/piprate/json-gold/ld"
 	"github.com/xeipuuv/gojsonschema"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	jsonutil "github.com/hyperledger/aries-framework-go/pkg/doc/util/json"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
@@ -141,7 +143,8 @@ func (r *VDRKeyResolver) resolvePublicKey(issuerDID, keyID string) (*verifier.Pu
 
 	for _, verifications := range docResolution.DIDDocument.VerificationMethods() {
 		for _, verification := range verifications {
-			if strings.Contains(verification.VerificationMethod.ID, keyID) {
+			if strings.Contains(verification.VerificationMethod.ID, keyID) &&
+				verification.Relationship != did.KeyAgreement {
 				return &verifier.PublicKey{
 					Type:  verification.VerificationMethod.Type,
 					Value: verification.VerificationMethod.Value,
