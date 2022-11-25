@@ -1,5 +1,6 @@
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
+Copyright Avast Software. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
@@ -8,6 +9,7 @@ package vcwallet
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -43,6 +45,7 @@ import (
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
@@ -66,7 +69,7 @@ func TestNew(t *testing.T) {
 		cmd := New(newMockProvider(t), &Config{})
 		require.NotNil(t, cmd)
 
-		require.Len(t, cmd.GetHandlers(), 16)
+		require.Len(t, cmd.GetHandlers(), 17)
 	})
 }
 
@@ -1233,6 +1236,102 @@ func TestCommand_Query(t *testing.T) {
 
 		cmdErr := cmd.Query(&b, bytes.NewBufferString("--"))
 		validateError(t, cmdErr, command.ValidationError, InvalidRequestErrorCode, "invalid character")
+	})
+}
+
+func TestCommand_SignJWT(t *testing.T) {
+	const sampleUser1 = "sample-user-01"
+
+	mockctx := newMockProvider(t)
+	mockctx.VDRegistryValue = getMockDIDKeyVDR()
+
+	tcrypto, err := tinkcrypto.New()
+	require.NoError(t, err)
+
+	mockctx.CryptoValue = tcrypto
+
+	createSampleUserProfile(t, mockctx, &CreateOrUpdateProfileRequest{
+		UserID:             sampleUser1,
+		LocalKMSPassphrase: samplePassPhrase,
+	})
+
+	token, lock := unlockWallet(t, mockctx, &UnlockWalletRequest{
+		UserID:             sampleUser1,
+		LocalKMSPassphrase: samplePassPhrase,
+	})
+
+	defer lock()
+
+	addContent(t, mockctx, &AddContentRequest{
+		Content:     testdata.SampleWalletContentKeyBase58,
+		ContentType: wallet.Key,
+		WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token},
+	})
+	addContent(t, mockctx, &AddContentRequest{
+		Content:     testdata.SampleDocResolutionResponse,
+		ContentType: wallet.DIDResolutionResponse,
+		WalletAuth:  WalletAuth{UserID: sampleUser1, Auth: token},
+	})
+
+	t.Run("success", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		var b bytes.Buffer
+
+		cmdErr := cmd.CreateKeyPair(&b, getReader(t, &CreateKeyPairRequest{
+			WalletAuth: WalletAuth{UserID: sampleUser1, Auth: token},
+			KeyType:    kms.ED25519Type,
+		}))
+		require.NoError(t, cmdErr)
+
+		var keyPairResponse CreateKeyPairResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&keyPairResponse))
+
+		pubKey, err := base64.RawURLEncoding.DecodeString(keyPairResponse.PublicKey)
+		require.NoError(t, err)
+
+		_, didKID := fingerprint.CreateDIDKeyByCode(fingerprint.ED25519PubKeyMultiCodec, pubKey)
+
+		b.Reset()
+
+		cmdErr = cmd.SignJWT(&b, getReader(t, &SignJWTRequest{
+			WalletAuth: WalletAuth{UserID: sampleUser1, Auth: token},
+			Headers:    nil,
+			Claims:     map[string]interface{}{"foo": "bar"},
+			KID:        didKID,
+		}))
+		require.NoError(t, cmdErr)
+
+		var response SignJWTResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&response))
+		require.NotEmpty(t, response.JWT)
+
+		// TODO: verify using VerifyJWT API
+	})
+
+	t.Run("command errors", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		var b bytes.Buffer
+
+		cmdErr := cmd.SignJWT(&b, bytes.NewReader([]byte("oops{")))
+		validateError(t, cmdErr, command.ValidationError, InvalidRequestErrorCode, "invalid character")
+
+		cmdErr = cmd.SignJWT(&b, getReader(t, &SignJWTRequest{
+			WalletAuth: WalletAuth{UserID: "unknown", Auth: "bad-token"},
+			Headers:    nil,
+			Claims:     map[string]interface{}{"foo": "bar"},
+			KID:        "foo",
+		}))
+		validateError(t, cmdErr, command.ExecuteError, SignJWTErrorCode, "failed to get VC wallet profile")
+
+		cmdErr = cmd.SignJWT(&b, getReader(t, &SignJWTRequest{
+			WalletAuth: WalletAuth{UserID: sampleUser1, Auth: token},
+			Headers:    nil,
+			Claims:     map[string]interface{}{"foo": "bar"},
+			KID:        "foo",
+		}))
+		validateError(t, cmdErr, command.ExecuteError, SignJWTErrorCode, "failed to resolve signing DID")
 	})
 }
 

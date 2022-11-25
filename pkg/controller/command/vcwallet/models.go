@@ -209,6 +209,24 @@ type ContentQueryResponse struct {
 	Results []*verifiable.Presentation `json:"results"`
 }
 
+// SignJWTRequest is request model for signing a JWT using wallet.
+type SignJWTRequest struct {
+	WalletAuth
+
+	// Headers to include in JWT protected headers.
+	Headers map[string]interface{} `json:"headers"`
+	// Claims to sign as JWT payload.
+	Claims map[string]interface{} `json:"claims"`
+	// KID identifies the key to be used for signing the JWT.
+	KID string `json:"kid"`
+}
+
+// SignJWTResponse is response for signing JWT using wallet.
+type SignJWTResponse struct {
+	// JWT signed.
+	JWT string `json:"jwt"`
+}
+
 // IssueRequest is request model for issuing credential from wallet.
 type IssueRequest struct {
 	WalletAuth

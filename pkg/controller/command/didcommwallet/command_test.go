@@ -56,7 +56,7 @@ func TestNew(t *testing.T) {
 		cmd := New(newMockProvider(t), &Config{})
 		require.NotNil(t, cmd)
 
-		require.Len(t, cmd.GetHandlers(), 21)
+		require.Len(t, cmd.GetHandlers(), 22)
 	})
 }
 
