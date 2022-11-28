@@ -69,7 +69,7 @@ func TestNew(t *testing.T) {
 		cmd := New(newMockProvider(t), &Config{})
 		require.NotNil(t, cmd)
 
-		require.Len(t, cmd.GetHandlers(), 17)
+		require.Len(t, cmd.GetHandlers(), 18)
 	})
 }
 
@@ -1239,7 +1239,7 @@ func TestCommand_Query(t *testing.T) {
 	})
 }
 
-func TestCommand_SignJWT(t *testing.T) {
+func TestCommand_SignVerifyJWT(t *testing.T) {
 	const sampleUser1 = "sample-user-01"
 
 	mockctx := newMockProvider(t)
@@ -1302,14 +1302,42 @@ func TestCommand_SignJWT(t *testing.T) {
 		}))
 		require.NoError(t, cmdErr)
 
-		var response SignJWTResponse
-		require.NoError(t, json.NewDecoder(&b).Decode(&response))
-		require.NotEmpty(t, response.JWT)
+		var signResponse SignJWTResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&signResponse))
+		require.NotEmpty(t, signResponse.JWT)
 
-		// TODO: verify using VerifyJWT API
+		b.Reset()
+
+		cmdErr = cmd.VerifyJWT(&b, getReader(t, &VerifyJWTRequest{
+			WalletAuth: WalletAuth{UserID: sampleUser1},
+			JWT:        signResponse.JWT,
+		}))
+		require.NoError(t, cmdErr)
+
+		var verifyResponse VerifyJWTResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&verifyResponse))
+		require.True(t, verifyResponse.Verified)
+		require.Empty(t, verifyResponse.Error)
 	})
 
-	t.Run("command errors", func(t *testing.T) {
+	t.Run("verification failure", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		var b bytes.Buffer
+
+		cmdErr := cmd.VerifyJWT(&b, getReader(t, &VerifyJWTRequest{
+			WalletAuth: WalletAuth{UserID: sampleUser1, Auth: token},
+			JWT:        "foo",
+		}))
+		require.NoError(t, cmdErr)
+
+		var verifyResponse VerifyJWTResponse
+		require.NoError(t, json.NewDecoder(&b).Decode(&verifyResponse))
+		require.False(t, verifyResponse.Verified)
+		require.Contains(t, verifyResponse.Error, "jwt verification failed")
+	})
+
+	t.Run("SignJWT command errors", func(t *testing.T) {
 		cmd := New(mockctx, &Config{})
 
 		var b bytes.Buffer
@@ -1332,6 +1360,21 @@ func TestCommand_SignJWT(t *testing.T) {
 			KID:        "foo",
 		}))
 		validateError(t, cmdErr, command.ExecuteError, SignJWTErrorCode, "failed to resolve signing DID")
+	})
+
+	t.Run("VerifyJWT command errors", func(t *testing.T) {
+		cmd := New(mockctx, &Config{})
+
+		var b bytes.Buffer
+
+		cmdErr := cmd.VerifyJWT(&b, bytes.NewReader([]byte("oops{")))
+		validateError(t, cmdErr, command.ValidationError, InvalidRequestErrorCode, "invalid character")
+
+		cmdErr = cmd.VerifyJWT(&b, getReader(t, &VerifyJWTRequest{
+			WalletAuth: WalletAuth{UserID: "unknown", Auth: "bad-token"},
+			JWT:        "foo",
+		}))
+		validateError(t, cmdErr, command.ExecuteError, VerifyJWTErrorCode, "failed to get VC wallet profile")
 	})
 }
 

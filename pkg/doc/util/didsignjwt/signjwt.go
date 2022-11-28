@@ -17,13 +17,13 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/jwkkid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/vmparse"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/kmssigner"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 const (
-	jsonWebKey2020             = "JsonWebKey2020"
 	ed25519VerificationKey2018 = "Ed25519VerificationKey2018"
 
 	// number of sections in verification method.
@@ -48,7 +48,7 @@ func SignJWT( // nolint: funlen,gocyclo
 	cryptoHandler crypto.Crypto,
 	didResolver vdr.Registry,
 ) (string, error) {
-	vm, err := resolveSigningVM(kid, didResolver)
+	vm, vmID, err := resolveSigningVM(kid, didResolver)
 	if err != nil {
 		return "", err
 	}
@@ -70,18 +70,6 @@ func SignJWT( // nolint: funlen,gocyclo
 
 	km := &kmssigner.KMSSigner{KeyType: keyType, KeyHandle: keyHandle, Crypto: cryptoHandler, MultiMsg: false}
 
-	// TODO: what fields should we add by default to the claim set?
-	//  iirc we want the nbf/iat timestamp?
-
-	var alg string
-
-	if vm.Type == ed25519VerificationKey2018 {
-		alg = "EdDSA"
-	} else if vm.Type == jsonWebKey2020 {
-		jwkKey := vm.JSONWebKey()
-		alg = jwkKey.Algorithm
-	}
-
 	if headers == nil {
 		headers = map[string]interface{}{}
 	}
@@ -90,12 +78,12 @@ func SignJWT( // nolint: funlen,gocyclo
 		claims = map[string]interface{}{}
 	}
 
-	headers["typ"] = "JWT"
-	headers["alg"] = alg
+	headers[jose.HeaderType] = "JWT"
+	headers[jose.HeaderAlgorithm] = km.Alg()
 	headers["crv"] = crv
-	headers["kid"] = kid
+	headers[jose.HeaderKeyID] = vmID
 
-	tok, err := jwt.NewSigned(claims, headers, getJWTSigner(km, alg))
+	tok, err := jwt.NewSigned(claims, headers, getJWTSigner(km, km.Alg()))
 	if err != nil {
 		return "", fmt.Errorf("signing JWT: %w", err)
 	}
@@ -108,18 +96,35 @@ func SignJWT( // nolint: funlen,gocyclo
 	return compact, nil
 }
 
-func resolveSigningVM(kid string, didResolver vdr.Registry) (*did.VerificationMethod, error) {
+// VerifyJWT verifies a JWT that was signed with a DID.
+//
+// Args:
+//   - JWT to verify.
+//   - A VDR that can resolve the JWT's signing DID.
+func VerifyJWT(compactJWT string,
+	didResolver vdr.Registry) error {
+	_, err := jwt.Parse(compactJWT, jwt.WithSignatureVerifier(jwt.NewVerifier(
+		jwt.KeyResolverFunc(verifiable.NewVDRKeyResolver(didResolver).PublicKeyFetcher())),
+	))
+	if err != nil {
+		return fmt.Errorf("jwt verification failed: %w", err)
+	}
+
+	return nil
+}
+
+func resolveSigningVM(kid string, didResolver vdr.Registry) (*did.VerificationMethod, string, error) {
 	vmSplit := strings.Split(kid, "#")
 
 	if len(vmSplit) > vmSectionCount {
-		return nil, errors.New("invalid verification method format")
+		return nil, "", errors.New("invalid verification method format")
 	}
 
 	signingDID := vmSplit[0]
 
 	docRes, err := didResolver.Resolve(signingDID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve signing DID: %w", err)
+		return nil, "", fmt.Errorf("failed to resolve signing DID: %w", err)
 	}
 
 	if len(vmSplit) == 1 {
@@ -129,24 +134,45 @@ func resolveSigningVM(kid string, didResolver vdr.Registry) (*did.VerificationMe
 		if len(verificationMethods[did.AssertionMethod]) > 0 {
 			vm := verificationMethods[did.AssertionMethod][0].VerificationMethod
 
-			return &vm, nil
+			return &vm, fullVMID(signingDID, vm.ID), nil
 		}
 
-		return nil, fmt.Errorf("DID provided has no assertion method to use as a default signing key")
+		return nil, "", fmt.Errorf("DID provided has no assertion method to use as a default signing key")
 	}
 
 	vmID := vmSplit[vmSectionCount-1]
 
 	for _, verifications := range docRes.DIDDocument.VerificationMethods() {
 		for _, verification := range verifications {
-			if isSigningKey(verification.Relationship) && strings.Contains(verification.VerificationMethod.ID, vmID) {
+			if isSigningKey(verification.Relationship) && vmIDFragmentOnly(verification.VerificationMethod.ID) == vmID {
 				vm := verification.VerificationMethod
-				return &vm, nil
+				return &vm, kid, nil
 			}
 		}
 	}
 
-	return nil, fmt.Errorf("did document has no verification method with given ID")
+	return nil, "", fmt.Errorf("did document has no verification method with given ID")
+}
+
+func fullVMID(did, vmID string) string {
+	vmIDSplit := strings.Split(vmID, "#")
+
+	if len(vmIDSplit) == 1 {
+		return did + "#" + vmIDSplit[0]
+	} else if len(vmIDSplit[0]) == 0 {
+		return did + "#" + vmIDSplit[1]
+	}
+
+	return vmID
+}
+
+func vmIDFragmentOnly(vmID string) string {
+	vmSplit := strings.Split(vmID, "#")
+	if len(vmSplit) == 1 {
+		return vmSplit[0]
+	}
+
+	return vmSplit[1]
 }
 
 func isSigningKey(vr did.VerificationRelationship) bool {

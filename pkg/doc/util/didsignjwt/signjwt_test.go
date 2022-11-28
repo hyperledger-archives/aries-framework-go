@@ -31,7 +31,7 @@ const (
 	defaultDID = "did:test:foo"
 )
 
-func TestSignJWT(t *testing.T) {
+func TestSignVerify(t *testing.T) {
 	keyManager := createKMS(t)
 
 	cr, e := tinkcrypto.New()
@@ -39,7 +39,7 @@ func TestSignJWT(t *testing.T) {
 
 	staticDIDDocs := map[string]*did.Doc{}
 
-	customVDR := &mockvdr.MockVDRegistry{
+	defaultVDR := &mockvdr.MockVDRegistry{
 		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 			if strings.HasPrefix(didID, "did:key:") {
 				k := key.New()
@@ -68,40 +68,47 @@ func TestSignJWT(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		t.Run("use specified key", func(t *testing.T) {
-			result, err := SignJWT(nil, testClaims, defaultDID+defaultKID, keyManager, cr, customVDR)
+			result, err := SignJWT(nil, testClaims, defaultDID+defaultKID, keyManager, cr, defaultVDR)
 			require.NoError(t, err)
 			require.NotEmpty(t, result)
+
+			require.NoError(t, VerifyJWT(result, defaultVDR))
 		})
 
 		t.Run("default to first assertionmethod", func(t *testing.T) {
-			result, err := SignJWT(nil, testClaims, defaultDID, keyManager, cr, customVDR)
+			result, err := SignJWT(nil, testClaims, defaultDID, keyManager, cr, defaultVDR)
 			require.NoError(t, err)
 			require.NotEmpty(t, result)
+
+			require.NoError(t, VerifyJWT(result, defaultVDR))
 		})
 
 		t.Run("use EdDSA", func(t *testing.T) {
 			mockDoc := makemockdoc.MakeMockDoc(t, keyManager, defaultDID, kms.ED25519Type)
 
-			result, err := SignJWT(nil, testClaims, defaultDID+defaultKID, keyManager, cr,
-				&mockvdr.MockVDRegistry{
-					ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
-						return &did.DocResolution{DIDDocument: mockDoc}, nil
-					},
-				})
+			customVDR := &mockvdr.MockVDRegistry{
+				ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+					return &did.DocResolution{DIDDocument: mockDoc}, nil
+				},
+			}
+
+			result, err := SignJWT(nil, testClaims, defaultDID+defaultKID, keyManager, cr, customVDR)
 			require.NoError(t, err)
 			require.NotEmpty(t, result)
+
+			require.NoError(t, VerifyJWT(result, customVDR))
 		})
 	})
 
 	t.Run("failure", func(t *testing.T) {
 		t.Run("invalid verification method ID", func(t *testing.T) {
-			_, e = SignJWT(nil, testClaims, "did:foo:bar#keyID#extraKeyID", keyManager, cr, customVDR)
+			_, e = SignJWT(nil, testClaims, "did:foo:bar#keyID#extraKeyID", keyManager, cr, defaultVDR)
 			require.Error(t, e)
 			require.Contains(t, e.Error(), "invalid verification method format")
 		})
 
 		t.Run("DID not found in VDR", func(t *testing.T) {
-			_, e = SignJWT(nil, testClaims, "did:missing:unknown#keyID", keyManager, cr, customVDR)
+			_, e = SignJWT(nil, testClaims, "did:missing:unknown#keyID", keyManager, cr, defaultVDR)
 			require.Error(t, e)
 			require.Contains(t, e.Error(), "failed to resolve signing DID")
 		})
@@ -186,6 +193,16 @@ func TestSignJWT(t *testing.T) {
 				})
 			require.Error(t, e)
 			require.Contains(t, e.Error(), "signing JWT")
+		})
+
+		t.Run("verification error", func(t *testing.T) {
+			result, err := SignJWT(nil, testClaims, defaultDID+defaultKID, keyManager, cr, defaultVDR)
+			require.NoError(t, err)
+			require.NotEmpty(t, result)
+
+			err = VerifyJWT(result, &mockvdr.MockVDRegistry{})
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "jwt verification failed")
 		})
 	})
 }
