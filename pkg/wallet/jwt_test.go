@@ -16,11 +16,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/jwkkid"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 )
@@ -56,9 +56,12 @@ func TestWallet_SignJWT(t *testing.T) {
 
 	mockctx := newMockProvider(t)
 	mockctx.VDRegistryValue = customVDR
-	mockctx.CryptoValue = &cryptomock.Crypto{}
 
-	e := CreateProfile(user, mockctx, WithPassphrase(samplePassPhrase))
+	var e error
+	mockctx.CryptoValue, e = tinkcrypto.New()
+	require.NoError(t, e)
+
+	e = CreateProfile(user, mockctx, WithPassphrase(samplePassPhrase))
 	require.NoError(t, e)
 
 	testClaims := map[string]interface{}{
@@ -100,6 +103,9 @@ func TestWallet_SignJWT(t *testing.T) {
 		result, err := walletInstance.SignJWT(authToken, nil, testClaims, sampleVerificationMethod)
 		require.NoError(t, err)
 		require.NotEmpty(t, result)
+
+		err = walletInstance.VerifyJWT(result)
+		require.NoError(t, err)
 	})
 
 	t.Run("failure", func(t *testing.T) {
@@ -129,6 +135,16 @@ func TestWallet_SignJWT(t *testing.T) {
 			_, err = walletInstance.SignJWT(authToken, nil, testClaims, "did:foo:bar#keyID#extraKeyID")
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "invalid verification method format")
+		})
+
+		t.Run("verification failure", func(t *testing.T) {
+			walletInstance, err := New(user, mockctx)
+			require.NotEmpty(t, walletInstance)
+			require.NoError(t, err)
+
+			err = walletInstance.VerifyJWT("foo.bar.baz")
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "jwt verification failed")
 		})
 	})
 }

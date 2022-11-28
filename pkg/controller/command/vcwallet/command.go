@@ -86,6 +86,9 @@ const (
 
 	// SignJWTErrorCode for errors while signing a JWT using wallet.
 	SignJWTErrorCode
+
+	// VerifyJWTErrorCode for errors while verifying a JWT using wallet.
+	VerifyJWTErrorCode
 )
 
 // All command operations.
@@ -104,6 +107,7 @@ const (
 	GetAllMethod                    = "GetAll"
 	QueryMethod                     = "Query"
 	SignJWTMethod                   = "SignJWT"
+	VerifyJWTMethod                 = "VerifyJWT"
 	IssueMethod                     = "Issue"
 	ProveMethod                     = "Prove"
 	VerifyMethod                    = "Verify"
@@ -209,6 +213,7 @@ func (o *Command) GetHandlers() []command.Handler {
 		cmdutil.NewCommandHandler(CommandName, GetAllMethod, o.GetAll),
 		cmdutil.NewCommandHandler(CommandName, QueryMethod, o.Query),
 		cmdutil.NewCommandHandler(CommandName, SignJWTMethod, o.SignJWT),
+		cmdutil.NewCommandHandler(CommandName, VerifyJWTMethod, o.VerifyJWT),
 		cmdutil.NewCommandHandler(CommandName, IssueMethod, o.Issue),
 		cmdutil.NewCommandHandler(CommandName, ProveMethod, o.Prove),
 		cmdutil.NewCommandHandler(CommandName, VerifyMethod, o.Verify),
@@ -569,6 +574,39 @@ func (o *Command) SignJWT(rw io.Writer, req io.Reader) command.Error {
 	command.WriteNillableResponse(rw, &SignJWTResponse{JWT: jwt}, logger)
 
 	logutil.LogDebug(logger, CommandName, SignJWTMethod, logSuccess,
+		logutil.CreateKeyValueString(logUserIDKey, request.UserID))
+
+	return nil
+}
+
+// VerifyJWT verifies a JWT using wallet.
+func (o *Command) VerifyJWT(rw io.Writer, req io.Reader) command.Error {
+	request := &VerifyJWTRequest{}
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, VerifyJWTMethod, err.Error())
+
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	vcWallet, err := wallet.New(request.UserID, o.ctx)
+	if err != nil {
+		logutil.LogInfo(logger, CommandName, VerifyJWTMethod, err.Error())
+
+		return command.NewExecuteError(VerifyJWTErrorCode, err)
+	}
+
+	err = vcWallet.VerifyJWT(request.JWT)
+	errString := ""
+
+	if err != nil {
+		errString = err.Error()
+	}
+
+	command.WriteNillableResponse(rw, &VerifyJWTResponse{Verified: err == nil, Error: errString}, logger)
+
+	logutil.LogDebug(logger, CommandName, VerifyJWTMethod, logSuccess,
 		logutil.CreateKeyValueString(logUserIDKey, request.UserID))
 
 	return nil

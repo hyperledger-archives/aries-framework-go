@@ -227,6 +227,22 @@ type SignJWTResponse struct {
 	JWT string `json:"jwt"`
 }
 
+// VerifyJWTRequest is request model for verifying a JWT using wallet.
+type VerifyJWTRequest struct {
+	WalletAuth
+
+	// JWT is the compact JWT to be verified.
+	JWT string `json:"jwt"`
+}
+
+// VerifyJWTResponse is response for verifying JWT using wallet.
+type VerifyJWTResponse struct {
+	// Verified is true if provided JWT was successfully verified.
+	Verified bool `json:"verified"`
+	// Error contains the JWT verification error, if any.
+	Error string `json:"error,omitempty"`
+}
+
 // IssueRequest is request model for issuing credential from wallet.
 type IssueRequest struct {
 	WalletAuth

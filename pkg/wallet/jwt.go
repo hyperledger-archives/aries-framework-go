@@ -26,3 +26,11 @@ func (c *Wallet) SignJWT(authToken string, headers, claims map[string]interface{
 
 	return didsignjwt.SignJWT(headers, claims, kid, session.KeyManager, c.walletCrypto, c.vdr)
 }
+
+// VerifyJWT verifies a JWT signed by a DID;
+//
+// Args:
+//   - JWT to verify.
+func (c *Wallet) VerifyJWT(compactJWT string) error {
+	return didsignjwt.VerifyJWT(compactJWT, c.vdr)
+}
