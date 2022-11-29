@@ -44,18 +44,7 @@ func (s *KMSSigner) Sign(data []byte) ([]byte, error) {
 
 // Alg provides the JWA corresponding to the KMSSigner's KeyType.
 func (s *KMSSigner) Alg() string {
-	switch s.KeyType {
-	case kms.ECDSAP256IEEEP1363, kms.ECDSAP256DER:
-		return p256Alg
-	case kms.ECDSAP384IEEEP1363, kms.ECDSAP384DER:
-		return p384Alg
-	case kms.ECDSAP521IEEEP1363, kms.ECDSAP521DER:
-		return p521Alg
-	case kms.ED25519:
-		return edAlg
-	}
-
-	return ""
+	return KeyTypeToJWA(s.KeyType)
 }
 
 func (s *KMSSigner) textToLines(txt string) [][]byte {
@@ -69,4 +58,20 @@ func (s *KMSSigner) textToLines(txt string) [][]byte {
 	}
 
 	return linesBytes
+}
+
+// KeyTypeToJWA provides the JWA corresponding to keyType.
+func KeyTypeToJWA(keyType kms.KeyType) string {
+	switch keyType {
+	case kms.ECDSAP256IEEEP1363, kms.ECDSAP256DER:
+		return p256Alg
+	case kms.ECDSAP384IEEEP1363, kms.ECDSAP384DER:
+		return p384Alg
+	case kms.ECDSAP521IEEEP1363, kms.ECDSAP521DER:
+		return p521Alg
+	case kms.ED25519:
+		return edAlg
+	}
+
+	return ""
 }
