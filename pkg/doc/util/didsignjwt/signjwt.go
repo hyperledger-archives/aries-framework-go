@@ -9,9 +9,9 @@ package didsignjwt
 import (
 	"errors"
 	"fmt"
+
 	"strings"
 
-	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
@@ -30,6 +30,40 @@ const (
 	vmSectionCount = 2
 )
 
+func (k *kmsSigner) Sign(data []byte) ([]byte, error) {
+	return k.Signer.Sign(data, k.KeyHandle)
+}
+
+func (k *kmsSigner) Alg() string {
+	return kmssigner.KeyTypeToJWA(k.KeyType)
+}
+
+type keyReader interface {
+	// Get key handle for the given keyID
+	// Returns:
+	//  - handle instance (to private key)
+	//  - error if failure
+	Get(keyID string) (interface{}, error)
+}
+
+type didResolver interface {
+	Resolve(did string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error)
+}
+
+type signer interface {
+	// Sign will sign msg using a matching signature primitive in kh key handle of a private key
+	// returns:
+	// 		signature in []byte
+	//		error in case of errors
+	Sign(msg []byte, kh interface{}) ([]byte, error)
+}
+
+type kmsSigner struct {
+	KeyType   kms.KeyType
+	KeyHandle interface{}
+	Signer    signer
+}
+
 // SignJWT signs a JWT using a key in the given KMS, identified by an owned DID.
 //
 //	Args:
@@ -44,9 +78,9 @@ func SignJWT( // nolint: funlen,gocyclo
 	headers,
 	claims map[string]interface{},
 	kid string,
-	keyManager kms.KeyManager,
-	cryptoHandler crypto.Crypto,
-	didResolver vdr.Registry,
+	keyReader keyReader,
+	signer signer,
+	didResolver didResolver,
 ) (string, error) {
 	vm, vmID, err := resolveSigningVM(kid, didResolver)
 	if err != nil {
@@ -63,12 +97,12 @@ func SignJWT( // nolint: funlen,gocyclo
 		return "", fmt.Errorf("determining the internal ID of the signing key: %w", err)
 	}
 
-	keyHandle, err := keyManager.Get(kmsKID)
+	keyHandle, err := keyReader.Get(kmsKID)
 	if err != nil {
 		return "", fmt.Errorf("fetching the signing key from the key manager: %w", err)
 	}
 
-	km := &kmssigner.KMSSigner{KeyType: keyType, KeyHandle: keyHandle, Crypto: cryptoHandler, MultiMsg: false}
+	km := &kmsSigner{KeyType: keyType, KeyHandle: keyHandle, Signer: signer}
 
 	if headers == nil {
 		headers = map[string]interface{}{}
@@ -113,7 +147,7 @@ func VerifyJWT(compactJWT string,
 	return nil
 }
 
-func resolveSigningVM(kid string, didResolver vdr.Registry) (*did.VerificationMethod, string, error) {
+func resolveSigningVM(kid string, didResolver didResolver) (*did.VerificationMethod, string, error) {
 	vmSplit := strings.Split(kid, "#")
 
 	if len(vmSplit) > vmSectionCount {
@@ -186,7 +220,6 @@ func isSigningKey(vr did.VerificationRelationship) bool {
 
 type sign interface {
 	Sign(data []byte) ([]byte, error)
-	Alg() string
 }
 
 // jwtSigner implement jose.Signer interface.
