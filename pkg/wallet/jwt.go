@@ -24,7 +24,8 @@ func (c *Wallet) SignJWT(authToken string, headers, claims map[string]interface{
 		return "", wrapSessionError(err)
 	}
 
-	return didsignjwt.SignJWT(headers, claims, kid, session.KeyManager, c.walletCrypto, c.vdr)
+	return didsignjwt.SignJWT(headers, claims, kid,
+		didsignjwt.UseDefaultSigner(session.KeyManager, c.walletCrypto), c.vdr)
 }
 
 // VerifyJWT verifies a JWT signed by a DID;

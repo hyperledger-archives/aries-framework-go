@@ -127,11 +127,15 @@ func SingleKey(pubKey []byte, pubKeyType string) PublicKeyFetcher {
 // A source of DID could be issuer of VC or holder of VP. It can be also obtained from
 // JWS "issuer" claim or "verificationMethod" of Linked Data Proof.
 type VDRKeyResolver struct {
-	vdr vdrapi.Registry
+	vdr didResolver
+}
+
+type didResolver interface {
+	Resolve(did string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error)
 }
 
 // NewVDRKeyResolver creates VDRKeyResolver.
-func NewVDRKeyResolver(vdr vdrapi.Registry) *VDRKeyResolver {
+func NewVDRKeyResolver(vdr didResolver) *VDRKeyResolver {
 	return &VDRKeyResolver{vdr: vdr}
 }
 
