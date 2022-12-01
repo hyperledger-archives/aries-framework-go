@@ -9,7 +9,6 @@ package didsignjwt
 import (
 	"errors"
 	"fmt"
-
 	"strings"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -20,7 +19,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/kmssigner"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 const (
@@ -29,14 +27,6 @@ const (
 	// number of sections in verification method.
 	vmSectionCount = 2
 )
-
-func (k *kmsSigner) Sign(data []byte) ([]byte, error) {
-	return k.Signer.Sign(data, k.KeyHandle)
-}
-
-func (k *kmsSigner) Alg() string {
-	return kmssigner.KeyTypeToJWA(k.KeyType)
-}
 
 type keyReader interface {
 	// Get key handle for the given keyID
@@ -50,7 +40,7 @@ type didResolver interface {
 	Resolve(did string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error)
 }
 
-type signer interface {
+type cryptoSigner interface {
 	// Sign will sign msg using a matching signature primitive in kh key handle of a private key
 	// returns:
 	// 		signature in []byte
@@ -58,10 +48,46 @@ type signer interface {
 	Sign(msg []byte, kh interface{}) ([]byte, error)
 }
 
-type kmsSigner struct {
-	KeyType   kms.KeyType
-	KeyHandle interface{}
-	Signer    signer
+type signer interface {
+	Sign(msg []byte) ([]byte, error)
+}
+
+type defaultSigner struct {
+	keyHandle interface{}
+	signer    cryptoSigner
+}
+
+// SignerGetter creates a signer that signs with the private key corresponding to the given public key.
+type SignerGetter func(vm *did.VerificationMethod) (signer, error)
+
+// UseDefaultSigner provides SignJWT with a signer that uses the given KMS and Crypto instances.
+func UseDefaultSigner(r keyReader, s cryptoSigner) SignerGetter {
+	return func(vm *did.VerificationMethod) (signer, error) {
+		pubKey, keyType, _, err := vmparse.VMToBytesTypeCrv(vm)
+		if err != nil {
+			return nil, fmt.Errorf("parsing verification method: %w", err)
+		}
+
+		kmsKID, err := jwkkid.CreateKID(pubKey, keyType)
+		if err != nil {
+			return nil, fmt.Errorf("determining the internal ID of the signing key: %w", err)
+		}
+
+		keyHandle, err := r.Get(kmsKID)
+		if err != nil {
+			return nil, fmt.Errorf("fetching the signing key from the key manager: %w", err)
+		}
+
+		return &defaultSigner{
+			keyHandle: keyHandle,
+			signer:    s,
+		}, nil
+	}
+}
+
+// Sign signs the given message using the key this signer holds a reference to.
+func (s *defaultSigner) Sign(msg []byte) ([]byte, error) {
+	return s.signer.Sign(msg, s.keyHandle)
 }
 
 // SignJWT signs a JWT using a key in the given KMS, identified by an owned DID.
@@ -71,15 +97,13 @@ type kmsSigner struct {
 //		- Claims for the created JWT.
 //		- The ID of the key to use for signing, as a DID, either with a fragment identifier to specify a verification
 //		  method, or without, in which case the first Authentication or Assertion verification method is used.
-//		- A KMS instance that holds the private key identified by the kid parameter.
-//		- A crypto.Crypto instance that can sign using the given key.
+//		- A SignerGetter that can provide a signer when given the key ID for the signing key.
 //		- A VDR that can resolve the provided DID.
 func SignJWT( // nolint: funlen,gocyclo
 	headers,
 	claims map[string]interface{},
 	kid string,
-	keyReader keyReader,
-	signer signer,
+	signerProvider SignerGetter,
 	didResolver didResolver,
 ) (string, error) {
 	vm, vmID, err := resolveSigningVM(kid, didResolver)
@@ -87,22 +111,15 @@ func SignJWT( // nolint: funlen,gocyclo
 		return "", err
 	}
 
-	pkBytes, keyType, crv, err := vmparse.VMToBytesTypeCrv(vm)
+	keyType, crv, err := vmparse.VMToTypeCrv(vm)
 	if err != nil {
 		return "", fmt.Errorf("parsing verification method: %w", err)
 	}
 
-	kmsKID, err := jwkkid.CreateKID(pkBytes, keyType)
+	ss, err := signerProvider(vm)
 	if err != nil {
-		return "", fmt.Errorf("determining the internal ID of the signing key: %w", err)
+		return "", err
 	}
-
-	keyHandle, err := keyReader.Get(kmsKID)
-	if err != nil {
-		return "", fmt.Errorf("fetching the signing key from the key manager: %w", err)
-	}
-
-	km := &kmsSigner{KeyType: keyType, KeyHandle: keyHandle, Signer: signer}
 
 	if headers == nil {
 		headers = map[string]interface{}{}
@@ -113,11 +130,11 @@ func SignJWT( // nolint: funlen,gocyclo
 	}
 
 	headers[jose.HeaderType] = "JWT"
-	headers[jose.HeaderAlgorithm] = km.Alg()
+	headers[jose.HeaderAlgorithm] = kmssigner.KeyTypeToJWA(keyType)
 	headers["crv"] = crv
 	headers[jose.HeaderKeyID] = vmID
 
-	tok, err := jwt.NewSigned(claims, headers, getJWTSigner(km, km.Alg()))
+	tok, err := jwt.NewSigned(claims, headers, getJWTSigner(ss, kmssigner.KeyTypeToJWA(keyType)))
 	if err != nil {
 		return "", fmt.Errorf("signing JWT: %w", err)
 	}
@@ -136,7 +153,7 @@ func SignJWT( // nolint: funlen,gocyclo
 //   - JWT to verify.
 //   - A VDR that can resolve the JWT's signing DID.
 func VerifyJWT(compactJWT string,
-	didResolver vdr.Registry) error {
+	didResolver didResolver) error {
 	_, err := jwt.Parse(compactJWT, jwt.WithSignatureVerifier(jwt.NewVerifier(
 		jwt.KeyResolverFunc(verifiable.NewVDRKeyResolver(didResolver).PublicKeyFetcher())),
 	))

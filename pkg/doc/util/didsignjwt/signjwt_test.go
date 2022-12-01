@@ -68,7 +68,7 @@ func TestSignVerify(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		t.Run("use specified key", func(t *testing.T) {
-			result, err := SignJWT(nil, testClaims, defaultDID+defaultKID, keyManager, cr, defaultVDR)
+			result, err := SignJWT(nil, testClaims, defaultDID+defaultKID, UseDefaultSigner(keyManager, cr), defaultVDR)
 			require.NoError(t, err)
 			require.NotEmpty(t, result)
 
@@ -76,7 +76,7 @@ func TestSignVerify(t *testing.T) {
 		})
 
 		t.Run("default to first assertionmethod", func(t *testing.T) {
-			result, err := SignJWT(nil, testClaims, defaultDID, keyManager, cr, defaultVDR)
+			result, err := SignJWT(nil, testClaims, defaultDID, UseDefaultSigner(keyManager, cr), defaultVDR)
 			require.NoError(t, err)
 			require.NotEmpty(t, result)
 
@@ -92,7 +92,7 @@ func TestSignVerify(t *testing.T) {
 				},
 			}
 
-			result, err := SignJWT(nil, testClaims, defaultDID+defaultKID, keyManager, cr, customVDR)
+			result, err := SignJWT(nil, testClaims, defaultDID+defaultKID, UseDefaultSigner(keyManager, cr), customVDR)
 			require.NoError(t, err)
 			require.NotEmpty(t, result)
 
@@ -102,13 +102,13 @@ func TestSignVerify(t *testing.T) {
 
 	t.Run("failure", func(t *testing.T) {
 		t.Run("invalid verification method ID", func(t *testing.T) {
-			_, e = SignJWT(nil, testClaims, "did:foo:bar#keyID#extraKeyID", keyManager, cr, defaultVDR)
+			_, e = SignJWT(nil, testClaims, "did:foo:bar#keyID#extraKeyID", UseDefaultSigner(keyManager, cr), defaultVDR)
 			require.Error(t, e)
 			require.Contains(t, e.Error(), "invalid verification method format")
 		})
 
 		t.Run("DID not found in VDR", func(t *testing.T) {
-			_, e = SignJWT(nil, testClaims, "did:missing:unknown#keyID", keyManager, cr, defaultVDR)
+			_, e = SignJWT(nil, testClaims, "did:missing:unknown#keyID", UseDefaultSigner(keyManager, cr), defaultVDR)
 			require.Error(t, e)
 			require.Contains(t, e.Error(), "failed to resolve signing DID")
 		})
@@ -127,7 +127,7 @@ func TestSignVerify(t *testing.T) {
 				},
 			}
 
-			_, e = SignJWT(nil, testClaims, brokenDID+"#"+brokenVMID, keyManager, cr,
+			_, e = SignJWT(nil, testClaims, brokenDID+"#"+brokenVMID, UseDefaultSigner(keyManager, cr),
 				&mockvdr.MockVDRegistry{
 					ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 						return &did.DocResolution{DIDDocument: mockDoc}, nil
@@ -149,7 +149,7 @@ func TestSignVerify(t *testing.T) {
 				},
 			}
 
-			_, e = SignJWT(nil, testClaims, defaultDID+defaultKID, keyManager, cr,
+			_, e = SignJWT(nil, testClaims, defaultDID+defaultKID, UseDefaultSigner(keyManager, cr),
 				&mockvdr.MockVDRegistry{
 					ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 						return &did.DocResolution{DIDDocument: mockDoc}, nil
@@ -166,7 +166,7 @@ func TestSignVerify(t *testing.T) {
 			mockDoc := makemockdoc.MakeMockDoc(t, wrongKMS, defaultDID, kms.ECDSAP256TypeIEEEP1363)
 
 			// instead of the kms passed in here
-			_, e = SignJWT(nil, testClaims, defaultDID, keyManager, cr,
+			_, e = SignJWT(nil, testClaims, defaultDID, UseDefaultSigner(keyManager, cr),
 				&mockvdr.MockVDRegistry{
 					ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 						return &did.DocResolution{DIDDocument: mockDoc}, nil
@@ -185,7 +185,7 @@ func TestSignVerify(t *testing.T) {
 
 			mockDoc := makemockdoc.MakeMockDoc(t, kmgr, defaultDID, kms.ECDSAP256TypeIEEEP1363)
 
-			_, e = SignJWT(nil, badPayload, defaultDID+defaultKID, kmgr, cr,
+			_, e = SignJWT(nil, badPayload, defaultDID+defaultKID, UseDefaultSigner(kmgr, cr),
 				&mockvdr.MockVDRegistry{
 					ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 						return &did.DocResolution{DIDDocument: mockDoc}, nil
@@ -196,7 +196,7 @@ func TestSignVerify(t *testing.T) {
 		})
 
 		t.Run("verification error", func(t *testing.T) {
-			result, err := SignJWT(nil, testClaims, defaultDID+defaultKID, keyManager, cr, defaultVDR)
+			result, err := SignJWT(nil, testClaims, defaultDID+defaultKID, UseDefaultSigner(keyManager, cr), defaultVDR)
 			require.NoError(t, err)
 			require.NotEmpty(t, result)
 
