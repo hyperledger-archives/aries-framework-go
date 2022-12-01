@@ -31,7 +31,7 @@ func New() *VDR {
 }
 
 // Accept accepts did:key method.
-func (v *VDR) Accept(method string) bool {
+func (v *VDR) Accept(method string, opts ...vdrapi.DIDMethodOption) bool {
 	return method == DIDMethod
 }
 

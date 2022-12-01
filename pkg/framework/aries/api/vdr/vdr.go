@@ -40,7 +40,7 @@ type Registry interface {
 type VDR interface {
 	Read(did string, opts ...DIDMethodOption) (*did.DocResolution, error)
 	Create(did *did.Doc, opts ...DIDMethodOption) (*did.DocResolution, error)
-	Accept(method string) bool
+	Accept(method string, opts ...DIDMethodOption) bool
 	Update(did *did.Doc, opts ...DIDMethodOption) error
 	Deactivate(did string, opts ...DIDMethodOption) error
 	Close() error
