@@ -26,7 +26,7 @@ func New() *VDR {
 }
 
 // Accept method of the VDR interface.
-func (v *VDR) Accept(method string) bool {
+func (v *VDR) Accept(method string, opts ...vdrapi.DIDMethodOption) bool {
 	return method == namespace
 }
 

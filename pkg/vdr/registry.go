@@ -16,6 +16,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/peer"
 )
 
+const didAcceptOpt = "didAcceptOpt"
+
 // Option is a vdr instance option.
 type Option func(opts *Registry)
 
@@ -45,8 +47,12 @@ func (r *Registry) Resolve(did string, opts ...vdrapi.DIDMethodOption) (*diddoc.
 		return nil, err
 	}
 
+	// create accept options with did and add existing options
+	acceptOpts := []vdrapi.DIDMethodOption{vdrapi.WithOption(didAcceptOpt, did)}
+	acceptOpts = append(acceptOpts, opts...)
+
 	// resolve did method
-	method, err := r.resolveVDR(didMethod)
+	method, err := r.resolveVDR(didMethod, acceptOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -71,8 +77,12 @@ func (r *Registry) Update(didDoc *diddoc.Doc, opts ...vdrapi.DIDMethodOption) er
 		return err
 	}
 
+	// create accept options with did and add existing options
+	acceptOpts := []vdrapi.DIDMethodOption{vdrapi.WithOption(didAcceptOpt, didDoc.ID)}
+	acceptOpts = append(acceptOpts, opts...)
+
 	// resolve did method
-	method, err := r.resolveVDR(didMethod)
+	method, err := r.resolveVDR(didMethod, acceptOpts...)
 	if err != nil {
 		return err
 	}
@@ -87,8 +97,12 @@ func (r *Registry) Deactivate(did string, opts ...vdrapi.DIDMethodOption) error 
 		return err
 	}
 
+	// create accept options with did and add existing options
+	acceptOpts := []vdrapi.DIDMethodOption{vdrapi.WithOption(didAcceptOpt, did)}
+	acceptOpts = append(acceptOpts, opts...)
+
 	// resolve did method
-	method, err := r.resolveVDR(didMethod)
+	method, err := r.resolveVDR(didMethod, acceptOpts...)
 	if err != nil {
 		return err
 	}
@@ -105,7 +119,7 @@ func (r *Registry) Create(didMethod string, did *diddoc.Doc,
 		opt(docOpts)
 	}
 
-	method, err := r.resolveVDR(didMethod)
+	method, err := r.resolveVDR(didMethod, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -143,9 +157,9 @@ func (r *Registry) Close() error {
 	return nil
 }
 
-func (r *Registry) resolveVDR(method string) (vdrapi.VDR, error) {
+func (r *Registry) resolveVDR(method string, opts ...vdrapi.DIDMethodOption) (vdrapi.VDR, error) {
 	for _, v := range r.vdr {
-		if v.Accept(method) {
+		if v.Accept(method, opts...) {
 			return v, nil
 		}
 	}

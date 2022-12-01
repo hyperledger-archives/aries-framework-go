@@ -16,6 +16,7 @@ import (
 type MockVDR struct {
 	AcceptValue    bool
 	StoreErr       error
+	AcceptFunc     func(method string, opts ...vdrapi.DIDMethodOption) bool
 	ReadFunc       func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error)
 	CreateFunc     func(did *did.Doc, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error)
 	UpdateFunc     func(didDoc *did.Doc, opts ...vdrapi.DIDMethodOption) error
@@ -60,7 +61,11 @@ func (m *MockVDR) Deactivate(didID string, opts ...vdrapi.DIDMethodOption) error
 }
 
 // Accept did.
-func (m *MockVDR) Accept(method string) bool {
+func (m *MockVDR) Accept(method string, opts ...vdrapi.DIDMethodOption) bool {
+	if m.AcceptFunc != nil {
+		return m.AcceptFunc(method, opts...)
+	}
+
 	return m.AcceptValue
 }
 

@@ -56,7 +56,7 @@ func New(endpointURL string, opts ...Option) (*VDR, error) {
 }
 
 // Accept did method - attempt to resolve any method.
-func (v *VDR) Accept(method string) bool {
+func (v *VDR) Accept(method string, opts ...vdrapi.DIDMethodOption) bool {
 	return v.accept(method)
 }
 
