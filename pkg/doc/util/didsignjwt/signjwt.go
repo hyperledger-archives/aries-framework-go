@@ -48,7 +48,9 @@ type cryptoSigner interface {
 	Sign(msg []byte, kh interface{}) ([]byte, error)
 }
 
-type signer interface {
+// A Signer is capable of signing data.
+type Signer interface {
+	// Sign provides a signature for msg.
 	Sign(msg []byte) ([]byte, error)
 }
 
@@ -58,11 +60,11 @@ type defaultSigner struct {
 }
 
 // SignerGetter creates a signer that signs with the private key corresponding to the given public key.
-type SignerGetter func(vm *did.VerificationMethod) (signer, error)
+type SignerGetter func(vm *did.VerificationMethod) (Signer, error)
 
 // UseDefaultSigner provides SignJWT with a signer that uses the given KMS and Crypto instances.
 func UseDefaultSigner(r keyReader, s cryptoSigner) SignerGetter {
-	return func(vm *did.VerificationMethod) (signer, error) {
+	return func(vm *did.VerificationMethod) (Signer, error) {
 		pubKey, keyType, _, err := vmparse.VMToBytesTypeCrv(vm)
 		if err != nil {
 			return nil, fmt.Errorf("parsing verification method: %w", err)
