@@ -26,9 +26,9 @@ Notable ones are,
  * [WACI Presentation Exchange](https://identity.foundation/waci-presentation-exchange/): Wallet and credential interaction standards 
  using DIDComm in [Present Proof Protocol](00_what_is_hl_aries.md#8-presentproof-protocol), [Issue Credential Protocol](00_what_is_hl_aries.md#3-issuecredential-protocol) and [Aries Verifiable Credential Wallet](../vc_wallet.md).
  * [Verifiable Presentation Request Specification v0.1](https://w3c-ccg.github.io/vp-request-spec/): Standards for requesting credentials to share from wallet. Used in [Aries Verifiable Credential Wallet](../vc_wallet.md) implementation.
- * [Verifiable Credentials Data Model v1.1](https://www.w3.org/TR/vc-data-model/): For all the verifiable credential data model operations.
+ * [Verifiable Credentials Data Model v1.1](https://www.w3.org/TR/vc-data-model/): For all the verifiable credential data model operations. We support both JSON-LD and JWT verifiable credentials.
  * [JSON-LD v1.1](https://w3c.github.io/json-ld-syntax/): For JSON-based Serialization for Linked Data.
- * [Linked Data Proofs v1.0](https://w3c-ccg.github.io/ld-proofs/): For generating JSON-LD based linked data proofs.
+ * [Verifiable Credential Data Integrity 1.0](https://w3c.github.io/vc-data-integrity/): For generating JSON-LD based linked data proofs.
  * [Decentralized Identifiers (DIDs) v1.0](https://w3c.github.io/did-core/): For signing and verifying verifiable credentials and presentations.
  * [WebKMS v0.7](https://w3c-ccg.github.io/webkms/): For implementing cryptographic key management systems for the wallet.
  * [Decentralized Identifier Resolution (DID Resolution) v0.2](https://w3c-ccg.github.io/did-resolution/): Followed for resolving various decentralized identifiers. 
