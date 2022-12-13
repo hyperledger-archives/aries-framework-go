@@ -69,7 +69,7 @@ func KeyTypeToJWSAlgo(keyType kmsapi.KeyType) (JWSAlgorithm, error) {
 		return ECDSASecp521r1, nil
 	case kmsapi.ED25519Type:
 		return EdDSA, nil
-	case kmsapi.ECDSASecp256k1TypeIEEEP1363:
+	case kmsapi.ECDSASecp256k1TypeIEEEP1363, kmsapi.ECDSASecp256k1DER:
 		return ECDSASecp256k1, nil
 	case kmsapi.RSARS256Type:
 		return RS256, nil
