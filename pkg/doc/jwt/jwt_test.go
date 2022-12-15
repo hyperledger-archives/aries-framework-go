@@ -421,37 +421,37 @@ func Test_toMap(t *testing.T) {
 	r := require.New(t)
 
 	// pass map
-	resultMap, err := toMap(inputMap)
+	resultMap, err := PayloadToMap(inputMap)
 	r.NoError(err)
 	r.Equal(inputMap, resultMap)
 
 	// pass []byte
 	inputMapBytes, err := json.Marshal(inputMap)
 	r.NoError(err)
-	resultMap, err = toMap(inputMapBytes)
+	resultMap, err = PayloadToMap(inputMapBytes)
 	r.NoError(err)
 	r.Equal(inputMap, resultMap)
 
 	// pass string
 	inputMapStr := string(inputMapBytes)
-	resultMap, err = toMap(inputMapStr)
+	resultMap, err = PayloadToMap(inputMapStr)
 	r.NoError(err)
 	r.Equal(inputMap, resultMap)
 
 	// pass struct
 	s := testToMapStruct{TestField: "b"}
-	resultMap, err = toMap(s)
+	resultMap, err = PayloadToMap(s)
 	r.NoError(err)
 	r.Equal(inputMap, resultMap)
 
 	// pass invalid []byte
-	resultMap, err = toMap([]byte("not JSON"))
+	resultMap, err = PayloadToMap([]byte("not JSON"))
 	r.Error(err)
 	r.Contains(err.Error(), "convert to map")
 	r.Nil(resultMap)
 
 	// pass invalid structure
-	resultMap, err = toMap(make(chan int))
+	resultMap, err = PayloadToMap(make(chan int))
 	r.Error(err)
 	r.Contains(err.Error(), "convert to bytes")
 	r.Nil(resultMap)
