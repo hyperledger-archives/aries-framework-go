@@ -17,6 +17,7 @@ import (
 	jsonld "github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/didconfig"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 )
@@ -66,10 +67,14 @@ func WithJSONLDDocumentLoader(documentLoader jsonld.DocumentLoader) Option {
 	}
 }
 
+type didResolver interface {
+	Resolve(did string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error)
+}
+
 // WithVDRegistry defines a vdr service.
-func WithVDRegistry(vdrRegistry vdrapi.Registry) Option {
+func WithVDRegistry(didResolver didResolver) Option {
 	return func(opts *Client) {
-		opts.didConfigOpts = append(opts.didConfigOpts, didconfig.WithVDRegistry(vdrRegistry))
+		opts.didConfigOpts = append(opts.didConfigOpts, didconfig.WithVDRegistry(didResolver))
 	}
 }
 
