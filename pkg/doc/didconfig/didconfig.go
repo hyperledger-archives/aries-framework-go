@@ -15,6 +15,7 @@ import (
 	jsonld "github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
@@ -39,10 +40,14 @@ const (
 	linkedDIDsProperty = "linked_dids"
 )
 
+type didResolver interface {
+	Resolve(did string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error)
+}
+
 // didConfigOpts holds options for the DID Configuration decoding.
 type didConfigOpts struct {
 	jsonldDocumentLoader jsonld.DocumentLoader
-	vdrRegistry          vdrapi.Registry
+	didResolver          didResolver
 }
 
 // DIDConfigurationOpt is the DID Configuration decoding option.
@@ -56,9 +61,9 @@ func WithJSONLDDocumentLoader(documentLoader jsonld.DocumentLoader) DIDConfigura
 }
 
 // WithVDRegistry defines a vdr service.
-func WithVDRegistry(vdrRegistry vdrapi.Registry) DIDConfigurationOpt {
+func WithVDRegistry(didResolver didResolver) DIDConfigurationOpt {
 	return func(opts *didConfigOpts) {
-		opts.vdrRegistry = vdrRegistry
+		opts.didResolver = didResolver
 	}
 }
 
@@ -117,7 +122,7 @@ func VerifyDIDAndDomain(didConfig []byte, did, domain string, opts ...DIDConfigu
 func getDIDConfigurationOpts(opts []DIDConfigurationOpt) *didConfigOpts {
 	didCfgOpts := &didConfigOpts{
 		jsonldDocumentLoader: jsonld.NewDefaultDocumentLoader(http.DefaultClient),
-		vdrRegistry:          vdr.New(vdr.WithVDR(key.New())),
+		didResolver:          vdr.New(vdr.WithVDR(key.New())),
 	}
 
 	for _, opt := range opts {
@@ -437,7 +442,7 @@ func getParseCredentialOptions(disableProofCheck bool, opts *didConfigOpts) []ve
 		credOpts = append(credOpts, verifiable.WithDisabledProofCheck())
 	} else {
 		credOpts = append(credOpts,
-			verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(opts.vdrRegistry).PublicKeyFetcher()))
+			verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(opts.didResolver).PublicKeyFetcher()))
 	}
 
 	return credOpts
