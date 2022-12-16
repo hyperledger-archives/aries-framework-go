@@ -100,7 +100,7 @@ func (c *Client) VerifyDIDAndDomain(did, domain string) error {
 			endpoint, resp.StatusCode, responseBytes)
 	}
 
-	return didconfig.VerifyDIDAndDomain(responseBytes, did, domain)
+	return didconfig.VerifyDIDAndDomain(responseBytes, did, domain, c.didConfigOpts...)
 }
 
 func closeResponseBody(respBody io.Closer) {
