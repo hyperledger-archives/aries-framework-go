@@ -698,9 +698,7 @@ func populateServices(didID, baseURI string, rawServices []map[string]interface{
 				}
 				coreServices, ok := epEntry.(map[string]interface{}) // DID Core
 				if ok && len(coreServices) > 0 {
-					instances := stringArray(coreServices["instances"])
-					origins := stringArray(coreServices["origins"])
-					sp = model.NewDIDCoreEndpoint(append(instances, origins...))
+					sp = model.NewDIDCoreEndpoint(coreServices)
 				}
 			}
 		}
