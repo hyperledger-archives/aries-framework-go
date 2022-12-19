@@ -52,6 +52,8 @@ func CreateKID(keyBytes []byte, kt kms.KeyType) (string, error) {
 
 		return x25519KID, nil
 	case kms.ED25519Type: // go-jose JWK thumbprint of Ed25519 has a bug, manually build it and build its resulting KID.
+		// TODO remove `case kms.ED25519Type` when go-jose fixes Ed25519 JWK thumbprint.
+		//  Also remove `createED25519KID(keyBytes []byte)` function further below.
 		ed25519KID, err := createED25519KID(keyBytes)
 		if err != nil {
 			return "", fmt.Errorf("createKID: %w", err)
@@ -182,7 +184,7 @@ func curveSize(crv elliptic.Curve) int {
 }
 
 // BuildJWK builds a go jose JWK from keyBytes with key type kt.
-func BuildJWK(keyBytes []byte, kt kms.KeyType) (*jwk.JWK, error) {
+func BuildJWK(keyBytes []byte, kt kms.KeyType) (*jwk.JWK, error) { //nolint: gocyclo
 	var (
 		j   *jwk.JWK
 		err error
@@ -194,13 +196,11 @@ func BuildJWK(keyBytes []byte, kt kms.KeyType) (*jwk.JWK, error) {
 		if err != nil {
 			return nil, fmt.Errorf("buildJWK: failed to build JWK from ecdsa DER key: %w", err)
 		}
-		// TODO remove `case kms.ED25519Type` in CreateKID() and uncomment below case when go-jose fixes Ed25519
-		//      JWK thumbprint. Also remove `createED25519KID(keyBytes []byte)` function further below.
-	// case kms.ED25519Type:
-	//	j, err = jwksupport.JWKFromKey(ed25519.PublicKey(keyBytes))
-	//	if err != nil {
-	//		return nil, fmt.Errorf("buildJWK: failed to build JWK from ed25519 key: %w", err)
-	//	}
+	case kms.ED25519Type:
+		j, err = jwksupport.JWKFromKey(ed25519.PublicKey(keyBytes))
+		if err != nil {
+			return nil, fmt.Errorf("buildJWK: failed to build JWK from ed25519 key: %w", err)
+		}
 	case kms.ECDSAP256TypeIEEEP1363, kms.ECDSAP384TypeIEEEP1363, kms.ECDSAP521TypeIEEEP1363, kms.ECDSASecp256k1IEEEP1363:
 		c := getCurveByKMSKeyType(kt)
 		x, y := elliptic.Unmarshal(c, keyBytes)

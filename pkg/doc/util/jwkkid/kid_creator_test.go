@@ -221,6 +221,17 @@ func TestBuildJWKX25519(t *testing.T) {
 	})
 }
 
+func TestBuildJWK_Ed25519(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+
+		jwk, err := BuildJWK(pubKey, kms.ED25519Type)
+		require.NoError(t, err)
+		require.NotNil(t, jwk)
+	})
+}
+
 func TestCreateED25519KID_Failure(t *testing.T) {
 	key := &cryptoapi.PublicKey{
 		Curve: "Ed25519",
