@@ -69,6 +69,8 @@ var (
 	validDocV011 string
 	//go:embed testdata/valid_doc_with_base.jsonld
 	validDocWithBase string
+	//go:embed testdata/valid_doc_with_service_endpoint.jsonld
+	validDocWithServiceEndpoint string
 )
 
 func TestParseOfNull(t *testing.T) {
@@ -204,6 +206,17 @@ func TestDocResolution(t *testing.T) {
 		_, err := ParseDocumentResolution([]byte(validDoc))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), ErrDIDDocumentNotExist.Error())
+	})
+
+	t.Run("Parse serialize then parse", func(t *testing.T) {
+		d, err := ParseDocumentResolution([]byte(validDocWithServiceEndpoint))
+		require.NoError(t, err)
+
+		serialized, err := d.JSONBytes()
+		require.NoError(t, err)
+
+		_, err = ParseDocumentResolution(serialized)
+		require.NoError(t, err)
 	})
 }
 
