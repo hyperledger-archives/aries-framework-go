@@ -20,10 +20,10 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/go-jose/go-jose/v3"
 	hybrid "github.com/google/tink/go/hybrid/subtle"
 	"github.com/google/tink/go/keyset"
 	"github.com/google/tink/go/subtle/random"
-	"github.com/square/go-jose/v3"
 	"golang.org/x/crypto/curve25519"
 
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"

@@ -18,12 +18,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-jose/go-jose/v3"
 	"github.com/golang/protobuf/proto"
 	hybrid "github.com/google/tink/go/hybrid/subtle"
 	"github.com/google/tink/go/keyset"
 	commonpb "github.com/google/tink/go/proto/common_go_proto"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
-	"github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"

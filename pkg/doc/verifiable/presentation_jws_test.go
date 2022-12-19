@@ -10,8 +10,8 @@ import (
 	"crypto/rsa"
 	"testing"
 
-	"github.com/square/go-jose/v3"
-	"github.com/square/go-jose/v3/jwt"
+	"github.com/go-jose/go-jose/v3"
+	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"

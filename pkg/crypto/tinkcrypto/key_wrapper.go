@@ -14,9 +14,9 @@ import (
 	"fmt"
 	"math/big"
 
+	josecipher "github.com/go-jose/go-jose/v3/cipher"
 	hybrid "github.com/google/tink/go/hybrid/subtle"
 	"github.com/google/tink/go/keyset"
-	josecipher "github.com/square/go-jose/v3/cipher"
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/curve25519"
 

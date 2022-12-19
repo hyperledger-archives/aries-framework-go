@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	gojose "github.com/square/go-jose/v3"
+	gojose "github.com/go-jose/go-jose/v3"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"

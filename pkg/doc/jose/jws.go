@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/square/go-jose/v3/json"
+	"github.com/go-jose/go-jose/v3/json"
 )
 
 const (
