@@ -21,11 +21,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-jose/go-jose/v3"
 	hybrid "github.com/google/tink/go/hybrid/subtle"
 	"github.com/google/tink/go/keyset"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/google/tink/go/subtle"
-	"github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
@@ -61,7 +61,7 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 		"NewJWEEncrypt should fail with empty recipientPubKeys")
 
 	singleRecipientNISTPKWError := "jwedecrypt: failed to unwrap cek: [unwrapKey: deriveKEKAndUnwrap:" +
-		" failed to AES unwrap key: square/go-jose: key wrap input must be 8 byte blocks]"
+		" failed to AES unwrap key: go-jose/go-jose: key wrap input must be 8 byte blocks]"
 
 	singleRecipientX25519KWError := "jwedecrypt: failed to unwrap cek: [unwrapKey: deriveKEKAndUnwrap: failed to XC20P " +
 		"unwrap key: unwrap support: OKP unwrap invalid key]"

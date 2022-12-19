@@ -1501,7 +1501,7 @@ func TestContext_DIDDocAttachment(t *testing.T) {
 
 		doc := mockdiddoc.GetMockDIDDoc(t, false)
 
-		didKey, _ := fingerprint.CreateDIDKey([]byte("abcdefghabcdefghabcdefghabcdefgh~!@#"))
+		didKey, _ := fingerprint.CreateDIDKey([]byte{})
 
 		_, err := ctx.didDocAttachment(doc, didKey)
 		require.Error(t, err)

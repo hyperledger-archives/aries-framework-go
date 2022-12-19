@@ -14,6 +14,7 @@ require (
 	github.com/btcsuite/btcd v0.22.0-beta
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/cenkalti/backoff/v4 v4.0.2
+	github.com/go-jose/go-jose/v3 v3.0.1-0.20221117193127-916db76e8214
 	github.com/golang/mock v1.4.4
 	github.com/golang/protobuf v1.5.2
 	github.com/google/tink/go v1.7.0
@@ -32,7 +33,6 @@ require (
 	github.com/piprate/json-gold v0.4.2
 	github.com/pkg/errors v0.9.1
 	github.com/rs/cors v1.7.0
-	github.com/square/go-jose/v3 v3.0.0-20200630053402-0a67ce9b0693
 	github.com/stretchr/testify v1.8.1
 	github.com/teserakt-io/golang-ed25519 v0.0.0-20210104091850-3888c087a4c8
 	github.com/tidwall/gjson v1.6.7
@@ -70,3 +70,11 @@ require (
 )
 
 go 1.19
+
+//replace github.com/square/go-jose/v3 => github.com/go-jose/go-jose/v3 v3.0.1-0.20221117193127-916db76e8214
+//
+//replace github.com/square/go-jose/v3/json => github.com/go-jose/go-jose/v3/json v1.0.1-0.20221117193127-916db76e8214
+//
+//replace github.com/square/go-jose/v3/jwt => github.com/go-jose/go-jose/v3/jwt v1.0.1-0.20221117193127-916db76e8214
+//
+//replace github.com/square/go-jose/v3/cipher => github.com/go-jose/go-jose/v3/cipher v1.0.1-0.20221117193127-916db76e8214

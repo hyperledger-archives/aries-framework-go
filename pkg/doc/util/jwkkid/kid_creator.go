@@ -51,15 +51,6 @@ func CreateKID(keyBytes []byte, kt kms.KeyType) (string, error) {
 		}
 
 		return x25519KID, nil
-	case kms.ED25519Type: // go-jose JWK thumbprint of Ed25519 has a bug, manually build it and build its resulting KID.
-		// TODO remove `case kms.ED25519Type` when go-jose fixes Ed25519 JWK thumbprint.
-		//  Also remove `createED25519KID(keyBytes []byte)` function further below.
-		ed25519KID, err := createED25519KID(keyBytes)
-		if err != nil {
-			return "", fmt.Errorf("createKID: %w", err)
-		}
-
-		return ed25519KID, nil
 	case kms.BLS12381G2Type: // BBS+ as JWK thumbprint.
 		bbsKID, err := createBLS12381G2KID(keyBytes)
 		if err != nil {
@@ -303,25 +294,6 @@ func createX25519KID(marshalledKey []byte) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("createX25519KID: %w", err)
 	}
-
-	thumbprint := sha256Sum(j)
-
-	return base64.RawURLEncoding.EncodeToString(thumbprint), nil
-}
-
-func createED25519KID(keyBytes []byte) (string, error) {
-	const ed25519ThumbprintTemplate = `{"crv":"Ed25519","kty":"OKP","x":"%s"}`
-
-	lenKey := len(keyBytes)
-
-	if lenKey > ed25519.PublicKeySize {
-		return "", errors.New("createED25519KID: invalid Ed25519 key")
-	}
-
-	pad := make([]byte, ed25519.PublicKeySize-lenKey)
-	ed25519RawKey := append(pad, keyBytes...)
-
-	j := fmt.Sprintf(ed25519ThumbprintTemplate, base64.RawURLEncoding.EncodeToString(ed25519RawKey))
 
 	thumbprint := sha256Sum(j)
 

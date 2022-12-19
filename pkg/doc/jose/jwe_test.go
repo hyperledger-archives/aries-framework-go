@@ -12,7 +12,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/square/go-jose/v3"
+	"github.com/go-jose/go-jose/v3"
 	"github.com/stretchr/testify/require"
 )
 
