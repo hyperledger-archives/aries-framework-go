@@ -121,7 +121,7 @@ jobs:
         timeout-minutes: 45
         run: |
           make bdd-test
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         if: always()
         with:
           name: logs
