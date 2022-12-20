@@ -172,7 +172,7 @@ func mapJWSToJWT(jws *jose.JSONWebSignature) (*JSONWebToken, error) {
 		return nil, fmt.Errorf("check JWT headers: %w", err)
 	}
 
-	claims, err := toMap(jws.Payload)
+	claims, err := PayloadToMap(jws.Payload)
 	if err != nil {
 		return nil, fmt.Errorf("read JWT claims from JWS payload: %w", err)
 	}
@@ -195,7 +195,7 @@ func NewUnsecured(claims interface{}, headers jose.Headers) (*JSONWebToken, erro
 }
 
 func newSigned(claims interface{}, headers jose.Headers, signer jose.Signer) (*JSONWebToken, error) {
-	payloadMap, err := toMap(claims)
+	payloadMap, err := PayloadToMap(claims)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshallable claims: %w", err)
 	}
@@ -268,7 +268,8 @@ func checkHeaders(headers map[string]interface{}) error {
 	return nil
 }
 
-func toMap(i interface{}) (map[string]interface{}, error) {
+// PayloadToMap transforms interface to map.
+func PayloadToMap(i interface{}) (map[string]interface{}, error) {
 	if reflect.ValueOf(i).Kind() == reflect.Map {
 		return i.(map[string]interface{}), nil
 	}
