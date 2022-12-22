@@ -51,6 +51,8 @@ func TestNew(t *testing.T) {
 		sdJWTSerialized, err := token.Serialize(false)
 		require.NoError(t, err)
 
+		fmt.Printf(sdJWTSerialized)
+
 		sdJWT := common.ParseSDJWT(sdJWTSerialized)
 		require.Equal(t, 1, len(sdJWT.Disclosures))
 
@@ -141,6 +143,8 @@ func TestNew(t *testing.T) {
 		r.NoError(err)
 		sdJWTSerialized, err := token.Serialize(false)
 		require.NoError(t, err)
+
+		fmt.Printf(sdJWTSerialized)
 
 		sdJWT := common.ParseSDJWT(sdJWTSerialized)
 		require.Equal(t, 7, len(sdJWT.Disclosures))
