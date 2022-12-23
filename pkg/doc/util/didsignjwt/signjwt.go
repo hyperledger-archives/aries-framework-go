@@ -108,7 +108,7 @@ func SignJWT( // nolint: funlen,gocyclo
 	signerProvider SignerGetter,
 	didResolver didResolver,
 ) (string, error) {
-	vm, vmID, err := resolveSigningVM(kid, didResolver)
+	vm, vmID, err := ResolveSigningVM(kid, didResolver)
 	if err != nil {
 		return "", err
 	}
@@ -166,7 +166,15 @@ func VerifyJWT(compactJWT string,
 	return nil
 }
 
-func resolveSigningVM(kid string, didResolver didResolver) (*did.VerificationMethod, string, error) {
+// ResolveSigningVM resolves a DID KeyID using the given did resolver, and returns either:
+//
+//  - the Verification Method identified by the given key ID, or
+//  - the first Assertion Method in the DID doc, if the DID provided has no fragment component.
+//
+// Returns:
+//  - a verification method suitable for signing.
+//  - the full DID#KID identifier of the returned verification method.
+func ResolveSigningVM(kid string, didResolver didResolver) (*did.VerificationMethod, string, error) {
 	vmSplit := strings.Split(kid, "#")
 
 	if len(vmSplit) > vmSectionCount {
