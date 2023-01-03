@@ -19,13 +19,11 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	afjwt "github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/issuer"
 )
 
 const (
 	testIssuer = "https://example.com/issuer"
-	testAlg    = "sha-256"
 )
 
 func TestParse(t *testing.T) {
@@ -50,6 +48,21 @@ func TestParse(t *testing.T) {
 		r.NoError(err)
 		require.NotNil(t, sdJWT)
 		require.Equal(t, 1, len(sdJWT.Disclosures))
+	})
+
+	t.Run("success - spec SD-JWT", func(t *testing.T) {
+		sdJWT, err := Parse(specSDJWT, WithSignatureVerifier(&NoopSignatureVerifier{}))
+		r.NoError(err)
+		require.NotNil(t, sdJWT)
+		require.Equal(t, 7, len(sdJWT.Disclosures))
+	})
+
+	t.Run("error - additional disclosure", func(t *testing.T) {
+		sdJWT, err := Parse(fmt.Sprintf("%s~%s", sdJWTSerialized, additionalDisclosure), WithSignatureVerifier(verifier))
+		r.Error(err)
+		r.Nil(sdJWT)
+		r.Contains(err.Error(),
+			"disclosure digest 'qqvcqnczAMgYx7EykI6wwtspyvyvK790ge7MBbQ-Nus' not found in SD-JWT disclosure digests")
 	})
 
 	t.Run("success - with detached payload", func(t *testing.T) {
@@ -86,190 +99,6 @@ func TestWithJWTDetachedPayload(t *testing.T) {
 	require.Equal(t, []byte("payload"), opts.detachedPayload)
 }
 
-func TestVerifyDisclosuresInSDJWT(t *testing.T) {
-	r := require.New(t)
-
-	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
-	r.NoError(err)
-
-	signer := afjwt.NewEd25519Signer(privKey)
-
-	verifier, err := afjwt.NewEd25519Verifier(pubKey)
-	r.NoError(err)
-
-	t.Run("success", func(t *testing.T) {
-		claims := map[string]interface{}{"given_name": "Albert"}
-
-		token, err := issuer.New(testIssuer, claims, nil, signer)
-		r.NoError(err)
-		sdJWTSerialized, err := token.Serialize(false)
-		r.NoError(err)
-
-		sdJWT := common.ParseSDJWT(sdJWTSerialized)
-		require.Equal(t, 1, len(sdJWT.Disclosures))
-
-		err = VerifyDisclosuresInSDJWT(sdJWT.Disclosures, sdJWT.JWTSerialized, afjwt.WithSignatureVerifier(verifier))
-		r.NoError(err)
-	})
-	t.Run("success - no selective disclosures(valid case)", func(t *testing.T) {
-		payload := &common.Payload{
-			Issuer: "issuer",
-			SDAlg:  "sha-256",
-		}
-
-		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
-		r.NoError(err)
-
-		jwtSerialized, err := signedJWT.Serialize(false)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT(nil, jwtSerialized, afjwt.WithSignatureVerifier(verifier))
-		r.NoError(err)
-	})
-
-	t.Run("success - selective disclosures nil", func(t *testing.T) {
-		payload := make(map[string]interface{})
-		payload["_sd_alg"] = testAlg
-		payload["_sd"] = nil
-
-		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
-		r.NoError(err)
-
-		jwtSerialized, err := signedJWT.Serialize(false)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT(nil, jwtSerialized, afjwt.WithSignatureVerifier(verifier))
-		r.NoError(err)
-	})
-
-	t.Run("error - disclosure not present in SD-JWT", func(t *testing.T) {
-		claims := map[string]interface{}{"given_name": "Albert"}
-
-		token, err := issuer.New(testIssuer, claims, nil, signer)
-		r.NoError(err)
-		sdJWTSerialized, err := token.Serialize(false)
-		r.NoError(err)
-
-		sdJWT := common.ParseSDJWT(sdJWTSerialized)
-		require.Equal(t, 1, len(sdJWT.Disclosures))
-
-		err = VerifyDisclosuresInSDJWT(append(sdJWT.Disclosures, additionalDisclosure),
-			sdJWT.JWTSerialized, afjwt.WithSignatureVerifier(verifier))
-		r.Error(err)
-		r.Contains(err.Error(),
-			"disclosure digest 'qqvcqnczAMgYx7EykI6wwtspyvyvK790ge7MBbQ-Nus' not found in SD-JWT disclosure digests")
-	})
-
-	t.Run("error - disclosure not present in SD-JWT without selective disclosures", func(t *testing.T) {
-		payload := &common.Payload{
-			Issuer: "issuer",
-			SDAlg:  testAlg,
-		}
-
-		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
-		r.NoError(err)
-
-		jwtSerialized, err := signedJWT.Serialize(false)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT([]string{additionalDisclosure}, jwtSerialized, afjwt.WithSignatureVerifier(verifier))
-		r.Error(err)
-		r.Contains(err.Error(),
-			"disclosure digest 'qqvcqnczAMgYx7EykI6wwtspyvyvK790ge7MBbQ-Nus' not found in SD-JWT disclosure digests")
-	})
-
-	t.Run("error - invalid claims", func(t *testing.T) {
-		// claims is not JSON
-		jwtSerialized, err := buildJWS(signer, "not JSON")
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT(nil, jwtSerialized, afjwt.WithSignatureVerifier(verifier))
-		r.Error(err)
-		r.Contains(err.Error(),
-			"read JWT claims from JWS payload: convert to map: json: cannot unmarshal string")
-	})
-
-	t.Run("error - missing algorithm", func(t *testing.T) {
-		payload := &common.Payload{
-			Issuer: "issuer",
-		}
-
-		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
-		r.NoError(err)
-
-		jwtSerialized, err := signedJWT.Serialize(false)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT(nil, jwtSerialized, afjwt.WithSignatureVerifier(verifier))
-		r.Error(err)
-		r.Contains(err.Error(), "_sd_alg must be present in SD-JWT")
-	})
-
-	t.Run("error - invalid algorithm", func(t *testing.T) {
-		payload := &common.Payload{
-			Issuer: "issuer",
-			SDAlg:  "SHA-XXX",
-		}
-
-		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
-		r.NoError(err)
-
-		jwtSerialized, err := signedJWT.Serialize(false)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT(nil, jwtSerialized, afjwt.WithSignatureVerifier(verifier))
-		r.Error(err)
-		r.Contains(err.Error(), "_sd_alg 'SHA-XXX 'not supported")
-	})
-
-	t.Run("error - algorithm is not a string", func(t *testing.T) {
-		payload := make(map[string]interface{})
-		payload["_sd_alg"] = 18
-
-		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
-		r.NoError(err)
-
-		jwtSerialized, err := signedJWT.Serialize(false)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT(nil, jwtSerialized, afjwt.WithSignatureVerifier(verifier))
-		r.Error(err)
-		r.Contains(err.Error(), "_sd_alg must be a string")
-	})
-
-	t.Run("error - selective disclosures must be an array", func(t *testing.T) {
-		payload := make(map[string]interface{})
-		payload["_sd_alg"] = testAlg
-		payload["_sd"] = "test"
-
-		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
-		r.NoError(err)
-
-		jwtSerialized, err := signedJWT.Serialize(false)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT(nil, jwtSerialized, afjwt.WithSignatureVerifier(verifier))
-		r.Error(err)
-		r.Contains(err.Error(), "get disclosure digests: entry type[string] is not an array")
-	})
-
-	t.Run("error - selective disclosures must be a string", func(t *testing.T) {
-		payload := make(map[string]interface{})
-		payload["_sd_alg"] = testAlg
-		payload["_sd"] = []int{123}
-
-		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
-		r.NoError(err)
-
-		jwtSerialized, err := signedJWT.Serialize(false)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT(nil, jwtSerialized, afjwt.WithSignatureVerifier(verifier))
-		r.Error(err)
-		r.Contains(err.Error(), "get disclosure digests: entry item type[float64] is not a string")
-	})
-}
-
 func buildJWS(signer jose.Signer, claims interface{}) (string, error) {
 	claimsBytes, err := json.Marshal(claims)
 	if err != nil {
@@ -284,4 +113,8 @@ func buildJWS(signer jose.Signer, claims interface{}) (string, error) {
 	return jws.SerializeCompact(false)
 }
 
+// nolint: lll
 const additionalDisclosure = `WyIzanFjYjY3ejl3a3MwOHp3aUs3RXlRIiwgImdpdmVuX25hbWUiLCAiSm9obiJd`
+
+// nolint: lll
+const specSDJWT = `eyJhbGciOiAiUlMyNTYiLCAia2lkIjogImNBRUlVcUowY21MekQxa3pHemhlaUJhZzBZUkF6VmRsZnhOMjgwTmdIYUEifQ.eyJfc2QiOiBbIk5ZQ29TUktFWXdYZHBlNXlkdUpYQ3h4aHluRVU4ei1iNFR5TmlhcDc3VVkiLCAiU1k4bjJCYmtYOWxyWTNleEhsU3dQUkZYb0QwOUdGOGE5Q1BPLUc4ajIwOCIsICJUUHNHTlBZQTQ2d21CeGZ2MnpuT0poZmRvTjVZMUdrZXpicGFHWkNUMWFjIiwgIlprU0p4eGVHbHVJZFlCYjdDcWtaYkpWbTB3MlY1VXJSZU5UekFRQ1lCanciLCAibDlxSUo5SlRRd0xHN09MRUlDVEZCVnhtQXJ3OFBqeTY1ZEQ2bXRRVkc1YyIsICJvMVNBc0ozM1lNaW9POXBYNVZlQU0xbHh1SEY2aFpXMmtHZGtLS0JuVmxvIiwgInFxdmNxbmN6QU1nWXg3RXlrSTZ3d3RzcHl2eXZLNzkwZ2U3TUJiUS1OdXMiXSwgImlzcyI6ICJodHRwczovL2V4YW1wbGUuY29tL2lzc3VlciIsICJpYXQiOiAxNTE2MjM5MDIyLCAiZXhwIjogMTUxNjI0NzAyMiwgIl9zZF9hbGciOiAic2hhLTI1NiIsICJjbmYiOiB7Imp3ayI6IHsia3R5IjogIlJTQSIsICJuIjogInBtNGJPSEJnLW9ZaEF5UFd6UjU2QVdYM3JVSVhwMTFfSUNEa0dnUzZXM1pXTHRzLWh6d0kzeDY1NjU5a2c0aFZvOWRiR29DSkUzWkdGX2VhZXRFMzBVaEJVRWdwR3dyRHJRaUo5enFwcm1jRmZyM3F2dmtHanR0aDhaZ2wxZU0yYkpjT3dFN1BDQkhXVEtXWXMxNTJSN2c2SmcyT1ZwaC1hOHJxLXE3OU1oS0c1UW9XX21UejEwUVRfNkg0YzdQaldHMWZqaDhocFdObmJQX3B2NmQxelN3WmZjNWZsNnlWUkwwRFYwVjNsR0hLZTJXcWZfZU5HakJyQkxWa2xEVGs4LXN0WF9NV0xjUi1FR21YQU92MFVCV2l0U19kWEpLSnUtdlhKeXcxNG5IU0d1eFRJSzJoeDFwdHRNZnQ5Q3N2cWltWEtlRFRVMTRxUUwxZUU3aWhjdyIsICJlIjogIkFRQUIifX19.xqgKrDO6dK_oBL3fiqdcq_elaIGxM6Z-RyuysglGyddR1O1IiE3mIk8kCpoqcRLR88opkVWN2392K_XYfAuAmeT9kJVisD8ZcgNcv-MQlWW9s8WaViXxBRe7EZWkWRQcQVR6jf95XZ5H2-_KA54POq3L42xjk0y5vDr8yc08Reak6vvJVvjXpp-Wk6uxsdEEAKFspt_EYIvISFJhfTuQqyhCjnaW13X312MSQBPwjbHn74ylUqVLljDvqcemxeqjh42KWJq4C3RqNJ7anA2i3FU1kB4-KNZWsijY7-op49iL7BrnIBxdlAMrbHEkoGTbFWdl7Ki17GHtDxxa1jaxQg~WyJkcVR2WE14UzBHYTNEb2FHbmU5eDBRIiwgInN1YiIsICJqb2huX2RvZV80MiJd~WyIzanFjYjY3ejl3a3MwOHp3aUs3RXlRIiwgImdpdmVuX25hbWUiLCAiSm9obiJd~WyJxUVdtakpsMXMxUjRscWhFTkxScnJ3IiwgImZhbWlseV9uYW1lIiwgIkRvZSJd~WyJLVXhTNWhFX1hiVmFjckdBYzdFRnd3IiwgImVtYWlsIiwgImpvaG5kb2VAZXhhbXBsZS5jb20iXQ~WyIzcXZWSjFCQURwSERTUzkzOVEtUml3IiwgInBob25lX251bWJlciIsICIrMS0yMDItNTU1LTAxMDEiXQ~WyIweEd6bjNNaXFzY3RaSV9PcERsQWJRIiwgImFkZHJlc3MiLCB7InN0cmVldF9hZGRyZXNzIjogIjEyMyBNYWluIFN0IiwgImxvY2FsaXR5IjogIkFueXRvd24iLCAicmVnaW9uIjogIkFueXN0YXRlIiwgImNvdW50cnkiOiAiVVMifV0~WyJFUktNMENOZUZKa2FENW1UWFZfWDh3IiwgImJpcnRoZGF0ZSIsICIxOTQwLTAxLTAxIl0`
