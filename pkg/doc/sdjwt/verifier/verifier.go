@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package holder
+package verifier
 
 import (
 	"fmt"
@@ -48,7 +48,7 @@ func WithSigningAlgorithms(algorithms []string) ParseOpt {
 }
 
 // Parse parses input JWT in serialized form into JSON Web Token.
-func Parse(sdJWTSerialized string, opts ...ParseOpt) (*common.SDJWT, error) {
+func Parse(sdJWTSerialized string, opts ...ParseOpt) (map[string]interface{}, error) {
 	pOpts := &parseOpts{
 		signingAlgorithms: []string{"EdDSA", "RS256"},
 	}
@@ -99,7 +99,30 @@ func Parse(sdJWTSerialized string, opts ...ParseOpt) (*common.SDJWT, error) {
 		return nil, err
 	}
 
-	return sdJWT, nil
+	return getVerifiedPayload(sdJWT.Disclosures, signedJWT)
+}
+
+func getVerifiedPayload(disclosures []string, signedJWT *afgjwt.JSONWebToken) (map[string]interface{}, error) {
+	disclosureClaims, err := common.GetDisclosureClaims(disclosures)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get verified claims: %w", err)
+	}
+
+	var claims map[string]interface{}
+
+	err = signedJWT.DecodeClaims(&claims)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get verified claims: %w", err)
+	}
+
+	for _, dc := range disclosureClaims {
+		claims[dc.Name] = dc.Value
+	}
+
+	delete(claims, common.SDKey)
+	delete(claims, common.SDAlgorithmKey)
+
+	return claims, nil
 }
 
 func verifySigningAlg(joseHeaders jose.Headers, secureAlgs []string) error {

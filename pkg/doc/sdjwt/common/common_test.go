@@ -10,6 +10,9 @@ import (
 	"crypto"
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -84,8 +87,8 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 
 	t.Run("success - selective disclosures nil", func(t *testing.T) {
 		payload := make(map[string]interface{})
-		payload["_sd_alg"] = testAlg
-		payload["_sd"] = nil
+		payload[SDAlgorithmKey] = testAlg
+		payload[SDKey] = nil
 
 		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
 		r.NoError(err)
@@ -132,7 +135,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 
 		err = VerifyDisclosuresInSDJWT(nil, signedJWT)
 		r.Error(err)
-		r.Contains(err.Error(), "_sd_alg must be present in SD-JWT")
+		r.Contains(err.Error(), "_sd_alg must be present in SD-JWT", SDAlgorithmKey)
 	})
 
 	t.Run("error - invalid algorithm", func(t *testing.T) {
@@ -151,7 +154,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 
 	t.Run("error - algorithm is not a string", func(t *testing.T) {
 		payload := make(map[string]interface{})
-		payload["_sd_alg"] = 18
+		payload[SDAlgorithmKey] = 18
 
 		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
 		r.NoError(err)
@@ -163,8 +166,8 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 
 	t.Run("error - selective disclosures must be an array", func(t *testing.T) {
 		payload := make(map[string]interface{})
-		payload["_sd_alg"] = testAlg
-		payload["_sd"] = "test"
+		payload[SDAlgorithmKey] = testAlg
+		payload[SDKey] = "test"
 
 		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
 		r.NoError(err)
@@ -176,8 +179,8 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 
 	t.Run("error - selective disclosures must be a string", func(t *testing.T) {
 		payload := make(map[string]interface{})
-		payload["_sd_alg"] = testAlg
-		payload["_sd"] = []int{123}
+		payload[SDAlgorithmKey] = testAlg
+		payload[SDKey] = []int{123}
 
 		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
 		r.NoError(err)
@@ -185,6 +188,60 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		err = VerifyDisclosuresInSDJWT(nil, signedJWT)
 		r.Error(err)
 		r.Contains(err.Error(), "get disclosure digests: entry item type[float64] is not a string")
+	})
+}
+
+func TestGetDisclosureClaims(t *testing.T) {
+	r := require.New(t)
+
+	t.Run("success", func(t *testing.T) {
+		sdJWT := ParseSDJWT(sdJWT)
+		require.Equal(t, 1, len(sdJWT.Disclosures))
+
+		disclosureClaims, err := GetDisclosureClaims(sdJWT.Disclosures)
+		r.NoError(err)
+		r.Len(disclosureClaims, 1)
+
+		r.Equal("given_name", disclosureClaims[0].Name)
+		r.Equal("John", disclosureClaims[0].Value)
+	})
+
+	t.Run("error - invalid disclosure format (not encoded)", func(t *testing.T) {
+		sdJWT := ParseSDJWT("jws~xyz")
+		require.Equal(t, 1, len(sdJWT.Disclosures))
+
+		disclosureClaims, err := GetDisclosureClaims(sdJWT.Disclosures)
+		r.Error(err)
+		r.Nil(disclosureClaims)
+		r.Contains(err.Error(), "failed to unmarshal disclosure array")
+	})
+
+	t.Run("error - invalid disclosure array (not three parts)", func(t *testing.T) {
+		disclosureArr := []interface{}{"name", "value"}
+		disclosureJSON, err := json.Marshal(disclosureArr)
+		require.NoError(t, err)
+
+		sdJWT := ParseSDJWT(fmt.Sprintf("jws~%s", base64.RawURLEncoding.EncodeToString(disclosureJSON)))
+		require.Equal(t, 1, len(sdJWT.Disclosures))
+
+		disclosureClaims, err := GetDisclosureClaims(sdJWT.Disclosures)
+		r.Error(err)
+		r.Nil(disclosureClaims)
+		r.Contains(err.Error(), "disclosure array size[2] must be 3")
+	})
+
+	t.Run("error - invalid disclosure array (name is not a string)", func(t *testing.T) {
+		disclosureArr := []interface{}{"salt", 123, "value"}
+		disclosureJSON, err := json.Marshal(disclosureArr)
+		require.NoError(t, err)
+
+		sdJWT := ParseSDJWT(fmt.Sprintf("jws~%s", base64.RawURLEncoding.EncodeToString(disclosureJSON)))
+		require.Equal(t, 1, len(sdJWT.Disclosures))
+
+		disclosureClaims, err := GetDisclosureClaims(sdJWT.Disclosures)
+		r.Error(err)
+		r.Nil(disclosureClaims)
+		r.Contains(err.Error(), "disclosure name type[float64] must be string")
 	})
 }
 

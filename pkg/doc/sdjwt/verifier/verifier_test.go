@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package holder
+package verifier
 
 import (
 	"crypto/ed25519"
@@ -36,9 +36,9 @@ func TestParse(t *testing.T) {
 	r.NoError(e)
 
 	signer := afjwt.NewEd25519Signer(privKey)
-	claims := map[string]interface{}{"given_name": "Albert"}
+	selectiveClaims := map[string]interface{}{"given_name": "Albert"}
 
-	token, e := issuer.New(testIssuer, claims, nil, signer)
+	token, e := issuer.New(testIssuer, selectiveClaims, nil, signer)
 	r.NoError(e)
 	sdJWTSerialized, e := token.Serialize(false)
 	r.NoError(e)
@@ -47,10 +47,12 @@ func TestParse(t *testing.T) {
 	r.NoError(e)
 
 	t.Run("success - EdDSA signing algorithm", func(t *testing.T) {
-		sdJWT, err := Parse(sdJWTSerialized, WithSignatureVerifier(verifier))
+		claims, err := Parse(sdJWTSerialized, WithSignatureVerifier(verifier))
 		r.NoError(err)
-		require.NotNil(t, sdJWT)
-		require.Equal(t, 1, len(sdJWT.Disclosures))
+		require.NotNil(t, claims)
+		// expected claims iss, exp, iat, nbf, given_name
+		// TODO: should we default exp, iat, nbf
+		require.Equal(t, 5, len(claims))
 	})
 
 	t.Run("success - RS256 signing algorithm", func(t *testing.T) {
@@ -61,15 +63,14 @@ func TestParse(t *testing.T) {
 
 		v := afjwt.NewRS256Verifier(pubKey)
 
-		token, err := issuer.New(testIssuer, claims, nil, afjwt.NewRS256Signer(privKey, nil))
+		token, err := issuer.New(testIssuer, selectiveClaims, nil, afjwt.NewRS256Signer(privKey, nil))
 		r.NoError(err)
 		tokenSerialized, err := token.Serialize(false)
 		require.NoError(t, err)
 
-		sdJWT, err := Parse(tokenSerialized, WithSignatureVerifier(v))
+		claims, err := Parse(tokenSerialized, WithSignatureVerifier(v))
 		r.NoError(err)
-		require.NotNil(t, sdJWT)
-		require.Equal(t, 1, len(sdJWT.Disclosures))
+		require.Equal(t, 5, len(claims))
 	})
 
 	t.Run("success - valid SD-JWT times", func(t *testing.T) {
@@ -77,7 +78,7 @@ func TestParse(t *testing.T) {
 		oneHourInThePast := now.Add(-time.Hour)
 		oneHourInTheFuture := now.Add(time.Hour)
 
-		tokenWithTimes, e := issuer.New(testIssuer, claims, nil, signer,
+		tokenWithTimes, e := issuer.New(testIssuer, selectiveClaims, nil, signer,
 			issuer.WithIssuedAt(jwt.NewNumericDate(oneHourInThePast)),
 			issuer.WithNotBefore(jwt.NewNumericDate(oneHourInThePast)),
 			issuer.WithExpiry(jwt.NewNumericDate(oneHourInTheFuture)))
@@ -85,31 +86,34 @@ func TestParse(t *testing.T) {
 		serialized, e := tokenWithTimes.Serialize(false)
 		r.NoError(e)
 
-		sdJWT, err := Parse(serialized, WithSignatureVerifier(verifier))
+		claims, err := Parse(serialized, WithSignatureVerifier(verifier))
 		r.NoError(err)
-		r.NotNil(sdJWT)
+		r.NotNil(claims)
 	})
 
 	t.Run("error - signing algorithm not supported", func(t *testing.T) {
-		sdJWT, err := Parse(sdJWTSerialized, WithSignatureVerifier(verifier), WithSigningAlgorithms([]string{}))
+		claims, err := Parse(sdJWTSerialized,
+			WithSignatureVerifier(verifier),
+			WithSigningAlgorithms([]string{}))
 		r.Error(err)
-		require.Nil(t, sdJWT)
+		require.Nil(t, claims)
 		require.Equal(t, err.Error(), "alg 'EdDSA' is not in the allowed list")
 	})
 
 	t.Run("error - additional disclosure", func(t *testing.T) {
-		sdJWT, err := Parse(fmt.Sprintf("%s~%s", sdJWTSerialized, additionalDisclosure), WithSignatureVerifier(verifier))
+		claims, err := Parse(fmt.Sprintf("%s~%s", sdJWTSerialized, additionalDisclosure),
+			WithSignatureVerifier(verifier))
 		r.Error(err)
-		r.Nil(sdJWT)
+		r.Nil(claims)
 		r.Contains(err.Error(),
 			"disclosure digest 'qqvcqnczAMgYx7EykI6wwtspyvyvK790ge7MBbQ-Nus' not found in SD-JWT disclosure digests")
 	})
 
 	t.Run("error - duplicate disclosure", func(t *testing.T) {
-		sdJWT, err := Parse(fmt.Sprintf("%s~%s~%s", sdJWTSerialized, additionalDisclosure, additionalDisclosure),
+		claims, err := Parse(fmt.Sprintf("%s~%s~%s", sdJWTSerialized, additionalDisclosure, additionalDisclosure),
 			WithSignatureVerifier(verifier))
 		r.Error(err)
-		r.Nil(sdJWT)
+		r.Nil(claims)
 		r.Contains(err.Error(),
 			"check disclosures: duplicate values found [WyIzanFjYjY3ejl3a3MwOHp3aUs3RXlRIiwgImdpdmVuX25hbWUiLCAiSm9obiJd]")
 	})
@@ -121,10 +125,10 @@ func TestParse(t *testing.T) {
 		jwsPayload, err := base64.RawURLEncoding.DecodeString(jwsParts[1])
 		require.NoError(t, err)
 
-		sdJWT, err := Parse(jwsDetached,
+		claims, err := Parse(jwsDetached,
 			WithSignatureVerifier(verifier), WithJWTDetachedPayload(jwsPayload))
 		r.NoError(err)
-		r.NotNil(r, sdJWT)
+		r.NotNil(r, claims)
 	})
 
 	t.Run("error - invalid claims format", func(t *testing.T) {
@@ -132,61 +136,61 @@ func TestParse(t *testing.T) {
 		sdJWTSerialized, err := buildJWS(signer, "not JSON")
 		r.NoError(err)
 
-		sdJWT, err := Parse(sdJWTSerialized, WithSignatureVerifier(verifier))
+		claims, err := Parse(sdJWTSerialized, WithSignatureVerifier(verifier))
 		r.Error(err)
 		r.Contains(err.Error(), "read JWT claims from JWS payload")
-		r.Nil(sdJWT)
+		r.Nil(claims)
 	})
 
 	t.Run("error - invalid claims(iat)", func(t *testing.T) {
 		now := time.Now()
 		oneHourInTheFuture := now.Add(time.Hour)
 
-		tokenWithTimes, e := issuer.New(testIssuer, claims, nil, signer,
+		tokenWithTimes, e := issuer.New(testIssuer, selectiveClaims, nil, signer,
 			issuer.WithIssuedAt(jwt.NewNumericDate(oneHourInTheFuture)))
 		r.NoError(e)
 		sdJWTSerialized, e := tokenWithTimes.Serialize(false)
 		r.NoError(e)
 
-		sdJWT, err := Parse(sdJWTSerialized, WithSignatureVerifier(verifier))
+		claims, err := Parse(sdJWTSerialized, WithSignatureVerifier(verifier))
 		r.Error(err)
 		r.Contains(err.Error(),
 			"failed to validate SD-JWT time values: go-jose/go-jose/jwt: validation field, token issued in the future (iat)")
-		r.Nil(sdJWT)
+		r.Nil(claims)
 	})
 
 	t.Run("error - invalid claims(nbf)", func(t *testing.T) {
 		now := time.Now()
 		oneHourInTheFuture := now.Add(time.Hour)
 
-		tokenWithTimes, e := issuer.New(testIssuer, claims, nil, signer,
+		tokenWithTimes, e := issuer.New(testIssuer, selectiveClaims, nil, signer,
 			issuer.WithNotBefore(jwt.NewNumericDate(oneHourInTheFuture)))
 		r.NoError(e)
 		sdJWTSerialized, e := tokenWithTimes.Serialize(false)
 		r.NoError(e)
 
-		sdJWT, err := Parse(sdJWTSerialized, WithSignatureVerifier(verifier))
+		claims, err := Parse(sdJWTSerialized, WithSignatureVerifier(verifier))
 		r.Error(err)
 		r.Contains(err.Error(),
 			"failed to validate SD-JWT time values: go-jose/go-jose/jwt: validation failed, token not valid yet (nbf)")
-		r.Nil(sdJWT)
+		r.Nil(claims)
 	})
 
 	t.Run("error - invalid claims(expiry)", func(t *testing.T) {
 		now := time.Now()
 		oneHourInThePast := now.Add(-time.Hour)
 
-		tokenWithTimes, e := issuer.New(testIssuer, claims, nil, signer,
+		tokenWithTimes, e := issuer.New(testIssuer, selectiveClaims, nil, signer,
 			issuer.WithExpiry(jwt.NewNumericDate(oneHourInThePast)))
 		r.NoError(e)
 		sdJWTSerialized, e := tokenWithTimes.Serialize(false)
 		r.NoError(e)
 
-		sdJWT, err := Parse(sdJWTSerialized, WithSignatureVerifier(verifier))
+		claims, err := Parse(sdJWTSerialized, WithSignatureVerifier(verifier))
 		r.Error(err)
 		r.Contains(err.Error(),
 			"failed to validate SD-JWT time values: go-jose/go-jose/jwt: validation failed, token is expired (exp)")
-		r.Nil(sdJWT)
+		r.Nil(claims)
 	})
 }
 
@@ -221,6 +225,34 @@ func TestVerifySigningAlgorithm(t *testing.T) {
 		err := verifySigningAlg(headers, []string{"RS256"})
 		r.Error(err)
 		r.Contains(err.Error(), "alg value cannot be 'none'")
+	})
+}
+
+func TestGetVerifiedPayload(t *testing.T) {
+	r := require.New(t)
+
+	_, privKey, e := ed25519.GenerateKey(rand.Reader)
+	r.NoError(e)
+
+	signer := afjwt.NewEd25519Signer(privKey)
+	selectiveClaims := map[string]interface{}{"given_name": "Albert"}
+
+	token, e := issuer.New(testIssuer, selectiveClaims, nil, signer)
+	r.NoError(e)
+
+	t.Run("success", func(t *testing.T) {
+		claims, err := getVerifiedPayload(token.Disclosures, token.SignedJWT)
+		r.NoError(err)
+		r.NotNil(claims)
+		r.Equal(5, len(claims))
+	})
+
+	t.Run("error - invalid disclosure(not encoded)", func(t *testing.T) {
+		claims, err := getVerifiedPayload([]string{"xyz"}, token.SignedJWT)
+		r.Error(err)
+		r.Nil(claims)
+		r.Contains(err.Error(),
+			"failed to get verified claims: failed to unmarshal disclosure array: invalid character")
 	})
 }
 

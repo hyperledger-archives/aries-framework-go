@@ -25,7 +25,7 @@ import (
 
 const (
 	defaultHash     = crypto.SHA256
-	defaultSaltSize = 28
+	defaultSaltSize = 128 / 8
 
 	year = 365 * 24 * 60 * time.Minute
 )
@@ -241,5 +241,6 @@ func generateSalt() (string, error) {
 		return "", err
 	}
 
-	return string(salt), nil
+	// it is RECOMMENDED to base64url-encode the salt value, producing a string.
+	return base64.RawURLEncoding.EncodeToString(salt), nil
 }

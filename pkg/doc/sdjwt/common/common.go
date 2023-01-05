@@ -9,6 +9,7 @@ package common
 import (
 	"crypto"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -18,7 +19,17 @@ import (
 )
 
 // DisclosureSeparator is disclosure separator.
-const DisclosureSeparator = "~"
+const (
+	DisclosureSeparator = "~"
+
+	SDAlgorithmKey = "_sd_alg"
+	SDKey          = "_sd"
+
+	disclosureParts = 3
+	saltIndex       = 0
+	nameIndex       = 1
+	valueIndex      = 2
+)
 
 // Payload represents SD-JWT payload.
 type Payload struct {
@@ -38,6 +49,62 @@ type Payload struct {
 type SDJWT struct {
 	JWTSerialized string
 	Disclosures   []string
+}
+
+// DisclosureClaim defines claim.
+type DisclosureClaim struct {
+	Disclosure string
+	Salt       string
+	Name       string
+	Value      interface{}
+}
+
+// GetDisclosureClaims de-codes disclosures.
+func GetDisclosureClaims(disclosures []string) ([]*DisclosureClaim, error) {
+	var claims []*DisclosureClaim
+
+	for _, disclosure := range disclosures {
+		claim, err := getDisclosureClaim(disclosure)
+		if err != nil {
+			return nil, err
+		}
+
+		claims = append(claims, claim)
+	}
+
+	return claims, nil
+}
+
+func getDisclosureClaim(disclosure string) (*DisclosureClaim, error) {
+	decoded, err := base64.RawURLEncoding.DecodeString(disclosure)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode disclosure: %w", err)
+	}
+
+	var disclosureArr []interface{}
+
+	err = json.Unmarshal(decoded, &disclosureArr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal disclosure array: %w", err)
+	}
+
+	if len(disclosureArr) != disclosureParts {
+		return nil, fmt.Errorf("disclosure array size[%d] must be %d", len(disclosureArr), disclosureParts)
+	}
+
+	salt, ok := disclosureArr[saltIndex].(string)
+	if !ok {
+		return nil, fmt.Errorf("disclosure salt type[%T] must be string", disclosureArr[saltIndex])
+	}
+
+	name, ok := disclosureArr[nameIndex].(string)
+	if !ok {
+		return nil, fmt.Errorf("disclosure name type[%T] must be string", disclosureArr[nameIndex])
+	}
+
+	claim := &DisclosureClaim{Disclosure: disclosure, Salt: salt, Name: name, Value: disclosureArr[valueIndex]}
+
+	return claim, nil
 }
 
 // ParseSDJWT parses SD-JWT serialized token into SDJWT parts.
@@ -120,28 +187,28 @@ func getCryptoHash(sdAlg string) (crypto.Hash, error) {
 	case crypto.SHA256.String():
 		cryptoHash = crypto.SHA256
 	default:
-		err = fmt.Errorf("_sd_alg '%s 'not supported", sdAlg)
+		err = fmt.Errorf("%s '%s 'not supported", SDAlgorithmKey, sdAlg)
 	}
 
 	return cryptoHash, err
 }
 
 func getSDAlg(claims map[string]interface{}) (string, error) {
-	obj, ok := claims["_sd_alg"]
+	obj, ok := claims[SDAlgorithmKey]
 	if !ok {
-		return "", fmt.Errorf("_sd_alg must be present in SD-JWT")
+		return "", fmt.Errorf("%s must be present in SD-JWT", SDAlgorithmKey)
 	}
 
 	str, ok := obj.(string)
 	if !ok {
-		return "", fmt.Errorf("_sd_alg must be a string")
+		return "", fmt.Errorf("%s must be a string", SDAlgorithmKey)
 	}
 
 	return str, nil
 }
 
 func getDisclosureDigests(claims map[string]interface{}) (map[string]bool, error) {
-	disclosuresObj, ok := claims["_sd"]
+	disclosuresObj, ok := claims[SDKey]
 	if !ok {
 		return nil, nil
 	}
