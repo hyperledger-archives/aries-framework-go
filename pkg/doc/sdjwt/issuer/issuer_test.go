@@ -465,7 +465,7 @@ func verifyRS256(jws string, pubKey *rsa.PublicKey) error {
 }
 
 func existsInDisclosures(claims map[string]interface{}, val string) bool {
-	disclosuresObj, ok := claims["_sd"]
+	disclosuresObj, ok := claims[common.SDKey]
 	if !ok {
 		return false
 	}

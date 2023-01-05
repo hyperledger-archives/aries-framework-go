@@ -19,6 +19,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	afjwt "github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/issuer"
 )
 
@@ -45,6 +46,13 @@ func TestParse(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		sdJWT, err := Parse(sdJWTSerialized, WithSignatureVerifier(verifier))
+		r.NoError(err)
+		require.NotNil(t, sdJWT)
+		require.Equal(t, 1, len(sdJWT.Disclosures))
+	})
+
+	t.Run("success - default is no signature verifier", func(t *testing.T) {
+		sdJWT, err := Parse(sdJWTSerialized)
 		r.NoError(err)
 		require.NotNil(t, sdJWT)
 		require.Equal(t, 1, len(sdJWT.Disclosures))
@@ -87,6 +95,44 @@ func TestParse(t *testing.T) {
 		r.Error(err)
 		r.Contains(err.Error(), "read JWT claims from JWS payload")
 		r.Nil(sdJWT)
+	})
+}
+
+func TestDiscloseClaims(t *testing.T) {
+	r := require.New(t)
+
+	_, privKey, e := ed25519.GenerateKey(rand.Reader)
+	r.NoError(e)
+
+	signer := afjwt.NewEd25519Signer(privKey)
+	claims := map[string]interface{}{"given_name": "Albert"}
+
+	token, e := issuer.New(testIssuer, claims, nil, signer)
+	r.NoError(e)
+	sdJWTSerialized, e := token.Serialize(false)
+	r.NoError(e)
+
+	t.Run("success", func(t *testing.T) {
+		sdJWTDisclosed, err := DiscloseClaims(sdJWTSerialized, []string{"given_name"})
+		r.NoError(err)
+		require.NotNil(t, sdJWTDisclosed)
+		require.Equal(t, sdJWTSerialized, sdJWTDisclosed)
+	})
+
+	t.Run("error - no disclosure(s)", func(t *testing.T) {
+		sdJWT := common.ParseSDJWT(sdJWTSerialized)
+
+		sdJWTDisclosed, err := DiscloseClaims(sdJWT.JWTSerialized, []string{"given_name"})
+		r.Error(err)
+		r.Empty(sdJWTDisclosed)
+		r.Contains(err.Error(), "no disclosures found in SD-JWT")
+	})
+
+	t.Run("error - invalid disclosure", func(t *testing.T) {
+		sdJWTDisclosed, err := DiscloseClaims(fmt.Sprintf("%s~%s", sdJWTSerialized, "abc"), []string{"given_name"})
+		r.Error(err)
+		r.Empty(sdJWTDisclosed)
+		r.Contains(err.Error(), "failed to unmarshal disclosure array")
 	})
 }
 
