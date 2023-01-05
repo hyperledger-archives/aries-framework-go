@@ -16,6 +16,12 @@ import (
 
 const notFound = -1
 
+// Claim defines claim.
+type Claim struct {
+	Name  string
+	Value interface{}
+}
+
 // jwtParseOpts holds options for the SD-JWT parsing.
 type parseOpts struct {
 	detachedPayload []byte
@@ -39,8 +45,8 @@ func WithSignatureVerifier(signatureVerifier jose.SignatureVerifier) ParseOpt {
 	}
 }
 
-// Parse parses input JWT in serialized form into JSON Web Token.
-func Parse(sdJWTSerialized string, opts ...ParseOpt) (*common.SDJWT, error) {
+// Parse parses issuer SD-JWT and returns claims that can be selected.
+func Parse(sdJWTSerialized string, opts ...ParseOpt) ([]*Claim, error) {
 	pOpts := &parseOpts{
 		sigVerifier: &NoopSignatureVerifier{},
 	}
@@ -66,10 +72,28 @@ func Parse(sdJWTSerialized string, opts ...ParseOpt) (*common.SDJWT, error) {
 		return nil, err
 	}
 
-	return sdJWT, nil
+	return getClaims(sdJWT.Disclosures)
 }
 
-// DiscloseClaims discloses selected claims with specified claim names.
+func getClaims(disclosures []string) ([]*Claim, error) {
+	disclosureClaims, err := common.GetDisclosureClaims(disclosures)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get claims from disclosures: %w", err)
+	}
+
+	var claims []*Claim
+	for _, disclosure := range disclosureClaims {
+		claims = append(claims,
+			&Claim{
+				Name:  disclosure.Name,
+				Value: disclosure.Value,
+			})
+	}
+
+	return claims, nil
+}
+
+// DiscloseClaims discloses claims with specified claim names.
 func DiscloseClaims(sdJWTSerialized string, claimNames []string) (string, error) {
 	sdJWT := common.ParseSDJWT(sdJWTSerialized)
 

@@ -45,30 +45,33 @@ func TestParse(t *testing.T) {
 	r.NoError(e)
 
 	t.Run("success", func(t *testing.T) {
-		sdJWT, err := Parse(sdJWTSerialized, WithSignatureVerifier(verifier))
+		claims, err := Parse(sdJWTSerialized, WithSignatureVerifier(verifier))
 		r.NoError(err)
-		require.NotNil(t, sdJWT)
-		require.Equal(t, 1, len(sdJWT.Disclosures))
+		r.NotNil(claims)
+		r.Equal(1, len(claims))
+		r.Equal("given_name", claims[0].Name)
+		r.Equal("Albert", claims[0].Value)
 	})
 
 	t.Run("success - default is no signature verifier", func(t *testing.T) {
-		sdJWT, err := Parse(sdJWTSerialized)
+		claims, err := Parse(sdJWTSerialized)
 		r.NoError(err)
-		require.NotNil(t, sdJWT)
-		require.Equal(t, 1, len(sdJWT.Disclosures))
+		r.Equal(1, len(claims))
+		r.Equal("given_name", claims[0].Name)
+		r.Equal("Albert", claims[0].Value)
 	})
 
 	t.Run("success - spec SD-JWT", func(t *testing.T) {
-		sdJWT, err := Parse(specSDJWT, WithSignatureVerifier(&NoopSignatureVerifier{}))
+		claims, err := Parse(specSDJWT, WithSignatureVerifier(&NoopSignatureVerifier{}))
 		r.NoError(err)
-		require.NotNil(t, sdJWT)
-		require.Equal(t, 7, len(sdJWT.Disclosures))
+		require.NotNil(t, claims)
+		require.Equal(t, 7, len(claims))
 	})
 
 	t.Run("error - additional disclosure", func(t *testing.T) {
-		sdJWT, err := Parse(fmt.Sprintf("%s~%s", sdJWTSerialized, additionalDisclosure), WithSignatureVerifier(verifier))
+		claims, err := Parse(fmt.Sprintf("%s~%s", sdJWTSerialized, additionalDisclosure), WithSignatureVerifier(verifier))
 		r.Error(err)
-		r.Nil(sdJWT)
+		r.Nil(claims)
 		r.Contains(err.Error(),
 			"disclosure digest 'qqvcqnczAMgYx7EykI6wwtspyvyvK790ge7MBbQ-Nus' not found in SD-JWT disclosure digests")
 	})
@@ -91,10 +94,10 @@ func TestParse(t *testing.T) {
 		sdJWTSerialized, err := buildJWS(signer, "not JSON")
 		r.NoError(err)
 
-		sdJWT, err := Parse(sdJWTSerialized, WithSignatureVerifier(verifier))
+		claims, err := Parse(sdJWTSerialized, WithSignatureVerifier(verifier))
 		r.Error(err)
+		r.Nil(claims)
 		r.Contains(err.Error(), "read JWT claims from JWS payload")
-		r.Nil(sdJWT)
 	})
 }
 
@@ -133,6 +136,23 @@ func TestDiscloseClaims(t *testing.T) {
 		r.Error(err)
 		r.Empty(sdJWTDisclosed)
 		r.Contains(err.Error(), "failed to unmarshal disclosure array")
+	})
+}
+
+func TestGetClaims(t *testing.T) {
+	r := require.New(t)
+
+	t.Run("success", func(t *testing.T) {
+		claims, err := getClaims([]string{additionalDisclosure})
+		r.NoError(err)
+		r.Len(claims, 1)
+	})
+
+	t.Run("error - not base64 encoded ", func(t *testing.T) {
+		claims, err := getClaims([]string{"!!!"})
+		r.Error(err)
+		r.Nil(claims)
+		r.Contains(err.Error(), "failed to decode disclosure")
 	})
 }
 
