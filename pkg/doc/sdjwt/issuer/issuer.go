@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	mathrand "math/rand"
 	"strings"
 	"time"
 
@@ -27,8 +28,13 @@ const (
 	defaultHash     = crypto.SHA256
 	defaultSaltSize = 128 / 8
 
+	decoyMinElements = 1
+	decoyMaxElements = 4
+
 	year = 365 * 24 * 60 * time.Minute
 )
+
+var mr = mathrand.New(mathrand.NewSource(time.Now().Unix())) // nolint:gochecknoglobals
 
 // Claims defines JSON Web Token Claims (https://tools.ietf.org/html/rfc7519#section-4)
 type Claims jwt.Claims
@@ -46,6 +52,8 @@ type newOpts struct {
 
 	jsonMarshal func(v interface{}) ([]byte, error)
 	getSalt     func() (string, error)
+
+	addDecoyDigests bool
 }
 
 // NewOpt is the SD-JWT New option.
@@ -107,6 +115,13 @@ func WithHashAlgorithm(alg crypto.Hash) NewOpt {
 	}
 }
 
+// WithDecoyDigests is an option for adding decoy digests(default is false).
+func WithDecoyDigests(flag bool) NewOpt {
+	return func(opts *newOpts) {
+		opts.addDecoyDigests = flag
+	}
+}
+
 // New creates new signed Selective Disclosure JWT based on input claims.
 func New(issuer string, claims interface{}, headers jose.Headers,
 	signer jose.Signer, opts ...NewOpt) (*SelectiveDisclosureJWT, error) {
@@ -127,6 +142,11 @@ func New(issuer string, claims interface{}, headers jose.Headers,
 		opt(nOpts)
 	}
 
+	decoyDisclosures, err := createDecoyDisclosures(nOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create decoy disclosures: %w", err)
+	}
+
 	claimsMap, err := afgjwt.PayloadToMap(claims)
 	if err != nil {
 		return nil, err
@@ -137,15 +157,9 @@ func New(issuer string, claims interface{}, headers jose.Headers,
 		return nil, err
 	}
 
-	var hashedDisclosures []string
-
-	for _, disclosure := range disclosures {
-		hashedDisclosure, inErr := common.GetHash(nOpts.HashAlg, disclosure)
-		if inErr != nil {
-			return nil, fmt.Errorf("hash disclosure: %w", inErr)
-		}
-
-		hashedDisclosures = append(hashedDisclosures, hashedDisclosure)
+	digests, err := createDigests(append(disclosures, decoyDisclosures...), nOpts)
+	if err != nil {
+		return nil, err
 	}
 
 	payload := &common.Payload{
@@ -155,7 +169,7 @@ func New(issuer string, claims interface{}, headers jose.Headers,
 		IssuedAt:  nOpts.IssuedAt,
 		Expiry:    nOpts.Expiry,
 		NotBefore: nOpts.NotBefore,
-		SD:        hashedDisclosures,
+		SD:        digests,
 		SDAlg:     strings.ToLower(nOpts.HashAlg.String()),
 	}
 
@@ -165,6 +179,46 @@ func New(issuer string, claims interface{}, headers jose.Headers,
 	}
 
 	return &SelectiveDisclosureJWT{Disclosures: disclosures, SignedJWT: signedJWT}, nil
+}
+
+func createDigests(disclosures []string, nOpts *newOpts) ([]string, error) {
+	var digests []string
+
+	for _, disclosure := range disclosures {
+		digest, inErr := common.GetHash(nOpts.HashAlg, disclosure)
+		if inErr != nil {
+			return nil, fmt.Errorf("hash disclosure: %w", inErr)
+		}
+
+		digests = append(digests, digest)
+	}
+
+	mr.Shuffle(len(digests), func(i, j int) {
+		digests[i], digests[j] = digests[j], digests[i]
+	})
+
+	return digests, nil
+}
+
+func createDecoyDisclosures(opts *newOpts) ([]string, error) {
+	if !opts.addDecoyDigests {
+		return nil, nil
+	}
+
+	n := mr.Intn(decoyMaxElements-decoyMinElements+1) + decoyMinElements
+
+	var decoyDisclosures []string
+
+	for i := 0; i < n; i++ {
+		salt, err := opts.getSalt()
+		if err != nil {
+			return nil, err
+		}
+
+		decoyDisclosures = append(decoyDisclosures, salt)
+	}
+
+	return decoyDisclosures, nil
 }
 
 // SelectiveDisclosureJWT defines Selective Disclosure JSON Web Token (https://tools.ietf.org/html/rfc7519)

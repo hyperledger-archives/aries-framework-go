@@ -159,7 +159,7 @@ func VerifyDisclosuresInSDJWT(disclosures []string, signedJWT *afgjwt.JSONWebTok
 		return err
 	}
 
-	claimsDisclosureDigests, err := getDisclosureDigests(claims)
+	claimsDisclosureDigests, err := GetDisclosureDigests(claims)
 	if err != nil {
 		return err
 	}
@@ -207,7 +207,8 @@ func getSDAlg(claims map[string]interface{}) (string, error) {
 	return str, nil
 }
 
-func getDisclosureDigests(claims map[string]interface{}) (map[string]bool, error) {
+// GetDisclosureDigests returns digests from from claims map.
+func GetDisclosureDigests(claims map[string]interface{}) (map[string]bool, error) {
 	disclosuresObj, ok := claims[SDKey]
 	if !ok {
 		return nil, nil
