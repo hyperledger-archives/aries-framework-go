@@ -814,9 +814,11 @@ func ParseCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) 
 		return nil, fmt.Errorf("build new credential: %w", err)
 	}
 
-	err = validateCredential(vc, vcDataDecoded, vcOpts)
-	if err != nil {
-		return nil, err
+	if externalJWT == "" {
+		err = validateCredential(vc, vcDataDecoded, vcOpts)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	vc.JWT = externalJWT
@@ -927,7 +929,7 @@ func CreateCustomCredential(vcData []byte, producers []CustomCredentialProducer,
 	return vcBase, nil
 }
 
-//nolint: funlen
+// nolint: funlen
 func newCredential(raw *rawCredential) (*Credential, error) {
 	var schemas []TypedID
 

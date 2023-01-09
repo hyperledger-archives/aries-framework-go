@@ -1882,7 +1882,7 @@ func TestCredential_raw(t *testing.T) {
 	})
 }
 
-func TestParseUnverifiedCredential(t *testing.T) {
+func TestParseCredentialWithDisabledProofCheck(t *testing.T) {
 	signer, err := newCryptoSigner(kms.ED25519Type)
 	require.NoError(t, err)
 
@@ -1910,7 +1910,7 @@ func TestParseUnverifiedCredential(t *testing.T) {
 		require.Equal(t, vc, vcUnverified)
 	})
 
-	t.Run("ParseUnverifiedCredential() for JWS error cases", func(t *testing.T) {
+	t.Run("ParseUnverifiedCredential() for JWT error cases", func(t *testing.T) {
 		// Prepare JWS.
 		vc, err := parseTestCredential(t, []byte(validCredential))
 		require.NoError(t, err)
@@ -1921,11 +1921,11 @@ func TestParseUnverifiedCredential(t *testing.T) {
 		credClaims, err := vc.JWTClaims(true)
 		require.NoError(t, err)
 
-		jws, err := credClaims.MarshalJWS(EdDSA, signer, "any")
+		unsecuredJWT, err := credClaims.MarshalUnsecuredJWT()
 		require.NoError(t, err)
 
 		// Parse VC with JWS proof.
-		vcUnverified, err := ParseCredential([]byte(jws),
+		vcUnverified, err := ParseCredential([]byte(unsecuredJWT),
 			WithJSONLDDocumentLoader(createTestDocumentLoader(t)),
 			WithDisabledProofCheck(),
 			WithJSONLDValidation()) // Apply only JSON-LD validation
