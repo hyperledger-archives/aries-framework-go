@@ -165,6 +165,55 @@ func TestNew(t *testing.T) {
 		r.NoError(err)
 	})
 
+	t.Run("Create SD-JWS with decoy disclosures", func(t *testing.T) {
+		r := require.New(t)
+
+		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+		r.NoError(err)
+
+		verifier, e := afjwt.NewEd25519Verifier(pubKey)
+		r.NoError(e)
+
+		token, err := New(issuer, claims, nil, afjwt.NewEd25519Signer(privKey),
+			WithDecoyDigests(true))
+		r.NoError(err)
+		sdJWTSerialized, err := token.Serialize(false)
+		r.NoError(err)
+
+		sdJWT := common.ParseSDJWT(sdJWTSerialized)
+		r.Equal(1, len(sdJWT.Disclosures))
+
+		afjwtToken, err := afjwt.Parse(sdJWT.JWTSerialized, afjwt.WithSignatureVerifier(verifier))
+		r.NoError(err)
+
+		var parsedClaims map[string]interface{}
+		err = afjwtToken.DecodeClaims(&parsedClaims)
+		r.NoError(err)
+
+		digests, err := common.GetDisclosureDigests(parsedClaims)
+		require.NoError(t, err)
+
+		if len(digests) < 1+decoyMinElements || len(digests) > 1+decoyMaxElements {
+			r.Fail(fmt.Sprintf("invalid number of digests: %d", len(digests)))
+		}
+	})
+
+	t.Run("error - create decoy disclosures failed", func(t *testing.T) {
+		r := require.New(t)
+
+		_, privKey, err := ed25519.GenerateKey(rand.Reader)
+		r.NoError(err)
+
+		token, err := New(issuer, claims, nil, afjwt.NewEd25519Signer(privKey),
+			WithDecoyDigests(true),
+			WithSaltFnc(func() (string, error) {
+				return "", fmt.Errorf("salt error")
+			}))
+		r.Error(err)
+		r.Nil(token)
+		r.Contains(err.Error(), "failed to create decoy disclosures: salt error")
+	})
+
 	t.Run("error - wrong hash function", func(t *testing.T) {
 		r := require.New(t)
 
