@@ -13,6 +13,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/common"
 	"strings"
 	"testing"
 	"time"
@@ -40,14 +41,16 @@ func TestParse(t *testing.T) {
 
 	token, e := issuer.New(testIssuer, selectiveClaims, nil, signer)
 	r.NoError(e)
-	sdJWTSerialized, e := token.Serialize(false)
+	combinedFormatForIssuance, e := token.Serialize(false)
 	r.NoError(e)
+
+	combinedFormatForPresentation := combinedFormatForIssuance + common.DisclosureSeparator
 
 	verifier, e := afjwt.NewEd25519Verifier(pubKey)
 	r.NoError(e)
 
 	t.Run("success - EdDSA signing algorithm", func(t *testing.T) {
-		claims, err := Parse(sdJWTSerialized, WithSignatureVerifier(verifier))
+		claims, err := Parse(combinedFormatForPresentation, WithSignatureVerifier(verifier))
 		r.NoError(err)
 		require.NotNil(t, claims)
 		// expected claims iss, exp, iat, nbf, given_name
@@ -63,12 +66,14 @@ func TestParse(t *testing.T) {
 
 		v := afjwt.NewRS256Verifier(pubKey)
 
-		token, err := issuer.New(testIssuer, selectiveClaims, nil, afjwt.NewRS256Signer(privKey, nil))
+		rsaToken, err := issuer.New(testIssuer, selectiveClaims, nil, afjwt.NewRS256Signer(privKey, nil))
 		r.NoError(err)
-		tokenSerialized, err := token.Serialize(false)
+		rsaCombinedFormatForIssuance, err := rsaToken.Serialize(false)
 		require.NoError(t, err)
 
-		claims, err := Parse(tokenSerialized, WithSignatureVerifier(v))
+		cfp := fmt.Sprintf("%s%s", rsaCombinedFormatForIssuance, common.DisclosureSeparator)
+
+		claims, err := Parse(cfp, WithSignatureVerifier(v))
 		r.NoError(err)
 		require.Equal(t, 5, len(claims))
 	})
@@ -83,16 +88,18 @@ func TestParse(t *testing.T) {
 			issuer.WithNotBefore(jwt.NewNumericDate(oneHourInThePast)),
 			issuer.WithExpiry(jwt.NewNumericDate(oneHourInTheFuture)))
 		r.NoError(e)
-		serialized, e := tokenWithTimes.Serialize(false)
+		cfIssuance, e := tokenWithTimes.Serialize(false)
 		r.NoError(e)
 
-		claims, err := Parse(serialized, WithSignatureVerifier(verifier))
+		cfPresentation := fmt.Sprintf("%s%s", cfIssuance, common.DisclosureSeparator)
+
+		claims, err := Parse(cfPresentation, WithSignatureVerifier(verifier))
 		r.NoError(err)
 		r.NotNil(claims)
 	})
 
 	t.Run("error - signing algorithm not supported", func(t *testing.T) {
-		claims, err := Parse(sdJWTSerialized,
+		claims, err := Parse(combinedFormatForPresentation,
 			WithSignatureVerifier(verifier),
 			WithSigningAlgorithms([]string{}))
 		r.Error(err)
@@ -101,7 +108,7 @@ func TestParse(t *testing.T) {
 	})
 
 	t.Run("error - additional disclosure", func(t *testing.T) {
-		claims, err := Parse(fmt.Sprintf("%s~%s", sdJWTSerialized, additionalDisclosure),
+		claims, err := Parse(fmt.Sprintf("%s~%s~", combinedFormatForIssuance, additionalDisclosure),
 			WithSignatureVerifier(verifier))
 		r.Error(err)
 		r.Nil(claims)
@@ -110,7 +117,7 @@ func TestParse(t *testing.T) {
 	})
 
 	t.Run("error - duplicate disclosure", func(t *testing.T) {
-		claims, err := Parse(fmt.Sprintf("%s~%s~%s", sdJWTSerialized, additionalDisclosure, additionalDisclosure),
+		claims, err := Parse(fmt.Sprintf("%s~%s~%s~", combinedFormatForIssuance, additionalDisclosure, additionalDisclosure),
 			WithSignatureVerifier(verifier))
 		r.Error(err)
 		r.Nil(claims)
@@ -119,7 +126,7 @@ func TestParse(t *testing.T) {
 	})
 
 	t.Run("success - with detached payload", func(t *testing.T) {
-		jwsParts := strings.Split(sdJWTSerialized, ".")
+		jwsParts := strings.Split(combinedFormatForIssuance, ".")
 		jwsDetached := fmt.Sprintf("%s..%s", jwsParts[0], jwsParts[2])
 
 		jwsPayload, err := base64.RawURLEncoding.DecodeString(jwsParts[1])
@@ -149,10 +156,10 @@ func TestParse(t *testing.T) {
 		tokenWithTimes, e := issuer.New(testIssuer, selectiveClaims, nil, signer,
 			issuer.WithIssuedAt(jwt.NewNumericDate(oneHourInTheFuture)))
 		r.NoError(e)
-		sdJWTSerialized, e := tokenWithTimes.Serialize(false)
+		cfi, e := tokenWithTimes.Serialize(false)
 		r.NoError(e)
 
-		claims, err := Parse(sdJWTSerialized, WithSignatureVerifier(verifier))
+		claims, err := Parse(cfi, WithSignatureVerifier(verifier))
 		r.Error(err)
 		r.Contains(err.Error(),
 			"failed to validate SD-JWT time values: go-jose/go-jose/jwt: validation field, token issued in the future (iat)")
@@ -166,10 +173,12 @@ func TestParse(t *testing.T) {
 		tokenWithTimes, e := issuer.New(testIssuer, selectiveClaims, nil, signer,
 			issuer.WithNotBefore(jwt.NewNumericDate(oneHourInTheFuture)))
 		r.NoError(e)
-		sdJWTSerialized, e := tokenWithTimes.Serialize(false)
+		cfIssuance, e := tokenWithTimes.Serialize(false)
 		r.NoError(e)
 
-		claims, err := Parse(sdJWTSerialized, WithSignatureVerifier(verifier))
+		cfPresentation := fmt.Sprintf("%s%s", cfIssuance, common.DisclosureSeparator)
+
+		claims, err := Parse(cfPresentation, WithSignatureVerifier(verifier))
 		r.Error(err)
 		r.Contains(err.Error(),
 			"failed to validate SD-JWT time values: go-jose/go-jose/jwt: validation failed, token not valid yet (nbf)")
@@ -183,10 +192,12 @@ func TestParse(t *testing.T) {
 		tokenWithTimes, e := issuer.New(testIssuer, selectiveClaims, nil, signer,
 			issuer.WithExpiry(jwt.NewNumericDate(oneHourInThePast)))
 		r.NoError(e)
-		sdJWTSerialized, e := tokenWithTimes.Serialize(false)
+		cfIssuance, e := tokenWithTimes.Serialize(false)
 		r.NoError(e)
 
-		claims, err := Parse(sdJWTSerialized, WithSignatureVerifier(verifier))
+		cfPresentation := fmt.Sprintf("%s%s", cfIssuance, common.DisclosureSeparator)
+
+		claims, err := Parse(cfPresentation, WithSignatureVerifier(verifier))
 		r.Error(err)
 		r.Contains(err.Error(),
 			"failed to validate SD-JWT time values: go-jose/go-jose/jwt: validation failed, token is expired (exp)")

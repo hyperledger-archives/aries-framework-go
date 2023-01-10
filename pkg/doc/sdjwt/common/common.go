@@ -45,10 +45,43 @@ type Payload struct {
 	SDAlg string   `json:"_sd_alg,omitempty"`
 }
 
-// SDJWT holds SD-JWT info.
-type SDJWT struct {
-	JWTSerialized string
+// CombinedFormatForIssuance holds SD-JWT and disclosures.
+type CombinedFormatForIssuance struct {
+	SDJWT       string
+	Disclosures []string
+}
+
+// Serialize will assemble combined format for issuance.
+func (cf *CombinedFormatForIssuance) Serialize() string {
+	presentation := cf.SDJWT
+	for _, disclosure := range cf.Disclosures {
+		presentation += DisclosureSeparator + disclosure
+	}
+
+	return presentation
+}
+
+// CombinedFormatForPresentation holds SD-JWT, disclosures and optional holder binding info.
+type CombinedFormatForPresentation struct {
+	SDJWT         string
 	Disclosures   []string
+	HolderBinding string
+}
+
+// Serialize will assemble combined format for presentation.
+func (cf *CombinedFormatForPresentation) Serialize() string {
+	presentation := cf.SDJWT
+	for _, disclosure := range cf.Disclosures {
+		presentation += DisclosureSeparator + disclosure
+	}
+
+	if len(cf.Disclosures) > 0 || cf.HolderBinding != "" {
+		presentation += DisclosureSeparator
+	}
+
+	presentation += cf.HolderBinding
+
+	return presentation
 }
 
 // DisclosureClaim defines claim.
@@ -107,18 +140,37 @@ func getDisclosureClaim(disclosure string) (*DisclosureClaim, error) {
 	return claim, nil
 }
 
-// ParseSDJWT parses SD-JWT serialized token into SDJWT parts.
-func ParseSDJWT(sdJWTSerialized string) *SDJWT {
-	parts := strings.Split(sdJWTSerialized, DisclosureSeparator)
+// ParseCombinedFormatForIssuance parses combined format for issuance into CombinedFormatForIssuance parts.
+func ParseCombinedFormatForIssuance(combinedFormatForIssuance string) *CombinedFormatForIssuance {
+	parts := strings.Split(combinedFormatForIssuance, DisclosureSeparator)
 
 	var disclosures []string
 	if len(parts) > 1 {
 		disclosures = parts[1:]
 	}
 
-	jwtSerialized := parts[0]
+	sdJWT := parts[0]
 
-	return &SDJWT{JWTSerialized: jwtSerialized, Disclosures: disclosures}
+	return &CombinedFormatForIssuance{SDJWT: sdJWT, Disclosures: disclosures}
+}
+
+// ParseCombinedFormatForPresentation parses combined format for presentation into CombinedFormatForPresentation parts.
+func ParseCombinedFormatForPresentation(combinedFormatForPresentation string) *CombinedFormatForPresentation {
+	parts := strings.Split(combinedFormatForPresentation, DisclosureSeparator)
+
+	var disclosures []string
+	if len(parts) > 2 {
+		disclosures = parts[1 : len(parts)-1]
+	}
+
+	var holderBinding string
+	if len(parts) > 1 {
+		holderBinding = parts[len(parts)-1]
+	}
+
+	sdJWT := parts[0]
+
+	return &CombinedFormatForPresentation{SDJWT: sdJWT, Disclosures: disclosures, HolderBinding: holderBinding}
 }
 
 // GetHash calculates hash of data using hash function identified by hash.
@@ -207,7 +259,7 @@ func getSDAlg(claims map[string]interface{}) (string, error) {
 	return str, nil
 }
 
-// GetDisclosureDigests returns digests from from claims map.
+// GetDisclosureDigests returns digests from claims map.
 func GetDisclosureDigests(claims map[string]interface{}) (map[string]bool, error) {
 	disclosuresObj, ok := claims[SDKey]
 	if !ok {

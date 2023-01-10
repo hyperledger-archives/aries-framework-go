@@ -38,14 +38,14 @@ func TestParse(t *testing.T) {
 
 	token, e := issuer.New(testIssuer, claims, nil, signer)
 	r.NoError(e)
-	sdJWTSerialized, e := token.Serialize(false)
+	combinedFormatForIssuance, e := token.Serialize(false)
 	r.NoError(e)
 
 	verifier, e := afjwt.NewEd25519Verifier(pubKey)
 	r.NoError(e)
 
 	t.Run("success", func(t *testing.T) {
-		claims, err := Parse(sdJWTSerialized, WithSignatureVerifier(verifier))
+		claims, err := Parse(combinedFormatForIssuance, WithSignatureVerifier(verifier))
 		r.NoError(err)
 		r.NotNil(claims)
 		r.Equal(1, len(claims))
@@ -54,7 +54,7 @@ func TestParse(t *testing.T) {
 	})
 
 	t.Run("success - default is no signature verifier", func(t *testing.T) {
-		claims, err := Parse(sdJWTSerialized)
+		claims, err := Parse(combinedFormatForIssuance)
 		r.NoError(err)
 		r.Equal(1, len(claims))
 		r.Equal("given_name", claims[0].Name)
@@ -69,7 +69,8 @@ func TestParse(t *testing.T) {
 	})
 
 	t.Run("error - additional disclosure", func(t *testing.T) {
-		claims, err := Parse(fmt.Sprintf("%s~%s", sdJWTSerialized, additionalDisclosure), WithSignatureVerifier(verifier))
+		claims, err := Parse(fmt.Sprintf("%s~%s", combinedFormatForIssuance, additionalDisclosure),
+			WithSignatureVerifier(verifier))
 		r.Error(err)
 		r.Nil(claims)
 		r.Contains(err.Error(),
@@ -77,7 +78,7 @@ func TestParse(t *testing.T) {
 	})
 
 	t.Run("success - with detached payload", func(t *testing.T) {
-		jwsParts := strings.Split(sdJWTSerialized, ".")
+		jwsParts := strings.Split(combinedFormatForIssuance, ".")
 		jwsDetached := fmt.Sprintf("%s..%s", jwsParts[0], jwsParts[2])
 
 		jwsPayload, err := base64.RawURLEncoding.DecodeString(jwsParts[1])
@@ -112,29 +113,31 @@ func TestDiscloseClaims(t *testing.T) {
 
 	token, e := issuer.New(testIssuer, claims, nil, signer)
 	r.NoError(e)
-	sdJWTSerialized, e := token.Serialize(false)
+	combinedFormatForIssuance, e := token.Serialize(false)
 	r.NoError(e)
 
 	t.Run("success", func(t *testing.T) {
-		sdJWTDisclosed, err := DiscloseClaims(sdJWTSerialized, []string{"given_name"})
+		combinedFormatForPresentation, err := DiscloseClaims(combinedFormatForIssuance, []string{"given_name"})
 		r.NoError(err)
-		require.NotNil(t, sdJWTDisclosed)
-		require.Equal(t, sdJWTSerialized, sdJWTDisclosed)
+		require.NotNil(t, combinedFormatForPresentation)
+		require.Equal(t, combinedFormatForIssuance+common.DisclosureSeparator, combinedFormatForPresentation)
 	})
 
 	t.Run("error - no disclosure(s)", func(t *testing.T) {
-		sdJWT := common.ParseSDJWT(sdJWTSerialized)
+		cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
 
-		sdJWTDisclosed, err := DiscloseClaims(sdJWT.JWTSerialized, []string{"given_name"})
+		combinedFormatForPresentation, err := DiscloseClaims(cfi.SDJWT, []string{"given_name"})
 		r.Error(err)
-		r.Empty(sdJWTDisclosed)
+		r.Empty(combinedFormatForPresentation)
 		r.Contains(err.Error(), "no disclosures found in SD-JWT")
 	})
 
-	t.Run("error - invalid disclosure", func(t *testing.T) {
-		sdJWTDisclosed, err := DiscloseClaims(fmt.Sprintf("%s~%s", sdJWTSerialized, "abc"), []string{"given_name"})
+	t.Run("error - add invalid disclosure", func(t *testing.T) {
+		cfiWithInvalidDisclosure := fmt.Sprintf("%s~%s", combinedFormatForIssuance, "abc")
+
+		combinedFormatForPresentation, err := DiscloseClaims(cfiWithInvalidDisclosure, []string{"given_name"})
 		r.Error(err)
-		r.Empty(sdJWTDisclosed)
+		r.Empty(combinedFormatForPresentation)
 		r.Contains(err.Error(), "failed to unmarshal disclosure array")
 	})
 }

@@ -47,8 +47,8 @@ func WithSigningAlgorithms(algorithms []string) ParseOpt {
 	}
 }
 
-// Parse parses input JWT in serialized form into JSON Web Token.
-func Parse(sdJWTSerialized string, opts ...ParseOpt) (map[string]interface{}, error) {
+// Parse parses combined format for presentation and returns verified claims.
+func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]interface{}, error) {
 	pOpts := &parseOpts{
 		signingAlgorithms: []string{"EdDSA", "RS256"},
 	}
@@ -63,10 +63,10 @@ func Parse(sdJWTSerialized string, opts ...ParseOpt) (map[string]interface{}, er
 		afgjwt.WithJWTDetachedPayload(pOpts.detachedPayload))
 
 	// Separate the Presentation into the SD-JWT, the Disclosures (if any), and the Holder Binding JWT (if provided)
-	sdJWT := common.ParseSDJWT(sdJWTSerialized)
+	cfp := common.ParseCombinedFormatForPresentation(combinedFormatForPresentation)
 
 	// Validate the signature over the SD-JWT
-	signedJWT, err := afgjwt.Parse(sdJWT.JWTSerialized, jwtOpts...)
+	signedJWT, err := afgjwt.Parse(cfp.SDJWT, jwtOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -88,18 +88,18 @@ func Parse(sdJWTSerialized string, opts ...ParseOpt) (map[string]interface{}, er
 	}
 
 	// Check that there are no duplicate disclosures
-	err = checkForDuplicates(sdJWT.Disclosures)
+	err = checkForDuplicates(cfp.Disclosures)
 	if err != nil {
 		return nil, fmt.Errorf("check disclosures: %w", err)
 	}
 
 	// Verify that all disclosures are present in SD-JWT.
-	err = common.VerifyDisclosuresInSDJWT(sdJWT.Disclosures, signedJWT)
+	err = common.VerifyDisclosuresInSDJWT(cfp.Disclosures, signedJWT)
 	if err != nil {
 		return nil, err
 	}
 
-	return getVerifiedPayload(sdJWT.Disclosures, signedJWT)
+	return getVerifiedPayload(cfp.Disclosures, signedJWT)
 }
 
 func getVerifiedPayload(disclosures []string, signedJWT *afgjwt.JSONWebToken) (map[string]interface{}, error) {

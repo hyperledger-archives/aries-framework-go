@@ -45,26 +45,28 @@ func TestSDJWTFlow(t *testing.T) {
 		r.NoError(e)
 
 		// TODO: Should we have one call instead of two (designed based on JWT)
-		sdJWTSerialized, e := token.Serialize(false)
+		combinedFormatForIssuance, e := token.Serialize(false)
 		r.NoError(e)
 
-		fmt.Println(fmt.Sprintf("issuer SD-JWT: %s", sdJWTSerialized))
+		fmt.Println(fmt.Sprintf("issuer SD-JWT: %s", combinedFormatForIssuance))
 
-		// Holder will parse issuer SD-JWT and hold on to that SD-JWT and the claims that can be selected.
-		claims, err := holder.Parse(sdJWTSerialized, holder.WithSignatureVerifier(signatureVerifier))
+		// Holder will parse combined format for issuance and hold on to that
+		// combined format for issuance and the claims that can be selected.
+		claims, err := holder.Parse(combinedFormatForIssuance, holder.WithSignatureVerifier(signatureVerifier))
 		r.NoError(err)
 
 		// expected disclosures given_name and last_name
 		r.Equal(2, len(claims))
 
 		// Holder will disclose only sub-set of claims to verifier.
-		sdJWTDisclosed, err := holder.DiscloseClaims(sdJWTSerialized, []string{"given_name"})
+		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"})
 		r.NoError(err)
 
-		fmt.Println(fmt.Sprintf("holder SD-JWT: %s", sdJWTDisclosed))
+		fmt.Println(fmt.Sprintf("holder SD-JWT: %s", combinedFormatForPresentation))
 
-		// Verifier will validate holder SD-JWT and create verified claims.
-		verifiedClaims, err := verifier.Parse(sdJWTDisclosed, verifier.WithSignatureVerifier(signatureVerifier))
+		// Verifier will validate combined format for presentation and create verified claims.
+		verifiedClaims, err := verifier.Parse(combinedFormatForPresentation,
+			verifier.WithSignatureVerifier(signatureVerifier))
 		r.NoError(err)
 
 		// expected claims iss, exp, iat, nbf, given_name; last_name was not disclosed

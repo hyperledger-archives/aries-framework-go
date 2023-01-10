@@ -248,12 +248,12 @@ func (j *SelectiveDisclosureJWT) Serialize(detached bool) (string, error) {
 		return "", err
 	}
 
-	combinedFormatForPresentation := signedJWT
-	for _, disclosure := range j.Disclosures {
-		combinedFormatForPresentation += common.DisclosureSeparator + disclosure
+	cf := common.CombinedFormatForIssuance{
+		SDJWT:       signedJWT,
+		Disclosures: j.Disclosures,
 	}
 
-	return combinedFormatForPresentation, nil
+	return cf.Serialize(), nil
 }
 
 func createDisclosures(claims map[string]interface{}, opts *newOpts) ([]string, error) {
