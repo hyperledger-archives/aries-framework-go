@@ -46,7 +46,7 @@ func WithSignatureVerifier(signatureVerifier jose.SignatureVerifier) ParseOpt {
 }
 
 // Parse parses issuer SD-JWT and returns claims that can be selected.
-func Parse(sdJWTSerialized string, opts ...ParseOpt) ([]*Claim, error) {
+func Parse(combinedFormatForIssuance string, opts ...ParseOpt) ([]*Claim, error) {
 	pOpts := &parseOpts{
 		sigVerifier: &NoopSignatureVerifier{},
 	}
@@ -60,19 +60,19 @@ func Parse(sdJWTSerialized string, opts ...ParseOpt) ([]*Claim, error) {
 		afgjwt.WithSignatureVerifier(pOpts.sigVerifier),
 		afgjwt.WithJWTDetachedPayload(pOpts.detachedPayload))
 
-	sdJWT := common.ParseSDJWT(sdJWTSerialized)
+	cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
 
-	signedJWT, err := afgjwt.Parse(sdJWT.JWTSerialized, jwtOpts...)
+	signedJWT, err := afgjwt.Parse(cfi.SDJWT, jwtOpts...)
 	if err != nil {
 		return nil, err
 	}
 
-	err = common.VerifyDisclosuresInSDJWT(sdJWT.Disclosures, signedJWT)
+	err = common.VerifyDisclosuresInSDJWT(cfi.Disclosures, signedJWT)
 	if err != nil {
 		return nil, err
 	}
 
-	return getClaims(sdJWT.Disclosures)
+	return getClaims(cfi.Disclosures)
 }
 
 func getClaims(disclosures []string) ([]*Claim, error) {
@@ -94,14 +94,14 @@ func getClaims(disclosures []string) ([]*Claim, error) {
 }
 
 // DiscloseClaims discloses claims with specified claim names.
-func DiscloseClaims(sdJWTSerialized string, claimNames []string) (string, error) {
-	sdJWT := common.ParseSDJWT(sdJWTSerialized)
+func DiscloseClaims(combinedFormatForIssuance string, claimNames []string) (string, error) {
+	cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
 
-	if len(sdJWT.Disclosures) == 0 {
+	if len(cfi.Disclosures) == 0 {
 		return "", fmt.Errorf("no disclosures found in SD-JWT")
 	}
 
-	disclosures, err := common.GetDisclosureClaims(sdJWT.Disclosures)
+	disclosures, err := common.GetDisclosureClaims(cfi.Disclosures)
 	if err != nil {
 		return "", err
 	}
@@ -110,16 +110,16 @@ func DiscloseClaims(sdJWTSerialized string, claimNames []string) (string, error)
 
 	for _, claimName := range claimNames {
 		if index := getDisclosureByClaimName(claimName, disclosures); index != notFound {
-			selectedDisclosures = append(selectedDisclosures, sdJWT.Disclosures[index])
+			selectedDisclosures = append(selectedDisclosures, cfi.Disclosures[index])
 		}
 	}
 
-	combinedFormatForPresentation := sdJWT.JWTSerialized
-	for _, disclosure := range selectedDisclosures {
-		combinedFormatForPresentation += common.DisclosureSeparator + disclosure
+	cf := common.CombinedFormatForPresentation{
+		SDJWT:       cfi.SDJWT,
+		Disclosures: selectedDisclosures,
 	}
 
-	return combinedFormatForPresentation, nil
+	return cf.Serialize(), nil
 }
 
 func getDisclosureByClaimName(name string, disclosures []*common.DisclosureClaim) int {

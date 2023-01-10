@@ -48,16 +48,16 @@ func TestNew(t *testing.T) {
 				return sampleSalt, nil
 			}))
 		r.NoError(err)
-		sdJWTSerialized, err := token.Serialize(false)
+		combinedFormatForIssuance, err := token.Serialize(false)
 		require.NoError(t, err)
 
-		fmt.Printf(sdJWTSerialized)
+		fmt.Printf(combinedFormatForIssuance)
 
-		sdJWT := common.ParseSDJWT(sdJWTSerialized)
-		require.Equal(t, 1, len(sdJWT.Disclosures))
+		cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
+		require.Equal(t, 1, len(cfi.Disclosures))
 
 		var parsedClaims map[string]interface{}
-		err = verifyEd25519ViaGoJose(sdJWT.JWTSerialized, pubKey, &parsedClaims)
+		err = verifyEd25519ViaGoJose(cfi.SDJWT, pubKey, &parsedClaims)
 		r.NoError(err)
 
 		parsedClaimsBytes, err := json.Marshal(parsedClaims)
@@ -70,7 +70,7 @@ func TestNew(t *testing.T) {
 
 		require.True(t, existsInDisclosures(parsedClaims, expectedHashWithSpaces))
 
-		err = verifyEd25519(sdJWT.JWTSerialized, pubKey)
+		err = verifyEd25519(cfi.SDJWT, pubKey)
 		r.NoError(err)
 	})
 
@@ -88,14 +88,14 @@ func TestNew(t *testing.T) {
 				return sampleSalt, nil
 			}))
 		r.NoError(err)
-		sdJWTSerialized, err := token.Serialize(false)
+		combinedFormatForIssuance, err := token.Serialize(false)
 		require.NoError(t, err)
 
-		sdJWT := common.ParseSDJWT(sdJWTSerialized)
-		require.Equal(t, 1, len(sdJWT.Disclosures))
+		cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
+		require.Equal(t, 1, len(cfi.Disclosures))
 
 		var parsedClaims map[string]interface{}
-		err = verifyRS256ViaGoJose(sdJWT.JWTSerialized, pubKey, &parsedClaims)
+		err = verifyRS256ViaGoJose(cfi.SDJWT, pubKey, &parsedClaims)
 		r.NoError(err)
 
 		parsedClaimsBytes, err := json.Marshal(parsedClaims)
@@ -109,7 +109,7 @@ func TestNew(t *testing.T) {
 		expectedHashWithSpaces := expectedHashWithSpaces
 		require.True(t, existsInDisclosures(parsedClaims, expectedHashWithSpaces))
 
-		err = verifyRS256(sdJWT.JWTSerialized, pubKey)
+		err = verifyRS256(cfi.SDJWT, pubKey)
 		r.NoError(err)
 	})
 
@@ -141,16 +141,16 @@ func TestNew(t *testing.T) {
 
 		token, err := New(issuer, complexClaims, nil, afjwt.NewEd25519Signer(privKey), newOpts...)
 		r.NoError(err)
-		sdJWTSerialized, err := token.Serialize(false)
+		combinedFormatForIssuance, err := token.Serialize(false)
 		require.NoError(t, err)
 
-		fmt.Printf(sdJWTSerialized)
+		fmt.Printf(combinedFormatForIssuance)
 
-		sdJWT := common.ParseSDJWT(sdJWTSerialized)
-		require.Equal(t, 7, len(sdJWT.Disclosures))
+		cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
+		require.Equal(t, 7, len(cfi.Disclosures))
 
 		var parsedClaims map[string]interface{}
-		err = verifyEd25519ViaGoJose(sdJWT.JWTSerialized, pubKey, &parsedClaims)
+		err = verifyEd25519ViaGoJose(cfi.SDJWT, pubKey, &parsedClaims)
 		r.NoError(err)
 
 		parsedClaimsBytes, err := json.Marshal(parsedClaims)
@@ -161,7 +161,7 @@ func TestNew(t *testing.T) {
 
 		fmt.Println(prettyJSON)
 
-		err = verifyEd25519(sdJWT.JWTSerialized, pubKey)
+		err = verifyEd25519(cfi.SDJWT, pubKey)
 		r.NoError(err)
 	})
 
@@ -177,13 +177,13 @@ func TestNew(t *testing.T) {
 		token, err := New(issuer, claims, nil, afjwt.NewEd25519Signer(privKey),
 			WithDecoyDigests(true))
 		r.NoError(err)
-		sdJWTSerialized, err := token.Serialize(false)
+		combinedFormatForIssuance, err := token.Serialize(false)
 		r.NoError(err)
 
-		sdJWT := common.ParseSDJWT(sdJWTSerialized)
-		r.Equal(1, len(sdJWT.Disclosures))
+		cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
+		r.Equal(1, len(cfi.Disclosures))
 
-		afjwtToken, err := afjwt.Parse(sdJWT.JWTSerialized, afjwt.WithSignatureVerifier(verifier))
+		afjwtToken, err := afjwt.Parse(cfi.SDJWT, afjwt.WithSignatureVerifier(verifier))
 		r.NoError(err)
 
 		var parsedClaims map[string]interface{}
