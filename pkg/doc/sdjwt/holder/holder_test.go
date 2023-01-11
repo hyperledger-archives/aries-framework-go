@@ -14,7 +14,9 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
@@ -123,6 +125,40 @@ func TestDiscloseClaims(t *testing.T) {
 		require.Equal(t, combinedFormatForIssuance+common.DisclosureSeparator, combinedFormatForPresentation)
 	})
 
+	t.Run("success - with holder binding", func(t *testing.T) {
+		_, holderPrivKey, e := ed25519.GenerateKey(rand.Reader)
+		r.NoError(e)
+
+		holderSigner := afjwt.NewEd25519Signer(holderPrivKey)
+
+		combinedFormatForPresentation, err := DiscloseClaims(combinedFormatForIssuance, []string{"given_name"},
+			WithHolderBinding(&BindingInfo{
+				Payload: BindingPayload{
+					Audience: "https://example.com/verifier",
+					Nonce:    "nonce",
+					IssuedAt: jwt.NewNumericDate(time.Now()),
+				},
+				Signer: holderSigner,
+			}))
+		r.NoError(err)
+		r.NotEmpty(combinedFormatForPresentation)
+		r.Contains(combinedFormatForPresentation, combinedFormatForIssuance+common.DisclosureSeparator)
+	})
+
+	t.Run("error - failed to create holder binding due to signing error", func(t *testing.T) {
+		combinedFormatForPresentation, err := DiscloseClaims(combinedFormatForIssuance, []string{"given_name"},
+			WithHolderBinding(&BindingInfo{
+				Payload: BindingPayload{},
+				Signer:  &mockSigner{Err: fmt.Errorf("signing error")},
+			}))
+
+		r.Error(err)
+		r.Empty(combinedFormatForPresentation)
+
+		r.Contains(err.Error(),
+			"failed to create holder binding: create JWS: sign JWS: sign JWS verification data: signing error")
+	})
+
 	t.Run("error - no disclosure(s)", func(t *testing.T) {
 		cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
 
@@ -139,6 +175,14 @@ func TestDiscloseClaims(t *testing.T) {
 		r.Error(err)
 		r.Empty(combinedFormatForPresentation)
 		r.Contains(err.Error(), "failed to unmarshal disclosure array")
+	})
+
+	t.Run("error - claim name not found", func(t *testing.T) {
+		combinedFormatForPresentation, err := DiscloseClaims(combinedFormatForIssuance,
+			[]string{"given_name", "non_existent"})
+		r.Error(err)
+		r.Empty(combinedFormatForPresentation)
+		r.Contains(err.Error(), "claim name 'non_existent' not found")
 	})
 }
 
@@ -180,6 +224,28 @@ func buildJWS(signer jose.Signer, claims interface{}) (string, error) {
 	}
 
 	return jws.SerializeCompact(false)
+}
+
+// Signer defines JWS Signer interface. It makes signing of data and provides custom JWS headers relevant to the signer.
+type mockSigner struct {
+	Err error
+}
+
+// Sign signs.
+func (m *mockSigner) Sign(_ []byte) ([]byte, error) {
+	if m.Err != nil {
+		return nil, m.Err
+	}
+
+	return nil, nil
+}
+
+// Headers provides JWS headers.
+func (m *mockSigner) Headers() jose.Headers {
+	headers := make(jose.Headers)
+	headers["alg"] = "EdDSA"
+
+	return headers
 }
 
 // nolint: lll
