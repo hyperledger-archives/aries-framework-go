@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
 	afjwt "github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/common"
 )
@@ -133,7 +134,6 @@ func TestNew(t *testing.T) {
 			WithNotBefore(jwt.NewNumericDate(notBefore)),
 			WithID("id"),
 			WithSubject("subject"),
-			// TODO: Audience ???
 			WithSaltFnc(generateSalt),
 			WithJSONMarshaller(json.Marshal),
 			WithHashAlgorithm(crypto.SHA256),
@@ -196,6 +196,41 @@ func TestNew(t *testing.T) {
 		if len(digests) < 1+decoyMinElements || len(digests) > 1+decoyMaxElements {
 			r.Fail(fmt.Sprintf("invalid number of digests: %d", len(digests)))
 		}
+	})
+
+	t.Run("Create JWS with holder public key", func(t *testing.T) {
+		r := require.New(t)
+
+		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+		r.NoError(err)
+
+		_, holderPublicKey, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+
+		holderJWK, err := jwksupport.JWKFromKey(holderPublicKey)
+		require.NoError(t, err)
+
+		token, err := New(issuer, claims, nil, afjwt.NewEd25519Signer(privKey),
+			WithHolderPublicKey(holderJWK))
+		r.NoError(err)
+		combinedFormatForIssuance, err := token.Serialize(false)
+		require.NoError(t, err)
+
+		cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
+		require.Equal(t, 1, len(cfi.Disclosures))
+
+		var parsedClaims map[string]interface{}
+		err = verifyEd25519ViaGoJose(cfi.SDJWT, pubKey, &parsedClaims)
+		r.NoError(err)
+		require.NotEmpty(t, parsedClaims["cnf"])
+
+		parsedClaimsBytes, err := json.Marshal(parsedClaims)
+		require.NoError(t, err)
+
+		prettyJSON, err := prettyPrint(parsedClaimsBytes)
+		require.NoError(t, err)
+
+		fmt.Println(prettyJSON)
 	})
 
 	t.Run("error - create decoy disclosures failed", func(t *testing.T) {
