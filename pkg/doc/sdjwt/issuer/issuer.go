@@ -20,6 +20,7 @@ import (
 	"github.com/go-jose/go-jose/v3/jwt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	afgjwt "github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/common"
 )
@@ -47,6 +48,8 @@ type newOpts struct {
 	Expiry    *jwt.NumericDate
 	NotBefore *jwt.NumericDate
 	IssuedAt  *jwt.NumericDate
+
+	HolderPublicKey *jwk.JWK
 
 	HashAlg crypto.Hash
 
@@ -108,6 +111,13 @@ func WithID(id string) NewOpt {
 	}
 }
 
+// WithHolderPublicKey is an option for SD-JWT payload.
+func WithHolderPublicKey(jwk *jwk.JWK) NewOpt {
+	return func(opts *newOpts) {
+		opts.HolderPublicKey = jwk
+	}
+}
+
 // WithHashAlgorithm is an option for hashing disclosures.
 func WithHashAlgorithm(alg crypto.Hash) NewOpt {
 	return func(opts *newOpts) {
@@ -162,16 +172,7 @@ func New(issuer string, claims interface{}, headers jose.Headers,
 		return nil, err
 	}
 
-	payload := &common.Payload{
-		Issuer:    issuer,
-		ID:        nOpts.ID,
-		Subject:   nOpts.Subject,
-		IssuedAt:  nOpts.IssuedAt,
-		Expiry:    nOpts.Expiry,
-		NotBefore: nOpts.NotBefore,
-		SD:        digests,
-		SDAlg:     strings.ToLower(nOpts.HashAlg.String()),
-	}
+	payload := createPayload(issuer, digests, nOpts)
 
 	signedJWT, err := afgjwt.NewSigned(payload, headers, signer)
 	if err != nil {
@@ -179,6 +180,28 @@ func New(issuer string, claims interface{}, headers jose.Headers,
 	}
 
 	return &SelectiveDisclosureJWT{Disclosures: disclosures, SignedJWT: signedJWT}, nil
+}
+
+func createPayload(issuer string, digests []string, nOpts *newOpts) *common.Payload {
+	var cnf map[string]interface{}
+	if nOpts.HolderPublicKey != nil {
+		cnf = make(map[string]interface{})
+		cnf["jwk"] = nOpts.HolderPublicKey
+	}
+
+	payload := &common.Payload{
+		Issuer:    issuer,
+		ID:        nOpts.ID,
+		Subject:   nOpts.Subject,
+		IssuedAt:  nOpts.IssuedAt,
+		Expiry:    nOpts.Expiry,
+		NotBefore: nOpts.NotBefore,
+		CNF:       cnf,
+		SD:        digests,
+		SDAlg:     strings.ToLower(nOpts.HashAlg.String()),
+	}
+
+	return payload
 }
 
 func createDigests(disclosures []string, nOpts *newOpts) ([]string, error) {

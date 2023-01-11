@@ -41,6 +41,8 @@ type Payload struct {
 	NotBefore *jwt.NumericDate `json:"nbf,omitempty"`
 	IssuedAt  *jwt.NumericDate `json:"iat,omitempty"`
 
+	CNF map[string]interface{} `json:"cnf,omitempty"`
+
 	SD    []string `json:"_sd,omitempty"`
 	SDAlg string   `json:"_sd_alg,omitempty"`
 }
