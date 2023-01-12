@@ -24,7 +24,7 @@ type jwtSigner struct {
 	headers map[string]interface{}
 }
 
-func getJWTSigner(signer Signer, algorithm string) *jwtSigner {
+func GetJWTSigner(signer Signer, algorithm string) *jwtSigner {
 	headers := map[string]interface{}{
 		jose.HeaderAlgorithm: algorithm,
 	}
@@ -50,7 +50,7 @@ func (v noVerifier) Verify(_ jose.Headers, _, _, _ []byte) error {
 
 // MarshalJWS serializes JWT presentation claims into signed form (JWS).
 func marshalJWS(jwtClaims interface{}, signatureAlg JWSAlgorithm, signer Signer, keyID string) (string, error) {
-	algName, err := signatureAlg.name()
+	algName, err := signatureAlg.Name()
 	if err != nil {
 		return "", err
 	}
@@ -59,7 +59,7 @@ func marshalJWS(jwtClaims interface{}, signatureAlg JWSAlgorithm, signer Signer,
 		jose.HeaderKeyID: keyID,
 	}
 
-	token, err := jwt.NewSigned(jwtClaims, headers, getJWTSigner(signer, algName))
+	token, err := jwt.NewSigned(jwtClaims, headers, GetJWTSigner(signer, algName))
 	if err != nil {
 		return "", err
 	}
