@@ -9,6 +9,8 @@ package holder
 import (
 	"fmt"
 
+	"github.com/go-jose/go-jose/v3/jwt"
+
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	afgjwt "github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/common"
@@ -93,8 +95,42 @@ func getClaims(disclosures []string) ([]*Claim, error) {
 	return claims, nil
 }
 
+// BindingPayload represents holder binding payload.
+type BindingPayload struct {
+	Nonce    string           `json:"nonce,omitempty"`
+	Audience string           `json:"aud,omitempty"`
+	IssuedAt *jwt.NumericDate `json:"iat,omitempty"`
+}
+
+// BindingInfo defines holder binding payload and signer.
+type BindingInfo struct {
+	Payload BindingPayload
+	Signer  jose.Signer
+}
+
+// options holds options for holder.
+type options struct {
+	holderBindingInfo *BindingInfo
+}
+
+// Option is a holder option.
+type Option func(opts *options)
+
+// WithHolderBinding option to set optional holder binding.
+func WithHolderBinding(info *BindingInfo) Option {
+	return func(opts *options) {
+		opts.holderBindingInfo = info
+	}
+}
+
 // DiscloseClaims discloses claims with specified claim names.
-func DiscloseClaims(combinedFormatForIssuance string, claimNames []string) (string, error) {
+func DiscloseClaims(combinedFormatForIssuance string, claimNames []string, opts ...Option) (string, error) {
+	hOpts := &options{}
+
+	for _, opt := range opts {
+		opt(hOpts)
+	}
+
 	cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
 
 	if len(cfi.Disclosures) == 0 {
@@ -111,15 +147,35 @@ func DiscloseClaims(combinedFormatForIssuance string, claimNames []string) (stri
 	for _, claimName := range claimNames {
 		if index := getDisclosureByClaimName(claimName, disclosures); index != notFound {
 			selectedDisclosures = append(selectedDisclosures, cfi.Disclosures[index])
+		} else {
+			return "", fmt.Errorf("claim name '%s' not found", claimName)
+		}
+	}
+
+	var hbJWT string
+	if hOpts.holderBindingInfo != nil {
+		hbJWT, err = createHolderBinding(hOpts.holderBindingInfo)
+		if err != nil {
+			return "", fmt.Errorf("failed to create holder binding: %w", err)
 		}
 	}
 
 	cf := common.CombinedFormatForPresentation{
-		SDJWT:       cfi.SDJWT,
-		Disclosures: selectedDisclosures,
+		SDJWT:         cfi.SDJWT,
+		Disclosures:   selectedDisclosures,
+		HolderBinding: hbJWT,
 	}
 
 	return cf.Serialize(), nil
+}
+
+func createHolderBinding(info *BindingInfo) (string, error) {
+	hbJWT, err := afgjwt.NewSigned(info.Payload, nil, info.Signer)
+	if err != nil {
+		return "", err
+	}
+
+	return hbJWT.Serialize(false)
 }
 
 func getDisclosureByClaimName(name string, disclosures []*common.DisclosureClaim) int {
