@@ -18,11 +18,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-jose/go-jose/v3"
 	"github.com/go-jose/go-jose/v3/json"
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	afjose "github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
 	afjwt "github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/common"
@@ -231,6 +233,21 @@ func TestNew(t *testing.T) {
 		require.NoError(t, err)
 
 		fmt.Println(prettyJSON)
+	})
+
+	t.Run("error - invalid holder public key", func(t *testing.T) {
+		r := require.New(t)
+
+		_, privKey, err := ed25519.GenerateKey(rand.Reader)
+		r.NoError(err)
+
+		token, err := New(issuer, claims, nil, afjwt.NewEd25519Signer(privKey),
+			WithHolderPublicKey(&jwk.JWK{JSONWebKey: jose.JSONWebKey{Key: "abc"}}))
+		r.Error(err)
+		r.Nil(token)
+
+		r.Contains(err.Error(),
+			"unmarshallable claims: marshal interface[*common.Payload]: json: error calling MarshalJSON for type *jwk.JWK: go-jose/go-jose: unknown key type 'string'") //nolint:lll
 	})
 
 	t.Run("error - create decoy disclosures failed", func(t *testing.T) {
@@ -511,7 +528,7 @@ func verifyEd25519(jws string, pubKey ed25519.PublicKey) error {
 		return err
 	}
 
-	sVerifier := jose.NewCompositeAlgSigVerifier(jose.AlgSignatureVerifier{
+	sVerifier := afjose.NewCompositeAlgSigVerifier(afjose.AlgSignatureVerifier{
 		Alg:      "EdDSA",
 		Verifier: v,
 	})
@@ -531,7 +548,7 @@ func verifyEd25519(jws string, pubKey ed25519.PublicKey) error {
 func verifyRS256(jws string, pubKey *rsa.PublicKey) error {
 	v := afjwt.NewRS256Verifier(pubKey)
 
-	sVerifier := jose.NewCompositeAlgSigVerifier(jose.AlgSignatureVerifier{
+	sVerifier := afjose.NewCompositeAlgSigVerifier(afjose.AlgSignatureVerifier{
 		Alg:      "RS256",
 		Verifier: v,
 	})

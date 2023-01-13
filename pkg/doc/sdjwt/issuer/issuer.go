@@ -159,7 +159,7 @@ func New(issuer string, claims interface{}, headers jose.Headers,
 
 	claimsMap, err := afgjwt.PayloadToMap(claims)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("convert payload to map: %w", err)
 	}
 
 	disclosures, err := createDisclosures(claimsMap, nOpts)
@@ -176,7 +176,7 @@ func New(issuer string, claims interface{}, headers jose.Headers,
 
 	signedJWT, err := afgjwt.NewSigned(payload, headers, signer)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create SD-JWT from payload[%+v]: %w", payload, err)
 	}
 
 	return &SelectiveDisclosureJWT{Disclosures: disclosures, SignedJWT: signedJWT}, nil

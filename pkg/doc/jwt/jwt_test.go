@@ -453,7 +453,7 @@ func Test_toMap(t *testing.T) {
 	// pass invalid structure
 	resultMap, err = PayloadToMap(make(chan int))
 	r.Error(err)
-	r.Contains(err.Error(), "convert to bytes")
+	r.Contains(err.Error(), "marshal interface[chan int]: json: unsupported type: chan int")
 	r.Nil(resultMap)
 }
 

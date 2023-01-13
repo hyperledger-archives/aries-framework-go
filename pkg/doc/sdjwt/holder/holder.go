@@ -8,7 +8,6 @@ package holder
 
 import (
 	"fmt"
-
 	"github.com/go-jose/go-jose/v3/jwt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
