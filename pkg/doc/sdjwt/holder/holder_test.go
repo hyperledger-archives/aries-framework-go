@@ -122,7 +122,7 @@ func TestDiscloseClaims(t *testing.T) {
 		combinedFormatForPresentation, err := DiscloseClaims(combinedFormatForIssuance, []string{"given_name"})
 		r.NoError(err)
 		require.NotNil(t, combinedFormatForPresentation)
-		require.Equal(t, combinedFormatForIssuance+common.DisclosureSeparator, combinedFormatForPresentation)
+		require.Equal(t, combinedFormatForIssuance+common.CombinedFormatSeparator, combinedFormatForPresentation)
 	})
 
 	t.Run("success - with holder binding", func(t *testing.T) {
@@ -142,7 +142,7 @@ func TestDiscloseClaims(t *testing.T) {
 			}))
 		r.NoError(err)
 		r.NotEmpty(combinedFormatForPresentation)
-		r.Contains(combinedFormatForPresentation, combinedFormatForIssuance+common.DisclosureSeparator)
+		r.Contains(combinedFormatForPresentation, combinedFormatForIssuance+common.CombinedFormatSeparator)
 	})
 
 	t.Run("error - failed to create holder binding due to signing error", func(t *testing.T) {

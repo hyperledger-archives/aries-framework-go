@@ -50,7 +50,7 @@ func TestParse(t *testing.T) {
 	combinedFormatForIssuance, e := token.Serialize(false)
 	r.NoError(e)
 
-	combinedFormatForPresentation := combinedFormatForIssuance + common.DisclosureSeparator
+	combinedFormatForPresentation := combinedFormatForIssuance + common.CombinedFormatSeparator
 
 	verifier, e := afjwt.NewEd25519Verifier(pubKey)
 	r.NoError(e)
@@ -77,7 +77,7 @@ func TestParse(t *testing.T) {
 		rsaCombinedFormatForIssuance, err := rsaToken.Serialize(false)
 		require.NoError(t, err)
 
-		cfp := fmt.Sprintf("%s%s", rsaCombinedFormatForIssuance, common.DisclosureSeparator)
+		cfp := fmt.Sprintf("%s%s", rsaCombinedFormatForIssuance, common.CombinedFormatSeparator)
 
 		claims, err := Parse(cfp, WithSignatureVerifier(v))
 		r.NoError(err)
@@ -97,7 +97,7 @@ func TestParse(t *testing.T) {
 		cfIssuance, e := tokenWithTimes.Serialize(false)
 		r.NoError(e)
 
-		cfPresentation := fmt.Sprintf("%s%s", cfIssuance, common.DisclosureSeparator)
+		cfPresentation := fmt.Sprintf("%s%s", cfIssuance, common.CombinedFormatSeparator)
 
 		claims, err := Parse(cfPresentation, WithSignatureVerifier(verifier))
 		r.NoError(err)
@@ -182,7 +182,7 @@ func TestParse(t *testing.T) {
 		cfIssuance, e := tokenWithTimes.Serialize(false)
 		r.NoError(e)
 
-		cfPresentation := fmt.Sprintf("%s%s", cfIssuance, common.DisclosureSeparator)
+		cfPresentation := fmt.Sprintf("%s%s", cfIssuance, common.CombinedFormatSeparator)
 
 		claims, err := Parse(cfPresentation, WithSignatureVerifier(verifier))
 		r.Error(err)
@@ -201,7 +201,7 @@ func TestParse(t *testing.T) {
 		cfIssuance, e := tokenWithTimes.Serialize(false)
 		r.NoError(e)
 
-		cfPresentation := fmt.Sprintf("%s%s", cfIssuance, common.DisclosureSeparator)
+		cfPresentation := fmt.Sprintf("%s%s", cfIssuance, common.CombinedFormatSeparator)
 
 		claims, err := Parse(cfPresentation, WithSignatureVerifier(verifier))
 		r.Error(err)
@@ -520,7 +520,7 @@ func TestHolderBinding(t *testing.T) {
 		sdJWT, err := buildJWS(signer, claims)
 		r.NoError(err)
 
-		cfpWithInvalidCNF := sdJWT + common.DisclosureSeparator + cfp.HolderBinding
+		cfpWithInvalidCNF := sdJWT + common.CombinedFormatSeparator + cfp.HolderBinding
 
 		verifiedClaims, err := Parse(cfpWithInvalidCNF, WithSignatureVerifier(signatureVerifier))
 		r.Error(err)
@@ -554,7 +554,7 @@ func TestHolderBinding(t *testing.T) {
 		sdJWT, err := buildJWS(signer, claims)
 		r.NoError(err)
 
-		cfpWithInvalidCNF := sdJWT + common.DisclosureSeparator + cfp.HolderBinding
+		cfpWithInvalidCNF := sdJWT + common.CombinedFormatSeparator + cfp.HolderBinding
 
 		verifiedClaims, err := Parse(cfpWithInvalidCNF, WithSignatureVerifier(signatureVerifier))
 		r.Error(err)
@@ -588,7 +588,7 @@ func TestHolderBinding(t *testing.T) {
 		sdJWT, err := buildJWS(signer, claims)
 		r.NoError(err)
 
-		cfpWithInvalidCNF := sdJWT + common.DisclosureSeparator + cfp.HolderBinding
+		cfpWithInvalidCNF := sdJWT + common.CombinedFormatSeparator + cfp.HolderBinding
 
 		verifiedClaims, err := Parse(cfpWithInvalidCNF, WithSignatureVerifier(signatureVerifier))
 		r.Error(err)
@@ -622,7 +622,7 @@ func TestHolderBinding(t *testing.T) {
 		sdJWT, err := buildJWS(signer, claims)
 		r.NoError(err)
 
-		cfpWithInvalidCNF := sdJWT + common.DisclosureSeparator + cfp.HolderBinding
+		cfpWithInvalidCNF := sdJWT + common.CombinedFormatSeparator + cfp.HolderBinding
 
 		verifiedClaims, err := Parse(cfpWithInvalidCNF, WithSignatureVerifier(signatureVerifier))
 		r.Error(err)
@@ -660,7 +660,7 @@ func TestHolderBinding(t *testing.T) {
 		sdJWT, err := buildJWS(signer, claims)
 		r.NoError(err)
 
-		cfpWithInvalidCNF := sdJWT + common.DisclosureSeparator + cfp.HolderBinding
+		cfpWithInvalidCNF := sdJWT + common.CombinedFormatSeparator + cfp.HolderBinding
 
 		verifiedClaims, err := Parse(cfpWithInvalidCNF, WithSignatureVerifier(signatureVerifier))
 		r.Error(err)

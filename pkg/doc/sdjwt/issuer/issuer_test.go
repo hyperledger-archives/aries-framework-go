@@ -247,7 +247,7 @@ func TestNew(t *testing.T) {
 		r.Nil(token)
 
 		r.Contains(err.Error(),
-			"unmarshallable claims: marshal interface[*common.Payload]: json: error calling MarshalJSON for type *jwk.JWK: go-jose/go-jose: unknown key type 'string'") //nolint:lll
+			"unmarshallable claims: marshal interface[*issuer.payload]: json: error calling MarshalJSON for type *jwk.JWK: go-jose/go-jose: unknown key type 'string'") //nolint:lll
 	})
 
 	t.Run("error - create decoy disclosures failed", func(t *testing.T) {
