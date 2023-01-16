@@ -287,7 +287,7 @@ func PayloadToMap(i interface{}) (map[string]interface{}, error) {
 	default:
 		b, err = json.Marshal(i)
 		if err != nil {
-			return nil, fmt.Errorf("convert to bytes: ")
+			return nil, fmt.Errorf("marshal interface[%T]: %w", i, err)
 		}
 	}
 

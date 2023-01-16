@@ -13,7 +13,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/common"
 	"strings"
 	"testing"
 	"time"
@@ -21,13 +20,20 @@ import (
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	afjose "github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
 	afjwt "github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/common"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/holder"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/issuer"
 )
 
 const (
 	testIssuer = "https://example.com/issuer"
+
+	testAudience = "https://test.com/verifier"
+	testNonce    = "nonce"
+	testSDAlg    = "sha-256"
 )
 
 func TestParse(t *testing.T) {
@@ -101,10 +107,10 @@ func TestParse(t *testing.T) {
 	t.Run("error - signing algorithm not supported", func(t *testing.T) {
 		claims, err := Parse(combinedFormatForPresentation,
 			WithSignatureVerifier(verifier),
-			WithSigningAlgorithms([]string{}))
+			WithIssuerSigningAlgorithms([]string{}))
 		r.Error(err)
 		require.Nil(t, claims)
-		require.Equal(t, err.Error(), "alg 'EdDSA' is not in the allowed list")
+		require.Equal(t, err.Error(), "failed to verify issuer signing algorithm: alg 'EdDSA' is not in the allowed list")
 	})
 
 	t.Run("error - additional disclosure", func(t *testing.T) {
@@ -126,7 +132,7 @@ func TestParse(t *testing.T) {
 	})
 
 	t.Run("success - with detached payload", func(t *testing.T) {
-		jwsParts := strings.Split(combinedFormatForIssuance, ".")
+		jwsParts := strings.Split(combinedFormatForPresentation, ".")
 		jwsDetached := fmt.Sprintf("%s..%s", jwsParts[0], jwsParts[2])
 
 		jwsPayload, err := base64.RawURLEncoding.DecodeString(jwsParts[1])
@@ -162,7 +168,7 @@ func TestParse(t *testing.T) {
 		claims, err := Parse(cfi, WithSignatureVerifier(verifier))
 		r.Error(err)
 		r.Contains(err.Error(),
-			"failed to validate SD-JWT time values: go-jose/go-jose/jwt: validation field, token issued in the future (iat)")
+			"invalid JWT time values: go-jose/go-jose/jwt: validation field, token issued in the future (iat)")
 		r.Nil(claims)
 	})
 
@@ -181,7 +187,7 @@ func TestParse(t *testing.T) {
 		claims, err := Parse(cfPresentation, WithSignatureVerifier(verifier))
 		r.Error(err)
 		r.Contains(err.Error(),
-			"failed to validate SD-JWT time values: go-jose/go-jose/jwt: validation failed, token not valid yet (nbf)")
+			"invalid JWT time values: go-jose/go-jose/jwt: validation failed, token not valid yet (nbf)")
 		r.Nil(claims)
 	})
 
@@ -200,8 +206,468 @@ func TestParse(t *testing.T) {
 		claims, err := Parse(cfPresentation, WithSignatureVerifier(verifier))
 		r.Error(err)
 		r.Contains(err.Error(),
-			"failed to validate SD-JWT time values: go-jose/go-jose/jwt: validation failed, token is expired (exp)")
+			"invalid JWT time values: go-jose/go-jose/jwt: validation failed, token is expired (exp)")
 		r.Nil(claims)
+	})
+}
+
+func TestHolderBinding(t *testing.T) {
+	r := require.New(t)
+
+	issuerPubKey, issuerPrivateKey, e := ed25519.GenerateKey(rand.Reader)
+	r.NoError(e)
+
+	signer := afjwt.NewEd25519Signer(issuerPrivateKey)
+
+	signatureVerifier, e := afjwt.NewEd25519Verifier(issuerPubKey)
+	r.NoError(e)
+
+	claims := map[string]interface{}{
+		"given_name": "Albert",
+		"last_name":  "Smith",
+	}
+
+	holderPubKey, holderPrivKey, e := ed25519.GenerateKey(rand.Reader)
+	r.NoError(e)
+
+	holderPublicJWK, e := jwksupport.JWKFromKey(holderPubKey)
+	require.NoError(t, e)
+
+	token, e := issuer.New(testIssuer, claims, nil, signer,
+		issuer.WithHolderPublicKey(holderPublicJWK))
+	r.NoError(e)
+
+	combinedFormatForIssuance, e := token.Serialize(false)
+	r.NoError(e)
+
+	_, e = holder.Parse(combinedFormatForIssuance, holder.WithSignatureVerifier(signatureVerifier))
+	r.NoError(e)
+
+	holderSigner := afjwt.NewEd25519Signer(holderPrivKey)
+
+	t.Run("success - with holder binding", func(t *testing.T) {
+		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"},
+			holder.WithHolderBinding(&holder.BindingInfo{
+				Payload: holder.BindingPayload{
+					Nonce:    testNonce,
+					Audience: testAudience,
+					IssuedAt: jwt.NewNumericDate(time.Now()),
+				},
+				Signer: holderSigner,
+			}))
+		r.NoError(err)
+
+		verifiedClaims, err := Parse(combinedFormatForPresentation,
+			WithSignatureVerifier(signatureVerifier),
+			WithExpectedAudienceForHolderBinding(testAudience),
+			WithExpectedNonceForHolderBinding(testNonce))
+		r.NoError(err)
+
+		// expected claims cnf, iss, exp, iat, nbf, given_name; last_name was not disclosed
+		r.Equal(6, len(verifiedClaims))
+	})
+
+	t.Run("success - with holder binding; expected nonce and audience not specified", func(t *testing.T) {
+		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"},
+			holder.WithHolderBinding(&holder.BindingInfo{
+				Payload: holder.BindingPayload{
+					Nonce:    testNonce,
+					Audience: testAudience,
+					IssuedAt: jwt.NewNumericDate(time.Now()),
+				},
+				Signer: holderSigner,
+			}))
+		r.NoError(err)
+
+		verifiedClaims, err := Parse(combinedFormatForPresentation,
+			WithSignatureVerifier(signatureVerifier),
+			WithHolderBindingRequired(true))
+		r.NoError(err)
+
+		// expected claims cnf, iss, exp, iat, nbf, given_name; last_name was not disclosed
+		r.Equal(6, len(verifiedClaims))
+	})
+
+	t.Run("success - with holder binding (required)", func(t *testing.T) {
+		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"},
+			holder.WithHolderBinding(&holder.BindingInfo{
+				Payload: holder.BindingPayload{
+					Nonce:    testNonce,
+					Audience: testAudience,
+					IssuedAt: jwt.NewNumericDate(time.Now()),
+				},
+				Signer: holderSigner,
+			}))
+		r.NoError(err)
+
+		// Verifier will validate combined format for presentation and create verified claims.
+		verifiedClaims, err := Parse(combinedFormatForPresentation,
+			WithSignatureVerifier(signatureVerifier),
+			WithHolderBindingRequired(true),
+			WithExpectedAudienceForHolderBinding(testAudience),
+			WithExpectedNonceForHolderBinding(testNonce))
+		r.NoError(err)
+
+		// expected claims cnf, iss, exp, iat, nbf, given_name; last_name was not disclosed
+		r.Equal(6, len(verifiedClaims))
+	})
+
+	t.Run("error - holder binding required, however not provided by the holder", func(t *testing.T) {
+		// holder will not issue holder binding
+		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"})
+		r.NoError(err)
+
+		// Verifier will validate combined format for presentation and create verified claims.
+		verifiedClaims, err := Parse(combinedFormatForPresentation,
+			WithSignatureVerifier(signatureVerifier),
+			WithHolderBindingRequired(true),
+			WithExpectedAudienceForHolderBinding(testAudience),
+			WithExpectedNonceForHolderBinding(testNonce))
+		r.Error(err)
+		r.Nil(verifiedClaims)
+
+		r.Contains(err.Error(), "failed to verify holder binding: holder binding is required")
+	})
+
+	t.Run("error - holder signature is not matching holder public key in SD-JWT", func(t *testing.T) {
+		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"},
+			holder.WithHolderBinding(&holder.BindingInfo{
+				Payload: holder.BindingPayload{
+					Nonce:    testNonce,
+					Audience: testAudience,
+					IssuedAt: jwt.NewNumericDate(time.Now()),
+				},
+				Signer: signer, // should have been holder signer; on purpose sign holder binding with wrong signer
+			}))
+		r.NoError(err)
+
+		verifiedClaims, err := Parse(combinedFormatForPresentation,
+			WithSignatureVerifier(signatureVerifier),
+			WithExpectedAudienceForHolderBinding(testAudience),
+			WithExpectedNonceForHolderBinding(testNonce))
+		r.Error(err)
+		r.Nil(verifiedClaims)
+
+		r.Contains(err.Error(),
+			"failed to verify holder binding: failed to parse holder binding: parse JWT from compact JWS: ed25519: invalid signature") // nolint:lll
+	})
+
+	t.Run("error - invalid holder binding JWT provided by the holder", func(t *testing.T) {
+		// holder will not issue holder binding
+		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"})
+		r.NoError(err)
+
+		// add fake holder binding
+		combinedFormatForPresentation += "invalid-holder-jwt"
+
+		// Verifier will validate combined format for presentation and create verified claims.
+		verifiedClaims, err := Parse(combinedFormatForPresentation,
+			WithSignatureVerifier(signatureVerifier),
+			WithExpectedAudienceForHolderBinding(testAudience),
+			WithExpectedNonceForHolderBinding(testNonce))
+		r.Error(err)
+		r.Nil(verifiedClaims)
+
+		r.Contains(err.Error(),
+			"failed to verify holder binding: failed to parse holder binding: JWT of compacted JWS form is supported only")
+	})
+
+	t.Run("error - holder signature algorithm not supported", func(t *testing.T) {
+		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"},
+			holder.WithHolderBinding(&holder.BindingInfo{
+				Payload: holder.BindingPayload{
+					Nonce:    testNonce,
+					Audience: testAudience,
+					IssuedAt: jwt.NewNumericDate(time.Now()),
+				},
+				Signer: holderSigner,
+			}))
+		r.NoError(err)
+
+		// Verifier will validate combined format for presentation and create verified claims.
+		verifiedClaims, err := Parse(combinedFormatForPresentation,
+			WithSignatureVerifier(signatureVerifier),
+			WithHolderBindingRequired(true),
+			WithExpectedAudienceForHolderBinding(testAudience),
+			WithExpectedNonceForHolderBinding(testNonce),
+			WithHolderSigningAlgorithms([]string{}))
+		r.Error(err)
+		r.Nil(verifiedClaims)
+
+		r.Contains(err.Error(),
+			"failed to verify holder binding: failed to verify holder JWT: failed to verify holder signing algorithm: alg 'EdDSA'") //nolint:lll
+	})
+
+	t.Run("error - invalid iat for holder binding", func(t *testing.T) {
+		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"},
+			holder.WithHolderBinding(&holder.BindingInfo{
+				Payload: holder.BindingPayload{
+					Nonce:    "different",
+					Audience: testAudience,
+					IssuedAt: jwt.NewNumericDate(time.Now().AddDate(1, 0, 0)), // in future
+				},
+				Signer: holderSigner,
+			}))
+		r.NoError(err)
+
+		verifiedClaims, err := Parse(combinedFormatForPresentation,
+			WithSignatureVerifier(signatureVerifier),
+			WithExpectedAudienceForHolderBinding(testAudience),
+			WithExpectedNonceForHolderBinding(testNonce))
+		r.Error(err)
+		r.Nil(verifiedClaims)
+
+		r.Contains(err.Error(),
+			"failed to verify holder binding: failed to verify holder JWT: invalid JWT time values: go-jose/go-jose/jwt: validation field, token issued in the future (iat)") //nolint:lll
+	})
+
+	t.Run("error - unexpected nonce for holder binding", func(t *testing.T) {
+		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"},
+			holder.WithHolderBinding(&holder.BindingInfo{
+				Payload: holder.BindingPayload{
+					Nonce:    "different",
+					Audience: testAudience,
+					IssuedAt: jwt.NewNumericDate(time.Now()),
+				},
+				Signer: holderSigner,
+			}))
+		r.NoError(err)
+
+		verifiedClaims, err := Parse(combinedFormatForPresentation,
+			WithSignatureVerifier(signatureVerifier),
+			WithExpectedAudienceForHolderBinding(testAudience),
+			WithExpectedNonceForHolderBinding(testNonce))
+		r.Error(err)
+		r.Nil(verifiedClaims)
+
+		r.Contains(err.Error(),
+			"failed to verify holder binding: failed to verify holder JWT: nonce value 'different' does not match expected nonce value 'nonce'") //nolint:lll
+	})
+
+	t.Run("error - unexpected audience for holder binding", func(t *testing.T) {
+		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"},
+			holder.WithHolderBinding(&holder.BindingInfo{
+				Payload: holder.BindingPayload{
+					Nonce:    testNonce,
+					Audience: "different",
+					IssuedAt: jwt.NewNumericDate(time.Now()),
+				},
+				Signer: holderSigner,
+			}))
+		r.NoError(err)
+
+		verifiedClaims, err := Parse(combinedFormatForPresentation,
+			WithSignatureVerifier(signatureVerifier),
+			WithExpectedAudienceForHolderBinding(testAudience),
+			WithExpectedNonceForHolderBinding(testNonce))
+		r.Error(err)
+		r.Nil(verifiedClaims)
+
+		r.Contains(err.Error(),
+			"failed to verify holder binding: failed to verify holder JWT: audience value 'different' does not match expected audience value 'https://test.com/verifier'") //nolint:lll
+	})
+
+	t.Run("error - holder binding provided, however cnf claim not in SD-JWT", func(t *testing.T) {
+		tokenWithoutHolderPublicKey, err := issuer.New(testIssuer, claims, nil, signer)
+		r.NoError(err)
+
+		cfiWithoutHolderPublicKey, err := tokenWithoutHolderPublicKey.Serialize(false)
+		r.NoError(err)
+
+		_, err = holder.Parse(cfiWithoutHolderPublicKey, holder.WithSignatureVerifier(signatureVerifier))
+		r.NoError(err)
+
+		combinedFormatForPresentation, err := holder.DiscloseClaims(cfiWithoutHolderPublicKey, []string{"given_name"},
+			holder.WithHolderBinding(&holder.BindingInfo{
+				Payload: holder.BindingPayload{
+					Nonce:    testNonce,
+					Audience: testAudience,
+					IssuedAt: jwt.NewNumericDate(time.Now()),
+				},
+				Signer: holderSigner,
+			}))
+		r.NoError(err)
+
+		verifiedClaims, err := Parse(combinedFormatForPresentation,
+			WithSignatureVerifier(signatureVerifier),
+			WithExpectedAudienceForHolderBinding(testAudience),
+			WithExpectedNonceForHolderBinding(testNonce))
+		r.Error(err)
+		r.Nil(verifiedClaims)
+
+		r.Contains(err.Error(),
+			"failed to verify holder binding: failed to get signature verifier from presentation claims: cnf must be present in SD-JWT") //nolint:lll
+	})
+
+	t.Run("error - holder binding provided, however cnf is not an object", func(t *testing.T) {
+		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"},
+			holder.WithHolderBinding(&holder.BindingInfo{
+				Payload: holder.BindingPayload{
+					Nonce:    testNonce,
+					Audience: testAudience,
+					IssuedAt: jwt.NewNumericDate(time.Now()),
+				},
+				Signer: holderSigner,
+			}))
+		r.NoError(err)
+
+		cfp := common.ParseCombinedFormatForPresentation(combinedFormatForPresentation)
+
+		claims := make(map[string]interface{})
+		claims["cnf"] = "abc"
+		claims["_sd_alg"] = testSDAlg // TODO: Should alg be mandatory if there are no selective disclosures
+
+		sdJWT, err := buildJWS(signer, claims)
+		r.NoError(err)
+
+		cfpWithInvalidCNF := sdJWT + common.DisclosureSeparator + cfp.HolderBinding
+
+		verifiedClaims, err := Parse(cfpWithInvalidCNF, WithSignatureVerifier(signatureVerifier))
+		r.Error(err)
+		r.Nil(verifiedClaims)
+
+		r.Contains(err.Error(),
+			"failed to verify holder binding: failed to get signature verifier from presentation claims: cnf must be an object") // nolint:lll
+	})
+
+	t.Run("error - holder binding provided, cnf is missing jwk", func(t *testing.T) {
+		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"},
+			holder.WithHolderBinding(&holder.BindingInfo{
+				Payload: holder.BindingPayload{
+					Nonce:    testNonce,
+					Audience: testAudience,
+					IssuedAt: jwt.NewNumericDate(time.Now()),
+				},
+				Signer: holderSigner,
+			}))
+		r.NoError(err)
+
+		cfp := common.ParseCombinedFormatForPresentation(combinedFormatForPresentation)
+
+		cnf := make(map[string]interface{})
+		cnf["test"] = "test"
+
+		claims := make(map[string]interface{})
+		claims["cnf"] = cnf
+		claims["_sd_alg"] = testSDAlg
+
+		sdJWT, err := buildJWS(signer, claims)
+		r.NoError(err)
+
+		cfpWithInvalidCNF := sdJWT + common.DisclosureSeparator + cfp.HolderBinding
+
+		verifiedClaims, err := Parse(cfpWithInvalidCNF, WithSignatureVerifier(signatureVerifier))
+		r.Error(err)
+		r.Nil(verifiedClaims)
+
+		r.Contains(err.Error(),
+			"failed to verify holder binding: failed to get signature verifier from presentation claims: jwk must be present in cnf") // nolint:lll
+	})
+
+	t.Run("error - holder binding provided, invalid jwk in cnf", func(t *testing.T) {
+		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"},
+			holder.WithHolderBinding(&holder.BindingInfo{
+				Payload: holder.BindingPayload{
+					Nonce:    testNonce,
+					Audience: testAudience,
+					IssuedAt: jwt.NewNumericDate(time.Now()),
+				},
+				Signer: holderSigner,
+			}))
+		r.NoError(err)
+
+		cfp := common.ParseCombinedFormatForPresentation(combinedFormatForPresentation)
+
+		cnf := make(map[string]interface{})
+		cnf["jwk"] = make(map[string]interface{})
+
+		claims := make(map[string]interface{})
+		claims["cnf"] = cnf
+		claims["_sd_alg"] = testSDAlg
+
+		sdJWT, err := buildJWS(signer, claims)
+		r.NoError(err)
+
+		cfpWithInvalidCNF := sdJWT + common.DisclosureSeparator + cfp.HolderBinding
+
+		verifiedClaims, err := Parse(cfpWithInvalidCNF, WithSignatureVerifier(signatureVerifier))
+		r.Error(err)
+		r.Nil(verifiedClaims)
+
+		r.Contains(err.Error(),
+			"failed to verify holder binding: failed to get signature verifier from presentation claims: unmarshal jwk: unable to read jose JWK, go-jose/go-jose: unknown json web key type ''") // nolint:lll
+	})
+
+	t.Run("error - holder binding provided, invalid jwk in cnf", func(t *testing.T) {
+		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"},
+			holder.WithHolderBinding(&holder.BindingInfo{
+				Payload: holder.BindingPayload{
+					Nonce:    testNonce,
+					Audience: testAudience,
+					IssuedAt: jwt.NewNumericDate(time.Now()),
+				},
+				Signer: holderSigner,
+			}))
+		r.NoError(err)
+
+		cfp := common.ParseCombinedFormatForPresentation(combinedFormatForPresentation)
+
+		cnf := make(map[string]interface{})
+		cnf["jwk"] = make(map[string]interface{})
+
+		claims := make(map[string]interface{})
+		claims["cnf"] = cnf
+		claims["_sd_alg"] = testSDAlg
+
+		sdJWT, err := buildJWS(signer, claims)
+		r.NoError(err)
+
+		cfpWithInvalidCNF := sdJWT + common.DisclosureSeparator + cfp.HolderBinding
+
+		verifiedClaims, err := Parse(cfpWithInvalidCNF, WithSignatureVerifier(signatureVerifier))
+		r.Error(err)
+		r.Nil(verifiedClaims)
+
+		r.Contains(err.Error(),
+			"failed to verify holder binding: failed to get signature verifier from presentation claims: unmarshal jwk: unable to read jose JWK, go-jose/go-jose: unknown json web key type ''") // nolint:lll
+	})
+
+	t.Run("error - holder binding provided with EdDSA, jwk in cnf is RSA", func(t *testing.T) {
+		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"},
+			holder.WithHolderBinding(&holder.BindingInfo{
+				Payload: holder.BindingPayload{
+					Nonce:    testNonce,
+					Audience: testAudience,
+					IssuedAt: jwt.NewNumericDate(time.Now()),
+				},
+				Signer: holderSigner,
+			}))
+		r.NoError(err)
+
+		cfp := common.ParseCombinedFormatForPresentation(combinedFormatForPresentation)
+
+		claims := make(map[string]interface{})
+		claims["cnf"] = map[string]interface{}{
+			"jwk": map[string]interface{}{
+				"kty": "RSA",
+				"e":   "AQAB",
+				"n":   "pm4bOHBg-oYhAyPWzR56AWX3rUIXp11",
+			},
+		}
+
+		claims["_sd_alg"] = testSDAlg
+
+		sdJWT, err := buildJWS(signer, claims)
+		r.NoError(err)
+
+		cfpWithInvalidCNF := sdJWT + common.DisclosureSeparator + cfp.HolderBinding
+
+		verifiedClaims, err := Parse(cfpWithInvalidCNF, WithSignatureVerifier(signatureVerifier))
+		r.Error(err)
+		r.Nil(verifiedClaims)
+
+		r.Contains(err.Error(),
+			"failed to verify holder binding: failed to parse holder binding: parse JWT from compact JWS: no verifier found for EdDSA algorithm") // nolint:lll
 	})
 }
 
@@ -209,21 +675,21 @@ func TestVerifySigningAlgorithm(t *testing.T) {
 	r := require.New(t)
 
 	t.Run("success - EdDSA signing algorithm", func(t *testing.T) {
-		headers := make(jose.Headers)
+		headers := make(afjose.Headers)
 		headers["alg"] = "EdDSA"
 		err := verifySigningAlg(headers, []string{"EdDSA"})
 		r.NoError(err)
 	})
 
 	t.Run("error - signing algorithm can not be empty", func(t *testing.T) {
-		headers := make(jose.Headers)
+		headers := make(afjose.Headers)
 		err := verifySigningAlg(headers, []string{"RS256"})
 		r.Error(err)
 		r.Contains(err.Error(), "missing alg")
 	})
 
 	t.Run("success - EdDSA signing algorithm not in allowed list", func(t *testing.T) {
-		headers := make(jose.Headers)
+		headers := make(afjose.Headers)
 		headers["alg"] = "EdDSA"
 		err := verifySigningAlg(headers, []string{"RS256"})
 		r.Error(err)
@@ -231,7 +697,7 @@ func TestVerifySigningAlgorithm(t *testing.T) {
 	})
 
 	t.Run("error - signing algorithm can not be none", func(t *testing.T) {
-		headers := make(jose.Headers)
+		headers := make(afjose.Headers)
 		headers["alg"] = "none"
 		err := verifySigningAlg(headers, []string{"RS256"})
 		r.Error(err)
@@ -276,13 +742,13 @@ func TestWithJWTDetachedPayload(t *testing.T) {
 	require.Equal(t, []byte("payload"), opts.detachedPayload)
 }
 
-func buildJWS(signer jose.Signer, claims interface{}) (string, error) {
+func buildJWS(signer afjose.Signer, claims interface{}) (string, error) {
 	claimsBytes, err := json.Marshal(claims)
 	if err != nil {
 		return "", err
 	}
 
-	jws, err := jose.NewJWS(nil, nil, claimsBytes, signer)
+	jws, err := afjose.NewJWS(nil, nil, claimsBytes, signer)
 	if err != nil {
 		return "", err
 	}
