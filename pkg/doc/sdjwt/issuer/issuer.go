@@ -182,14 +182,14 @@ func New(issuer string, claims interface{}, headers jose.Headers,
 	return &SelectiveDisclosureJWT{Disclosures: disclosures, SignedJWT: signedJWT}, nil
 }
 
-func createPayload(issuer string, digests []string, nOpts *newOpts) *common.Payload {
+func createPayload(issuer string, digests []string, nOpts *newOpts) *payload {
 	var cnf map[string]interface{}
 	if nOpts.HolderPublicKey != nil {
 		cnf = make(map[string]interface{})
 		cnf["jwk"] = nOpts.HolderPublicKey
 	}
 
-	payload := &common.Payload{
+	payload := &payload{
 		Issuer:    issuer,
 		ID:        nOpts.ID,
 		Subject:   nOpts.Subject,
@@ -320,4 +320,20 @@ func generateSalt() (string, error) {
 
 	// it is RECOMMENDED to base64url-encode the salt value, producing a string.
 	return base64.RawURLEncoding.EncodeToString(salt), nil
+}
+
+// payload represents SD-JWT payload.
+type payload struct {
+	Issuer  string `json:"iss,omitempty"`
+	Subject string `json:"sub,omitempty"`
+	ID      string `json:"jti,omitempty"`
+
+	Expiry    *jwt.NumericDate `json:"exp,omitempty"`
+	NotBefore *jwt.NumericDate `json:"nbf,omitempty"`
+	IssuedAt  *jwt.NumericDate `json:"iat,omitempty"`
+
+	CNF map[string]interface{} `json:"cnf,omitempty"`
+
+	SD    []string `json:"_sd,omitempty"`
+	SDAlg string   `json:"_sd_alg,omitempty"`
 }

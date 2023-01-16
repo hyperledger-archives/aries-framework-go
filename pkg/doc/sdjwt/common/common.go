@@ -13,14 +13,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-jose/go-jose/v3/jwt"
-
 	afgjwt "github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 )
 
-// DisclosureSeparator is disclosure separator.
+// CombinedFormatSeparator is disclosure separator.
 const (
-	DisclosureSeparator = "~"
+	CombinedFormatSeparator = "~"
 
 	SDAlgorithmKey = "_sd_alg"
 	SDKey          = "_sd"
@@ -30,22 +28,6 @@ const (
 	nameIndex       = 1
 	valueIndex      = 2
 )
-
-// Payload represents SD-JWT payload.
-type Payload struct {
-	Issuer  string `json:"iss,omitempty"`
-	Subject string `json:"sub,omitempty"`
-	ID      string `json:"jti,omitempty"`
-
-	Expiry    *jwt.NumericDate `json:"exp,omitempty"`
-	NotBefore *jwt.NumericDate `json:"nbf,omitempty"`
-	IssuedAt  *jwt.NumericDate `json:"iat,omitempty"`
-
-	CNF map[string]interface{} `json:"cnf,omitempty"`
-
-	SD    []string `json:"_sd,omitempty"`
-	SDAlg string   `json:"_sd_alg,omitempty"`
-}
 
 // CombinedFormatForIssuance holds SD-JWT and disclosures.
 type CombinedFormatForIssuance struct {
@@ -57,7 +39,7 @@ type CombinedFormatForIssuance struct {
 func (cf *CombinedFormatForIssuance) Serialize() string {
 	presentation := cf.SDJWT
 	for _, disclosure := range cf.Disclosures {
-		presentation += DisclosureSeparator + disclosure
+		presentation += CombinedFormatSeparator + disclosure
 	}
 
 	return presentation
@@ -74,11 +56,11 @@ type CombinedFormatForPresentation struct {
 func (cf *CombinedFormatForPresentation) Serialize() string {
 	presentation := cf.SDJWT
 	for _, disclosure := range cf.Disclosures {
-		presentation += DisclosureSeparator + disclosure
+		presentation += CombinedFormatSeparator + disclosure
 	}
 
 	if len(cf.Disclosures) > 0 || cf.HolderBinding != "" {
-		presentation += DisclosureSeparator
+		presentation += CombinedFormatSeparator
 	}
 
 	presentation += cf.HolderBinding
@@ -144,7 +126,7 @@ func getDisclosureClaim(disclosure string) (*DisclosureClaim, error) {
 
 // ParseCombinedFormatForIssuance parses combined format for issuance into CombinedFormatForIssuance parts.
 func ParseCombinedFormatForIssuance(combinedFormatForIssuance string) *CombinedFormatForIssuance {
-	parts := strings.Split(combinedFormatForIssuance, DisclosureSeparator)
+	parts := strings.Split(combinedFormatForIssuance, CombinedFormatSeparator)
 
 	var disclosures []string
 	if len(parts) > 1 {
@@ -158,7 +140,7 @@ func ParseCombinedFormatForIssuance(combinedFormatForIssuance string) *CombinedF
 
 // ParseCombinedFormatForPresentation parses combined format for presentation into CombinedFormatForPresentation parts.
 func ParseCombinedFormatForPresentation(combinedFormatForPresentation string) *CombinedFormatForPresentation {
-	parts := strings.Split(combinedFormatForPresentation, DisclosureSeparator)
+	parts := strings.Split(combinedFormatForPresentation, CombinedFormatSeparator)
 
 	var disclosures []string
 	if len(parts) > 2 {
