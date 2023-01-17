@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package verifier
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
@@ -718,18 +719,20 @@ func TestGetVerifiedPayload(t *testing.T) {
 	r.NoError(e)
 
 	t.Run("success", func(t *testing.T) {
-		claims, err := getVerifiedPayload(token.Disclosures, token.SignedJWT)
+		claims, err := getDisclosedClaims(token.Disclosures, token.SignedJWT)
 		r.NoError(err)
 		r.NotNil(claims)
 		r.Equal(5, len(claims))
+
+		printObject(t, "Disclosed Claims", claims)
 	})
 
 	t.Run("error - invalid disclosure(not encoded)", func(t *testing.T) {
-		claims, err := getVerifiedPayload([]string{"xyz"}, token.SignedJWT)
+		claims, err := getDisclosedClaims([]string{"xyz"}, token.SignedJWT)
 		r.Error(err)
 		r.Nil(claims)
 		r.Contains(err.Error(),
-			"failed to get verified claims: failed to unmarshal disclosure array: invalid character")
+			"failed to get verified payload: failed to unmarshal disclosure array: invalid character")
 	})
 }
 
@@ -754,6 +757,30 @@ func buildJWS(signer afjose.Signer, claims interface{}) (string, error) {
 	}
 
 	return jws.SerializeCompact(false)
+}
+
+func printObject(t *testing.T, name string, obj interface{}) {
+	t.Helper()
+
+	parsedClaimsBytes, err := json.Marshal(obj)
+	require.NoError(t, err)
+
+	prettyJSON, err := prettyPrint(parsedClaimsBytes)
+	require.NoError(t, err)
+
+	fmt.Println(name + ":")
+	fmt.Println(prettyJSON)
+}
+
+func prettyPrint(msg []byte) (string, error) {
+	var prettyJSON bytes.Buffer
+
+	err := json.Indent(&prettyJSON, msg, "", "\t")
+	if err != nil {
+		return "", err
+	}
+
+	return prettyJSON.String(), nil
 }
 
 const additionalDisclosure = `WyIzanFjYjY3ejl3a3MwOHp3aUs3RXlRIiwgImdpdmVuX25hbWUiLCAiSm9obiJd`

@@ -70,6 +70,21 @@ func TestParse(t *testing.T) {
 		require.Equal(t, 7, len(claims))
 	})
 
+	t.Run("success - complex claims", func(t *testing.T) {
+		complexClaims := createComplexClaims()
+
+		token, e := issuer.New(testIssuer, complexClaims, nil, signer,
+			issuer.WithStructuredClaims(true))
+		r.NoError(e)
+		cfi, e := token.Serialize(false)
+		r.NoError(e)
+
+		claims, err := Parse(cfi, WithSignatureVerifier(verifier))
+		r.NoError(err)
+		r.NotNil(claims)
+		r.Equal(10, len(claims))
+	})
+
 	t.Run("error - additional disclosure", func(t *testing.T) {
 		claims, err := Parse(fmt.Sprintf("%s~%s", combinedFormatForIssuance, additionalDisclosure),
 			WithSignatureVerifier(verifier))
@@ -246,6 +261,25 @@ func (m *mockSigner) Headers() jose.Headers {
 	headers["alg"] = "EdDSA"
 
 	return headers
+}
+
+func createComplexClaims() map[string]interface{} {
+	claims := map[string]interface{}{
+		"sub":          "john_doe_42",
+		"given_name":   "John",
+		"family_name":  "Doe",
+		"email":        "johndoe@example.com",
+		"phone_number": "+1-202-555-0101",
+		"birthdate":    "1940-01-01",
+		"address": map[string]interface{}{
+			"street_address": "123 Main St",
+			"locality":       "Anytown",
+			"region":         "Anystate",
+			"country":        "US",
+		},
+	}
+
+	return claims
 }
 
 // nolint: lll

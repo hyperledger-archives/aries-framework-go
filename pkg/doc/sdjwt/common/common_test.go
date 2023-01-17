@@ -116,6 +116,17 @@ func TestParseCombinedFormatForPresentation(t *testing.T) {
 
 		require.Equal(t, testCFI, cfp.Serialize())
 	})
+
+	t.Run("success - SD-JWT + multiple disclosures only", func(t *testing.T) {
+		specExample2bPresentation := fmt.Sprintf("%s%s", specExample2bJWT, specExample2bDisclosures)
+
+		cfp := ParseCombinedFormatForPresentation(specExample2bPresentation)
+		require.Equal(t, specExample2bJWT, cfp.SDJWT)
+		require.Equal(t, 6, len(cfp.Disclosures))
+		require.Empty(t, cfp.HolderBinding)
+
+		require.Equal(t, specExample2bPresentation, cfp.Serialize())
+	})
 }
 
 func TestVerifyDisclosuresInSDJWT(t *testing.T) {
@@ -129,6 +140,18 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuance)
 		require.Equal(t, 1, len(sdJWT.Disclosures))
+
+		signedJWT, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		require.NoError(t, err)
+
+		err = VerifyDisclosuresInSDJWT(sdJWT.Disclosures, signedJWT)
+		r.NoError(err)
+	})
+
+	t.Run("success - complex struct(spec example 2b)", func(t *testing.T) {
+		specExample2bPresentation := fmt.Sprintf("%s%s", specExample2bJWT, specExample2bDisclosures)
+
+		sdJWT := ParseCombinedFormatForPresentation(specExample2bPresentation)
 
 		signedJWT, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
 		require.NoError(t, err)
@@ -237,7 +260,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
 		r.NoError(err)
 
-		err = VerifyDisclosuresInSDJWT(nil, signedJWT)
+		err = VerifyDisclosuresInSDJWT([]string{additionalDisclosure}, signedJWT)
 		r.Error(err)
 		r.Contains(err.Error(), "get disclosure digests: entry type[string] is not an array")
 	})
@@ -250,7 +273,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
 		r.NoError(err)
 
-		err = VerifyDisclosuresInSDJWT(nil, signedJWT)
+		err = VerifyDisclosuresInSDJWT([]string{additionalDisclosure}, signedJWT)
 		r.Error(err)
 		r.Contains(err.Error(), "get disclosure digests: entry item type[float64] is not a string")
 	})
@@ -310,6 +333,119 @@ func TestGetDisclosureClaims(t *testing.T) {
 	})
 }
 
+func TestGetDisclosedClaims(t *testing.T) {
+	r := require.New(t)
+
+	cfi := ParseCombinedFormatForIssuance(testCombinedFormatForIssuance)
+	r.Equal(testSDJWT, cfi.SDJWT)
+	r.Equal(1, len(cfi.Disclosures))
+
+	disclosureClaims, err := GetDisclosureClaims(cfi.Disclosures)
+	r.NoError(err)
+
+	token, err := afjwt.Parse(cfi.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+	r.NoError(err)
+
+	var claims map[string]interface{}
+	err = token.DecodeClaims(&claims)
+	r.NoError(err)
+
+	t.Run("success", func(t *testing.T) {
+		disclosedClaims, err := GetDisclosedClaims(disclosureClaims, claims)
+		r.NoError(err)
+		r.NotNil(disclosedClaims)
+
+		r.Equal(5, len(disclosedClaims))
+		r.NotEmpty(disclosedClaims["iat"])
+		r.NotEmpty(disclosedClaims["nbf"])
+		r.NotEmpty(disclosedClaims["iss"])
+		r.Equal("https://example.com/issuer", disclosedClaims["iss"])
+		r.Equal("John", disclosedClaims["given_name"])
+	})
+
+	t.Run("success - with complex object", func(t *testing.T) {
+		testClaims := copyMap(claims)
+
+		parentObj := make(map[string]interface{})
+		parentObj["given_name"] = "Albert"
+		parentObj[SDKey] = claims[SDKey]
+
+		testClaims["father"] = parentObj
+
+		disclosedClaims, err := GetDisclosedClaims(disclosureClaims, testClaims)
+		r.NoError(err)
+		r.NotNil(disclosedClaims)
+
+		r.Equal(6, len(disclosedClaims))
+		r.Equal("John", disclosedClaims["given_name"])
+		r.Equal("John", disclosedClaims["father"].(map[string]interface{})["given_name"])
+	})
+
+	t.Run("error - with complex object", func(t *testing.T) {
+		testClaims := copyMap(claims)
+
+		parentObj := make(map[string]interface{})
+		parentObj["given_name"] = "Albert"
+		parentObj[SDKey] = []interface{}{0}
+
+		testClaims["father"] = parentObj
+
+		disclosedClaims, err := GetDisclosedClaims(disclosureClaims, testClaims)
+		r.Error(err)
+		r.Nil(disclosedClaims)
+
+		r.Contains(err.Error(),
+			"failed to process disclosed claims: get disclosure digests: entry item type[int] is not a string")
+	})
+
+	t.Run("error - no _sd_alg", func(t *testing.T) {
+		disclosedClaims, err := GetDisclosedClaims(disclosureClaims, make(map[string]interface{}))
+		r.Error(err)
+		r.Nil(disclosedClaims)
+
+		r.Contains(err.Error(),
+			"failed to get crypto hash from claims: _sd_alg must be present in SD-JWT")
+	})
+
+	t.Run("error - invalid _sd item", func(t *testing.T) {
+		testClaims := make(map[string]interface{})
+		testClaims[SDAlgorithmKey] = testAlg
+		testClaims[SDKey] = []interface{}{0}
+
+		disclosedClaims, err := GetDisclosedClaims(disclosureClaims, testClaims)
+		r.Error(err)
+		r.Nil(disclosedClaims)
+
+		r.Contains(err.Error(),
+			"failed to process disclosed claims: get disclosure digests: entry item type[int] is not a string")
+	})
+
+	t.Run("error - invalid _sd type", func(t *testing.T) {
+		testClaims := make(map[string]interface{})
+		testClaims[SDAlgorithmKey] = "sha-256"
+		testClaims[SDKey] = "not-array"
+
+		disclosedClaims, err := GetDisclosedClaims(disclosureClaims, testClaims)
+		r.Error(err)
+		r.Nil(disclosedClaims)
+
+		r.Contains(err.Error(),
+			"failed to process disclosed claims: get disclosure digests: entry type[string] is not an array")
+	})
+
+	t.Run("error - get hash fails", func(t *testing.T) {
+		testClaims := make(map[string]interface{})
+		testClaims[SDAlgorithmKey] = "sha-256"
+		testClaims[SDKey] = []interface{}{"abc"}
+
+		err := processDisclosedClaims(disclosureClaims, testClaims, 0)
+		r.Error(err)
+
+		r.Contains(err.Error(),
+			"hash function not available for: 0")
+	})
+}
+
 type NoopSignatureVerifier struct {
 }
 
@@ -335,3 +471,6 @@ type payload struct {
 
 	SDAlg string `json:"_sd_alg,omitempty"`
 }
+
+const specExample2bJWT = `eyJhbGciOiAiRVMyNTYifQ.eyJfc2QiOiBbIjBsa1NjS2ppSk1IZWRKZnE3c0pCN0hRM3FvbUdmckVMYm81Z1podktSV28iLCAiMWgyOWdnUWkxeG91LV9OalZ5eW9DaEsyYXN3VXRvMlVqQ2ZGLTFMYWhBOCIsICIzQ29MVUxtRHh4VXdfTGR5WUVUanVkdVh1RXBHdUJ5NHJYSG90dUQ0MFg0IiwgIkFJRHlveHgxaXB5NDUtR0ZwS2d2Yy1ISWJjVnJsTGxyWUxYbXgzZXYyZTQiLCAiT2x0aGZSb0ZkUy1KNlM4Mk9XbHJPNHBXaG9lUk1ySF9LR1BfaDZFYXBZUSIsICJyNGRicEdlZWlhMDJTeUdMNWdCZEhZMXc4SWhqVDN4eDA1UnNmeXlIVWs0Il0sICJhZGRyZXNzIjogeyJfc2QiOiBbIjZPS053bkdHS1dYQ0k5dWlqTkFzdjY0dTIyZUxTNHJNZExObGcxZnFKcDQiLCAiSEVWTWdELU5LSzVOdlhQYkFSb3JWZE9ESVRta1V5dU1wQ3NfbTdIWG5ZYyIsICJVcTAyblY3M0swYmRSSzIzcnphYm1uRGE0TzhZTlFadnQ5eDhMeWtva19ZIiwgIm94RlJpbG5vMjZVWWU3a3FNTTRiZHE4SXZOTXRJaTZGOHB0dC11aVBMYk0iXX0sICJpc3MiOiAiaHR0cHM6Ly9leGFtcGxlLmNvbS9pc3N1ZXIiLCAiaWF0IjogMTUxNjIzOTAyMiwgImV4cCI6IDE1MTYyNDcwMjIsICJfc2RfYWxnIjogInNoYS0yNTYifQ.M45AUExpi9THOTVIHfBmb2GL0WXJf4TeWB5QPmsxdBkj9pUcLOPR8YVafLIt8m_imYHTBYYcAyf7qSnquxMxGQ` // nolint:lll
+const specExample2bDisclosures = `~WyJSdHczZUFFUE5wWjIwTkhZSzNNRWNnIiwgImZhbWlseV9uYW1lIiwgIlx1NWM3MVx1NzUzMCJd~WyJicjgxenVSc0NUcXJuWEp4MHVqMkRRIiwgImdpdmVuX25hbWUiLCAiXHU1OTJhXHU5MGNlIl0~WyI1Z2NXRmxWSEM1VVEwbktrallybDlnIiwgImJpcnRoZGF0ZSIsICIxOTQwLTAxLTAxIl0~WyJJTms2bkx4WGFybDF4NmVabHdBOTV3IiwgImVtYWlsIiwgIlwidW51c3VhbCBlbWFpbCBhZGRyZXNzXCJAbmlob24uY29tIl0~WyJNOVY2N3V0UC1hTF9lR1B0UU5hM0RRIiwgInJlZ2lvbiIsICJcdTZlMmZcdTUzM2EiXQ~WyJzNFhNSmxXQ2Eza3hDWk4wSVVrbnlBIiwgImNvdW50cnkiLCAiSlAiXQ~`                                                                                                                                                                                                                                                                                                                                                                                                                                                             // nolint:lll
