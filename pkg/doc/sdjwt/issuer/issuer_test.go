@@ -39,6 +39,26 @@ const (
 func TestNew(t *testing.T) {
 	claims := createClaims()
 
+	t.Run("Create SD-JWT without signing", func(t *testing.T) {
+		r := require.New(t)
+
+		token, err := New(issuer, claims, nil, &unsecuredJWTSigner{})
+		r.NoError(err)
+		combinedFormatForIssuance, err := token.Serialize(false)
+		require.NoError(t, err)
+
+		cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
+		require.Equal(t, 1, len(cfi.Disclosures))
+
+		var payload map[string]interface{}
+		err = token.DecodeClaims(&payload)
+		r.NoError(err)
+
+		r.Len(payload[common.SDKey], 1)
+		r.Equal("sha-256", payload[common.SDAlgorithmKey])
+		r.Equal(issuer, payload["iss"])
+	})
+
 	t.Run("Create JWS signed by EdDSA", func(t *testing.T) {
 		r := require.New(t)
 
@@ -603,4 +623,16 @@ func prettyPrint(msg []byte) (string, error) {
 	}
 
 	return prettyJSON.String(), nil
+}
+
+type unsecuredJWTSigner struct{}
+
+func (s unsecuredJWTSigner) Sign(_ []byte) ([]byte, error) {
+	return []byte(""), nil
+}
+
+func (s unsecuredJWTSigner) Headers() afjose.Headers {
+	return map[string]interface{}{
+		afjose.HeaderAlgorithm: afjwt.AlgorithmNone,
+	}
 }
