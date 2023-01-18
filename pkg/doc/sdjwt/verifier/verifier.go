@@ -145,7 +145,7 @@ func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]i
 		return nil, fmt.Errorf("failed to verify holder binding: %w", err)
 	}
 
-	return getVerifiedPayload(cfp.Disclosures, signedJWT)
+	return getDisclosedClaims(cfp.Disclosures, signedJWT)
 }
 
 func verifyHolderBinding(sdJWT *afgjwt.JSONWebToken, holderBinding string, pOpts *parseOpts) error {
@@ -274,27 +274,25 @@ func getSignatureVerifierFromCNF(cnf map[string]interface{}) (jose.SignatureVeri
 	return signatureVerifier, nil
 }
 
-func getVerifiedPayload(disclosures []string, signedJWT *afgjwt.JSONWebToken) (map[string]interface{}, error) {
+func getDisclosedClaims(disclosures []string, signedJWT *afgjwt.JSONWebToken) (map[string]interface{}, error) {
 	disclosureClaims, err := common.GetDisclosureClaims(disclosures)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get verified claims: %w", err)
+		return nil, fmt.Errorf("failed to get verified payload: %w", err)
 	}
 
 	var claims map[string]interface{}
 
 	err = signedJWT.DecodeClaims(&claims)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get verified claims: %w", err)
+		return nil, fmt.Errorf("failed to decode verified payload: %w", err)
 	}
 
-	for _, dc := range disclosureClaims {
-		claims[dc.Name] = dc.Value
+	disclosedClaims, err := common.GetDisclosedClaims(disclosureClaims, claims)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get disclosed claims: %w", err)
 	}
 
-	delete(claims, common.SDKey)
-	delete(claims, common.SDAlgorithmKey)
-
-	return claims, nil
+	return disclosedClaims, nil
 }
 
 func verifySigningAlg(joseHeaders jose.Headers, secureAlgs []string) error {

@@ -187,6 +187,47 @@ func TestNew(t *testing.T) {
 		r.NoError(err)
 	})
 
+	t.Run("Create Complex Claims JWS with structured claims flag", func(t *testing.T) {
+		r := require.New(t)
+
+		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+		r.NoError(err)
+
+		complexClaims := createComplexClaims()
+
+		var newOpts []NewOpt
+
+		newOpts = append(newOpts,
+			WithStructuredClaims(true),
+		)
+
+		token, err := New(issuer, complexClaims, nil, afjwt.NewEd25519Signer(privKey), newOpts...)
+		r.NoError(err)
+		combinedFormatForIssuance, err := token.Serialize(false)
+		require.NoError(t, err)
+
+		fmt.Printf(combinedFormatForIssuance)
+
+		cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
+		// expected 6 simple + 4 address object disclosures
+		require.Equal(t, 10, len(cfi.Disclosures))
+
+		var parsedClaims map[string]interface{}
+		err = verifyEd25519ViaGoJose(cfi.SDJWT, pubKey, &parsedClaims)
+		r.NoError(err)
+
+		parsedClaimsBytes, err := json.Marshal(parsedClaims)
+		require.NoError(t, err)
+
+		prettyJSON, err := prettyPrint(parsedClaimsBytes)
+		require.NoError(t, err)
+
+		fmt.Println(prettyJSON)
+
+		err = verifyEd25519(cfi.SDJWT, pubKey)
+		r.NoError(err)
+	})
+
 	t.Run("Create SD-JWS with decoy disclosures", func(t *testing.T) {
 		r := require.New(t)
 
@@ -267,7 +308,7 @@ func TestNew(t *testing.T) {
 		r.Nil(token)
 
 		r.Contains(err.Error(),
-			"unmarshallable claims: marshal interface[*issuer.payload]: json: error calling MarshalJSON for type *jwk.JWK: go-jose/go-jose: unknown key type 'string'") //nolint:lll
+			"failed to merge payload and digests: json: error calling MarshalJSON for type *jwk.JWK: go-jose/go-jose: unknown key type 'string'") //nolint:lll
 	})
 
 	t.Run("error - create decoy disclosures failed", func(t *testing.T) {

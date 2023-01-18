@@ -184,18 +184,8 @@ func VerifyDisclosuresInSDJWT(disclosures []string, signedJWT *afgjwt.JSONWebTok
 	}
 
 	// check that the _sd_alg claim is present
-	sdAlg, err := getSDAlg(claims)
-	if err != nil {
-		return err
-	}
-
 	// check that _sd_alg value is understood and the hash algorithm is deemed secure.
-	cryptoHash, err := getCryptoHash(sdAlg)
-	if err != nil {
-		return err
-	}
-
-	claimsDisclosureDigests, err := GetDisclosureDigests(claims)
+	cryptoHash, err := GetCryptoHashFromClaims(claims)
 	if err != nil {
 		return err
 	}
@@ -206,7 +196,12 @@ func VerifyDisclosuresInSDJWT(disclosures []string, signedJWT *afgjwt.JSONWebTok
 			return err
 		}
 
-		if _, ok := claimsDisclosureDigests[digest]; !ok {
+		found, err := isDigestInClaims(digest, claims)
+		if err != nil {
+			return err
+		}
+
+		if !found {
 			return fmt.Errorf("disclosure digest '%s' not found in SD-JWT disclosure digests", digest)
 		}
 	}
@@ -214,7 +209,48 @@ func VerifyDisclosuresInSDJWT(disclosures []string, signedJWT *afgjwt.JSONWebTok
 	return nil
 }
 
-func getCryptoHash(sdAlg string) (crypto.Hash, error) {
+func isDigestInClaims(digest string, claims map[string]interface{}) (bool, error) {
+	var found bool
+
+	digests, err := GetDisclosureDigests(claims)
+	if err != nil {
+		return false, err
+	}
+
+	for _, value := range claims {
+		if obj, ok := value.(map[string]interface{}); ok {
+			found, err = isDigestInClaims(digest, obj)
+			if err != nil {
+				return false, err
+			}
+
+			if found {
+				return found, nil
+			}
+		}
+	}
+
+	_, ok := digests[digest]
+
+	return ok, nil
+}
+
+// GetCryptoHashFromClaims returns crypto hash from claims.
+func GetCryptoHashFromClaims(claims map[string]interface{}) (crypto.Hash, error) {
+	var cryptoHash crypto.Hash
+
+	// check that the _sd_alg claim is present
+	sdAlg, err := GetSDAlg(claims)
+	if err != nil {
+		return cryptoHash, err
+	}
+
+	// check that _sd_alg value is understood and the hash algorithm is deemed secure.
+	return GetCryptoHash(sdAlg)
+}
+
+// GetCryptoHash returns crypto hash from SD algorithm.
+func GetCryptoHash(sdAlg string) (crypto.Hash, error) {
 	var err error
 
 	var cryptoHash crypto.Hash
@@ -229,7 +265,8 @@ func getCryptoHash(sdAlg string) (crypto.Hash, error) {
 	return cryptoHash, err
 }
 
-func getSDAlg(claims map[string]interface{}) (string, error) {
+// GetSDAlg returns SD algorithm from claims.
+func GetSDAlg(claims map[string]interface{}) (string, error) {
 	obj, ok := claims[SDAlgorithmKey]
 	if !ok {
 		return "", fmt.Errorf("%s must be present in SD-JWT", SDAlgorithmKey)
@@ -256,6 +293,57 @@ func GetDisclosureDigests(claims map[string]interface{}) (map[string]bool, error
 	}
 
 	return sliceToMap(disclosures), nil
+}
+
+// GetDisclosedClaims returns disclosed claims only.
+func GetDisclosedClaims(disclosureClaims []*DisclosureClaim, claims map[string]interface{}) (map[string]interface{}, error) { // nolint:lll
+	hash, err := GetCryptoHashFromClaims(claims)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get crypto hash from claims: %w", err)
+	}
+
+	output := copyMap(claims)
+
+	err = processDisclosedClaims(disclosureClaims, output, hash)
+	if err != nil {
+		return nil, fmt.Errorf("failed to process disclosed claims: %w", err)
+	}
+
+	return output, nil
+}
+
+func processDisclosedClaims(disclosureClaims []*DisclosureClaim, claims map[string]interface{}, hash crypto.Hash) error { // nolint:lll
+	digests, err := GetDisclosureDigests(claims)
+	if err != nil {
+		return err
+	}
+
+	for key, value := range claims {
+		if obj, ok := value.(map[string]interface{}); ok {
+			err := processDisclosedClaims(disclosureClaims, obj, hash)
+			if err != nil {
+				return err
+			}
+
+			claims[key] = obj
+		}
+	}
+
+	for _, dc := range disclosureClaims {
+		digest, err := GetHash(hash, dc.Disclosure)
+		if err != nil {
+			return err
+		}
+
+		if _, ok := digests[digest]; ok {
+			claims[dc.Name] = dc.Value
+		}
+	}
+
+	delete(claims, SDKey)
+	delete(claims, SDAlgorithmKey)
+
+	return nil
 }
 
 func stringArray(entry interface{}) ([]string, error) {
@@ -289,4 +377,19 @@ func sliceToMap(ids []string) map[string]bool {
 	}
 
 	return values
+}
+
+func copyMap(m map[string]interface{}) map[string]interface{} {
+	cm := make(map[string]interface{})
+
+	for k, v := range m {
+		vm, ok := v.(map[string]interface{})
+		if ok {
+			cm[k] = copyMap(vm)
+		} else {
+			cm[k] = v
+		}
+	}
+
+	return cm
 }

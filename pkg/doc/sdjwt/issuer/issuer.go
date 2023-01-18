@@ -23,6 +23,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	afgjwt "github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/common"
+	jsonutil "github.com/hyperledger/aries-framework-go/pkg/doc/util/json"
 )
 
 const (
@@ -56,7 +57,8 @@ type newOpts struct {
 	jsonMarshal func(v interface{}) ([]byte, error)
 	getSalt     func() (string, error)
 
-	addDecoyDigests bool
+	addDecoyDigests  bool
+	structuredClaims bool
 }
 
 // NewOpt is the SD-JWT New option.
@@ -132,6 +134,13 @@ func WithDecoyDigests(flag bool) NewOpt {
 	}
 }
 
+// WithStructuredClaims is an option for handling structured claims(default is false).
+func WithStructuredClaims(flag bool) NewOpt {
+	return func(opts *newOpts) {
+		opts.structuredClaims = flag
+	}
+}
+
 // New creates new signed Selective Disclosure JWT based on input claims.
 func New(issuer string, claims interface{}, headers jose.Headers,
 	signer jose.Signer, opts ...NewOpt) (*SelectiveDisclosureJWT, error) {
@@ -143,6 +152,7 @@ func New(issuer string, claims interface{}, headers jose.Headers,
 		HashAlg:     defaultHash,
 
 		// TODO: Discuss with Troy about defaults
+		// TODO: We may not need defaulted values here at all
 		IssuedAt:  jwt.NewNumericDate(now),
 		NotBefore: jwt.NewNumericDate(now),
 		Expiry:    jwt.NewNumericDate(now.Add(year)),
@@ -152,27 +162,20 @@ func New(issuer string, claims interface{}, headers jose.Headers,
 		opt(nOpts)
 	}
 
-	decoyDisclosures, err := createDecoyDisclosures(nOpts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create decoy disclosures: %w", err)
-	}
-
 	claimsMap, err := afgjwt.PayloadToMap(claims)
 	if err != nil {
 		return nil, fmt.Errorf("convert payload to map: %w", err)
 	}
 
-	disclosures, err := createDisclosures(claimsMap, nOpts)
+	disclosures, digests, err := createDisclosuresAndDigests(claimsMap, nOpts)
 	if err != nil {
 		return nil, err
 	}
 
-	digests, err := createDigests(append(disclosures, decoyDisclosures...), nOpts)
+	payload, err := jsonutil.MergeCustomFields(createPayload(issuer, nOpts), digests)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to merge payload and digests: %w", err)
 	}
-
-	payload := createPayload(issuer, digests, nOpts)
 
 	signedJWT, err := afgjwt.NewSigned(payload, headers, signer)
 	if err != nil {
@@ -182,7 +185,7 @@ func New(issuer string, claims interface{}, headers jose.Headers,
 	return &SelectiveDisclosureJWT{Disclosures: disclosures, SignedJWT: signedJWT}, nil
 }
 
-func createPayload(issuer string, digests []string, nOpts *newOpts) *payload {
+func createPayload(issuer string, nOpts *newOpts) *payload {
 	var cnf map[string]interface{}
 	if nOpts.HolderPublicKey != nil {
 		cnf = make(map[string]interface{})
@@ -197,7 +200,6 @@ func createPayload(issuer string, digests []string, nOpts *newOpts) *payload {
 		Expiry:    nOpts.Expiry,
 		NotBefore: nOpts.NotBefore,
 		CNF:       cnf,
-		SD:        digests,
 		SDAlg:     strings.ToLower(nOpts.HashAlg.String()),
 	}
 
@@ -279,19 +281,48 @@ func (j *SelectiveDisclosureJWT) Serialize(detached bool) (string, error) {
 	return cf.Serialize(), nil
 }
 
-func createDisclosures(claims map[string]interface{}, opts *newOpts) ([]string, error) {
+func createDisclosuresAndDigests(claims map[string]interface{}, opts *newOpts) ([]string, map[string]interface{}, error) { // nolint:lll
 	var disclosures []string
 
-	for key, value := range claims {
-		disclosure, err := createDisclosure(key, value, opts)
-		if err != nil {
-			return nil, fmt.Errorf("create disclosure: %w", err)
-		}
+	var levelDisclosures []string
 
-		disclosures = append(disclosures, disclosure)
+	digestsMap := make(map[string]interface{})
+
+	decoyDisclosures, err := createDecoyDisclosures(opts)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create decoy disclosures: %w", err)
 	}
 
-	return disclosures, nil
+	for key, value := range claims {
+		if obj, ok := value.(map[string]interface{}); ok && opts.structuredClaims {
+			nestedDisclosures, nestedDigestsMap, e := createDisclosuresAndDigests(obj, opts)
+			if e != nil {
+				return nil, nil, e
+			}
+
+			digestsMap[key] = nestedDigestsMap
+
+			disclosures = append(disclosures, nestedDisclosures...)
+		} else {
+			disclosure, e := createDisclosure(key, value, opts)
+			if e != nil {
+				return nil, nil, fmt.Errorf("create disclosure: %w", e)
+			}
+
+			levelDisclosures = append(levelDisclosures, disclosure)
+		}
+	}
+
+	disclosures = append(disclosures, levelDisclosures...)
+
+	digests, err := createDigests(append(levelDisclosures, decoyDisclosures...), opts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	digestsMap[common.SDKey] = digests
+
+	return disclosures, digestsMap, nil
 }
 
 func createDisclosure(key string, value interface{}, opts *newOpts) (string, error) {
@@ -334,6 +365,5 @@ type payload struct {
 
 	CNF map[string]interface{} `json:"cnf,omitempty"`
 
-	SD    []string `json:"_sd,omitempty"`
-	SDAlg string   `json:"_sd_alg,omitempty"`
+	SDAlg string `json:"_sd_alg,omitempty"`
 }
