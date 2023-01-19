@@ -446,6 +446,127 @@ func TestGetDisclosedClaims(t *testing.T) {
 	})
 }
 
+func TestGetSDAlgFromVC(t *testing.T) {
+	r := require.New(t)
+
+	t.Run("success", func(t *testing.T) {
+		claims := map[string]interface{}{
+			"_sd_alg": "sha-256",
+		}
+
+		alg, err := GetSDAlg(claims)
+		r.NoError(err)
+		r.Equal("sha-256", alg)
+	})
+
+	t.Run("success - algorithm is in VC credential subject", func(t *testing.T) {
+		claims := map[string]interface{}{
+			"given_name": "John",
+			"vc": map[string]interface{}{
+				"credentialSubject": map[string]interface{}{
+					"_sd_alg": "sha-256",
+				},
+			},
+		}
+
+		alg, err := GetSDAlg(claims)
+		r.NoError(err)
+		r.Equal("sha-256", alg)
+	})
+
+	t.Run("error - algorithm not found (empty claims)", func(t *testing.T) {
+		alg, err := GetSDAlg(make(map[string]interface{}))
+		r.Error(err)
+		r.Empty(alg)
+
+		r.Contains(err.Error(), "_sd_alg must be present in SD-JWT")
+	})
+
+	t.Run("error - algorithm not found", func(t *testing.T) {
+		claims := map[string]interface{}{
+			"vc": map[string]interface{}{
+				"credentialSubject": map[string]interface{}{
+					"given_name": "John",
+				},
+			},
+		}
+
+		alg, err := GetSDAlg(claims)
+		r.Error(err)
+		r.Empty(alg)
+
+		r.Contains(err.Error(), "_sd_alg must be present in SD-JWT")
+	})
+
+	t.Run("error - algorithm not found (vc claim is not a map)", func(t *testing.T) {
+		claims := map[string]interface{}{
+			"vc": "invalid",
+		}
+
+		alg, err := GetSDAlg(claims)
+		r.Error(err)
+		r.Empty(alg)
+
+		r.Contains(err.Error(), "_sd_alg must be present in SD-JWT")
+	})
+
+	t.Run("error - algorithm not found (no credential subject in vc)", func(t *testing.T) {
+		claims := map[string]interface{}{
+			"vc": map[string]interface{}{
+				"id": "test-id",
+			},
+		}
+
+		alg, err := GetSDAlg(claims)
+		r.Error(err)
+		r.Empty(alg)
+
+		r.Contains(err.Error(), "_sd_alg must be present in SD-JWT")
+	})
+
+	t.Run("error - algorithm not found (credential subject is not a map)", func(t *testing.T) {
+		claims := map[string]interface{}{
+			"vc": map[string]interface{}{
+				"credentialSubject": "invalid",
+			},
+		}
+
+		alg, err := GetSDAlg(claims)
+		r.Error(err)
+		r.Empty(alg)
+
+		r.Contains(err.Error(), "_sd_alg must be present in SD-JWT")
+	})
+
+	t.Run("error - algorithm must be a string", func(t *testing.T) {
+		claims := map[string]interface{}{
+			"vc": map[string]interface{}{
+				"credentialSubject": map[string]interface{}{
+					"_sd_alg": 123,
+				},
+			},
+		}
+
+		alg, err := GetSDAlg(claims)
+		r.Error(err)
+		r.Empty(alg)
+
+		r.Contains(err.Error(), "_sd_alg must be a string")
+	})
+
+	t.Run("error - algorithm must be a string", func(t *testing.T) {
+		claims := map[string]interface{}{
+			"_sd_alg": 123,
+		}
+
+		alg, err := GetSDAlg(claims)
+		r.Error(err)
+		r.Empty(alg)
+
+		r.Contains(err.Error(), "_sd_alg must be a string")
+	})
+}
+
 type NoopSignatureVerifier struct {
 }
 
