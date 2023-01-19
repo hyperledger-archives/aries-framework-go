@@ -267,17 +267,53 @@ func GetCryptoHash(sdAlg string) (crypto.Hash, error) {
 
 // GetSDAlg returns SD algorithm from claims.
 func GetSDAlg(claims map[string]interface{}) (string, error) {
+	var alg string
+
 	obj, ok := claims[SDAlgorithmKey]
 	if !ok {
-		return "", fmt.Errorf("%s must be present in SD-JWT", SDAlgorithmKey)
+		// if claims contain 'vc' claim it may be present in credential subject
+		obj, ok = getSDAlgFromCredentialSubject(claims)
+		if !ok {
+			return "", fmt.Errorf("%s must be present in SD-JWT", SDAlgorithmKey)
+		}
 	}
 
-	str, ok := obj.(string)
+	alg, ok = obj.(string)
 	if !ok {
 		return "", fmt.Errorf("%s must be a string", SDAlgorithmKey)
 	}
 
-	return str, nil
+	return alg, nil
+}
+
+// getSDAlgFromCredentialSubject returns SD algorithm from VC credential subject.
+func getSDAlgFromCredentialSubject(claims map[string]interface{}) (interface{}, bool) {
+	vcObj, ok := claims["vc"]
+	if !ok {
+		return nil, false
+	}
+
+	vc, ok := vcObj.(map[string]interface{})
+	if !ok {
+		return nil, false
+	}
+
+	csObj, ok := vc["credentialSubject"]
+	if !ok {
+		return nil, false
+	}
+
+	cs, ok := csObj.(map[string]interface{})
+	if !ok {
+		return nil, false
+	}
+
+	obj, ok := cs[SDAlgorithmKey]
+	if !ok {
+		return nil, false
+	}
+
+	return obj, true
 }
 
 // GetDisclosureDigests returns digests from claims map.

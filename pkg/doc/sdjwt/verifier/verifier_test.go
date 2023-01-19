@@ -60,9 +60,30 @@ func TestParse(t *testing.T) {
 		claims, err := Parse(combinedFormatForPresentation, WithSignatureVerifier(verifier))
 		r.NoError(err)
 		require.NotNil(t, claims)
+
 		// expected claims iss, exp, iat, nbf, given_name
 		// TODO: should we default exp, iat, nbf
 		require.Equal(t, 5, len(claims))
+	})
+
+	t.Run("success - VCS sample", func(t *testing.T) {
+		token, err := afjwt.Parse(vcSDJWT, afjwt.WithSignatureVerifier(&holder.NoopSignatureVerifier{}))
+		r.NoError(err)
+
+		var payload map[string]interface{}
+		err = token.DecodeClaims(&payload)
+		r.NoError(err)
+
+		printObject(t, "SD-JWT Payload with VC", payload)
+
+		vcCombinedFormatForPresentation := vcCombinedFormatForIssuance + common.CombinedFormatSeparator
+		claims, err := Parse(vcCombinedFormatForPresentation, WithSignatureVerifier(&holder.NoopSignatureVerifier{}))
+		r.NoError(err)
+
+		printObject(t, "Disclosed Claims with VC", claims)
+
+		// expected claims iat, iss, jti, nbf, sub, vc
+		require.Equal(t, 6, len(claims))
 	})
 
 	t.Run("success - RS256 signing algorithm", func(t *testing.T) {
@@ -762,10 +783,10 @@ func buildJWS(signer afjose.Signer, claims interface{}) (string, error) {
 func printObject(t *testing.T, name string, obj interface{}) {
 	t.Helper()
 
-	parsedClaimsBytes, err := json.Marshal(obj)
+	objBytes, err := json.Marshal(obj)
 	require.NoError(t, err)
 
-	prettyJSON, err := prettyPrint(parsedClaimsBytes)
+	prettyJSON, err := prettyPrint(objBytes)
 	require.NoError(t, err)
 
 	fmt.Println(name + ":")
@@ -784,3 +805,6 @@ func prettyPrint(msg []byte) (string, error) {
 }
 
 const additionalDisclosure = `WyIzanFjYjY3ejl3a3MwOHp3aUs3RXlRIiwgImdpdmVuX25hbWUiLCAiSm9obiJd`
+
+const vcCombinedFormatForIssuance = `eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp0cnVzdGJsb2M6YWJjI2tleTEifQ.eyJpYXQiOjE2NzM5ODc1NDcsImlzcyI6ImRpZDpleGFtcGxlOjc2ZTEyZWM3MTJlYmM2ZjFjMjIxZWJmZWIxZiIsImp0aSI6Imh0dHA6Ly9leGFtcGxlLmVkdS9jcmVkZW50aWFscy8xODcyIiwibmJmIjoxNjczOTg3NTQ3LCJzdWIiOiJkaWQ6ZXhhbXBsZTplYmZlYjFmNzEyZWJjNmYxYzI3NmUxMmVjMjEiLCJ2YyI6eyJAY29udGV4dCI6WyJodHRwczovL3d3dy53My5vcmcvMjAxOC9jcmVkZW50aWFscy92MSJdLCJjcmVkZW50aWFsU3ViamVjdCI6eyJfc2QiOlsiVklMLXlXZHlZX3hNbk5icEJvbHRrcnlBOFZESVFVYllLd2dQaHVEUEx1ZyIsIkxDLUg0R2N4UG1OdGN5VWNiSGFDbTlEUDFnZDROYXJsZ2RiUFc4ZEVvZ2siLCJlbHVRRFVtbHpwM19naU9uRFVRVk1WLWpWM1hMNXVIck1BNzRROXI0dVF3Il0sIl9zZF9hbGciOiJzaGEtMjU2IiwiaWQiOiJkaWQ6ZXhhbXBsZTplYmZlYjFmNzEyZWJjNmYxYzI3NmUxMmVjMjEifSwiZmlyc3RfbmFtZSI6IkZpcnN0IG5hbWUiLCJpZCI6Imh0dHA6Ly9leGFtcGxlLmVkdS9jcmVkZW50aWFscy8xODcyIiwiaW5mbyI6IkluZm8iLCJpc3N1YW5jZURhdGUiOiIyMDIzLTAxLTE3VDIyOjMyOjI3LjQ2ODEwOTgxNyswMjowMCIsImlzc3VlciI6ImRpZDpleGFtcGxlOjc2ZTEyZWM3MTJlYmM2ZjFjMjIxZWJmZWIxZiIsImxhc3RfbmFtZSI6Ikxhc3QgbmFtZSIsInR5cGUiOiJWZXJpZmlhYmxlQ3JlZGVudGlhbCJ9fQ.PvRYW8-EAG7K4QQL3TV-GNF--vaYIGc3TWJrRSoc2qBCVT5sFkez7FTLv7iae24S2mi2GH5lcxy1dx75LSjOBA~WyJIb01DbEdxLUpRUUZIMUVZZnFCN1FBIiwic3BvdXNlIiwiZGlkOmV4YW1wbGU6YzI3NmUxMmVjMjFlYmZlYjFmNzEyZWJjNmYxIl0~WyI5ZDFzTUFYUEVTZkEzaTE0NDNzVTRRIiwiZGVncmVlIix7ImRlZ3JlZSI6Ik1JVCIsInR5cGUiOiJCYWNoZWxvckRlZ3JlZSJ9XQ~WyJiekpGY1pYMkYyRjE3XzVsSFU2MjF3IiwibmFtZSIsIkpheWRlbiBEb2UiXQ` // nolint: lll
+const vcSDJWT = `eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp0cnVzdGJsb2M6YWJjI2tleTEifQ.eyJpYXQiOjE2NzM5ODc1NDcsImlzcyI6ImRpZDpleGFtcGxlOjc2ZTEyZWM3MTJlYmM2ZjFjMjIxZWJmZWIxZiIsImp0aSI6Imh0dHA6Ly9leGFtcGxlLmVkdS9jcmVkZW50aWFscy8xODcyIiwibmJmIjoxNjczOTg3NTQ3LCJzdWIiOiJkaWQ6ZXhhbXBsZTplYmZlYjFmNzEyZWJjNmYxYzI3NmUxMmVjMjEiLCJ2YyI6eyJAY29udGV4dCI6WyJodHRwczovL3d3dy53My5vcmcvMjAxOC9jcmVkZW50aWFscy92MSJdLCJjcmVkZW50aWFsU3ViamVjdCI6eyJfc2QiOlsiVklMLXlXZHlZX3hNbk5icEJvbHRrcnlBOFZESVFVYllLd2dQaHVEUEx1ZyIsIkxDLUg0R2N4UG1OdGN5VWNiSGFDbTlEUDFnZDROYXJsZ2RiUFc4ZEVvZ2siLCJlbHVRRFVtbHpwM19naU9uRFVRVk1WLWpWM1hMNXVIck1BNzRROXI0dVF3Il0sIl9zZF9hbGciOiJzaGEtMjU2IiwiaWQiOiJkaWQ6ZXhhbXBsZTplYmZlYjFmNzEyZWJjNmYxYzI3NmUxMmVjMjEifSwiZmlyc3RfbmFtZSI6IkZpcnN0IG5hbWUiLCJpZCI6Imh0dHA6Ly9leGFtcGxlLmVkdS9jcmVkZW50aWFscy8xODcyIiwiaW5mbyI6IkluZm8iLCJpc3N1YW5jZURhdGUiOiIyMDIzLTAxLTE3VDIyOjMyOjI3LjQ2ODEwOTgxNyswMjowMCIsImlzc3VlciI6ImRpZDpleGFtcGxlOjc2ZTEyZWM3MTJlYmM2ZjFjMjIxZWJmZWIxZiIsImxhc3RfbmFtZSI6Ikxhc3QgbmFtZSIsInR5cGUiOiJWZXJpZmlhYmxlQ3JlZGVudGlhbCJ9fQ.PvRYW8-EAG7K4QQL3TV-GNF--vaYIGc3TWJrRSoc2qBCVT5sFkez7FTLv7iae24S2mi2GH5lcxy1dx75LSjOBA`                                                                                                                                                                                                                                                                                                   // nolint: lll
