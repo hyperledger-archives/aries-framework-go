@@ -267,8 +267,12 @@ func TestHolderBinding(t *testing.T) {
 
 	holderSigner := afjwt.NewEd25519Signer(holderPrivKey)
 
+	cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
+
+	claimsToDisclose := []string{cfi.Disclosures[0]}
+
 	t.Run("success - with holder binding", func(t *testing.T) {
-		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"},
+		combinedFormatForPresentation, err := holder.CreatePresentation(combinedFormatForIssuance, claimsToDisclose,
 			holder.WithHolderBinding(&holder.BindingInfo{
 				Payload: holder.BindingPayload{
 					Nonce:    testNonce,
@@ -290,7 +294,7 @@ func TestHolderBinding(t *testing.T) {
 	})
 
 	t.Run("success - with holder binding; expected nonce and audience not specified", func(t *testing.T) {
-		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"},
+		combinedFormatForPresentation, err := holder.CreatePresentation(combinedFormatForIssuance, claimsToDisclose,
 			holder.WithHolderBinding(&holder.BindingInfo{
 				Payload: holder.BindingPayload{
 					Nonce:    testNonce,
@@ -311,7 +315,7 @@ func TestHolderBinding(t *testing.T) {
 	})
 
 	t.Run("success - with holder binding (required)", func(t *testing.T) {
-		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"},
+		combinedFormatForPresentation, err := holder.CreatePresentation(combinedFormatForIssuance, claimsToDisclose,
 			holder.WithHolderBinding(&holder.BindingInfo{
 				Payload: holder.BindingPayload{
 					Nonce:    testNonce,
@@ -336,7 +340,7 @@ func TestHolderBinding(t *testing.T) {
 
 	t.Run("error - holder binding required, however not provided by the holder", func(t *testing.T) {
 		// holder will not issue holder binding
-		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"})
+		combinedFormatForPresentation, err := holder.CreatePresentation(combinedFormatForIssuance, claimsToDisclose)
 		r.NoError(err)
 
 		// Verifier will validate combined format for presentation and create verified claims.
@@ -352,7 +356,7 @@ func TestHolderBinding(t *testing.T) {
 	})
 
 	t.Run("error - holder signature is not matching holder public key in SD-JWT", func(t *testing.T) {
-		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"},
+		combinedFormatForPresentation, err := holder.CreatePresentation(combinedFormatForIssuance, claimsToDisclose,
 			holder.WithHolderBinding(&holder.BindingInfo{
 				Payload: holder.BindingPayload{
 					Nonce:    testNonce,
@@ -376,7 +380,7 @@ func TestHolderBinding(t *testing.T) {
 
 	t.Run("error - invalid holder binding JWT provided by the holder", func(t *testing.T) {
 		// holder will not issue holder binding
-		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"})
+		combinedFormatForPresentation, err := holder.CreatePresentation(combinedFormatForIssuance, claimsToDisclose)
 		r.NoError(err)
 
 		// add fake holder binding
@@ -395,7 +399,7 @@ func TestHolderBinding(t *testing.T) {
 	})
 
 	t.Run("error - holder signature algorithm not supported", func(t *testing.T) {
-		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"},
+		combinedFormatForPresentation, err := holder.CreatePresentation(combinedFormatForIssuance, claimsToDisclose,
 			holder.WithHolderBinding(&holder.BindingInfo{
 				Payload: holder.BindingPayload{
 					Nonce:    testNonce,
@@ -421,7 +425,7 @@ func TestHolderBinding(t *testing.T) {
 	})
 
 	t.Run("error - invalid iat for holder binding", func(t *testing.T) {
-		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"},
+		combinedFormatForPresentation, err := holder.CreatePresentation(combinedFormatForIssuance, claimsToDisclose,
 			holder.WithHolderBinding(&holder.BindingInfo{
 				Payload: holder.BindingPayload{
 					Nonce:    "different",
@@ -444,7 +448,7 @@ func TestHolderBinding(t *testing.T) {
 	})
 
 	t.Run("error - unexpected nonce for holder binding", func(t *testing.T) {
-		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"},
+		combinedFormatForPresentation, err := holder.CreatePresentation(combinedFormatForIssuance, claimsToDisclose,
 			holder.WithHolderBinding(&holder.BindingInfo{
 				Payload: holder.BindingPayload{
 					Nonce:    "different",
@@ -467,7 +471,7 @@ func TestHolderBinding(t *testing.T) {
 	})
 
 	t.Run("error - unexpected audience for holder binding", func(t *testing.T) {
-		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"},
+		combinedFormatForPresentation, err := holder.CreatePresentation(combinedFormatForIssuance, claimsToDisclose,
 			holder.WithHolderBinding(&holder.BindingInfo{
 				Payload: holder.BindingPayload{
 					Nonce:    testNonce,
@@ -496,10 +500,12 @@ func TestHolderBinding(t *testing.T) {
 		cfiWithoutHolderPublicKey, err := tokenWithoutHolderPublicKey.Serialize(false)
 		r.NoError(err)
 
+		ctd := []string{common.ParseCombinedFormatForIssuance(cfiWithoutHolderPublicKey).Disclosures[0]}
+
 		_, err = holder.Parse(cfiWithoutHolderPublicKey, holder.WithSignatureVerifier(signatureVerifier))
 		r.NoError(err)
 
-		combinedFormatForPresentation, err := holder.DiscloseClaims(cfiWithoutHolderPublicKey, []string{"given_name"},
+		combinedFormatForPresentation, err := holder.CreatePresentation(cfiWithoutHolderPublicKey, ctd,
 			holder.WithHolderBinding(&holder.BindingInfo{
 				Payload: holder.BindingPayload{
 					Nonce:    testNonce,
@@ -522,7 +528,7 @@ func TestHolderBinding(t *testing.T) {
 	})
 
 	t.Run("error - holder binding provided, however cnf is not an object", func(t *testing.T) {
-		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"},
+		combinedFormatForPresentation, err := holder.CreatePresentation(combinedFormatForIssuance, claimsToDisclose,
 			holder.WithHolderBinding(&holder.BindingInfo{
 				Payload: holder.BindingPayload{
 					Nonce:    testNonce,
@@ -553,7 +559,7 @@ func TestHolderBinding(t *testing.T) {
 	})
 
 	t.Run("error - holder binding provided, cnf is missing jwk", func(t *testing.T) {
-		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"},
+		combinedFormatForPresentation, err := holder.CreatePresentation(combinedFormatForIssuance, claimsToDisclose,
 			holder.WithHolderBinding(&holder.BindingInfo{
 				Payload: holder.BindingPayload{
 					Nonce:    testNonce,
@@ -587,7 +593,7 @@ func TestHolderBinding(t *testing.T) {
 	})
 
 	t.Run("error - holder binding provided, invalid jwk in cnf", func(t *testing.T) {
-		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"},
+		combinedFormatForPresentation, err := holder.CreatePresentation(combinedFormatForIssuance, claimsToDisclose,
 			holder.WithHolderBinding(&holder.BindingInfo{
 				Payload: holder.BindingPayload{
 					Nonce:    testNonce,
@@ -621,7 +627,7 @@ func TestHolderBinding(t *testing.T) {
 	})
 
 	t.Run("error - holder binding provided, invalid jwk in cnf", func(t *testing.T) {
-		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"},
+		combinedFormatForPresentation, err := holder.CreatePresentation(combinedFormatForIssuance, claimsToDisclose,
 			holder.WithHolderBinding(&holder.BindingInfo{
 				Payload: holder.BindingPayload{
 					Nonce:    testNonce,
@@ -655,7 +661,7 @@ func TestHolderBinding(t *testing.T) {
 	})
 
 	t.Run("error - holder binding provided with EdDSA, jwk in cnf is RSA", func(t *testing.T) {
-		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"},
+		combinedFormatForPresentation, err := holder.CreatePresentation(combinedFormatForIssuance, claimsToDisclose,
 			holder.WithHolderBinding(&holder.BindingInfo{
 				Payload: holder.BindingPayload{
 					Nonce:    testNonce,

@@ -140,8 +140,12 @@ func TestDiscloseClaims(t *testing.T) {
 	combinedFormatForIssuance, e := token.Serialize(false)
 	r.NoError(e)
 
+	cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
+
+	claimsToDisclose := []string{cfi.Disclosures[0]}
+
 	t.Run("success", func(t *testing.T) {
-		combinedFormatForPresentation, err := DiscloseClaims(combinedFormatForIssuance, []string{"given_name"})
+		combinedFormatForPresentation, err := CreatePresentation(combinedFormatForIssuance, claimsToDisclose)
 		r.NoError(err)
 		require.NotNil(t, combinedFormatForPresentation)
 		require.Equal(t, combinedFormatForIssuance+common.CombinedFormatSeparator, combinedFormatForPresentation)
@@ -153,7 +157,7 @@ func TestDiscloseClaims(t *testing.T) {
 
 		holderSigner := afjwt.NewEd25519Signer(holderPrivKey)
 
-		combinedFormatForPresentation, err := DiscloseClaims(combinedFormatForIssuance, []string{"given_name"},
+		combinedFormatForPresentation, err := CreatePresentation(combinedFormatForIssuance, claimsToDisclose,
 			WithHolderBinding(&BindingInfo{
 				Payload: BindingPayload{
 					Audience: "https://example.com/verifier",
@@ -168,7 +172,7 @@ func TestDiscloseClaims(t *testing.T) {
 	})
 
 	t.Run("error - failed to create holder binding due to signing error", func(t *testing.T) {
-		combinedFormatForPresentation, err := DiscloseClaims(combinedFormatForIssuance, []string{"given_name"},
+		combinedFormatForPresentation, err := CreatePresentation(combinedFormatForIssuance, claimsToDisclose,
 			WithHolderBinding(&BindingInfo{
 				Payload: BindingPayload{},
 				Signer:  &mockSigner{Err: fmt.Errorf("signing error")},
@@ -184,27 +188,18 @@ func TestDiscloseClaims(t *testing.T) {
 	t.Run("error - no disclosure(s)", func(t *testing.T) {
 		cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
 
-		combinedFormatForPresentation, err := DiscloseClaims(cfi.SDJWT, []string{"given_name"})
+		combinedFormatForPresentation, err := CreatePresentation(cfi.SDJWT, claimsToDisclose)
 		r.Error(err)
 		r.Empty(combinedFormatForPresentation)
 		r.Contains(err.Error(), "no disclosures found in SD-JWT")
 	})
 
-	t.Run("error - add invalid disclosure", func(t *testing.T) {
-		cfiWithInvalidDisclosure := fmt.Sprintf("%s~%s", combinedFormatForIssuance, "abc")
-
-		combinedFormatForPresentation, err := DiscloseClaims(cfiWithInvalidDisclosure, []string{"given_name"})
+	t.Run("error - disclosure not found", func(t *testing.T) {
+		combinedFormatForPresentation, err := CreatePresentation(combinedFormatForIssuance,
+			[]string{"non_existent"})
 		r.Error(err)
 		r.Empty(combinedFormatForPresentation)
-		r.Contains(err.Error(), "failed to unmarshal disclosure array")
-	})
-
-	t.Run("error - claim name not found", func(t *testing.T) {
-		combinedFormatForPresentation, err := DiscloseClaims(combinedFormatForIssuance,
-			[]string{"given_name", "non_existent"})
-		r.Error(err)
-		r.Empty(combinedFormatForPresentation)
-		r.Contains(err.Error(), "claim name 'non_existent' not found")
+		r.Contains(err.Error(), "disclosure 'non_existent' not found")
 	})
 }
 

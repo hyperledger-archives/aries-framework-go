@@ -63,7 +63,8 @@ func TestSDJWTFlow(t *testing.T) {
 		r.Equal(2, len(claims))
 
 		// Holder will disclose only sub-set of claims to verifier.
-		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"})
+		combinedFormatForPresentation, err := holder.CreatePresentation(combinedFormatForIssuance,
+			[]string{claims[0].Disclosure})
 		r.NoError(err)
 
 		fmt.Println(fmt.Sprintf("holder SD-JWT: %s", combinedFormatForPresentation))
@@ -110,7 +111,8 @@ func TestSDJWTFlow(t *testing.T) {
 		const testNonce = "nonce"
 
 		// Holder will disclose only sub-set of claims to verifier and add holder binding.
-		combinedFormatForPresentation, err := holder.DiscloseClaims(combinedFormatForIssuance, []string{"given_name"},
+		combinedFormatForPresentation, err := holder.CreatePresentation(combinedFormatForIssuance,
+			[]string{claims[0].Disclosure},
 			holder.WithHolderBinding(&holder.BindingInfo{
 				Payload: holder.BindingPayload{
 					Nonce:    testNonce,
