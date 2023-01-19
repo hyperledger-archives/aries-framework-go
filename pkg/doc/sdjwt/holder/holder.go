@@ -15,12 +15,11 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/common"
 )
 
-const notFound = -1
-
 // Claim defines claim.
 type Claim struct {
-	Name  string
-	Value interface{}
+	Disclosure string
+	Name       string
+	Value      interface{}
 }
 
 // jwtParseOpts holds options for the SD-JWT parsing.
@@ -86,8 +85,9 @@ func getClaims(disclosures []string) ([]*Claim, error) {
 	for _, disclosure := range disclosureClaims {
 		claims = append(claims,
 			&Claim{
-				Name:  disclosure.Name,
-				Value: disclosure.Value,
+				Disclosure: disclosure.Disclosure,
+				Name:       disclosure.Name,
+				Value:      disclosure.Value,
 			})
 	}
 
@@ -122,8 +122,10 @@ func WithHolderBinding(info *BindingInfo) Option {
 	}
 }
 
-// DiscloseClaims discloses claims with specified claim names.
-func DiscloseClaims(combinedFormatForIssuance string, claimNames []string, opts ...Option) (string, error) {
+// CreatePresentation is a convenience method to assemble combined format for presentation
+// using selected disclosures (claimsToDisclose) and optional holder binding.
+// This call assumes that combinedFormatForIssuance has already been parsed and verified using Parse() function.
+func CreatePresentation(combinedFormatForIssuance string, claimsToDisclose []string, opts ...Option) (string, error) {
 	hOpts := &options{}
 
 	for _, opt := range opts {
@@ -136,24 +138,20 @@ func DiscloseClaims(combinedFormatForIssuance string, claimNames []string, opts 
 		return "", fmt.Errorf("no disclosures found in SD-JWT")
 	}
 
-	disclosures, err := common.GetDisclosureClaims(cfi.Disclosures)
-	if err != nil {
-		return "", err
-	}
+	disclosuresMap := sliceToMap(cfi.Disclosures)
 
-	var selectedDisclosures []string
-
-	for _, claimName := range claimNames {
-		if index := getDisclosureByClaimName(claimName, disclosures); index != notFound {
-			selectedDisclosures = append(selectedDisclosures, cfi.Disclosures[index])
-		} else {
-			return "", fmt.Errorf("claim name '%s' not found", claimName)
+	for _, ctd := range claimsToDisclose {
+		if _, ok := disclosuresMap[ctd]; !ok {
+			return "", fmt.Errorf("disclosure '%s' not found in SD-JWT", ctd)
 		}
 	}
 
+	var err error
+
 	var hbJWT string
+
 	if hOpts.holderBindingInfo != nil {
-		hbJWT, err = createHolderBinding(hOpts.holderBindingInfo)
+		hbJWT, err = CreateHolderBinding(hOpts.holderBindingInfo)
 		if err != nil {
 			return "", fmt.Errorf("failed to create holder binding: %w", err)
 		}
@@ -161,14 +159,15 @@ func DiscloseClaims(combinedFormatForIssuance string, claimNames []string, opts 
 
 	cf := common.CombinedFormatForPresentation{
 		SDJWT:         cfi.SDJWT,
-		Disclosures:   selectedDisclosures,
+		Disclosures:   claimsToDisclose,
 		HolderBinding: hbJWT,
 	}
 
 	return cf.Serialize(), nil
 }
 
-func createHolderBinding(info *BindingInfo) (string, error) {
+// CreateHolderBinding will create holder binding from binding info.
+func CreateHolderBinding(info *BindingInfo) (string, error) {
 	hbJWT, err := afgjwt.NewSigned(info.Payload, nil, info.Signer)
 	if err != nil {
 		return "", err
@@ -177,14 +176,14 @@ func createHolderBinding(info *BindingInfo) (string, error) {
 	return hbJWT.Serialize(false)
 }
 
-func getDisclosureByClaimName(name string, disclosures []*common.DisclosureClaim) int {
-	for index, disclosure := range disclosures {
-		if disclosure.Name == name {
-			return index
-		}
+func sliceToMap(ids []string) map[string]bool {
+	// convert slice to map
+	values := make(map[string]bool)
+	for _, id := range ids {
+		values[id] = true
 	}
 
-	return notFound
+	return values
 }
 
 // NoopSignatureVerifier is no-op signature verifier (signature will not get checked).
