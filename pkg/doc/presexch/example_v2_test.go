@@ -113,7 +113,12 @@ func ExamplePresentationDefinition_CreateVP_v2() {
 	//			{
 	//				"id": "age_descriptor",
 	//				"format": "ldp_vp",
-	//				"path": "$.verifiableCredential[0]"
+	//				"path": "$",
+	//				"path_nested": {
+	//					"id": "age_descriptor",
+	//					"format": "ldp_vc",
+	//					"path": "$.verifiableCredential[0]"
+	//				}
 	//			}
 	//		]
 	//	},
@@ -235,7 +240,12 @@ func ExamplePresentationDefinition_CreateVP_with_LdpVC_Format() {
 	//			{
 	//				"id": "age_descriptor",
 	//				"format": "ldp_vc",
-	//				"path": "$.verifiableCredential[0]"
+	//				"path": "$",
+	//				"path_nested": {
+	//					"id": "age_descriptor",
+	//					"format": "ldp_vc",
+	//					"path": "$.verifiableCredential[0]"
+	//				}
 	//			}
 	//		]
 	//	},
@@ -357,7 +367,12 @@ func ExamplePresentationDefinition_CreateVP_with_Ldp_Format() {
 	//			{
 	//				"id": "age_descriptor",
 	//				"format": "ldp",
-	//				"path": "$.verifiableCredential[0]"
+	//				"path": "$",
+	//				"path_nested": {
+	//					"id": "age_descriptor",
+	//					"format": "ldp_vc",
+	//					"path": "$.verifiableCredential[0]"
+	//				}
 	//			}
 	//		]
 	//	},
@@ -479,7 +494,12 @@ func ExamplePresentationDefinition_CreateVP_withFormatInInputDescriptor() {
 	//			{
 	//				"id": "age_descriptor",
 	//				"format": "ldp_vp",
-	//				"path": "$.verifiableCredential[0]"
+	//				"path": "$",
+	//				"path_nested": {
+	//					"id": "age_descriptor",
+	//					"format": "ldp_vc",
+	//					"path": "$.verifiableCredential[0]"
+	//				}
 	//			}
 	//		]
 	//	},
@@ -720,7 +740,12 @@ func ExamplePresentationDefinition_CreateVP_withFrame() {
 	//			{
 	//				"id": "country_descriptor",
 	//				"format": "ldp_vp",
-	//				"path": "$.verifiableCredential[0]"
+	//				"path": "$",
+	//				"path_nested": {
+	//					"id": "country_descriptor",
+	//					"format": "ldp_vc",
+	//					"path": "$.verifiableCredential[0]"
+	//				}
 	//			}
 	//		]
 	//	},

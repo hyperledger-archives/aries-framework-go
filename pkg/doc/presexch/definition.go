@@ -948,7 +948,7 @@ func getPath(keys []interface{}, set map[string]int) [2]string {
 	return [...]string{strings.Join(newPath, "."), strings.Join(originalPath, ".")}
 }
 
-func merge(format string, setOfCredentials map[string][]*verifiable.Credential) ([]*verifiable.Credential, []*InputDescriptorMapping) { //nolint:lll
+func merge(presentationFormat string, setOfCredentials map[string][]*verifiable.Credential) ([]*verifiable.Credential, []*InputDescriptorMapping) { //nolint:lll
 	setOfCreds := make(map[string]int)
 	setOfDescriptors := make(map[string]struct{})
 
@@ -974,11 +974,21 @@ func merge(format string, setOfCredentials map[string][]*verifiable.Credential) 
 				setOfCreds[credential.ID] = len(descriptors)
 			}
 
+			vcFormat := FormatLDPVC
+			if credential.JWT != "" {
+				vcFormat = FormatJWTVC
+			}
+
 			if _, ok := setOfDescriptors[fmt.Sprintf("%s-%s", credential.ID, credential.ID)]; !ok {
 				descriptors = append(descriptors, &InputDescriptorMapping{
 					ID:     descriptorID,
-					Format: format,
-					Path:   fmt.Sprintf("$.verifiableCredential[%d]", setOfCreds[credential.ID]),
+					Format: presentationFormat,
+					Path:   "$",
+					PathNested: &InputDescriptorMapping{
+						ID:     descriptorID,
+						Format: vcFormat,
+						Path:   fmt.Sprintf("$.verifiableCredential[%d]", setOfCreds[credential.ID]),
+					},
 				})
 			}
 		}

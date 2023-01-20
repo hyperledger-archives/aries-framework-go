@@ -97,7 +97,12 @@ func ExamplePresentationDefinition_CreateVP_v1() {
 	//			{
 	//				"id": "age_descriptor",
 	//				"format": "ldp_vp",
-	//				"path": "$.verifiableCredential[0]"
+	//				"path": "$",
+	//				"path_nested": {
+	//					"id": "age_descriptor",
+	//					"format": "ldp_vc",
+	//					"path": "$.verifiableCredential[0]"
+	//				}
 	//			}
 	//		]
 	//	},
@@ -200,7 +205,12 @@ func ExamplePresentationDefinition_CreateVP_v1_With_LDP_FormatAndProof() {
 	//			{
 	//				"id": "age_descriptor",
 	//				"format": "ldp",
-	//				"path": "$.verifiableCredential[0]"
+	//				"path": "$",
+	//				"path_nested": {
+	//					"id": "age_descriptor",
+	//					"format": "ldp_vc",
+	//					"path": "$.verifiableCredential[0]"
+	//				}
 	//			}
 	//		]
 	//	},
@@ -303,7 +313,12 @@ func ExamplePresentationDefinition_CreateVP_v1_With_LDPVC_FormatAndProof() {
 	//			{
 	//				"id": "age_descriptor",
 	//				"format": "ldp_vc",
-	//				"path": "$.verifiableCredential[0]"
+	//				"path": "$",
+	//				"path_nested": {
+	//					"id": "age_descriptor",
+	//					"format": "ldp_vc",
+	//					"path": "$.verifiableCredential[0]"
+	//				}
 	//			}
 	//		]
 	//	},
@@ -430,22 +445,42 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 	//			{
 	//				"id": "age_descriptor",
 	//				"format": "ldp_vp",
-	//				"path": "$.verifiableCredential[0]"
+	//				"path": "$",
+	//				"path_nested": {
+	//					"id": "age_descriptor",
+	//					"format": "ldp_vc",
+	//					"path": "$.verifiableCredential[0]"
+	//				}
 	//			},
 	//			{
 	//				"id": "age_descriptor",
 	//				"format": "ldp_vp",
-	//				"path": "$.verifiableCredential[1]"
+	//				"path": "$",
+	//				"path_nested": {
+	//					"id": "age_descriptor",
+	//					"format": "ldp_vc",
+	//					"path": "$.verifiableCredential[1]"
+	//				}
 	//			},
 	//			{
 	//				"id": "first_name_descriptor",
 	//				"format": "ldp_vp",
-	//				"path": "$.verifiableCredential[0]"
+	//				"path": "$",
+	//				"path_nested": {
+	//					"id": "first_name_descriptor",
+	//					"format": "ldp_vc",
+	//					"path": "$.verifiableCredential[0]"
+	//				}
 	//			},
 	//			{
 	//				"id": "first_name_descriptor",
 	//				"format": "ldp_vp",
-	//				"path": "$.verifiableCredential[1]"
+	//				"path": "$",
+	//				"path_nested": {
+	//					"id": "first_name_descriptor",
+	//					"format": "ldp_vc",
+	//					"path": "$.verifiableCredential[1]"
+	//				}
 	//			}
 	//		]
 	//	},
@@ -590,22 +625,42 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 	//			{
 	//				"id": "age_descriptor",
 	//				"format": "ldp_vp",
-	//				"path": "$.verifiableCredential[0]"
+	//				"path": "$",
+	//				"path_nested": {
+	//					"id": "age_descriptor",
+	//					"format": "ldp_vc",
+	//					"path": "$.verifiableCredential[0]"
+	//				}
 	//			},
 	//			{
 	//				"id": "age_descriptor",
 	//				"format": "ldp_vp",
-	//				"path": "$.verifiableCredential[1]"
+	//				"path": "$",
+	//				"path_nested": {
+	//					"id": "age_descriptor",
+	//					"format": "ldp_vc",
+	//					"path": "$.verifiableCredential[1]"
+	//				}
 	//			},
 	//			{
 	//				"id": "first_name_descriptor",
 	//				"format": "ldp_vp",
-	//				"path": "$.verifiableCredential[2]"
+	//				"path": "$",
+	//				"path_nested": {
+	//					"id": "first_name_descriptor",
+	//					"format": "ldp_vc",
+	//					"path": "$.verifiableCredential[2]"
+	//				}
 	//			},
 	//			{
 	//				"id": "first_name_descriptor",
 	//				"format": "ldp_vp",
-	//				"path": "$.verifiableCredential[3]"
+	//				"path": "$",
+	//				"path_nested": {
+	//					"id": "first_name_descriptor",
+	//					"format": "ldp_vc",
+	//					"path": "$.verifiableCredential[3]"
+	//				}
 	//			}
 	//		]
 	//	},
@@ -814,22 +869,42 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 	//			{
 	//				"id": "age_descriptor",
 	//				"format": "ldp_vp",
-	//				"path": "$.verifiableCredential[0]"
+	//				"path": "$",
+	//				"path_nested": {
+	//					"id": "age_descriptor",
+	//					"format": "ldp_vc",
+	//					"path": "$.verifiableCredential[0]"
+	//				}
 	//			},
 	//			{
 	//				"id": "age_descriptor",
 	//				"format": "ldp_vp",
-	//				"path": "$.verifiableCredential[1]"
+	//				"path": "$",
+	//				"path_nested": {
+	//					"id": "age_descriptor",
+	//					"format": "ldp_vc",
+	//					"path": "$.verifiableCredential[1]"
+	//				}
 	//			},
 	//			{
 	//				"id": "drivers_license_image_descriptor",
 	//				"format": "ldp_vp",
-	//				"path": "$.verifiableCredential[2]"
+	//				"path": "$",
+	//				"path_nested": {
+	//					"id": "drivers_license_image_descriptor",
+	//					"format": "ldp_vc",
+	//					"path": "$.verifiableCredential[2]"
+	//				}
 	//			},
 	//			{
 	//				"id": "passport_image_descriptor",
 	//				"format": "ldp_vp",
-	//				"path": "$.verifiableCredential[3]"
+	//				"path": "$",
+	//				"path_nested": {
+	//					"id": "passport_image_descriptor",
+	//					"format": "ldp_vc",
+	//					"path": "$.verifiableCredential[3]"
+	//				}
 	//			}
 	//		]
 	//	},
@@ -1036,22 +1111,42 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 	//			{
 	//				"id": "age_descriptor",
 	//				"format": "ldp_vp",
-	//				"path": "$.verifiableCredential[0]"
+	//				"path": "$",
+	//				"path_nested": {
+	//					"id": "age_descriptor",
+	//					"format": "ldp_vc",
+	//					"path": "$.verifiableCredential[0]"
+	//				}
 	//			},
 	//			{
 	//				"id": "age_descriptor",
 	//				"format": "ldp_vp",
-	//				"path": "$.verifiableCredential[1]"
+	//				"path": "$",
+	//				"path_nested": {
+	//					"id": "age_descriptor",
+	//					"format": "ldp_vc",
+	//					"path": "$.verifiableCredential[1]"
+	//				}
 	//			},
 	//			{
 	//				"id": "drivers_license_image_descriptor",
 	//				"format": "ldp_vp",
-	//				"path": "$.verifiableCredential[1]"
+	//				"path": "$",
+	//				"path_nested": {
+	//					"id": "drivers_license_image_descriptor",
+	//					"format": "ldp_vc",
+	//					"path": "$.verifiableCredential[1]"
+	//				}
 	//			},
 	//			{
 	//				"id": "passport_image_descriptor",
 	//				"format": "ldp_vp",
-	//				"path": "$.verifiableCredential[0]"
+	//				"path": "$",
+	//				"path_nested": {
+	//					"id": "passport_image_descriptor",
+	//					"format": "ldp_vc",
+	//					"path": "$.verifiableCredential[0]"
+	//				}
 	//			}
 	//		]
 	//	},
