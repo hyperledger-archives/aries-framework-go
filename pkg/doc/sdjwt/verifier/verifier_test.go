@@ -66,7 +66,7 @@ func TestParse(t *testing.T) {
 		require.Equal(t, 5, len(claims))
 	})
 
-	t.Run("success - VCS sample", func(t *testing.T) {
+	t.Run("success - VC sample", func(t *testing.T) {
 		token, err := afjwt.Parse(vcSDJWT, afjwt.WithSignatureVerifier(&holder.NoopSignatureVerifier{}))
 		r.NoError(err)
 
