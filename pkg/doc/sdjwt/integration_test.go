@@ -18,8 +18,10 @@ import (
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/stretchr/testify/require"
 
+	afjose "github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
 	afjwt "github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/holder"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/issuer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/verifier"
@@ -242,6 +244,116 @@ func TestSDJWTFlow(t *testing.T) {
 
 		printObject(t, "Verified Claims", verifiedClaims)
 	})
+
+	t.Run("success - create VC plus holder binding", func(t *testing.T) {
+		holderPublicKey, holderPrivateKey, err := ed25519.GenerateKey(rand.Reader)
+		r.NoError(err)
+
+		holderPublicJWK, err := jwksupport.JWKFromKey(holderPublicKey)
+		require.NoError(t, err)
+
+		credentialSubject := map[string]interface{}{
+			"degree": map[string]interface{}{
+				"degree": "MIT",
+				"type":   "BachelorDegree",
+			},
+			"name":   "Jayden Doe",
+			"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+		}
+
+		// Note: if issuer can be empty; should I add it as an option then
+		// All reference apps have it as part of call
+		token, err := issuer.New("", credentialSubject, nil, &unsecuredJWTSigner{},
+			issuer.WithID("did:example:ebfeb1f712ebc6f1c276e12ec21"),
+			issuer.WithExpiry(nil),
+			issuer.WithNotBefore(nil),
+			issuer.WithIssuedAt(nil),
+			issuer.WithHolderPublicKey(holderPublicJWK))
+		r.NoError(err)
+
+		credSubjectCFI, err := token.Serialize(false)
+		r.NoError(err)
+
+		cfi := common.ParseCombinedFormatForIssuance(credSubjectCFI)
+
+		var selectiveCredentialSubject map[string]interface{}
+		err = token.DecodeClaims(&selectiveCredentialSubject)
+		r.NoError(err)
+
+		printObject(t, "Selective Credential Subject", selectiveCredentialSubject)
+
+		// create VC - we will use template here
+		var vc map[string]interface{}
+		err = json.Unmarshal([]byte(sampleVC), &vc)
+		r.NoError(err)
+
+		// update VC with 'selective' credential subject
+		vc["vc"].(map[string]interface{})["credentialSubject"] = selectiveCredentialSubject
+
+		// sign VC with 'selective' credential subject
+		signedJWT, err := afjwt.NewSigned(vc, nil, signer)
+		r.NoError(err)
+
+		sdJWT := &issuer.SelectiveDisclosureJWT{Disclosures: cfi.Disclosures, SignedJWT: signedJWT}
+
+		// create combined format for issuance for VC
+		vcCombinedFormatForIssuance, err := sdJWT.Serialize(false)
+		r.NoError(err)
+
+		fmt.Println(fmt.Sprintf("issuer SD-JWT: %s", vcCombinedFormatForIssuance))
+
+		// Holder will parse combined format for issuance and hold on to that
+		// combined format for issuance and the claims that can be selected.
+		claims, err := holder.Parse(vcCombinedFormatForIssuance, holder.WithSignatureVerifier(signatureVerifier))
+		r.NoError(err)
+
+		printObject(t, "Holder Claims", claims)
+
+		r.Equal(3, len(claims))
+
+		const testAudience = "https://test.com/verifier"
+		const testNonce = "nonce"
+
+		holderSigner := afjwt.NewEd25519Signer(holderPrivateKey)
+
+		selectedDisclosures := getDisclosuresFromClaimNames([]string{"given_name", "email", "street_address"}, claims)
+
+		// Holder will disclose only sub-set of claims to verifier.
+		combinedFormatForPresentation, err := holder.CreatePresentation(vcCombinedFormatForIssuance, selectedDisclosures,
+			holder.WithHolderBinding(&holder.BindingInfo{
+				Payload: holder.BindingPayload{
+					Nonce:    testNonce,
+					Audience: testAudience,
+					IssuedAt: jwt.NewNumericDate(time.Now()),
+				},
+				Signer: holderSigner,
+			}))
+		r.NoError(err)
+
+		fmt.Println(fmt.Sprintf("holder SD-JWT: %s", combinedFormatForPresentation))
+
+		// Verifier will validate combined format for presentation and create verified claims.
+		// In this case it will be VC since VC was passed in.
+		verifiedClaims, err := verifier.Parse(combinedFormatForPresentation,
+			verifier.WithSignatureVerifier(signatureVerifier))
+		r.NoError(err)
+
+		printObject(t, "Verified Claims", verifiedClaims)
+
+		r.Equal(len(vc), len(verifiedClaims))
+	})
+}
+
+type unsecuredJWTSigner struct{}
+
+func (s unsecuredJWTSigner) Sign(_ []byte) ([]byte, error) {
+	return []byte(""), nil
+}
+
+func (s unsecuredJWTSigner) Headers() afjose.Headers {
+	return map[string]interface{}{
+		afjose.HeaderAlgorithm: afjwt.AlgorithmNone,
+	}
 }
 
 func createComplexClaims() map[string]interface{} {
@@ -308,3 +420,25 @@ func prettyPrint(msg []byte) (string, error) {
 
 	return prettyJSON.String(), nil
 }
+
+const sampleVC = `
+{
+	"iat": 1673987547,
+	"iss": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+	"jti": "http://example.edu/credentials/1872",
+	"nbf": 1673987547,
+	"sub": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+	"vc": {
+		"@context": [
+			"https://www.w3.org/2018/credentials/v1"
+		],
+		"credentialSubject": {},
+		"first_name": "First name",
+		"id": "http://example.edu/credentials/1872",
+		"info": "Info",
+		"issuanceDate": "2023-01-17T22:32:27.468109817+02:00",
+		"issuer": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		"last_name": "Last name",
+		"type": "VerifiableCredential"
+	}
+}`

@@ -446,7 +446,7 @@ func TestGetDisclosedClaims(t *testing.T) {
 	})
 }
 
-func TestGetSDAlgFromVC(t *testing.T) {
+func TestGetSDAlg(t *testing.T) {
 	r := require.New(t)
 
 	t.Run("success", func(t *testing.T) {
@@ -567,6 +567,55 @@ func TestGetSDAlgFromVC(t *testing.T) {
 	})
 }
 
+func TestGetCNF(t *testing.T) {
+	r := require.New(t)
+
+	t.Run("success - cnf is at the top level", func(t *testing.T) {
+		claims := make(map[string]interface{})
+		claims["cnf"] = map[string]interface{}{
+			"jwk": map[string]interface{}{
+				"kty": "RSA",
+				"e":   "AQAB",
+				"n":   "pm4bOHBg-oYhAyPWzR56AWX3rUIXp11",
+			},
+		}
+
+		cnf, err := GetCNF(claims)
+		r.NoError(err)
+		r.NotEmpty(cnf["jwk"])
+	})
+
+	t.Run("success - cnf is in VC credential subject", func(t *testing.T) {
+		var payload map[string]interface{}
+
+		err := json.Unmarshal([]byte(vcSample), &payload)
+		require.NoError(t, err)
+
+		cnf, err := GetCNF(payload)
+		r.NoError(err)
+		r.NotEmpty(cnf["jwk"])
+	})
+
+	t.Run("error - cnf not found (empty claims)", func(t *testing.T) {
+		cnf, err := GetCNF(make(map[string]interface{}))
+		r.Error(err)
+		r.Empty(cnf)
+
+		r.Contains(err.Error(), "cnf must be present in SD-JWT")
+	})
+
+	t.Run("error - cnf is not an object", func(t *testing.T) {
+		claims := make(map[string]interface{})
+		claims["cnf"] = "abc"
+
+		cnf, err := GetCNF(claims)
+		r.Error(err)
+		r.Empty(cnf)
+
+		r.Contains(err.Error(), "cnf must be an object")
+	})
+}
+
 type NoopSignatureVerifier struct {
 }
 
@@ -595,3 +644,40 @@ type payload struct {
 
 const specExample2bJWT = `eyJhbGciOiAiRVMyNTYifQ.eyJfc2QiOiBbIjBsa1NjS2ppSk1IZWRKZnE3c0pCN0hRM3FvbUdmckVMYm81Z1podktSV28iLCAiMWgyOWdnUWkxeG91LV9OalZ5eW9DaEsyYXN3VXRvMlVqQ2ZGLTFMYWhBOCIsICIzQ29MVUxtRHh4VXdfTGR5WUVUanVkdVh1RXBHdUJ5NHJYSG90dUQ0MFg0IiwgIkFJRHlveHgxaXB5NDUtR0ZwS2d2Yy1ISWJjVnJsTGxyWUxYbXgzZXYyZTQiLCAiT2x0aGZSb0ZkUy1KNlM4Mk9XbHJPNHBXaG9lUk1ySF9LR1BfaDZFYXBZUSIsICJyNGRicEdlZWlhMDJTeUdMNWdCZEhZMXc4SWhqVDN4eDA1UnNmeXlIVWs0Il0sICJhZGRyZXNzIjogeyJfc2QiOiBbIjZPS053bkdHS1dYQ0k5dWlqTkFzdjY0dTIyZUxTNHJNZExObGcxZnFKcDQiLCAiSEVWTWdELU5LSzVOdlhQYkFSb3JWZE9ESVRta1V5dU1wQ3NfbTdIWG5ZYyIsICJVcTAyblY3M0swYmRSSzIzcnphYm1uRGE0TzhZTlFadnQ5eDhMeWtva19ZIiwgIm94RlJpbG5vMjZVWWU3a3FNTTRiZHE4SXZOTXRJaTZGOHB0dC11aVBMYk0iXX0sICJpc3MiOiAiaHR0cHM6Ly9leGFtcGxlLmNvbS9pc3N1ZXIiLCAiaWF0IjogMTUxNjIzOTAyMiwgImV4cCI6IDE1MTYyNDcwMjIsICJfc2RfYWxnIjogInNoYS0yNTYifQ.M45AUExpi9THOTVIHfBmb2GL0WXJf4TeWB5QPmsxdBkj9pUcLOPR8YVafLIt8m_imYHTBYYcAyf7qSnquxMxGQ` // nolint:lll
 const specExample2bDisclosures = `~WyJSdHczZUFFUE5wWjIwTkhZSzNNRWNnIiwgImZhbWlseV9uYW1lIiwgIlx1NWM3MVx1NzUzMCJd~WyJicjgxenVSc0NUcXJuWEp4MHVqMkRRIiwgImdpdmVuX25hbWUiLCAiXHU1OTJhXHU5MGNlIl0~WyI1Z2NXRmxWSEM1VVEwbktrallybDlnIiwgImJpcnRoZGF0ZSIsICIxOTQwLTAxLTAxIl0~WyJJTms2bkx4WGFybDF4NmVabHdBOTV3IiwgImVtYWlsIiwgIlwidW51c3VhbCBlbWFpbCBhZGRyZXNzXCJAbmlob24uY29tIl0~WyJNOVY2N3V0UC1hTF9lR1B0UU5hM0RRIiwgInJlZ2lvbiIsICJcdTZlMmZcdTUzM2EiXQ~WyJzNFhNSmxXQ2Eza3hDWk4wSVVrbnlBIiwgImNvdW50cnkiLCAiSlAiXQ~`                                                                                                                                                                                                                                                                                                                                                                                                                                                             // nolint:lll
+
+const vcSample = `
+{
+	"iat": 1673987547,
+	"iss": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+	"jti": "http://example.edu/credentials/1872",
+	"nbf": 1673987547,
+	"sub": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+	"vc": {
+		"@context": [
+			"https://www.w3.org/2018/credentials/v1"
+		],
+		"credentialSubject": {
+			"_sd": [
+				"GJFkje8c1iayy1HQW__JEhuHTz8QGlkcMaxDTjT1wpQ",
+				"goPn0hokFnQBktqzXxgTK-4CCldmLjlRwUVCIltDyRg",
+				"FAiNODIxDMwGTljNYcVKkx7LBsr1pb-U6XuAfVFuOGY"
+			],
+			"_sd_alg": "sha-256",
+			"cnf": {
+				"jwk": {
+					"crv": "Ed25519",
+					"kty": "OKP",
+					"x": "7jtkxxk0Pb3E0O6JXJiN8HyIp2DpCiqaHCWfMXl9ZFo"
+				}
+			},
+			"id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
+		},
+		"first_name": "First name",
+		"id": "http://example.edu/credentials/1872",
+		"info": "Info",
+		"issuanceDate": "2023-01-17T22:32:27.468109817+02:00",
+		"issuer": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		"last_name": "Last name",
+		"type": "VerifiableCredential"
+	}
+}`
