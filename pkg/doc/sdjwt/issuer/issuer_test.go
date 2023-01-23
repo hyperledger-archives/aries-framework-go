@@ -154,6 +154,7 @@ func TestNew(t *testing.T) {
 			WithIssuedAt(jwt.NewNumericDate(issued)),
 			WithExpiry(jwt.NewNumericDate(expiry)),
 			WithNotBefore(jwt.NewNumericDate(notBefore)),
+			WithJTI("jti"),
 			WithID("id"),
 			WithSubject("subject"),
 			WithSaltFnc(generateSalt),

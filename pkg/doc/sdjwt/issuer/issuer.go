@@ -44,6 +44,7 @@ type Claims jwt.Claims
 // newOpts holds options for creating new SD-JWT.
 type newOpts struct {
 	Subject string
+	JTI     string
 	ID      string
 
 	Expiry    *jwt.NumericDate
@@ -103,6 +104,13 @@ func WithNotBefore(notBefore *jwt.NumericDate) NewOpt {
 func WithSubject(subject string) NewOpt {
 	return func(opts *newOpts) {
 		opts.Subject = subject
+	}
+}
+
+// WithJTI is an option for SD-JWT payload.
+func WithJTI(jti string) NewOpt {
+	return func(opts *newOpts) {
+		opts.JTI = jti
 	}
 }
 
@@ -194,6 +202,7 @@ func createPayload(issuer string, nOpts *newOpts) *payload {
 
 	payload := &payload{
 		Issuer:    issuer,
+		JTI:       nOpts.JTI,
 		ID:        nOpts.ID,
 		Subject:   nOpts.Subject,
 		IssuedAt:  nOpts.IssuedAt,
@@ -357,7 +366,8 @@ func generateSalt() (string, error) {
 type payload struct {
 	Issuer  string `json:"iss,omitempty"`
 	Subject string `json:"sub,omitempty"`
-	ID      string `json:"jti,omitempty"`
+	ID      string `json:"id,omitempty"`
+	JTI     string `json:"jti,omitempty"`
 
 	Expiry    *jwt.NumericDate `json:"exp,omitempty"`
 	NotBefore *jwt.NumericDate `json:"nbf,omitempty"`

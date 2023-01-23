@@ -19,8 +19,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 )
 
-const confirmationClaim = "cnf"
-
 // jwtParseOpts holds options for the SD-JWT parsing.
 type parseOpts struct {
 	detachedPayload []byte
@@ -218,7 +216,7 @@ func verifyHolderJWT(holderJWT *afgjwt.JSONWebToken, pOpts *parseOpts) error {
 }
 
 func getSignatureVerifier(claims map[string]interface{}) (jose.SignatureVerifier, error) {
-	cnf, err := getCNF(claims)
+	cnf, err := common.GetCNF(claims)
 	if err != nil {
 		return nil, err
 	}
@@ -229,20 +227,6 @@ func getSignatureVerifier(claims map[string]interface{}) (jose.SignatureVerifier
 	}
 
 	return signatureVerifier, nil
-}
-
-func getCNF(claims map[string]interface{}) (map[string]interface{}, error) {
-	obj, ok := claims[confirmationClaim]
-	if !ok {
-		return nil, fmt.Errorf("%s must be present in SD-JWT", confirmationClaim)
-	}
-
-	cnf, ok := obj.(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("%s must be an object", confirmationClaim)
-	}
-
-	return cnf, nil
 }
 
 // getSignatureVerifierFromCNF will evolve over time as we support more cnf modes and algorithms.
