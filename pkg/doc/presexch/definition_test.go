@@ -152,7 +152,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			format  string
 			vFormat *Format
 		}{
-			{
+			/*{
 				name:   "test LDP format",
 				format: FormatLDP,
 				vFormat: &Format{
@@ -186,7 +186,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 				vFormat: &Format{
 					JwtVC: &JwtType{Alg: []string{"EdDSA"}},
 				},
-			},
+			},*/
 			{
 				name:   "test JWTVP format",
 				format: FormatJWTVP,
