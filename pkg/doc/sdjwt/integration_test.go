@@ -258,6 +258,7 @@ func TestSDJWTFlow(t *testing.T) {
 		printObject(t, "Verified Claims", verifiedClaims)
 	})
 
+	// TODO: This test will be deleted; you should use NewFromVC api for creating VC
 	t.Run("success - create VC plus holder binding", func(t *testing.T) {
 		holderPublicKey, holderPrivateKey, err := ed25519.GenerateKey(rand.Reader)
 		r.NoError(err)
@@ -297,8 +298,22 @@ func TestSDJWTFlow(t *testing.T) {
 		err = json.Unmarshal([]byte(sampleVC), &vc)
 		r.NoError(err)
 
+		const credentialSubjectKey = "credentialSubject"
+		const vcKey = "vc"
+
+		// move _sd_alg key from credential subject to vc as per example 4 in spec
+		vc[vcKey].(map[string]interface{})[common.SDAlgorithmKey] = selectiveCredentialSubject[common.SDAlgorithmKey]
+		delete(selectiveCredentialSubject, common.SDAlgorithmKey)
+
+		// move cnf key from credential subject to vc as per example 4 in spec
+		cnfObj, ok := selectiveCredentialSubject[common.CNFKey]
+		if ok {
+			vc[vcKey].(map[string]interface{})[common.CNFKey] = cnfObj
+			delete(selectiveCredentialSubject, common.CNFKey)
+		}
+
 		// update VC with 'selective' credential subject
-		vc["vc"].(map[string]interface{})["credentialSubject"] = selectiveCredentialSubject
+		vc[vcKey].(map[string]interface{})[credentialSubjectKey] = selectiveCredentialSubject
 
 		// sign VC with 'selective' credential subject
 		signedJWT, err := afjwt.NewSigned(vc, nil, signer)
@@ -370,6 +385,13 @@ func TestSDJWTFlow(t *testing.T) {
 			issuer.WithHolderPublicKey(holderPublicJWK),
 			issuer.WithStructuredClaims(true))
 		r.NoError(err)
+
+		var decoded map[string]interface{}
+
+		err = token.DecodeClaims(&decoded)
+		require.NoError(t, err)
+
+		printObject(t, "SD-JWT Payload", decoded)
 
 		vcCombinedFormatForIssuance, err := token.Serialize(false)
 		r.NoError(err)

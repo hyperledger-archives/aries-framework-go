@@ -272,8 +272,8 @@ func GetSDAlg(claims map[string]interface{}) (string, error) {
 
 	obj, ok := claims[SDAlgorithmKey]
 	if !ok {
-		// if claims contain 'vc' claim it may be present in credential subject
-		obj, ok = GetKeyFromCredentialSubject(SDAlgorithmKey, claims)
+		// if claims contain 'vc' claim it may be present in vc
+		obj, ok = GetKeyFromVC(SDAlgorithmKey, claims)
 		if !ok {
 			return "", fmt.Errorf("%s must be present in SD-JWT", SDAlgorithmKey)
 		}
@@ -287,28 +287,8 @@ func GetSDAlg(claims map[string]interface{}) (string, error) {
 	return alg, nil
 }
 
-// GetKeyFromCredentialSubject returns key value from VC credential subject.
-func GetKeyFromCredentialSubject(key string, claims map[string]interface{}) (interface{}, bool) {
-	csObj, ok := GetCredentialSubject(claims)
-	if !ok {
-		return nil, false
-	}
-
-	cs, ok := csObj.(map[string]interface{})
-	if !ok {
-		return nil, false
-	}
-
-	obj, ok := cs[key]
-	if !ok {
-		return nil, false
-	}
-
-	return obj, true
-}
-
-// GetCredentialSubject returns credential subject from vc.
-func GetCredentialSubject(claims map[string]interface{}) (interface{}, bool) {
+// GetKeyFromVC returns key value from VC.
+func GetKeyFromVC(key string, claims map[string]interface{}) (interface{}, bool) {
 	vcObj, ok := claims["vc"]
 	if !ok {
 		return nil, false
@@ -319,19 +299,19 @@ func GetCredentialSubject(claims map[string]interface{}) (interface{}, bool) {
 		return nil, false
 	}
 
-	csObj, ok := vc["credentialSubject"]
+	obj, ok := vc[key]
 	if !ok {
 		return nil, false
 	}
 
-	return csObj, true
+	return obj, true
 }
 
 // GetCNF returns confirmation claim 'cnf'.
 func GetCNF(claims map[string]interface{}) (map[string]interface{}, error) {
 	obj, ok := claims[CNFKey]
 	if !ok {
-		obj, ok = GetKeyFromCredentialSubject(CNFKey, claims)
+		obj, ok = GetKeyFromVC(CNFKey, claims)
 		if !ok {
 			return nil, fmt.Errorf("%s must be present in SD-JWT", CNFKey)
 		}

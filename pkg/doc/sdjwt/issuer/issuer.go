@@ -32,6 +32,9 @@ const (
 
 	decoyMinElements = 1
 	decoyMaxElements = 4
+
+	credentialSubjectKey = "credentialSubject"
+	vcKey                = "vc"
 )
 
 var mr = mathrand.New(mathrand.NewSource(time.Now().Unix())) // nolint:gochecknoglobals
@@ -186,7 +189,7 @@ func New(issuer string, claims interface{}, headers jose.Headers,
 // NewFromVC creates new signed Selective Disclosure JWT based on vc.
 func NewFromVC(vc map[string]interface{}, headers jose.Headers,
 	signer jose.Signer, opts ...NewOpt) (*SelectiveDisclosureJWT, error) {
-	csObj, ok := common.GetCredentialSubject(vc)
+	csObj, ok := common.GetKeyFromVC(credentialSubjectKey, vc)
 	if !ok {
 		return nil, fmt.Errorf("credential subject not found")
 	}
@@ -208,8 +211,19 @@ func NewFromVC(vc map[string]interface{}, headers jose.Headers,
 		return nil, err
 	}
 
+	// move _sd_alg key from credential subject to vc as per example 4 in spec
+	vc[vcKey].(map[string]interface{})[common.SDAlgorithmKey] = selectiveCredentialSubject[common.SDAlgorithmKey]
+	delete(selectiveCredentialSubject, common.SDAlgorithmKey)
+
+	// move cnf key from credential subject to vc as per example 4 in spec
+	cnfObj, ok := selectiveCredentialSubject[common.CNFKey]
+	if ok {
+		vc[vcKey].(map[string]interface{})[common.CNFKey] = cnfObj
+		delete(selectiveCredentialSubject, common.CNFKey)
+	}
+
 	// update VC with 'selective' credential subject
-	vc["vc"].(map[string]interface{})["credentialSubject"] = selectiveCredentialSubject
+	vc[vcKey].(map[string]interface{})[credentialSubjectKey] = selectiveCredentialSubject
 
 	// sign VC with 'selective' credential subject
 	signedJWT, err := afgjwt.NewSigned(vc, nil, signer)
