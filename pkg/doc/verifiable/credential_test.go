@@ -1639,6 +1639,16 @@ func TestParseCredentialFromRaw(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "fill credential proof from raw")
 	require.Nil(t, vc)
+
+	vc, err = newCredential(&rawCredential{
+		Type:             "VerifiableCredential",
+		Issuer:           issuer,
+		Context:          "https://www.w3.org/2018/credentials/v1",
+		SDJWTDisclosures: []string{"not base64!"},
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "fill credential sdjwt disclosures from raw")
+	require.Nil(t, vc)
 }
 
 func TestParseCredentialFromRaw_PreserveDates(t *testing.T) {
