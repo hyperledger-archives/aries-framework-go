@@ -463,9 +463,7 @@ func TestGetSDAlg(t *testing.T) {
 		claims := map[string]interface{}{
 			"given_name": "John",
 			"vc": map[string]interface{}{
-				"credentialSubject": map[string]interface{}{
-					"_sd_alg": "sha-256",
-				},
+				"_sd_alg": "sha-256",
 			},
 		}
 
@@ -474,7 +472,7 @@ func TestGetSDAlg(t *testing.T) {
 		r.Equal("sha-256", alg)
 	})
 
-	t.Run("error - algorithm not found (empty claims)", func(t *testing.T) {
+	t.Run("error - algorithm not found (no vc)", func(t *testing.T) {
 		alg, err := GetSDAlg(make(map[string]interface{}))
 		r.Error(err)
 		r.Empty(alg)
@@ -482,13 +480,9 @@ func TestGetSDAlg(t *testing.T) {
 		r.Contains(err.Error(), "_sd_alg must be present in SD-JWT")
 	})
 
-	t.Run("error - algorithm not found", func(t *testing.T) {
+	t.Run("error - algorithm not found (vc is empty)", func(t *testing.T) {
 		claims := map[string]interface{}{
-			"vc": map[string]interface{}{
-				"credentialSubject": map[string]interface{}{
-					"given_name": "John",
-				},
-			},
+			"vc": map[string]interface{}{},
 		}
 
 		alg, err := GetSDAlg(claims)
@@ -498,37 +492,9 @@ func TestGetSDAlg(t *testing.T) {
 		r.Contains(err.Error(), "_sd_alg must be present in SD-JWT")
 	})
 
-	t.Run("error - algorithm not found (vc claim is not a map)", func(t *testing.T) {
+	t.Run("error - algorithm not found (vc is not a map)", func(t *testing.T) {
 		claims := map[string]interface{}{
 			"vc": "invalid",
-		}
-
-		alg, err := GetSDAlg(claims)
-		r.Error(err)
-		r.Empty(alg)
-
-		r.Contains(err.Error(), "_sd_alg must be present in SD-JWT")
-	})
-
-	t.Run("error - algorithm not found (no credential subject in vc)", func(t *testing.T) {
-		claims := map[string]interface{}{
-			"vc": map[string]interface{}{
-				"id": "test-id",
-			},
-		}
-
-		alg, err := GetSDAlg(claims)
-		r.Error(err)
-		r.Empty(alg)
-
-		r.Contains(err.Error(), "_sd_alg must be present in SD-JWT")
-	})
-
-	t.Run("error - algorithm not found (credential subject is not a map)", func(t *testing.T) {
-		claims := map[string]interface{}{
-			"vc": map[string]interface{}{
-				"credentialSubject": "invalid",
-			},
 		}
 
 		alg, err := GetSDAlg(claims)
@@ -541,9 +507,7 @@ func TestGetSDAlg(t *testing.T) {
 	t.Run("error - algorithm must be a string", func(t *testing.T) {
 		claims := map[string]interface{}{
 			"vc": map[string]interface{}{
-				"credentialSubject": map[string]interface{}{
-					"_sd_alg": 123,
-				},
+				"_sd_alg": 123,
 			},
 		}
 
@@ -585,7 +549,7 @@ func TestGetCNF(t *testing.T) {
 		r.NotEmpty(cnf["jwk"])
 	})
 
-	t.Run("success - cnf is in VC credential subject", func(t *testing.T) {
+	t.Run("success - cnf is in VC", func(t *testing.T) {
 		var payload map[string]interface{}
 
 		err := json.Unmarshal([]byte(vcSample), &payload)
@@ -662,15 +626,15 @@ const vcSample = `
 				"goPn0hokFnQBktqzXxgTK-4CCldmLjlRwUVCIltDyRg",
 				"FAiNODIxDMwGTljNYcVKkx7LBsr1pb-U6XuAfVFuOGY"
 			],
-			"_sd_alg": "sha-256",
-			"cnf": {
-				"jwk": {
-					"crv": "Ed25519",
-					"kty": "OKP",
-					"x": "7jtkxxk0Pb3E0O6JXJiN8HyIp2DpCiqaHCWfMXl9ZFo"
-				}
-			},
 			"id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
+		},
+		"_sd_alg": "sha-256",
+		"cnf": {
+			"jwk": {
+				"crv": "Ed25519",
+				"kty": "OKP",
+				"x": "7jtkxxk0Pb3E0O6JXJiN8HyIp2DpCiqaHCWfMXl9ZFo"
+			}
 		},
 		"first_name": "First name",
 		"id": "http://example.edu/credentials/1872",
