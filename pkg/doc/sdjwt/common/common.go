@@ -289,17 +289,7 @@ func GetSDAlg(claims map[string]interface{}) (string, error) {
 
 // GetKeyFromCredentialSubject returns key value from VC credential subject.
 func GetKeyFromCredentialSubject(key string, claims map[string]interface{}) (interface{}, bool) {
-	vcObj, ok := claims["vc"]
-	if !ok {
-		return nil, false
-	}
-
-	vc, ok := vcObj.(map[string]interface{})
-	if !ok {
-		return nil, false
-	}
-
-	csObj, ok := vc["credentialSubject"]
+	csObj, ok := GetCredentialSubject(claims)
 	if !ok {
 		return nil, false
 	}
@@ -315,6 +305,26 @@ func GetKeyFromCredentialSubject(key string, claims map[string]interface{}) (int
 	}
 
 	return obj, true
+}
+
+// GetCredentialSubject returns credential subject from vc.
+func GetCredentialSubject(claims map[string]interface{}) (interface{}, bool) {
+	vcObj, ok := claims["vc"]
+	if !ok {
+		return nil, false
+	}
+
+	vc, ok := vcObj.(map[string]interface{})
+	if !ok {
+		return nil, false
+	}
+
+	csObj, ok := vc["credentialSubject"]
+	if !ok {
+		return nil, false
+	}
+
+	return csObj, true
 }
 
 // GetCNF returns confirmation claim 'cnf'.

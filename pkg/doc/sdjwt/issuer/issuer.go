@@ -32,8 +32,6 @@ const (
 
 	decoyMinElements = 1
 	decoyMaxElements = 4
-
-	year = 365 * 24 * 60 * time.Minute
 )
 
 var mr = mathrand.New(mathrand.NewSource(time.Now().Unix())) // nolint:gochecknoglobals
@@ -152,18 +150,10 @@ func WithStructuredClaims(flag bool) NewOpt {
 // New creates new signed Selective Disclosure JWT based on input claims.
 func New(issuer string, claims interface{}, headers jose.Headers,
 	signer jose.Signer, opts ...NewOpt) (*SelectiveDisclosureJWT, error) {
-	now := time.Now()
-
 	nOpts := &newOpts{
 		jsonMarshal: json.Marshal,
 		getSalt:     generateSalt,
 		HashAlg:     defaultHash,
-
-		// TODO: Discuss with Troy about defaults
-		// TODO: We may not need defaulted values here at all
-		IssuedAt:  jwt.NewNumericDate(now),
-		NotBefore: jwt.NewNumericDate(now),
-		Expiry:    jwt.NewNumericDate(now.Add(year)),
 	}
 
 	for _, opt := range opts {
@@ -191,6 +181,45 @@ func New(issuer string, claims interface{}, headers jose.Headers,
 	}
 
 	return &SelectiveDisclosureJWT{Disclosures: disclosures, SignedJWT: signedJWT}, nil
+}
+
+// NewFromVC creates new signed Selective Disclosure JWT based on vc.
+func NewFromVC(vc map[string]interface{}, headers jose.Headers,
+	signer jose.Signer, opts ...NewOpt) (*SelectiveDisclosureJWT, error) {
+	csObj, ok := common.GetCredentialSubject(vc)
+	if !ok {
+		return nil, fmt.Errorf("credential subject not found")
+	}
+
+	cs, ok := csObj.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("credential subject must be an object")
+	}
+
+	token, err := New("", cs, nil, &unsecuredJWTSigner{}, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	var selectiveCredentialSubject map[string]interface{}
+
+	err = token.DecodeClaims(&selectiveCredentialSubject)
+	if err != nil {
+		return nil, err
+	}
+
+	// update VC with 'selective' credential subject
+	vc["vc"].(map[string]interface{})["credentialSubject"] = selectiveCredentialSubject
+
+	// sign VC with 'selective' credential subject
+	signedJWT, err := afgjwt.NewSigned(vc, nil, signer)
+	if err != nil {
+		return nil, err
+	}
+
+	sdJWT := &SelectiveDisclosureJWT{Disclosures: token.Disclosures, SignedJWT: signedJWT}
+
+	return sdJWT, nil
 }
 
 func createPayload(issuer string, nOpts *newOpts) *payload {
@@ -376,4 +405,16 @@ type payload struct {
 	CNF map[string]interface{} `json:"cnf,omitempty"`
 
 	SDAlg string `json:"_sd_alg,omitempty"`
+}
+
+type unsecuredJWTSigner struct{}
+
+func (s unsecuredJWTSigner) Sign(_ []byte) ([]byte, error) {
+	return []byte(""), nil
+}
+
+func (s unsecuredJWTSigner) Headers() jose.Headers {
+	return map[string]interface{}{
+		jose.HeaderAlgorithm: afgjwt.AlgorithmNone,
+	}
 }

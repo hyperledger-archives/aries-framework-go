@@ -374,6 +374,116 @@ func TestNew(t *testing.T) {
 	})
 }
 
+func TestNewFromVC(t *testing.T) {
+	r := require.New(t)
+
+	_, issuerPrivateKey, e := ed25519.GenerateKey(rand.Reader)
+	r.NoError(e)
+
+	signer := afjwt.NewEd25519Signer(issuerPrivateKey)
+
+	t.Run("success - structured claims + holder binding", func(t *testing.T) {
+		holderPublicKey, _, err := ed25519.GenerateKey(rand.Reader)
+		r.NoError(err)
+
+		holderPublicJWK, err := jwksupport.JWKFromKey(holderPublicKey)
+		require.NoError(t, err)
+
+		// create VC - we will use template here
+		var vc map[string]interface{}
+		err = json.Unmarshal([]byte(sampleVCFull), &vc)
+		r.NoError(err)
+
+		token, err := NewFromVC(vc, nil, signer,
+			WithID("did:example:ebfeb1f712ebc6f1c276e12ec21"),
+			WithHolderPublicKey(holderPublicJWK),
+			WithStructuredClaims(true))
+		r.NoError(err)
+
+		vcCombinedFormatForIssuance, err := token.Serialize(false)
+		r.NoError(err)
+
+		fmt.Println(fmt.Sprintf("issuer SD-JWT: %s", vcCombinedFormatForIssuance))
+
+		var vcWithSelectedDisclosures map[string]interface{}
+		err = token.DecodeClaims(&vcWithSelectedDisclosures)
+		r.NoError(err)
+
+		printObject(t, "VC with selected disclosures", vcWithSelectedDisclosures)
+	})
+
+	t.Run("success - flat claims + holder binding", func(t *testing.T) {
+		holderPublicKey, _, err := ed25519.GenerateKey(rand.Reader)
+		r.NoError(err)
+
+		holderPublicJWK, err := jwksupport.JWKFromKey(holderPublicKey)
+		require.NoError(t, err)
+
+		// create VC - we will use template here
+		var vc map[string]interface{}
+		err = json.Unmarshal([]byte(sampleVCFull), &vc)
+		r.NoError(err)
+
+		token, err := NewFromVC(vc, nil, signer,
+			WithID("did:example:ebfeb1f712ebc6f1c276e12ec21"),
+			WithHolderPublicKey(holderPublicJWK))
+		r.NoError(err)
+
+		vcCombinedFormatForIssuance, err := token.Serialize(false)
+		r.NoError(err)
+
+		fmt.Println(fmt.Sprintf("issuer SD-JWT: %s", vcCombinedFormatForIssuance))
+
+		var vcWithSelectedDisclosures map[string]interface{}
+		err = token.DecodeClaims(&vcWithSelectedDisclosures)
+		r.NoError(err)
+
+		printObject(t, "VC with selected disclosures", vcWithSelectedDisclosures)
+	})
+
+	t.Run("error - missing credential subject", func(t *testing.T) {
+		vc := make(map[string]interface{})
+
+		token, err := NewFromVC(vc, nil, signer,
+			WithID("did:example:ebfeb1f712ebc6f1c276e12ec21"),
+			WithStructuredClaims(true))
+		r.Error(err)
+		r.Nil(token)
+
+		r.Contains(err.Error(), "credential subject not found")
+	})
+
+	t.Run("error - credential subject no an object", func(t *testing.T) {
+		vc := map[string]interface{}{
+			"vc": map[string]interface{}{
+				"credentialSubject": "invalid",
+			},
+		}
+
+		token, err := NewFromVC(vc, nil, signer,
+			WithID("did:example:ebfeb1f712ebc6f1c276e12ec21"),
+			WithStructuredClaims(true))
+		r.Error(err)
+		r.Nil(token)
+
+		r.Contains(err.Error(), "credential subject must be an object")
+	})
+
+	t.Run("error - signing error", func(t *testing.T) {
+		// create VC - we will use template here
+		var vc map[string]interface{}
+		err := json.Unmarshal([]byte(sampleVCFull), &vc)
+		r.NoError(err)
+
+		token, err := NewFromVC(vc, nil, &mockSigner{Err: fmt.Errorf("signing error")},
+			WithID("did:example:ebfeb1f712ebc6f1c276e12ec21"))
+		r.Error(err)
+		r.Nil(token)
+
+		r.Contains(err.Error(), "create JWS: sign JWS: sign JWS verification data: signing error")
+	})
+}
+
 func TestJSONWebToken_DecodeClaims(t *testing.T) {
 	token, err := getValidJSONWebToken(
 		WithJSONMarshaller(jsonMarshalWithSpace),
@@ -667,14 +777,66 @@ func prettyPrint(msg []byte) (string, error) {
 	return prettyJSON.String(), nil
 }
 
-type unsecuredJWTSigner struct{}
+func printObject(t *testing.T, name string, obj interface{}) {
+	t.Helper()
 
-func (s unsecuredJWTSigner) Sign(_ []byte) ([]byte, error) {
-	return []byte(""), nil
+	objBytes, err := json.Marshal(obj)
+	require.NoError(t, err)
+
+	prettyJSON, err := prettyPrint(objBytes)
+	require.NoError(t, err)
+
+	fmt.Println(name + ":")
+	fmt.Println(prettyJSON)
 }
 
-func (s unsecuredJWTSigner) Headers() afjose.Headers {
-	return map[string]interface{}{
-		afjose.HeaderAlgorithm: afjwt.AlgorithmNone,
+// Signer defines JWS Signer interface. It makes signing of data and provides custom JWS headers relevant to the signer.
+type mockSigner struct {
+	Err error
+}
+
+// Sign signs.
+func (m *mockSigner) Sign(_ []byte) ([]byte, error) {
+	if m.Err != nil {
+		return nil, m.Err
 	}
+
+	return nil, nil
 }
+
+// Headers provides JWS headers.
+func (m *mockSigner) Headers() afjose.Headers {
+	headers := make(afjose.Headers)
+	headers["alg"] = "EdDSA"
+
+	return headers
+}
+
+const sampleVCFull = `
+{
+	"iat": 1673987547,
+	"iss": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+	"jti": "http://example.edu/credentials/1872",
+	"nbf": 1673987547,
+	"sub": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+	"vc": {
+		"@context": [
+			"https://www.w3.org/2018/credentials/v1"
+		],
+		"credentialSubject": {
+			"degree": {
+				"degree": "MIT",
+				"type": "BachelorDegree"
+			},
+			"name": "Jayden Doe",
+			"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+		},
+		"first_name": "First name",
+		"id": "http://example.edu/credentials/1872",
+		"info": "Info",
+		"issuanceDate": "2023-01-17T22:32:27.468109817+02:00",
+		"issuer": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		"last_name": "Last name",
+		"type": "VerifiableCredential"
+	}
+}`
