@@ -29,6 +29,8 @@ import (
 
 const (
 	testIssuer = "https://example.com/issuer"
+
+	year = 365 * 24 * 60 * time.Minute
 )
 
 func TestSDJWTFlow(t *testing.T) {
@@ -47,9 +49,17 @@ func TestSDJWTFlow(t *testing.T) {
 		"last_name":  "Smith",
 	}
 
+	now := time.Now()
+
+	var timeOpts []issuer.NewOpt
+	timeOpts = append(timeOpts,
+		issuer.WithNotBefore(jwt.NewNumericDate(now)),
+		issuer.WithIssuedAt(jwt.NewNumericDate(now)),
+		issuer.WithExpiry(jwt.NewNumericDate(now.Add(year))))
+
 	t.Run("success - simple claims (flat option)", func(t *testing.T) {
 		// Issuer will issue SD-JWT for specified claims.
-		token, err := issuer.New(testIssuer, claims, nil, signer)
+		token, err := issuer.New(testIssuer, claims, nil, signer, timeOpts...)
 		r.NoError(err)
 
 		var simpleClaimsFlatOption map[string]interface{}
@@ -101,6 +111,9 @@ func TestSDJWTFlow(t *testing.T) {
 
 		// Issuer will issue SD-JWT for specified claims and holder public key.
 		token, err := issuer.New(testIssuer, claims, nil, signer,
+			issuer.WithNotBefore(jwt.NewNumericDate(now)),
+			issuer.WithIssuedAt(jwt.NewNumericDate(now)),
+			issuer.WithExpiry(jwt.NewNumericDate(now.Add(year))),
 			issuer.WithHolderPublicKey(holderPublicJWK))
 		r.NoError(err)
 
@@ -148,7 +161,7 @@ func TestSDJWTFlow(t *testing.T) {
 
 		printObject(t, "Verified Claims", verifiedClaims)
 
-		// expected claims cnf, iss, exp, iat, nbf, given_name; last_name was not disclosed
+		// expected claims cnf, iss, given_name, iat, nbf, exp; last_name was not disclosed
 		r.Equal(6, len(verifiedClaims))
 	})
 
@@ -193,8 +206,8 @@ func TestSDJWTFlow(t *testing.T) {
 			verifier.WithSignatureVerifier(signatureVerifier))
 		r.NoError(err)
 
-		// expected claims iss, exp, iat, nbf, given_name, email, street_address
-		r.Equal(7, len(verifiedClaims))
+		// expected claims iss, given_name, email, street_address; time options not provided
+		r.Equal(4, len(verifiedClaims))
 
 		printObject(t, "Verified Claims", verifiedClaims)
 	})
@@ -239,8 +252,8 @@ func TestSDJWTFlow(t *testing.T) {
 			verifier.WithSignatureVerifier(signatureVerifier))
 		r.NoError(err)
 
-		// expected claims iss, exp, iat, nbf, given_name, email, street_address
-		r.Equal(7, len(verifiedClaims))
+		// expected claims iss, given_name, email, street_address; time options not provided
+		r.Equal(4, len(verifiedClaims))
 
 		printObject(t, "Verified Claims", verifiedClaims)
 	})
@@ -265,9 +278,6 @@ func TestSDJWTFlow(t *testing.T) {
 		// All reference apps have it as part of call
 		token, err := issuer.New("", credentialSubject, nil, &unsecuredJWTSigner{},
 			issuer.WithID("did:example:ebfeb1f712ebc6f1c276e12ec21"),
-			issuer.WithExpiry(nil),
-			issuer.WithNotBefore(nil),
-			issuer.WithIssuedAt(nil),
 			issuer.WithHolderPublicKey(holderPublicJWK))
 		r.NoError(err)
 
@@ -317,6 +327,68 @@ func TestSDJWTFlow(t *testing.T) {
 		holderSigner := afjwt.NewEd25519Signer(holderPrivateKey)
 
 		selectedDisclosures := getDisclosuresFromClaimNames([]string{"given_name", "email", "street_address"}, claims)
+
+		// Holder will disclose only sub-set of claims to verifier.
+		combinedFormatForPresentation, err := holder.CreatePresentation(vcCombinedFormatForIssuance, selectedDisclosures,
+			holder.WithHolderBinding(&holder.BindingInfo{
+				Payload: holder.BindingPayload{
+					Nonce:    testNonce,
+					Audience: testAudience,
+					IssuedAt: jwt.NewNumericDate(time.Now()),
+				},
+				Signer: holderSigner,
+			}))
+		r.NoError(err)
+
+		fmt.Println(fmt.Sprintf("holder SD-JWT: %s", combinedFormatForPresentation))
+
+		// Verifier will validate combined format for presentation and create verified claims.
+		// In this case it will be VC since VC was passed in.
+		verifiedClaims, err := verifier.Parse(combinedFormatForPresentation,
+			verifier.WithSignatureVerifier(signatureVerifier))
+		r.NoError(err)
+
+		printObject(t, "Verified Claims", verifiedClaims)
+
+		r.Equal(len(vc), len(verifiedClaims))
+	})
+
+	t.Run("success - NewFromVC API", func(t *testing.T) {
+		holderPublicKey, holderPrivateKey, err := ed25519.GenerateKey(rand.Reader)
+		r.NoError(err)
+
+		holderPublicJWK, err := jwksupport.JWKFromKey(holderPublicKey)
+		require.NoError(t, err)
+
+		// create VC - we will use template here
+		var vc map[string]interface{}
+		err = json.Unmarshal([]byte(sampleVCFull), &vc)
+		r.NoError(err)
+
+		token, err := issuer.NewFromVC(vc, nil, signer,
+			issuer.WithID("did:example:ebfeb1f712ebc6f1c276e12ec21"),
+			issuer.WithHolderPublicKey(holderPublicJWK),
+			issuer.WithStructuredClaims(true))
+		r.NoError(err)
+
+		vcCombinedFormatForIssuance, err := token.Serialize(false)
+		r.NoError(err)
+
+		fmt.Println(fmt.Sprintf("issuer SD-JWT: %s", vcCombinedFormatForIssuance))
+
+		claims, err := holder.Parse(vcCombinedFormatForIssuance, holder.WithSignatureVerifier(signatureVerifier))
+		r.NoError(err)
+
+		printObject(t, "Holder Claims", claims)
+
+		r.Equal(4, len(claims))
+
+		const testAudience = "https://test.com/verifier"
+		const testNonce = "nonce"
+
+		holderSigner := afjwt.NewEd25519Signer(holderPrivateKey)
+
+		selectedDisclosures := getDisclosuresFromClaimNames([]string{"degree", "name", "spouse"}, claims)
 
 		// Holder will disclose only sub-set of claims to verifier.
 		combinedFormatForPresentation, err := holder.CreatePresentation(vcCombinedFormatForIssuance, selectedDisclosures,
@@ -433,6 +505,35 @@ const sampleVC = `
 			"https://www.w3.org/2018/credentials/v1"
 		],
 		"credentialSubject": {},
+		"first_name": "First name",
+		"id": "http://example.edu/credentials/1872",
+		"info": "Info",
+		"issuanceDate": "2023-01-17T22:32:27.468109817+02:00",
+		"issuer": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		"last_name": "Last name",
+		"type": "VerifiableCredential"
+	}
+}`
+
+const sampleVCFull = `
+{
+	"iat": 1673987547,
+	"iss": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+	"jti": "http://example.edu/credentials/1872",
+	"nbf": 1673987547,
+	"sub": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+	"vc": {
+		"@context": [
+			"https://www.w3.org/2018/credentials/v1"
+		],
+		"credentialSubject": {
+			"degree": {
+				"degree": "MIT",
+				"type": "BachelorDegree"
+			},
+			"name": "Jayden Doe",
+			"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+		},
 		"first_name": "First name",
 		"id": "http://example.edu/credentials/1872",
 		"info": "Info",

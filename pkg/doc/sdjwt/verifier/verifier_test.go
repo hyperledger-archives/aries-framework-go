@@ -35,6 +35,8 @@ const (
 	testAudience = "https://test.com/verifier"
 	testNonce    = "nonce"
 	testSDAlg    = "sha-256"
+
+	year = 365 * 24 * 60 * time.Minute
 )
 
 func TestParse(t *testing.T) {
@@ -46,7 +48,15 @@ func TestParse(t *testing.T) {
 	signer := afjwt.NewEd25519Signer(privKey)
 	selectiveClaims := map[string]interface{}{"given_name": "Albert"}
 
-	token, e := issuer.New(testIssuer, selectiveClaims, nil, signer)
+	now := time.Now()
+
+	var timeOpts []issuer.NewOpt
+	timeOpts = append(timeOpts,
+		issuer.WithNotBefore(jwt.NewNumericDate(now)),
+		issuer.WithIssuedAt(jwt.NewNumericDate(now)),
+		issuer.WithExpiry(jwt.NewNumericDate(now.Add(year))))
+
+	token, e := issuer.New(testIssuer, selectiveClaims, nil, signer, timeOpts...)
 	r.NoError(e)
 	combinedFormatForIssuance, e := token.Serialize(false)
 	r.NoError(e)
@@ -62,7 +72,6 @@ func TestParse(t *testing.T) {
 		require.NotNil(t, claims)
 
 		// expected claims iss, exp, iat, nbf, given_name
-		// TODO: should we default exp, iat, nbf
 		require.Equal(t, 5, len(claims))
 	})
 
@@ -103,7 +112,10 @@ func TestParse(t *testing.T) {
 
 		claims, err := Parse(cfp, WithSignatureVerifier(v))
 		r.NoError(err)
-		require.Equal(t, 5, len(claims))
+
+		// expected claims iss, given_name
+		require.Equal(t, 2, len(claims))
+		printObject(t, "claims", claims)
 	})
 
 	t.Run("success - valid SD-JWT times", func(t *testing.T) {
@@ -289,8 +301,8 @@ func TestHolderBinding(t *testing.T) {
 			WithExpectedNonceForHolderBinding(testNonce))
 		r.NoError(err)
 
-		// expected claims cnf, iss, exp, iat, nbf, given_name; last_name was not disclosed
-		r.Equal(6, len(verifiedClaims))
+		// expected claims cnf, iss, given_name; last_name was not disclosed
+		r.Equal(3, len(verifiedClaims))
 	})
 
 	t.Run("success - with holder binding; expected nonce and audience not specified", func(t *testing.T) {
@@ -310,8 +322,8 @@ func TestHolderBinding(t *testing.T) {
 			WithHolderBindingRequired(true))
 		r.NoError(err)
 
-		// expected claims cnf, iss, exp, iat, nbf, given_name; last_name was not disclosed
-		r.Equal(6, len(verifiedClaims))
+		// expected claims cnf, iss, given_name; last_name was not disclosed
+		r.Equal(3, len(verifiedClaims))
 	})
 
 	t.Run("success - with holder binding (required)", func(t *testing.T) {
@@ -334,8 +346,8 @@ func TestHolderBinding(t *testing.T) {
 			WithExpectedNonceForHolderBinding(testNonce))
 		r.NoError(err)
 
-		// expected claims cnf, iss, exp, iat, nbf, given_name; last_name was not disclosed
-		r.Equal(6, len(verifiedClaims))
+		// expected claims cnf, iss, given_name; last_name was not disclosed
+		r.Equal(3, len(verifiedClaims))
 	})
 
 	t.Run("error - holder binding required, however not provided by the holder", func(t *testing.T) {
@@ -742,7 +754,15 @@ func TestGetVerifiedPayload(t *testing.T) {
 	signer := afjwt.NewEd25519Signer(privKey)
 	selectiveClaims := map[string]interface{}{"given_name": "Albert"}
 
-	token, e := issuer.New(testIssuer, selectiveClaims, nil, signer)
+	now := time.Now()
+
+	var timeOpts []issuer.NewOpt
+	timeOpts = append(timeOpts,
+		issuer.WithNotBefore(jwt.NewNumericDate(now)),
+		issuer.WithIssuedAt(jwt.NewNumericDate(now)),
+		issuer.WithExpiry(jwt.NewNumericDate(now.Add(year))))
+
+	token, e := issuer.New(testIssuer, selectiveClaims, nil, signer, timeOpts...)
 	r.NoError(e)
 
 	t.Run("success", func(t *testing.T) {
