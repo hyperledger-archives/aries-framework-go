@@ -94,7 +94,7 @@ func newJWTCredClaims(vc *Credential, minimizeVC bool) (*JWTCredClaims, error) {
 type JWTCredClaimsUnmarshaller func(vcJWTBytes string) (*JWTCredClaims, error)
 
 // decodeCredJWT parses JWT from the specified bytes array in compact format using unmarshaller.
-// It returns decoded Verifiable Credential refined by JWT Claims in raw byte array form.
+// It returns decoded Verifiable Credential refined by JWT Claims in raw byte array form, and the claims object itself.
 func decodeCredJWT(rawJWT string, unmarshaller JWTCredClaimsUnmarshaller) ([]byte, error) {
 	credClaims, err := unmarshaller(rawJWT)
 	if err != nil {
