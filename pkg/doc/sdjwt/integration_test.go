@@ -381,9 +381,10 @@ func TestSDJWTFlow(t *testing.T) {
 		r.NoError(err)
 
 		token, err := issuer.NewFromVC(vc, nil, signer,
-			issuer.WithID("did:example:ebfeb1f712ebc6f1c276e12ec21"),
 			issuer.WithHolderPublicKey(holderPublicJWK),
-			issuer.WithStructuredClaims(true))
+			issuer.WithStructuredClaims(true),
+			issuer.WithNonSelectivelyDisclosableClaims([]string{"id", "degree.type"}),
+		)
 		r.NoError(err)
 
 		var decoded map[string]interface{}
@@ -410,7 +411,7 @@ func TestSDJWTFlow(t *testing.T) {
 
 		holderSigner := afjwt.NewEd25519Signer(holderPrivateKey)
 
-		selectedDisclosures := getDisclosuresFromClaimNames([]string{"degree", "name", "spouse"}, claims)
+		selectedDisclosures := getDisclosuresFromClaimNames([]string{"degree", "id", "name"}, claims)
 
 		// Holder will disclose only sub-set of claims to verifier.
 		combinedFormatForPresentation, err := holder.CreatePresentation(vcCombinedFormatForIssuance, selectedDisclosures,
@@ -551,8 +552,10 @@ const sampleVCFull = `
 		"credentialSubject": {
 			"degree": {
 				"degree": "MIT",
-				"type": "BachelorDegree"
+				"type": "BachelorDegree",
+				"id": "some-id"
 			},
+			"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
 			"name": "Jayden Doe",
 			"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
 		},

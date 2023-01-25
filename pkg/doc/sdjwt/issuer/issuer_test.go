@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/PaesslerAG/jsonpath"
 	"github.com/go-jose/go-jose/v3"
 	"github.com/go-jose/go-jose/v3/json"
 	"github.com/go-jose/go-jose/v3/jwt"
@@ -229,6 +230,111 @@ func TestNew(t *testing.T) {
 		r.NoError(err)
 	})
 
+	t.Run("Create Mixed (SD + non-SD) JWS with structured claims flag", func(t *testing.T) {
+		r := require.New(t)
+
+		_, privKey, err := ed25519.GenerateKey(rand.Reader)
+		r.NoError(err)
+
+		complexClaims := map[string]interface{}{
+			"degree": map[string]interface{}{
+				"degree": "MIT",
+				"type":   "BachelorDegree",
+				"id":     "some-id",
+			},
+			"name":   "Jayden Doe",
+			"id":     "did:example:ebfeb1f712ebc6f1c276e12ec21",
+			"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+		}
+
+		var newOpts []NewOpt
+
+		newOpts = append(newOpts,
+			WithStructuredClaims(true),
+			WithNonSelectivelyDisclosableClaims([]string{"id", "degree.type"}),
+		)
+
+		token, err := New(issuer, complexClaims, nil, afjwt.NewEd25519Signer(privKey), newOpts...)
+		r.NoError(err)
+
+		var tokenClaims map[string]interface{}
+		err = token.DecodeClaims(&tokenClaims)
+		r.NoError(err)
+
+		printObject(t, "Token Claims", tokenClaims)
+
+		combinedFormatForIssuance, err := token.Serialize(false)
+		require.NoError(t, err)
+
+		fmt.Printf(combinedFormatForIssuance)
+
+		cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
+		require.Equal(t, 4, len(cfi.Disclosures))
+
+		id, err := jsonpath.Get("$.id", tokenClaims)
+		r.NoError(err)
+		r.Equal("did:example:ebfeb1f712ebc6f1c276e12ec21", id)
+
+		degreeType, err := jsonpath.Get("$.degree.type", tokenClaims)
+		r.NoError(err)
+		r.Equal("BachelorDegree", degreeType)
+
+		degreeID, err := jsonpath.Get("$.degree.id", tokenClaims)
+		r.Error(err)
+		r.Nil(degreeID)
+		r.Contains(err.Error(), "unknown key id")
+	})
+
+	t.Run("Create Mixed (SD + non-SD) JWS with flat claims flag", func(t *testing.T) {
+		r := require.New(t)
+
+		_, privKey, err := ed25519.GenerateKey(rand.Reader)
+		r.NoError(err)
+
+		complexClaims := map[string]interface{}{
+			"degree": map[string]interface{}{
+				"degree": "MIT",
+				"type":   "BachelorDegree",
+				"id":     "some-id",
+			},
+			"name":   "Jayden Doe",
+			"id":     "did:example:ebfeb1f712ebc6f1c276e12ec21",
+			"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+		}
+
+		var newOpts []NewOpt
+
+		newOpts = append(newOpts,
+			WithNonSelectivelyDisclosableClaims([]string{"id", "degree.type"}),
+		)
+
+		token, err := New(issuer, complexClaims, nil, afjwt.NewEd25519Signer(privKey), newOpts...)
+		r.NoError(err)
+
+		var tokenClaims map[string]interface{}
+		err = token.DecodeClaims(&tokenClaims)
+		r.NoError(err)
+
+		printObject(t, "Token Claims", tokenClaims)
+
+		combinedFormatForIssuance, err := token.Serialize(false)
+		require.NoError(t, err)
+
+		fmt.Printf(combinedFormatForIssuance)
+
+		cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
+		require.Equal(t, 3, len(cfi.Disclosures))
+
+		id, err := jsonpath.Get("$.id", tokenClaims)
+		r.NoError(err)
+		r.Equal("did:example:ebfeb1f712ebc6f1c276e12ec21", id)
+
+		degreeType, err := jsonpath.Get("$.degree.type", tokenClaims)
+		r.Error(err)
+		r.Nil(degreeType)
+		r.Contains(err.Error(), "unknown key degree")
+	})
+
 	t.Run("Create SD-JWS with decoy disclosures", func(t *testing.T) {
 		r := require.New(t)
 
@@ -395,9 +501,9 @@ func TestNewFromVC(t *testing.T) {
 		r.NoError(err)
 
 		token, err := NewFromVC(vc, nil, signer,
-			WithID("did:example:ebfeb1f712ebc6f1c276e12ec21"),
 			WithHolderPublicKey(holderPublicJWK),
-			WithStructuredClaims(true))
+			WithStructuredClaims(true),
+			WithNonSelectivelyDisclosableClaims([]string{"id", "degree.type"}))
 		r.NoError(err)
 
 		vcCombinedFormatForIssuance, err := token.Serialize(false)
@@ -410,6 +516,19 @@ func TestNewFromVC(t *testing.T) {
 		r.NoError(err)
 
 		printObject(t, "VC with selected disclosures", vcWithSelectedDisclosures)
+
+		id, err := jsonpath.Get("$.vc.credentialSubject.id", vcWithSelectedDisclosures)
+		r.NoError(err)
+		r.Equal("did:example:ebfeb1f712ebc6f1c276e12ec21", id)
+
+		degreeType, err := jsonpath.Get("$.vc.credentialSubject.degree.type", vcWithSelectedDisclosures)
+		r.NoError(err)
+		r.Equal("BachelorDegree", degreeType)
+
+		degreeID, err := jsonpath.Get("$.vc.credentialSubject.degree.id", vcWithSelectedDisclosures)
+		r.Error(err)
+		r.Nil(degreeID)
+		r.Contains(err.Error(), "unknown key id")
 	})
 
 	t.Run("success - flat claims + holder binding", func(t *testing.T) {
@@ -425,8 +544,8 @@ func TestNewFromVC(t *testing.T) {
 		r.NoError(err)
 
 		token, err := NewFromVC(vc, nil, signer,
-			WithID("did:example:ebfeb1f712ebc6f1c276e12ec21"),
-			WithHolderPublicKey(holderPublicJWK))
+			WithHolderPublicKey(holderPublicJWK),
+			WithNonSelectivelyDisclosableClaims([]string{"id"}))
 		r.NoError(err)
 
 		vcCombinedFormatForIssuance, err := token.Serialize(false)
@@ -439,6 +558,10 @@ func TestNewFromVC(t *testing.T) {
 		r.NoError(err)
 
 		printObject(t, "VC with selected disclosures", vcWithSelectedDisclosures)
+
+		id, err := jsonpath.Get("$.vc.credentialSubject.id", vcWithSelectedDisclosures)
+		r.NoError(err)
+		r.Equal("did:example:ebfeb1f712ebc6f1c276e12ec21", id)
 	})
 
 	t.Run("error - missing credential subject", func(t *testing.T) {
@@ -826,9 +949,11 @@ const sampleVCFull = `
 		"credentialSubject": {
 			"degree": {
 				"degree": "MIT",
-				"type": "BachelorDegree"
+				"type": "BachelorDegree",
+				"id": "some-id"
 			},
 			"name": "Jayden Doe",
+			"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
 			"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
 		},
 		"first_name": "First name",

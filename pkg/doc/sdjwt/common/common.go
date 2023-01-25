@@ -337,7 +337,7 @@ func GetDisclosureDigests(claims map[string]interface{}) (map[string]bool, error
 		return nil, fmt.Errorf("get disclosure digests: %w", err)
 	}
 
-	return sliceToMap(disclosures), nil
+	return SliceToMap(disclosures), nil
 }
 
 // GetDisclosedClaims returns disclosed claims only.
@@ -414,7 +414,8 @@ func stringArray(entry interface{}) ([]string, error) {
 	return result, nil
 }
 
-func sliceToMap(ids []string) map[string]bool {
+// SliceToMap converts slice to map.
+func SliceToMap(ids []string) map[string]bool {
 	// convert slice to map
 	values := make(map[string]bool)
 	for _, id := range ids {
