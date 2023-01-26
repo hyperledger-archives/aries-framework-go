@@ -226,7 +226,7 @@ func NewFromVC(vc map[string]interface{}, headers jose.Headers,
 	vc[vcKey].(map[string]interface{})[credentialSubjectKey] = selectiveCredentialSubject
 
 	// sign VC with 'selective' credential subject
-	signedJWT, err := afgjwt.NewSigned(vc, nil, signer)
+	signedJWT, err := afgjwt.NewSigned(vc, headers, signer)
 	if err != nil {
 		return nil, err
 	}
