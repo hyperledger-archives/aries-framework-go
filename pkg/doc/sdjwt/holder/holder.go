@@ -139,7 +139,7 @@ func CreatePresentation(combinedFormatForIssuance string, claimsToDisclose []str
 		return "", fmt.Errorf("no disclosures found in SD-JWT")
 	}
 
-	disclosuresMap := sliceToMap(cfi.Disclosures)
+	disclosuresMap := common.SliceToMap(cfi.Disclosures)
 
 	for _, ctd := range claimsToDisclose {
 		if _, ok := disclosuresMap[ctd]; !ok {
@@ -175,16 +175,6 @@ func CreateHolderBinding(info *BindingInfo) (string, error) {
 	}
 
 	return hbJWT.Serialize(false)
-}
-
-func sliceToMap(ids []string) map[string]bool {
-	// convert slice to map
-	values := make(map[string]bool)
-	for _, id := range ids {
-		values[id] = true
-	}
-
-	return values
 }
 
 // NoopSignatureVerifier is no-op signature verifier (signature will not get checked).

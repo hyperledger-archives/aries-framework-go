@@ -61,6 +61,8 @@ type newOpts struct {
 
 	addDecoyDigests  bool
 	structuredClaims bool
+
+	nonSDClaimsMap map[string]bool
 }
 
 // NewOpt is the SD-JWT New option.
@@ -150,13 +152,34 @@ func WithStructuredClaims(flag bool) NewOpt {
 	}
 }
 
+// WithNonSelectivelyDisclosableClaims is an option for provide claim names that should be ignored when creating
+// selectively disclosable claims.
+// For example if you would like to not selectively disclose id and degree type from the following claims:
+// {
+//
+//	"degree": {
+//	   "degree": "MIT",
+//	   "type": "BachelorDegree",
+//	 },
+//	 "name": "Jayden Doe",
+//	 "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+//	}
+//
+// you should specify the following array: []string{"id", "degree.type"}.
+func WithNonSelectivelyDisclosableClaims(nonSDClaims []string) NewOpt {
+	return func(opts *newOpts) {
+		opts.nonSDClaimsMap = common.SliceToMap(nonSDClaims)
+	}
+}
+
 // New creates new signed Selective Disclosure JWT based on input claims.
 func New(issuer string, claims interface{}, headers jose.Headers,
 	signer jose.Signer, opts ...NewOpt) (*SelectiveDisclosureJWT, error) {
 	nOpts := &newOpts{
-		jsonMarshal: json.Marshal,
-		getSalt:     generateSalt,
-		HashAlg:     defaultHash,
+		jsonMarshal:    json.Marshal,
+		getSalt:        generateSalt,
+		HashAlg:        defaultHash,
+		nonSDClaimsMap: make(map[string]bool),
 	}
 
 	for _, opt := range opts {
@@ -168,7 +191,7 @@ func New(issuer string, claims interface{}, headers jose.Headers,
 		return nil, fmt.Errorf("convert payload to map: %w", err)
 	}
 
-	disclosures, digests, err := createDisclosuresAndDigests(claimsMap, nOpts)
+	disclosures, digests, err := createDisclosuresAndDigests("", claimsMap, nOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -333,7 +356,7 @@ func (j *SelectiveDisclosureJWT) Serialize(detached bool) (string, error) {
 	return cf.Serialize(), nil
 }
 
-func createDisclosuresAndDigests(claims map[string]interface{}, opts *newOpts) ([]string, map[string]interface{}, error) { // nolint:lll
+func createDisclosuresAndDigests(path string, claims map[string]interface{}, opts *newOpts) ([]string, map[string]interface{}, error) { // nolint:lll
 	var disclosures []string
 
 	var levelDisclosures []string
@@ -346,8 +369,13 @@ func createDisclosuresAndDigests(claims map[string]interface{}, opts *newOpts) (
 	}
 
 	for key, value := range claims {
+		curPath := key
+		if path != "" {
+			curPath = path + "." + key
+		}
+
 		if obj, ok := value.(map[string]interface{}); ok && opts.structuredClaims {
-			nestedDisclosures, nestedDigestsMap, e := createDisclosuresAndDigests(obj, opts)
+			nestedDisclosures, nestedDigestsMap, e := createDisclosuresAndDigests(curPath, obj, opts)
 			if e != nil {
 				return nil, nil, e
 			}
@@ -356,6 +384,12 @@ func createDisclosuresAndDigests(claims map[string]interface{}, opts *newOpts) (
 
 			disclosures = append(disclosures, nestedDisclosures...)
 		} else {
+			if _, ok := opts.nonSDClaimsMap[curPath]; ok {
+				digestsMap[key] = value
+
+				continue
+			}
+
 			disclosure, e := createDisclosure(key, value, opts)
 			if e != nil {
 				return nil, nil, fmt.Errorf("create disclosure: %w", e)
