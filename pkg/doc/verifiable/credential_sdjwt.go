@@ -277,3 +277,116 @@ func makeSDJWT(vc *Credential, signer jose.Signer, signingKeyID string) (*issuer
 
 	return sdjwt, nil
 }
+
+type displayCredOpts struct {
+	displayAll   bool
+	displayGiven []string
+}
+
+// DisplayCredentialOption provides an option for Credential.CreateDisplayCredential.
+type DisplayCredentialOption func(opts *displayCredOpts)
+
+// DisplayAllDisclosures sets that Credential.CreateDisplayCredential will include all disclosures in the generated
+// credential.
+func DisplayAllDisclosures() DisplayCredentialOption {
+	return func(opts *displayCredOpts) {
+		opts.displayAll = true
+	}
+}
+
+// DisplayGivenDisclosures sets that Credential.CreateDisplayCredential will include only the given disclosures in the
+// generated credential.
+func DisplayGivenDisclosures(given []string) DisplayCredentialOption {
+	return func(opts *displayCredOpts) {
+		opts.displayGiven = append(opts.displayGiven, given...)
+	}
+}
+
+// CreateDisplayCredential creates, for SD-JWT credentials, a Credential whose selective-disclosure subject fields
+// are replaced with the disclosure data.
+//
+// Options may be provided to filter the disclosures that will be included in the display credential. If a disclosure is
+// not included, the associated claim will not be present in the returned credential.
+//
+// If the calling Credential is not an SD-JWT credential, this method returns the credential itself.
+func (vc *Credential) CreateDisplayCredential( // nolint:funlen,gocyclo
+	opts ...DisplayCredentialOption,
+) (*Credential, error) {
+	options := &displayCredOpts{}
+
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	if options.displayAll && len(options.displayGiven) > 0 {
+		return nil, fmt.Errorf("incompatible options provided")
+	}
+
+	if vc.SDJWTHashAlg == "" || vc.JWT == "" {
+		return vc, nil
+	}
+
+	credClaims, err := unmarshalJWSClaims(vc.JWT, false, nil)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal VC JWT claims: %w", err)
+	}
+
+	credClaims.refineFromJWTClaims()
+
+	useDisclosures := filterDisclosureList(vc.SDJWTDisclosures, options)
+
+	newVCObj, err := common.GetDisclosedClaims(useDisclosures, credClaims.VC)
+	if err != nil {
+		return nil, fmt.Errorf("assembling disclosed claims into vc: %w", err)
+	}
+
+	if subj, ok := newVCObj["credentialSubject"].(map[string]interface{}); ok {
+		clearEmpty(subj)
+	}
+
+	vcBytes, err := json.Marshal(&newVCObj)
+	if err != nil {
+		return nil, fmt.Errorf("marshalling vc object to JSON: %w", err)
+	}
+
+	newVC, err := populateCredential(vcBytes, nil)
+	if err != nil {
+		return nil, fmt.Errorf("parsing new VC from JSON: %w", err)
+	}
+
+	return newVC, nil
+}
+
+func filterDisclosureList(disclosures []*common.DisclosureClaim, options *displayCredOpts) []*common.DisclosureClaim {
+	if options.displayAll {
+		return disclosures
+	}
+
+	displayGivenMap := map[string]struct{}{}
+
+	for _, given := range options.displayGiven {
+		displayGivenMap[given] = struct{}{}
+	}
+
+	var out []*common.DisclosureClaim
+
+	for _, disclosure := range disclosures {
+		if _, ok := displayGivenMap[disclosure.Name]; ok {
+			out = append(out, disclosure)
+		}
+	}
+
+	return out
+}
+
+func clearEmpty(claims map[string]interface{}) {
+	for name, value := range claims {
+		if valueObj, ok := value.(map[string]interface{}); ok {
+			clearEmpty(valueObj)
+
+			if len(valueObj) == 0 {
+				delete(claims, name)
+			}
+		}
+	}
+}

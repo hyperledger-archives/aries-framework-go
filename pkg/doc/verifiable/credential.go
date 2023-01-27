@@ -842,20 +842,9 @@ func ParseCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) 
 		}
 	}
 
-	// Unmarshal raw credential from JSON.
-	var raw rawCredential
-
-	err = json.Unmarshal(vcDataDecoded, &raw)
+	vc, err := populateCredential(vcDataDecoded, disclosures)
 	if err != nil {
-		return nil, fmt.Errorf("unmarshal new credential: %w", err)
-	}
-
-	raw.SDJWTDisclosures = disclosures
-
-	// Create credential from raw.
-	vc, err := newCredential(&raw)
-	if err != nil {
-		return nil, fmt.Errorf("build new credential: %w", err)
+		return nil, err
 	}
 
 	if externalJWT == "" {
@@ -890,6 +879,26 @@ func validateDisclosures(vcBytes []byte, disclosures []string) error {
 	}
 
 	return nil
+}
+
+func populateCredential(vcJSON []byte, sdDisclosures []string) (*Credential, error) {
+	// Unmarshal raw credential from JSON.
+	var raw rawCredential
+
+	err := json.Unmarshal(vcJSON, &raw)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal new credential: %w", err)
+	}
+
+	raw.SDJWTDisclosures = sdDisclosures
+
+	// Create credential from raw.
+	vc, err := newCredential(&raw)
+	if err != nil {
+		return nil, fmt.Errorf("build new credential: %w", err)
+	}
+
+	return vc, nil
 }
 
 func validateCredential(vc *Credential, vcBytes []byte, vcOpts *credentialOpts) error {
