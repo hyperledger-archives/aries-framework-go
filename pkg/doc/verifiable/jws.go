@@ -50,7 +50,7 @@ func (v noVerifier) Verify(_ jose.Headers, _, _, _ []byte) error {
 
 // MarshalJWS serializes JWT presentation claims into signed form (JWS).
 func marshalJWS(jwtClaims interface{}, signatureAlg JWSAlgorithm, signer Signer, keyID string) (string, error) {
-	algName, err := signatureAlg.name()
+	algName, err := signatureAlg.Name()
 	if err != nil {
 		return "", err
 	}

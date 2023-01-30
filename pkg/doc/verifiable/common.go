@@ -80,8 +80,8 @@ func KeyTypeToJWSAlgo(keyType kmsapi.KeyType) (JWSAlgorithm, error) {
 	}
 }
 
-// name return the name of the signature algorithm.
-func (ja JWSAlgorithm) name() (string, error) {
+// Name return the name of the signature algorithm.
+func (ja JWSAlgorithm) Name() (string, error) {
 	switch ja {
 	case RS256:
 		return "RS256", nil

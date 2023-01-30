@@ -19,16 +19,16 @@ import (
 )
 
 func TestJwtAlgorithm_Name(t *testing.T) {
-	alg, err := RS256.name()
+	alg, err := RS256.Name()
 	require.NoError(t, err)
 	require.Equal(t, "RS256", alg)
 
-	alg, err = EdDSA.name()
+	alg, err = EdDSA.Name()
 	require.NoError(t, err)
 	require.Equal(t, "EdDSA", alg)
 
 	// not supported alg
-	sa, err := JWSAlgorithm(-1).name()
+	sa, err := JWSAlgorithm(-1).Name()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unsupported algorithm")
 	require.Empty(t, sa)
