@@ -1086,6 +1086,10 @@ const Aries = function (opts) {
                 return invoke(aw, pending, this.pkgname, "GetCredentialByName", req, "timeout while retrieving verifiable credential by name")
             },
 
+            removeCredentialByName: async function (req) {
+                return invoke(aw, pending, this.pkgname, "RemoveCredentialByName", req, "timeout while removing credential")
+            },
+
             /**
              * Retrieves verifiable credential records containing name and id.
              *

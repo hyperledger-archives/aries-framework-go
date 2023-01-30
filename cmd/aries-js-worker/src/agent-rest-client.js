@@ -150,6 +150,11 @@ const pkgs = {
             method: "GET",
             pathParam: "name"
         },
+        RemoveCredentialByName: {
+            path: "/verifiable/credential/remove/name/{name}",
+            method: "POST",
+            pathParam: "name"
+        },
         GetCredentials: {
             path: "/verifiable/credentials",
             method: "GET",
