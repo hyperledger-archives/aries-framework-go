@@ -237,7 +237,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 
 		err = VerifyDisclosuresInSDJWT(nil, signedJWT)
 		r.Error(err)
-		r.Contains(err.Error(), "_sd_alg 'SHA-XXX 'not supported")
+		r.Contains(err.Error(), "_sd_alg 'SHA-XXX' not supported")
 	})
 
 	t.Run("error - algorithm is not a string", func(t *testing.T) {
@@ -443,6 +443,31 @@ func TestGetDisclosedClaims(t *testing.T) {
 
 		r.Contains(err.Error(),
 			"hash function not available for: 0")
+	})
+}
+
+func TestGetCryptoHash(t *testing.T) {
+	r := require.New(t)
+
+	t.Run("success", func(t *testing.T) {
+		hash, err := GetCryptoHash("sha-256")
+		r.NoError(err)
+		r.Equal(crypto.SHA256, hash)
+
+		hash, err = GetCryptoHash("sha-384")
+		r.NoError(err)
+		r.Equal(crypto.SHA384, hash)
+
+		hash, err = GetCryptoHash("sha-512")
+		r.NoError(err)
+		r.Equal(crypto.SHA512, hash)
+	})
+
+	t.Run("error - not supported", func(t *testing.T) {
+		hash, err := GetCryptoHash("invalid")
+		r.Error(err)
+		r.Equal(crypto.Hash(0), hash)
+		r.Contains(err.Error(), "_sd_alg 'invalid' not supported")
 	})
 }
 
