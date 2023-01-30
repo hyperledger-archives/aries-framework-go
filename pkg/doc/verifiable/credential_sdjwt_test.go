@@ -36,7 +36,32 @@ func TestParseSDJWT(t *testing.T) {
 			WithPublicKeyFetcher(createDIDKeyFetcher(t, pubKey, issuerID)))
 		require.NoError(t, e)
 		require.NotNil(t, newVC)
-		// fmt.Printf("VC: %#v\n", newVC)
+	})
+
+	t.Run("success with sd alg in subject", func(t *testing.T) {
+		vc, e := ParseCredential([]byte(sdJWTString), WithDisabledProofCheck())
+		require.NoError(t, e)
+
+		claims, e := vc.JWTClaims(false)
+		require.NoError(t, e)
+
+		claims.VC["credentialSubject"].(map[string]interface{})["_sd_alg"] = claims.VC["_sd_alg"]
+		delete(claims.VC, "_sd_alg")
+
+		ed25519Signer, e := newCryptoSigner(kms.ED25519Type)
+		require.NoError(t, e)
+
+		vc.JWT, e = claims.MarshalJWS(EdDSA, ed25519Signer, issuerID+"#keys-1")
+		require.NoError(t, e)
+
+		modifiedCred, e := vc.MarshalWithDisclosure(DiscloseAll())
+		require.NoError(t, e)
+
+		newVC, e := ParseCredential([]byte(modifiedCred),
+			WithPublicKeyFetcher(createDIDKeyFetcher(t, ed25519Signer.PublicKeyBytes(), issuerID)),
+			WithSDJWTPresentation())
+		require.NoError(t, e)
+		require.NotNil(t, newVC)
 	})
 
 	t.Run("success with mock holder binding", func(t *testing.T) {

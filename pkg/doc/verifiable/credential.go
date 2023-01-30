@@ -873,6 +873,13 @@ func validateDisclosures(vcBytes []byte, disclosures []string) error {
 		return fmt.Errorf("decode credential for sdjwt: %w", err)
 	}
 
+	if _, hasSDAlg := vcPayload.Payload["_sd_alg"]; !hasSDAlg {
+		subjSDAlg, hasSubjSDAlg := vcPayload.Payload["credentialSubject"].(map[string]interface{})["_sd_alg"]
+		if hasSubjSDAlg {
+			vcPayload.Payload["_sd_alg"] = subjSDAlg
+		}
+	}
+
 	err = common.VerifyDisclosuresInSDJWT(disclosures, vcPayload)
 	if err != nil {
 		return fmt.Errorf("invalid SDJWT disclosures: %w", err)
