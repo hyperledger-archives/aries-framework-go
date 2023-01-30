@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -701,6 +703,37 @@ func TestCredential_MarshalJSON(t *testing.T) {
 
 		// convert json byte data to verifiable credential
 		cred2, err := parseTestCredential(t, byteCred)
+		require.NoError(t, err)
+		require.NotEmpty(t, cred2)
+
+		// verify verifiable credentials created by ParseCredential and JSON function matches
+		require.Equal(t, vc.stringJSON(t), cred2.stringJSON(t))
+	})
+
+	t.Run("round trip conversion of SD-JWT credential", func(t *testing.T) {
+		// setup -> create verifiable credential from SD-JWT
+		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+
+		sdJWTString, issuerID := createTestSDJWTCred(t, privKey)
+
+		vc, err := ParseCredential([]byte(sdJWTString),
+			WithPublicKeyFetcher(createDIDKeyFetcher(t, pubKey, issuerID)))
+		require.NoError(t, err)
+		require.NotEmpty(t, vc)
+
+		// convert verifiable credential to SD-JWT json string
+		byteCred, err := vc.MarshalJSON()
+		require.NoError(t, err)
+		require.NotEmpty(t, byteCred)
+
+		// original sd-jwt is in 'issuance' format, without a trailing tilde, while MarshalJSON will marshal
+		// in 'presentation' format, including a trailing tilde if the sd-jwt has disclosures but no holder binding.
+		require.Equal(t, string(unQuote([]byte(sdJWTString)))+"~", string(unQuote(byteCred)))
+
+		// convert SD-JWT json string to verifiable credential
+		cred2, err := ParseCredential(byteCred,
+			WithPublicKeyFetcher(createDIDKeyFetcher(t, pubKey, issuerID)), WithSDJWTPresentation())
 		require.NoError(t, err)
 		require.NotEmpty(t, cred2)
 

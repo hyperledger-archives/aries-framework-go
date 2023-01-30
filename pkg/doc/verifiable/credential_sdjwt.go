@@ -110,8 +110,9 @@ func filterSDJWTVC(vc *Credential, options *marshalDisclosureOpts) (string, erro
 	}
 
 	cf := common.CombinedFormatForPresentation{
-		SDJWT:       vc.JWT,
-		Disclosures: disclosureCodes,
+		SDJWT:         vc.JWT,
+		Disclosures:   disclosureCodes,
+		HolderBinding: vc.SDHolderBinding,
 	}
 
 	if options.holderBinding != nil {
