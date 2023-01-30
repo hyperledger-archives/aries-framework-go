@@ -61,6 +61,8 @@ func notifyWH(destination string, message []byte) error {
 		return fmt.Errorf("failed to create new http post request for %s: %w", destination, err)
 	}
 
+	req.Header.Add("Content-Type", "application/json")
+
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to post notification to %s: %w", destination, err)
