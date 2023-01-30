@@ -285,7 +285,7 @@ func TestNew(t *testing.T) {
 		r.Contains(err.Error(), "unknown key id")
 	})
 
-	t.Run("Create Mixed (SD + non-SD) JWS with flat claims flag", func(t *testing.T) {
+	t.Run("Create Mixed (SD + non-SD) JWS with flat claims flag, SHA-512", func(t *testing.T) {
 		r := require.New(t)
 
 		_, privKey, err := ed25519.GenerateKey(rand.Reader)
@@ -306,6 +306,7 @@ func TestNew(t *testing.T) {
 
 		newOpts = append(newOpts,
 			WithNonSelectivelyDisclosableClaims([]string{"id", "degree.type"}),
+			WithHashAlgorithm(crypto.SHA512),
 		)
 
 		token, err := New(issuer, complexClaims, nil, afjwt.NewEd25519Signer(privKey), newOpts...)
@@ -314,6 +315,8 @@ func TestNew(t *testing.T) {
 		var tokenClaims map[string]interface{}
 		err = token.DecodeClaims(&tokenClaims)
 		r.NoError(err)
+
+		r.Equal("sha-512", tokenClaims[common.SDAlgorithmKey])
 
 		printObject(t, "Token Claims", tokenClaims)
 
@@ -401,6 +404,41 @@ func TestNew(t *testing.T) {
 		require.NoError(t, err)
 
 		fmt.Println(prettyJSON)
+	})
+
+	t.Run("error - claims contain _sd key (top level object)", func(t *testing.T) {
+		r := require.New(t)
+
+		_, privKey, err := ed25519.GenerateKey(rand.Reader)
+		r.NoError(err)
+
+		complexClaims := map[string]interface{}{
+			"_sd": "whatever",
+		}
+
+		token, err := New(issuer, complexClaims, nil, afjwt.NewEd25519Signer(privKey))
+		r.Error(err)
+		r.Nil(token)
+		r.Contains(err.Error(), "key '_sd' cannot be present in the claims")
+	})
+
+	t.Run("error - claims contain _sd key (inner object)", func(t *testing.T) {
+		r := require.New(t)
+
+		_, privKey, err := ed25519.GenerateKey(rand.Reader)
+		r.NoError(err)
+
+		complexClaims := map[string]interface{}{
+			"degree": map[string]interface{}{
+				"_sd":  "whatever",
+				"type": "BachelorDegree",
+			},
+		}
+
+		token, err := New(issuer, complexClaims, nil, afjwt.NewEd25519Signer(privKey))
+		r.Error(err)
+		r.Nil(token)
+		r.Contains(err.Error(), "key '_sd' cannot be present in the claims")
 	})
 
 	t.Run("error - invalid holder public key", func(t *testing.T) {

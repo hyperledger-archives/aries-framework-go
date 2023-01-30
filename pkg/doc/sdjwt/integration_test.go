@@ -8,6 +8,7 @@ package sdjwt
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/json"
@@ -111,6 +112,7 @@ func TestSDJWTFlow(t *testing.T) {
 
 		// Issuer will issue SD-JWT for specified claims and holder public key.
 		token, err := issuer.New(testIssuer, claims, nil, signer,
+			issuer.WithHashAlgorithm(crypto.SHA512),
 			issuer.WithNotBefore(jwt.NewNumericDate(now)),
 			issuer.WithIssuedAt(jwt.NewNumericDate(now)),
 			issuer.WithExpiry(jwt.NewNumericDate(now.Add(year))),

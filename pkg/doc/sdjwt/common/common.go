@@ -256,11 +256,18 @@ func GetCryptoHash(sdAlg string) (crypto.Hash, error) {
 
 	var cryptoHash crypto.Hash
 
+	// From spec: the hash algorithms MD2, MD4, MD5, RIPEMD-160, and SHA-1 revealed fundamental weaknesses
+	// and they MUST NOT be used.
+
 	switch strings.ToUpper(sdAlg) {
 	case crypto.SHA256.String():
 		cryptoHash = crypto.SHA256
+	case crypto.SHA384.String():
+		cryptoHash = crypto.SHA384
+	case crypto.SHA512.String():
+		cryptoHash = crypto.SHA512
 	default:
-		err = fmt.Errorf("%s '%s 'not supported", SDAlgorithmKey, sdAlg)
+		err = fmt.Errorf("%s '%s' not supported", SDAlgorithmKey, sdAlg)
 	}
 
 	return cryptoHash, err
