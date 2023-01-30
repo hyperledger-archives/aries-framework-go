@@ -1662,6 +1662,15 @@ func typedIDsToRaw(typedIDs []TypedID) ([]byte, error) {
 // MarshalJSON converts Verifiable Credential to JSON bytes.
 func (vc *Credential) MarshalJSON() ([]byte, error) {
 	if vc.JWT != "" {
+		if vc.SDJWTHashAlg != "" {
+			sdJWT, err := vc.MarshalWithDisclosure(DiscloseAll())
+			if err != nil {
+				return nil, err
+			}
+
+			return []byte("\"" + sdJWT + "\""), nil
+		}
+
 		// If vc.JWT exists, marshal only the JWT, since all other values should be unchanged
 		// from when the JWT was parsed.
 		return []byte("\"" + vc.JWT + "\""), nil
