@@ -733,7 +733,7 @@ func TestCredential_MarshalJSON(t *testing.T) {
 
 		// convert SD-JWT json string to verifiable credential
 		cred2, err := ParseCredential(byteCred,
-			WithPublicKeyFetcher(createDIDKeyFetcher(t, pubKey, issuerID)), WithSDJWTPresentation())
+			WithPublicKeyFetcher(createDIDKeyFetcher(t, pubKey, issuerID)))
 		require.NoError(t, err)
 		require.NotEmpty(t, cred2)
 

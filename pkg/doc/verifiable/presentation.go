@@ -493,7 +493,6 @@ func decodeCredentials(rawCred interface{}, opts *presentationOpts) ([]interface
 			bCred := []byte(sCred)
 
 			credOpts := []CredentialOpt{
-				WithSDJWTPresentation(),
 				WithPublicKeyFetcher(opts.publicKeyFetcher),
 				WithEmbeddedSignatureSuites(opts.ldpSuites...),
 				WithJSONLDDocumentLoader(opts.jsonldCredentialOpts.jsonldDocumentLoader),

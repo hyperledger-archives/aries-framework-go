@@ -58,18 +58,16 @@ func TestParseSDJWT(t *testing.T) {
 		require.NoError(t, e)
 
 		newVC, e := ParseCredential([]byte(modifiedCred),
-			WithPublicKeyFetcher(createDIDKeyFetcher(t, ed25519Signer.PublicKeyBytes(), issuerID)),
-			WithSDJWTPresentation())
+			WithPublicKeyFetcher(createDIDKeyFetcher(t, ed25519Signer.PublicKeyBytes(), issuerID)))
 		require.NoError(t, e)
 		require.NotNil(t, newVC)
 	})
 
 	t.Run("success with mock holder binding", func(t *testing.T) {
-		mockHolderBinding := "<mock holder binding>"
+		mockHolderBinding := "e30.e30.mockHolderBinding"
 
 		newVC, e := ParseCredential([]byte(sdJWTString+common.CombinedFormatSeparator+mockHolderBinding),
-			WithPublicKeyFetcher(createDIDKeyFetcher(t, pubKey, issuerID)),
-			WithSDJWTPresentation())
+			WithPublicKeyFetcher(createDIDKeyFetcher(t, pubKey, issuerID)))
 		require.NoError(t, e)
 		require.Equal(t, mockHolderBinding, newVC.SDHolderBinding)
 	})
