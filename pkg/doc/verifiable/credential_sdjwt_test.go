@@ -61,6 +61,7 @@ func TestParseSDJWT(t *testing.T) {
 			WithPublicKeyFetcher(createDIDKeyFetcher(t, ed25519Signer.PublicKeyBytes(), issuerID)))
 		require.NoError(t, e)
 		require.NotNil(t, newVC)
+		require.Equal(t, vc.stringJSON(t), newVC.stringJSON(t))
 	})
 
 	t.Run("success with mock holder binding", func(t *testing.T) {

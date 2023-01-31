@@ -1053,6 +1053,10 @@ func newCredential(raw *rawCredential) (*Credential, error) {
 		return nil, fmt.Errorf("fill credential subject from raw: %w", err)
 	}
 
+	if raw.SDJWTHashAlg == "" {
+		raw.SDJWTHashAlg = getSDJWTHashAlgFromSubject(subjects)
+	}
+
 	disclosures, err := parseDisclosures(raw.SDJWTDisclosures)
 	if err != nil {
 		return nil, fmt.Errorf("fill credential sdjwt disclosures from raw: %w", err)
@@ -1210,6 +1214,22 @@ func decodeLDVC(vcData []byte, vcStr string, vcOpts *credentialOpts) ([]byte, er
 
 	// Embedded proof.
 	return vcData, checkEmbeddedProof(vcData, getEmbeddedProofCheckOpts(vcOpts))
+}
+
+func getSDJWTHashAlgFromSubject(subject interface{}) string {
+	subjects, ok := subject.([]Subject)
+	if !ok {
+		return ""
+	}
+
+	for _, s := range subjects {
+		sdAlg, e := getSubKey(s.CustomFields, common.SDAlgorithmKey)
+		if e == nil {
+			return sdAlg.(string)
+		}
+	}
+
+	return ""
 }
 
 // JWTVCToJSON parses a JWT VC without verifying, and returns the JSON VC contents.

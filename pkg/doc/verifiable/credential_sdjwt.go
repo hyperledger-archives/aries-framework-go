@@ -393,3 +393,20 @@ func clearEmpty(claims map[string]interface{}) {
 		}
 	}
 }
+
+func getSubKey(object map[string]interface{}, key string) (interface{}, error) {
+	for name, value := range object {
+		if name == key {
+			return value, nil
+		}
+
+		if valueObj, ok := value.(map[string]interface{}); ok {
+			res, err := getSubKey(valueObj, key)
+			if err == nil {
+				return res, nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("key '%s' not found in given map or children", key)
+}
