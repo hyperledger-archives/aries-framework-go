@@ -586,7 +586,6 @@ type credentialOpts struct {
 	strictValidation      bool
 	ldpSuites             []verifier.SignatureSuite
 	defaultSchema         string
-	isSDJWTPresentation   bool
 
 	jsonldCredentialOpts
 }
@@ -711,13 +710,6 @@ func WithEmbeddedSignatureSuites(suites ...verifier.SignatureSuite) CredentialOp
 	}
 }
 
-// WithSDJWTPresentation indicates that the parsed credential, if an SD-JWT, is in a presentation.
-func WithSDJWTPresentation() CredentialOpt {
-	return func(opts *credentialOpts) {
-		opts.isSDJWTPresentation = true
-	}
-}
-
 // parseIssuer parses raw issuer.
 //
 // Issuer can be defined by:
@@ -822,7 +814,7 @@ func ParseCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) 
 		holderBinding string
 	)
 
-	isJWT, vcStr, disclosures, holderBinding = isJWTVC(vcStr, vcOpts.isSDJWTPresentation)
+	isJWT, vcStr, disclosures, holderBinding = isJWTVC(vcStr)
 	if isJWT {
 		vcDataDecoded, err = decodeJWTVC(vcStr, vcOpts)
 		if err != nil {
@@ -1159,7 +1151,7 @@ func unwrapStringVC(vcData []byte) string {
 // the third return value is a slice of the disclosure strings, and the fourth is an optional holder binding.
 //
 // If vcStr is not a combined SD-JWT, isJWTVC returns vcStr unchanged, and a nil slice.
-func isJWTVC(vcStr string, isPresentation bool) (bool, string, []string, string) {
+func isJWTVC(vcStr string) (bool, string, []string, string) {
 	var (
 		disclosures   []string
 		holderBinding string
@@ -1168,6 +1160,10 @@ func isJWTVC(vcStr string, isPresentation bool) (bool, string, []string, string)
 	tmpVCStr := vcStr
 
 	if strings.Contains(tmpVCStr, common.CombinedFormatSeparator) {
+		sdTokens := strings.Split(vcStr, common.CombinedFormatSeparator)
+		lastElem := sdTokens[len(sdTokens)-1]
+
+		isPresentation := lastElem == "" || jwt.IsJWS(lastElem)
 		if isPresentation {
 			cffp := common.ParseCombinedFormatForPresentation(vcStr)
 
