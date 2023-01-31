@@ -25,6 +25,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
 
@@ -581,15 +582,29 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential,
 		// if credential.JWT is set, credential will marshal to a JSON string.
 		// temporarily clear credential.JWT to avoid this.
 
-		credJWT := credential.JWT
-		credential.JWT = ""
+		var err error
 
-		credentialSrc, err := json.Marshal(credential)
+		credJWT := credential.JWT
+
+		credentialWithFieldValues := credential
+
+		if credential.SDJWTHashAlg != "" {
+			credentialWithFieldValues, err = credential.CreateDisplayCredential(verifiable.DisplayAllDisclosures())
+			if err != nil {
+				continue
+			}
+		}
+
+		// if credential.JWT is set, credential will marshal to a JSON string.
+		// temporarily clear credential.JWT to avoid this.
+		credentialWithFieldValues.JWT = ""
+
+		credentialSrc, err := json.Marshal(credentialWithFieldValues)
 		if err != nil {
 			continue
 		}
 
-		credential.JWT = credJWT
+		credentialWithFieldValues.JWT = credJWT
 
 		var credentialMap map[string]interface{}
 
@@ -623,7 +638,7 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential,
 			continue
 		}
 
-		if constraints.LimitDisclosure.isRequired() || predicate {
+		if (constraints.LimitDisclosure.isRequired() || predicate) && credential.SDJWTHashAlg == "" {
 			template := credentialSrc
 
 			var contexts []interface{}
@@ -658,10 +673,89 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential,
 			credential.ID = tmpID(credential.ID)
 		}
 
+		if constraints.LimitDisclosure.isRequired() && credential.SDJWTHashAlg != "" {
+			limitedDisclosures, err := getLimitedDisclosures(constraints, credentialSrc, credential)
+			if err != nil {
+				return nil, err
+			}
+
+			credential.SDJWTDisclosures = limitedDisclosures
+		}
+
 		result = append(result, credential)
 	}
 
 	return result, nil
+}
+
+// nolint: gocyclo,funlen,gocognit
+func getLimitedDisclosures(constraints *Constraints, displaySrc []byte, credential *verifiable.Credential) ([]*common.DisclosureClaim, error) { // nolint:lll
+	hash, err := common.GetCryptoHash(credential.SDJWTHashAlg)
+	if err != nil {
+		return nil, err
+	}
+
+	vcJWT := credential.JWT
+	credential.JWT = ""
+
+	credentialSrc, err := json.Marshal(credential)
+	if err != nil {
+		return nil, err
+	}
+
+	// revert JWT to original value
+	credential.JWT = vcJWT
+
+	var limitedDisclosures []*common.DisclosureClaim
+
+	for _, f := range constraints.Fields {
+		jPaths, err := getJSONPaths(f.Path, displaySrc)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, path := range jPaths {
+			if strings.Contains(path[0], credentialSchema) {
+				continue
+			}
+
+			parentPath := ""
+
+			key := path[1]
+
+			pathParts := strings.Split(path[1], ".")
+			if len(pathParts) > 1 {
+				parentPath = strings.Join(pathParts[:len(pathParts)-1], ".")
+				key = pathParts[len(pathParts)-1]
+			}
+
+			parentObj, ok := gjson.GetBytes(credentialSrc, parentPath).Value().(map[string]interface{})
+			if !ok {
+				// no selective disclosures at this level, so nothing to add to limited disclosures
+				continue
+			}
+
+			digests, err := common.GetDisclosureDigests(parentObj)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, dc := range credential.SDJWTDisclosures {
+				if dc.Name == key {
+					digest, err := common.GetHash(hash, dc.Disclosure)
+					if err != nil {
+						return nil, err
+					}
+
+					if _, ok := digests[digest]; ok {
+						limitedDisclosures = append(limitedDisclosures, dc)
+					}
+				}
+			}
+		}
+	}
+
+	return limitedDisclosures, nil
 }
 
 func frameCreds(frame map[string]interface{}, creds []*verifiable.Credential,
@@ -716,27 +810,9 @@ func createNewCredential(constraints *Constraints, src, limitedCred []byte,
 	)
 
 	for _, f := range constraints.Fields {
-		paths, err := jsonpathkeys.ParsePaths(f.Path...)
+		jPaths, err := getJSONPaths(f.Path, src)
 		if err != nil {
 			return nil, err
-		}
-
-		eval, err := jsonpathkeys.EvalPathsInReader(bytes.NewReader(src), paths)
-		if err != nil {
-			return nil, err
-		}
-
-		var jPaths [][2]string
-
-		set := map[string]int{}
-
-		for {
-			result, ok := eval.Next()
-			if !ok {
-				break
-			}
-
-			jPaths = append(jPaths, getPath(result.Keys, set))
 		}
 
 		for _, path := range jPaths {
@@ -783,6 +859,33 @@ func createNewCredential(constraints *Constraints, src, limitedCred []byte,
 	}
 
 	return credential.GenerateBBSSelectiveDisclosure(doc, []byte(uuid.New().String()), opts...)
+}
+
+func getJSONPaths(keys []string, src []byte) ([][2]string, error) {
+	paths, err := jsonpathkeys.ParsePaths(keys...)
+	if err != nil {
+		return nil, err
+	}
+
+	eval, err := jsonpathkeys.EvalPathsInReader(bytes.NewReader(src), paths)
+	if err != nil {
+		return nil, err
+	}
+
+	var jPaths [][2]string
+
+	set := map[string]int{}
+
+	for {
+		result, ok := eval.Next()
+		if !ok {
+			break
+		}
+
+		jPaths = append(jPaths, getPath(result.Keys, set))
+	}
+
+	return jPaths, nil
 }
 
 func enhanceRevealDoc(explicitPaths map[string]bool, limitedCred, vcBytes []byte) ([]byte, error) {

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package presexch_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -29,6 +30,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -38,6 +40,7 @@ import (
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
 const errMsgSchema = "credentials do not satisfy requirements"
@@ -475,6 +478,441 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		checkSubmission(t, vp, pd)
 		checkVP(t, vp)
+	})
+
+	t.Run("SD-JWT: Limit Disclosure + SD Claim paths", func(t *testing.T) {
+		required := Required
+
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				}},
+				Constraints: &Constraints{
+					LimitDisclosure: &required,
+					Fields: []*Field{{
+						Path: []string{
+							"$.credentialSubject.family_name",
+							"$.credentialSubject.given_name",
+							"$.credentialSubject.address.country",
+						},
+					}},
+				},
+			}},
+		}
+
+		testVC := getTestVC()
+
+		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
+		require.NoError(t, err)
+
+		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer)
+
+		vp, err := pd.CreateVP([]*verifiable.Credential{sdJwtVC},
+			lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
+
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.Equal(t, 1, len(vp.Credentials()))
+
+		vc, ok := vp.Credentials()[0].(*verifiable.Credential)
+		require.True(t, ok)
+
+		require.Len(t, vc.SDJWTDisclosures, 3)
+
+		require.Len(t, vc.Subject.([]verifiable.Subject)[0].CustomFields["_sd"].([]interface{}), 7)
+		require.NotNil(t, vc.Subject.([]verifiable.Subject)[0].CustomFields["address"])
+
+		_, ok = vc.Subject.([]verifiable.Subject)[0].CustomFields["email"]
+		require.False(t, ok)
+
+		displayVC, err := vc.CreateDisplayCredential(verifiable.DisplayAllDisclosures())
+		require.NoError(t, err)
+
+		printObject(t, "Display VC - Limited", displayVC)
+
+		require.Equal(t, "John", displayVC.Subject.([]verifiable.Subject)[0].CustomFields["given_name"])
+		require.Equal(t, "Doe", displayVC.Subject.([]verifiable.Subject)[0].CustomFields["family_name"])
+
+		checkSubmission(t, vp, pd)
+		checkVP(t, vp)
+	})
+
+	t.Run("SD-JWT: Limit Disclosure + SD Claim paths + additional filter", func(t *testing.T) {
+		required := Required
+
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				}},
+				Constraints: &Constraints{
+					LimitDisclosure: &required,
+					Fields: []*Field{
+						{
+							Path: []string{
+								"$.credentialSubject.family_name",
+								"$.credentialSubject.given_name",
+								"$.credentialSubject.address.country",
+							},
+						},
+						{
+							Path: []string{
+								"$.credentialSchema[0].id",
+							},
+							Filter: &Filter{
+								Type:  &strFilterType,
+								Const: "https://www.w3.org/TR/vc-data-model/2.0/#types",
+							},
+						},
+					},
+				},
+			}},
+		}
+
+		testVC := getTestVC()
+
+		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
+		require.NoError(t, err)
+
+		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer)
+
+		vp, err := pd.CreateVP([]*verifiable.Credential{sdJwtVC},
+			lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
+
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.Equal(t, 1, len(vp.Credentials()))
+
+		vc, ok := vp.Credentials()[0].(*verifiable.Credential)
+		require.True(t, ok)
+
+		require.Len(t, vc.SDJWTDisclosures, 3)
+
+		require.Len(t, vc.Subject.([]verifiable.Subject)[0].CustomFields["_sd"].([]interface{}), 7)
+		require.NotNil(t, vc.Subject.([]verifiable.Subject)[0].CustomFields["address"])
+
+		_, ok = vc.Subject.([]verifiable.Subject)[0].CustomFields["email"]
+		require.False(t, ok)
+
+		displayVC, err := vc.CreateDisplayCredential(verifiable.DisplayAllDisclosures())
+		require.NoError(t, err)
+
+		printObject(t, "Display VC", displayVC)
+
+		require.Equal(t, "John", displayVC.Subject.([]verifiable.Subject)[0].CustomFields["given_name"])
+		require.Equal(t, "Doe", displayVC.Subject.([]verifiable.Subject)[0].CustomFields["family_name"])
+
+		checkSubmission(t, vp, pd)
+		checkVP(t, vp)
+	})
+
+	t.Run("SD-JWT: Limit Disclosure + non-SD claim path", func(t *testing.T) {
+		required := Required
+
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				}},
+				Constraints: &Constraints{
+					LimitDisclosure: &required,
+					Fields: []*Field{{
+						Path: []string{
+							"$.id",
+						},
+					}},
+				},
+			}},
+		}
+
+		testVC := getTestVC()
+
+		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
+		require.NoError(t, err)
+
+		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer)
+
+		vp, err := pd.CreateVP([]*verifiable.Credential{sdJwtVC},
+			lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
+
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.Equal(t, 1, len(vp.Credentials()))
+
+		vc, ok := vp.Credentials()[0].(*verifiable.Credential)
+		require.True(t, ok)
+
+		// there is only one non-SD claim path is in the fields array - hence no selective disclosures
+		require.Len(t, vc.SDJWTDisclosures, 0)
+
+		require.Len(t, vc.Subject.([]verifiable.Subject)[0].CustomFields["_sd"].([]interface{}), 7)
+
+		displayVC, err := vc.CreateDisplayCredential(verifiable.DisplayAllDisclosures())
+		require.NoError(t, err)
+
+		printObject(t, "Display VC - No Selective Disclosures", displayVC)
+
+		require.Nil(t, displayVC.Subject.([]verifiable.Subject)[0].CustomFields["given_name"])
+		require.Nil(t, displayVC.Subject.([]verifiable.Subject)[0].CustomFields["email"])
+
+		checkSubmission(t, vp, pd)
+		checkVP(t, vp)
+	})
+
+	t.Run("SD-JWT: No Limit Disclosure + Predicate Satisfied", func(t *testing.T) {
+		required := Required
+
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				}},
+				Constraints: &Constraints{
+					Fields: []*Field{{
+						Path: []string{
+							"$.credentialSubject.family_name",
+						},
+						Predicate: &required,
+						Filter:    &Filter{Type: &strFilterType},
+					}},
+				},
+			}},
+		}
+
+		testVC := getTestVC()
+
+		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
+		require.NoError(t, err)
+
+		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer)
+
+		vp, err := pd.CreateVP([]*verifiable.Credential{sdJwtVC},
+			lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
+
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.Equal(t, 1, len(vp.Credentials()))
+
+		vc, ok := vp.Credentials()[0].(*verifiable.Credential)
+		require.True(t, ok)
+
+		require.Len(t, vc.SDJWTDisclosures, 11)
+
+		require.Len(t, vc.Subject.([]verifiable.Subject)[0].CustomFields["_sd"].([]interface{}), 7)
+		require.NotNil(t, vc.Subject.([]verifiable.Subject)[0].CustomFields["address"])
+
+		_, ok = vc.Subject.([]verifiable.Subject)[0].CustomFields["email"]
+		require.False(t, ok)
+
+		displayVC, err := vc.CreateDisplayCredential(verifiable.DisplayAllDisclosures())
+		require.NoError(t, err)
+
+		printObject(t, "Display VC - No Limit Disclosure (all fields displayed)", displayVC)
+
+		require.Equal(t, "John", displayVC.Subject.([]verifiable.Subject)[0].CustomFields["given_name"])
+		require.Equal(t, "Doe", displayVC.Subject.([]verifiable.Subject)[0].CustomFields["family_name"])
+		require.Equal(t, "johndoe@example.com", displayVC.Subject.([]verifiable.Subject)[0].CustomFields["email"])
+
+		checkSubmission(t, vp, pd)
+		checkVP(t, vp)
+	})
+
+	t.Run("SD-JWT: hash algorithm not supported", func(t *testing.T) {
+		required := Required
+
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				}},
+				Constraints: &Constraints{
+					LimitDisclosure: &required,
+					Fields: []*Field{{
+						Path: []string{
+							"$.credentialSubject.given_name",
+						},
+					}},
+				},
+			}},
+		}
+
+		testVC := getTestVC()
+
+		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
+		require.NoError(t, err)
+
+		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer)
+
+		sdJwtVC.SDJWTHashAlg = "sha-128"
+
+		vp, err := pd.CreateVP([]*verifiable.Credential{sdJwtVC},
+			lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
+
+		require.Error(t, err)
+		require.Nil(t, vp)
+		require.Contains(t, err.Error(), "_sd_alg 'sha-128' not supported")
+	})
+
+	t.Run("SD-JWT: invalid JSON path ", func(t *testing.T) {
+		required := Required
+
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				}},
+				Constraints: &Constraints{
+					LimitDisclosure: &required,
+					Fields: []*Field{{
+						Path: []string{
+							"123",
+						},
+					}},
+				},
+			}},
+		}
+
+		testVC := getTestVC()
+
+		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
+		require.NoError(t, err)
+
+		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer)
+
+		vp, err := pd.CreateVP([]*verifiable.Credential{sdJwtVC},
+			lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
+
+		require.Error(t, err)
+		require.Nil(t, vp)
+		require.Contains(t, err.Error(), "Expected $ or @ at start of path instead of  U+0031")
+	})
+
+	t.Run("SD-JWT: Limit Disclosure (credentials don't meet requirement)", func(t *testing.T) {
+		required := Required
+
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				}},
+				Constraints: &Constraints{
+					LimitDisclosure: &required,
+					Fields: []*Field{{
+						Path: []string{
+							"$.credentialSubject.family_name",
+							"$.credentialSubject.given_name",
+							"$.credentialSubject.address.country",
+						},
+						Predicate: &required,
+						Filter:    &Filter{Type: &arrFilterType},
+					}},
+				},
+			}},
+		}
+
+		testVC := getTestVC()
+
+		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
+		require.NoError(t, err)
+
+		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer)
+
+		vp, err := pd.CreateVP([]*verifiable.Credential{sdJwtVC},
+			lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
+
+		require.Error(t, err)
+		require.Nil(t, vp)
+		require.Contains(t, err.Error(), "credentials do not satisfy requirements")
+	})
+
+	t.Run("SD-JWT: No Limit Disclosure (credentials don't meet requirement)", func(t *testing.T) {
+		required := Required
+
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				}},
+				Constraints: &Constraints{
+					Fields: []*Field{{
+						Path: []string{
+							"$.credentialSubject.family_name",
+							"$.credentialSubject.given_name",
+							"$.credentialSubject.address.country",
+						},
+						Predicate: &required,
+						Filter:    &Filter{Type: &arrFilterType},
+					}},
+				},
+			}},
+		}
+
+		testVC := getTestVC()
+
+		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
+		require.NoError(t, err)
+
+		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer)
+
+		vp, err := pd.CreateVP([]*verifiable.Credential{sdJwtVC},
+			lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
+
+		require.Error(t, err)
+		require.Nil(t, vp)
+		require.Contains(t, err.Error(), "credentials do not satisfy requirements")
+	})
+
+	t.Run("SD-JWT: Limit Disclosure with invalid field (credentials don't meet requirement)", func(t *testing.T) {
+		required := Required
+
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				}},
+				Constraints: &Constraints{
+					LimitDisclosure: &required,
+					Fields: []*Field{{
+						Path: []string{
+							"$.credentialSubject.invalid",
+						},
+					}},
+				},
+			}},
+		}
+
+		testVC := getTestVC()
+
+		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
+		require.NoError(t, err)
+
+		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer)
+
+		vp, err := pd.CreateVP([]*verifiable.Credential{sdJwtVC},
+			lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
+
+		require.Error(t, err)
+		require.Nil(t, vp)
+		require.Contains(t, err.Error(), "credentials do not satisfy requirements")
 	})
 
 	t.Run("Limit disclosure BBS+", func(t *testing.T) {
@@ -1533,6 +1971,85 @@ func createEdDSAJWS(t *testing.T, cred *verifiable.Credential, signer verifiable
 	return vcJWT
 }
 
+func getTestVCWithContext(ctx []string) *verifiable.Credential {
+	subject := map[string]interface{}{
+		"id":           uuid.New().String(),
+		"sub":          "john_doe_42",
+		"given_name":   "John",
+		"family_name":  "Doe",
+		"email":        "johndoe@example.com",
+		"phone_number": "+1-202-555-0101",
+		"birthdate":    "1940-01-01",
+		"address": map[string]interface{}{
+			"street_address": "123 Main St",
+			"locality":       "Anytown",
+			"region":         "Anystate",
+			"country":        "US",
+		},
+	}
+
+	vc := verifiable.Credential{
+		Context: []string{verifiable.ContextURI},
+		Types:   []string{verifiable.VCType},
+		ID:      "http://example.edu/credentials/1872",
+		Issued: &util.TimeWrapper{
+			Time: time.Now(),
+		},
+		Issuer: verifiable.Issuer{
+			ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		},
+		Schemas: []verifiable.TypedID{{
+			ID:   "https://www.w3.org/TR/vc-data-model/2.0/#types",
+			Type: "JsonSchemaValidator2018",
+		}},
+		Subject: subject,
+	}
+
+	if ctx != nil {
+		vc.Context = append(vc.Context, ctx...)
+	}
+
+	return &vc
+}
+
+func getTestVC() *verifiable.Credential {
+	return getTestVCWithContext(nil)
+}
+
+func newSdJwtVC(t *testing.T, vc *verifiable.Credential, signer signature.Signer) *verifiable.Credential {
+	t.Helper()
+
+	pubKey := signer.PublicKeyBytes()
+
+	issuer, verMethod := fingerprint.CreateDIDKeyByCode(fingerprint.ED25519PubKeyMultiCodec, pubKey)
+
+	vc.Issuer = verifiable.Issuer{ID: issuer}
+
+	jwsAlgo, err := verifiable.KeyTypeToJWSAlgo(kms.ED25519Type)
+	require.NoError(t, err)
+
+	algName, err := jwsAlgo.Name()
+	require.NoError(t, err)
+
+	combinedFormatForIssuance, err := vc.MakeSDJWT(verifiable.GetJWTSigner(signer, algName), verMethod)
+	require.NoError(t, err)
+
+	parsed, err := verifiable.ParseCredential([]byte(combinedFormatForIssuance),
+		verifiable.WithPublicKeyFetcher(holderPublicKeyFetcher(pubKey)))
+	require.NoError(t, err)
+
+	return parsed
+}
+
+func holderPublicKeyFetcher(pubKeyBytes []byte) verifiable.PublicKeyFetcher {
+	return func(issuerID, keyID string) (*verifier.PublicKey, error) {
+		return &verifier.PublicKey{
+			Type:  kms.RSARS256,
+			Value: pubKeyBytes,
+		}, nil
+	}
+}
+
 func createKMS() (*localkms.LocalKMS, error) {
 	p, err := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
 	if err != nil {
@@ -1542,7 +2059,7 @@ func createKMS() (*localkms.LocalKMS, error) {
 	return localkms.New("local-lock://custom/master/key/", p)
 }
 
-func newCryptoSigner(keyType kms.KeyType) (signature.Signer, error) {
+func newCryptoSigner(keyType kms.KeyType) (signature.Signer, error) { // nolint:unparam
 	localKMS, err := createKMS()
 	if err != nil {
 		return nil, err
@@ -1661,4 +2178,28 @@ func createTestJSONLDDocumentLoader(t *testing.T) *ld.DocumentLoader {
 	require.NoError(t, err)
 
 	return loader
+}
+
+func prettyPrint(msg []byte) (string, error) {
+	var prettyJSON bytes.Buffer
+
+	err := json.Indent(&prettyJSON, msg, "", "\t")
+	if err != nil {
+		return "", err
+	}
+
+	return prettyJSON.String(), nil
+}
+
+func printObject(t *testing.T, name string, obj interface{}) {
+	t.Helper()
+
+	objBytes, err := json.Marshal(obj)
+	require.NoError(t, err)
+
+	prettyJSON, err := prettyPrint(objBytes)
+	require.NoError(t, err)
+
+	fmt.Println(name + ":")
+	fmt.Println(prettyJSON)
 }

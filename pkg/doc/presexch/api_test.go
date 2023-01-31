@@ -31,6 +31,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 )
 
+const testCredID = "http://test.credential.com/123456"
+
 func TestPresentationDefinition_Match(t *testing.T) {
 	t.Run("match one credential", func(t *testing.T) {
 		uri := randomURI()
@@ -72,7 +74,7 @@ func TestPresentationDefinition_Match(t *testing.T) {
 
 		expectedNested := newVC([]string{uri})
 		expectedNested.Types = append(expectedNested.Types, customType)
-		expectedNested.ID = "http://test.credential.com/123456"
+		expectedNested.ID = testCredID
 
 		expected := newVCWithCustomFld([]string{uri}, "nestedVC", expectedNested)
 		expected.Types = append(expected.Types, customType)
@@ -117,7 +119,7 @@ func TestPresentationDefinition_Match(t *testing.T) {
 
 		expected := newVCWithCustomFld([]string{uri}, "nestedVC", expectedNested)
 		expected.Types = append(expected.Types, customType)
-		expected.ID = "http://test.credential.com/123456"
+		expected.ID = testCredID
 
 		defs := &PresentationDefinition{
 			InputDescriptors: []*InputDescriptor{{
@@ -159,6 +161,92 @@ func TestPresentationDefinition_Match(t *testing.T) {
 		agent := newAgent(t)
 
 		expected := newSignedJWTVC(t, agent, []string{uri})
+
+		defs := &PresentationDefinition{
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				}},
+			}},
+		}
+
+		matched, err := defs.Match(newVP(t,
+			&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
+				ID:   defs.InputDescriptors[0].ID,
+				Path: "$",
+				PathNested: &InputDescriptorMapping{
+					ID:   defs.InputDescriptors[0].ID,
+					Path: "$.verifiableCredential[0]",
+				},
+			}}},
+			expected,
+		), contextLoader,
+			WithCredentialOptions(
+				verifiable.WithJSONLDDocumentLoader(contextLoader),
+				verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(agent.VDRegistry()).PublicKeyFetcher()),
+			),
+		)
+		require.NoError(t, err)
+		require.Len(t, matched, 1)
+		result, ok := matched[defs.InputDescriptors[0].ID]
+		require.True(t, ok)
+		require.Equal(t, expected.ID, result.ID)
+	})
+
+	t.Run("match one nested sd-jwt credential", func(t *testing.T) {
+		uri := randomURI()
+		contextLoader := createTestDocumentLoader(t, uri)
+		agent := newAgent(t)
+
+		customType := "CustomType"
+
+		expectedNested := newSignedSDJWTVC(t, agent, []string{uri})
+
+		expected := newVCWithCustomFld([]string{uri}, "nestedVC", expectedNested)
+		expected.Types = append(expected.Types, customType)
+		expected.ID = testCredID
+
+		defs := &PresentationDefinition{
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				}},
+			}},
+		}
+
+		docLoader := createTestDocumentLoader(t, uri, customType)
+
+		matched, err := defs.Match(newVP(t,
+			&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
+				ID:   defs.InputDescriptors[0].ID,
+				Path: "$.verifiableCredential[0]",
+				PathNested: &InputDescriptorMapping{
+					ID:   defs.InputDescriptors[0].ID,
+					Path: "$.nestedVC",
+				},
+			}}},
+			expected,
+		), docLoader,
+			WithCredentialOptions(
+				verifiable.WithJSONLDDocumentLoader(contextLoader),
+				verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(agent.VDRegistry()).PublicKeyFetcher()),
+			),
+		)
+		require.NoError(t, err)
+		require.Len(t, matched, 1)
+		result, ok := matched[defs.InputDescriptors[0].ID]
+		require.True(t, ok)
+		require.Equal(t, expectedNested.ID, result.ID)
+	})
+
+	t.Run("match with self referencing - sdjwt", func(t *testing.T) {
+		uri := randomURI()
+		contextLoader := createTestDocumentLoader(t, uri)
+		agent := newAgent(t)
+
+		expected := newSignedSDJWTVC(t, agent, []string{uri})
 
 		defs := &PresentationDefinition{
 			InputDescriptors: []*InputDescriptor{{
@@ -610,6 +698,41 @@ func newSignedJWTVC(t *testing.T,
 	vc.JWT = jws
 
 	return vc
+}
+
+func newSignedSDJWTVC(t *testing.T,
+	agent *context.Provider, ctx []string) *verifiable.Credential {
+	t.Helper()
+
+	vc := getTestVCWithContext(ctx)
+
+	keyID, kh, err := agent.KMS().Create(kms.ED25519Type)
+	require.NoError(t, err)
+
+	signer := suite.NewCryptoSigner(agent.Crypto(), kh)
+
+	pubKey, kt, err := agent.KMS().ExportPubKeyBytes(keyID)
+	require.NoError(t, err)
+	require.Equal(t, kms.ED25519Type, kt)
+
+	issuer, verMethod := fingerprint.CreateDIDKeyByCode(fingerprint.ED25519PubKeyMultiCodec, pubKey)
+
+	vc.Issuer = verifiable.Issuer{ID: issuer}
+
+	jwsAlgo, err := verifiable.KeyTypeToJWSAlgo(kms.ED25519Type)
+	require.NoError(t, err)
+
+	algName, err := jwsAlgo.Name()
+	require.NoError(t, err)
+
+	combinedFormatForIssuance, err := vc.MakeSDJWT(verifiable.GetJWTSigner(signer, algName), verMethod)
+	require.NoError(t, err)
+
+	parsed, err := verifiable.ParseCredential([]byte(combinedFormatForIssuance),
+		verifiable.WithPublicKeyFetcher(holderPublicKeyFetcher(pubKey)))
+	require.NoError(t, err)
+
+	return parsed
 }
 
 func newVP(t *testing.T, submission *PresentationSubmission, vcs ...*verifiable.Credential) *verifiable.Presentation {

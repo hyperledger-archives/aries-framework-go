@@ -18,25 +18,28 @@ type Signer interface {
 	Alg() string
 }
 
-// jwtSigner implement jose.Signer interface.
-type jwtSigner struct {
+// JwtSigner implement jose.Signer interface.
+type JwtSigner struct {
 	signer  Signer
 	headers map[string]interface{}
 }
 
-func getJWTSigner(signer Signer, algorithm string) *jwtSigner {
+// GetJWTSigner returns JWT Signer.
+func GetJWTSigner(signer Signer, algorithm string) *JwtSigner {
 	headers := map[string]interface{}{
 		jose.HeaderAlgorithm: algorithm,
 	}
 
-	return &jwtSigner{signer: signer, headers: headers}
+	return &JwtSigner{signer: signer, headers: headers}
 }
 
-func (s jwtSigner) Sign(data []byte) ([]byte, error) {
+// Sign returns signature.
+func (s JwtSigner) Sign(data []byte) ([]byte, error) {
 	return s.signer.Sign(data)
 }
 
-func (s jwtSigner) Headers() jose.Headers {
+// Headers returns headers.
+func (s JwtSigner) Headers() jose.Headers {
 	return s.headers
 }
 
@@ -59,7 +62,7 @@ func marshalJWS(jwtClaims interface{}, signatureAlg JWSAlgorithm, signer Signer,
 		jose.HeaderKeyID: keyID,
 	}
 
-	token, err := jwt.NewSigned(jwtClaims, headers, getJWTSigner(signer, algName))
+	token, err := jwt.NewSigned(jwtClaims, headers, GetJWTSigner(signer, algName))
 	if err != nil {
 		return "", err
 	}
