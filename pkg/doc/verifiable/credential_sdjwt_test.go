@@ -128,8 +128,8 @@ func TestMarshalWithDisclosure(t *testing.T) {
 
 		t.Run("disclose required and some if-available claims", func(t *testing.T) {
 			resultCred, err := newVC.MarshalWithDisclosure(
-				DiscloseGivenRequired([]string{"id"}),
-				DiscloseGivenIfAvailable([]string{"id", "university", "favourite-animal"}))
+				DiscloseGivenRequired([]string{"type"}),
+				DiscloseGivenIfAvailable([]string{"university", "favourite-animal"}))
 			require.NoError(t, err)
 
 			res := common.ParseCombinedFormatForPresentation(resultCred)
@@ -146,7 +146,7 @@ func TestMarshalWithDisclosure(t *testing.T) {
 			var iat jwt.NumericDate = 0
 
 			resultCred, err := vc.MarshalWithDisclosure(
-				DiscloseGivenRequired([]string{"id", "university"}),
+				DiscloseGivenRequired([]string{"university"}),
 				DisclosureSigner(afgojwt.NewEd25519Signer(privKey), "did:example:abc123#key-1"),
 				DisclosureHolderBinding(&holder.BindingInfo{
 					Payload: holder.BindingPayload{
@@ -159,7 +159,7 @@ func TestMarshalWithDisclosure(t *testing.T) {
 			require.NoError(t, err)
 
 			res := common.ParseCombinedFormatForPresentation(resultCred)
-			require.Len(t, res.Disclosures, 2)
+			require.Len(t, res.Disclosures, 1)
 			require.NotEmpty(t, res.HolderBinding)
 		})
 	})
@@ -375,7 +375,7 @@ func TestCreateDisplayCredential(t *testing.T) {
 			require.True(t, ok)
 
 			require.Len(t, subj, 1)
-			require.Empty(t, subj[0].ID)
+			require.NotEmpty(t, subj[0].ID)
 			require.Empty(t, subj[0].CustomFields)
 		})
 

@@ -271,7 +271,9 @@ func makeSDJWT(vc *Credential, signer jose.Signer, signingKeyID string) (*issuer
 		jose.HeaderKeyID: signingKeyID,
 	}
 
-	sdjwt, err := issuer.NewFromVC(claimMap, headers, signer, issuer.WithStructuredClaims(true))
+	sdjwt, err := issuer.NewFromVC(claimMap, headers, signer,
+		issuer.WithStructuredClaims(true),
+		issuer.WithNonSelectivelyDisclosableClaims([]string{"id"}))
 	if err != nil {
 		return nil, fmt.Errorf("creating SD-JWT from VC: %w", err)
 	}
