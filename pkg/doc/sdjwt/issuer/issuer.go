@@ -44,9 +44,10 @@ type Claims jwt.Claims
 
 // newOpts holds options for creating new SD-JWT.
 type newOpts struct {
-	Subject string
-	JTI     string
-	ID      string
+	Subject  string
+	Audience string
+	JTI      string
+	ID       string
 
 	Expiry    *jwt.NumericDate
 	NotBefore *jwt.NumericDate
@@ -86,6 +87,13 @@ func WithSaltFnc(fnc func() (string, error)) NewOpt {
 func WithIssuedAt(issuedAt *jwt.NumericDate) NewOpt {
 	return func(opts *newOpts) {
 		opts.IssuedAt = issuedAt
+	}
+}
+
+// WithAudience is an option for SD-JWT payload.
+func WithAudience(audience string) NewOpt {
+	return func(opts *newOpts) {
+		opts.Audience = audience
 	}
 }
 
@@ -277,6 +285,7 @@ func createPayload(issuer string, nOpts *newOpts) *payload {
 		JTI:       nOpts.JTI,
 		ID:        nOpts.ID,
 		Subject:   nOpts.Subject,
+		Audience:  nOpts.Audience,
 		IssuedAt:  nOpts.IssuedAt,
 		Expiry:    nOpts.Expiry,
 		NotBefore: nOpts.NotBefore,
@@ -464,18 +473,21 @@ func keyExistsInMap(key string, claims map[string]interface{}) bool {
 
 // payload represents SD-JWT payload.
 type payload struct {
-	Issuer  string `json:"iss,omitempty"`
-	Subject string `json:"sub,omitempty"`
-	ID      string `json:"id,omitempty"`
-	JTI     string `json:"jti,omitempty"`
-
+	// registered claim names
+	Issuer    string           `json:"iss,omitempty"`
+	Subject   string           `json:"sub,omitempty"`
+	Audience  string           `json:"aud,omitempty"`
+	JTI       string           `json:"jti,omitempty"`
 	Expiry    *jwt.NumericDate `json:"exp,omitempty"`
 	NotBefore *jwt.NumericDate `json:"nbf,omitempty"`
 	IssuedAt  *jwt.NumericDate `json:"iat,omitempty"`
 
-	CNF map[string]interface{} `json:"cnf,omitempty"`
+	// non-registered name that can be used for claims based holder binding
+	ID string `json:"id,omitempty"`
 
-	SDAlg string `json:"_sd_alg,omitempty"`
+	// SD-JWT specific
+	CNF   map[string]interface{} `json:"cnf,omitempty"`
+	SDAlg string                 `json:"_sd_alg,omitempty"`
 }
 
 type unsecuredJWTSigner struct{}
