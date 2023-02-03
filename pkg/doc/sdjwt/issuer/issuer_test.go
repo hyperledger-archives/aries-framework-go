@@ -158,6 +158,7 @@ func TestNew(t *testing.T) {
 			WithJTI("jti"),
 			WithID("id"),
 			WithSubject("subject"),
+			WithAudience("audience"),
 			WithSaltFnc(generateSalt),
 			WithJSONMarshaller(json.Marshal),
 			WithHashAlgorithm(crypto.SHA256),
@@ -177,13 +178,23 @@ func TestNew(t *testing.T) {
 		err = verifyEd25519ViaGoJose(cfi.SDJWT, pubKey, &parsedClaims)
 		r.NoError(err)
 
-		parsedClaimsBytes, err := json.Marshal(parsedClaims)
-		require.NoError(t, err)
+		printObject(t, "Parsed Claims:", parsedClaims)
 
-		prettyJSON, err := prettyPrint(parsedClaimsBytes)
-		require.NoError(t, err)
+		r.Equal(issuer, parsedClaims["iss"])
+		r.Equal("audience", parsedClaims["aud"])
+		r.Equal("subject", parsedClaims["sub"])
+		r.Equal("id", parsedClaims["id"])
+		r.Equal("jti", parsedClaims["jti"])
+		r.Equal("sha-256", parsedClaims["_sd_alg"])
 
-		fmt.Println(prettyJSON)
+		_, ok := parsedClaims["nbf"]
+		r.True(ok)
+
+		_, ok = parsedClaims["iat"]
+		r.True(ok)
+
+		_, ok = parsedClaims["exp"]
+		r.True(ok)
 
 		err = verifyEd25519(cfi.SDJWT, pubKey)
 		r.NoError(err)

@@ -555,7 +555,7 @@ func TestHolderBinding(t *testing.T) {
 
 		claims := make(map[string]interface{})
 		claims["cnf"] = "abc"
-		claims["_sd_alg"] = testSDAlg // TODO: Should alg be mandatory if there are no selective disclosures
+		claims["_sd_alg"] = testSDAlg
 
 		sdJWT, err := buildJWS(signer, claims)
 		r.NoError(err)

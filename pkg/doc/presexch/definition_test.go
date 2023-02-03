@@ -522,7 +522,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		require.Len(t, vc.SDJWTDisclosures, 3)
 
-		require.Len(t, vc.Subject.([]verifiable.Subject)[0].CustomFields["_sd"].([]interface{}), 7)
+		require.Len(t, vc.Subject.([]verifiable.Subject)[0].CustomFields["_sd"].([]interface{}), 6)
 		require.NotNil(t, vc.Subject.([]verifiable.Subject)[0].CustomFields["address"])
 
 		_, ok = vc.Subject.([]verifiable.Subject)[0].CustomFields["email"]
@@ -593,7 +593,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		require.Len(t, vc.SDJWTDisclosures, 3)
 
-		require.Len(t, vc.Subject.([]verifiable.Subject)[0].CustomFields["_sd"].([]interface{}), 7)
+		require.Len(t, vc.Subject.([]verifiable.Subject)[0].CustomFields["_sd"].([]interface{}), 6)
 		require.NotNil(t, vc.Subject.([]verifiable.Subject)[0].CustomFields["address"])
 
 		_, ok = vc.Subject.([]verifiable.Subject)[0].CustomFields["email"]
@@ -652,7 +652,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		// there is only one non-SD claim path is in the fields array - hence no selective disclosures
 		require.Len(t, vc.SDJWTDisclosures, 0)
 
-		require.Len(t, vc.Subject.([]verifiable.Subject)[0].CustomFields["_sd"].([]interface{}), 7)
+		require.Len(t, vc.Subject.([]verifiable.Subject)[0].CustomFields["_sd"].([]interface{}), 6)
 
 		displayVC, err := vc.CreateDisplayCredential(verifiable.DisplayAllDisclosures())
 		require.NoError(t, err)
@@ -705,9 +705,9 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		vc, ok := vp.Credentials()[0].(*verifiable.Credential)
 		require.True(t, ok)
 
-		require.Len(t, vc.SDJWTDisclosures, 11)
+		require.Len(t, vc.SDJWTDisclosures, 10)
 
-		require.Len(t, vc.Subject.([]verifiable.Subject)[0].CustomFields["_sd"].([]interface{}), 7)
+		require.Len(t, vc.Subject.([]verifiable.Subject)[0].CustomFields["_sd"].([]interface{}), 6)
 		require.NotNil(t, vc.Subject.([]verifiable.Subject)[0].CustomFields["address"])
 
 		_, ok = vc.Subject.([]verifiable.Subject)[0].CustomFields["email"]
