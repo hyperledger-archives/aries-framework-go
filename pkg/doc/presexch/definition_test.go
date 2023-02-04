@@ -422,6 +422,64 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		checkVP(t, vp)
 	})
 
+	t.Run("Get By Credential Type", func(t *testing.T) {
+		const queryByCredType = `{
+				   "id": "69ddc987-55c2-4f1f-acea-f2838be10607",
+				   "input_descriptors": [
+					   {
+						   "id": "26b00531-caa1-49f3-a5a1-4a0eae8c0925",
+						   "constraints": {
+							   "fields": [
+								   {
+									   "path": [
+										   "$.type",
+										   "$.vc.type"
+									   ],
+								 "filter": {
+									"type": "array",
+									"contains": {
+											"type": "string",
+											"const": "DemoCred"
+											}
+								   		}
+								   }
+							   ]
+						   }
+					   }
+				   ]
+				}`
+
+		var pd PresentationDefinition
+		require.NoError(t, json.Unmarshal([]byte(queryByCredType), &pd))
+
+		vp, err := pd.CreateVP([]*verifiable.Credential{
+			{
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType, "DemoCred"},
+				ID:      "http://example.edu/credentials/1872",
+				Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+				Issued: &util.TimeWrapper{
+					Time: time.Now(),
+				},
+				Issuer: verifiable.Issuer{
+					ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+				},
+				CustomFields: map[string]interface{}{
+					"first_name": "First name",
+					"last_name":  "Last name",
+					"info":       "Info",
+				},
+			},
+		}, lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
+
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.Equal(t, 1, len(vp.Credentials()))
+
+		checkSubmission(t, vp, &pd)
+		checkVP(t, vp)
+	})
+
 	t.Run("Predicate (limit disclosure)", func(t *testing.T) {
 		required := Required
 

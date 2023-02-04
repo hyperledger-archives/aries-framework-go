@@ -194,6 +194,7 @@ type Filter struct {
 	Const            StrOrInt               `json:"const,omitempty"`
 	Enum             []StrOrInt             `json:"enum,omitempty"`
 	Not              map[string]interface{} `json:"not,omitempty"`
+	Contains         map[string]interface{} `json:"contains,omitempty"`
 }
 
 // ValidateSchema validates presentation definition.
