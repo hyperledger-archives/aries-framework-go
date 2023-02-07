@@ -298,7 +298,8 @@ func TestHolderBinding(t *testing.T) {
 		verifiedClaims, err := Parse(combinedFormatForPresentation,
 			WithSignatureVerifier(signatureVerifier),
 			WithExpectedAudienceForHolderBinding(testAudience),
-			WithExpectedNonceForHolderBinding(testNonce))
+			WithExpectedNonceForHolderBinding(testNonce),
+			WithLeewayForClaimsValidation(time.Hour))
 		r.NoError(err)
 
 		// expected claims cnf, iss, given_name; last_name was not disclosed
