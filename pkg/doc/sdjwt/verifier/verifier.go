@@ -9,6 +9,7 @@ package verifier
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/go-jose/go-jose/v3/jwt"
 
@@ -30,6 +31,8 @@ type parseOpts struct {
 	holderBindingRequired            bool
 	expectedAudienceForHolderBinding string
 	expectedNonceForHolderBinding    string
+
+	leewayForClaimsValidation time.Duration
 }
 
 // ParseOpt is the SD-JWT Parser option.
@@ -84,12 +87,20 @@ func WithExpectedNonceForHolderBinding(nonce string) ParseOpt {
 	}
 }
 
+// WithLeewayForClaimsValidation is an option for claims time(s) validation.
+func WithLeewayForClaimsValidation(duration time.Duration) ParseOpt {
+	return func(opts *parseOpts) {
+		opts.leewayForClaimsValidation = duration
+	}
+}
+
 // Parse parses combined format for presentation and returns verified claims.
 func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]interface{}, error) {
 	defaultSigningAlgorithms := []string{"EdDSA", "RS256"}
 	pOpts := &parseOpts{
-		issuerSigningAlgorithms: defaultSigningAlgorithms,
-		holderSigningAlgorithms: defaultSigningAlgorithms,
+		issuerSigningAlgorithms:   defaultSigningAlgorithms,
+		holderSigningAlgorithms:   defaultSigningAlgorithms,
+		leewayForClaimsValidation: jwt.DefaultLeeway,
 	}
 
 	for _, opt := range opts {
@@ -121,7 +132,7 @@ func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]i
 
 	// Check that the SD-JWT is valid using nbf, iat, and exp claims,
 	// if provided in the SD-JWT, and not selectively disclosed.
-	err = verifyJWT(signedJWT)
+	err = verifyJWT(signedJWT, pOpts.leewayForClaimsValidation)
 	if err != nil {
 		return nil, err
 	}
@@ -190,7 +201,7 @@ func verifyHolderJWT(holderJWT *afgjwt.JSONWebToken, pOpts *parseOpts) error {
 		return fmt.Errorf("failed to verify holder signing algorithm: %w", err)
 	}
 
-	err = verifyJWT(holderJWT)
+	err = verifyJWT(holderJWT, pOpts.leewayForClaimsValidation)
 	if err != nil {
 		return err
 	}
@@ -327,7 +338,7 @@ func checkForDuplicates(values []string) error {
 }
 
 // verifyJWT checks that the JWT is valid using nbf, iat, and exp claims (if provided in the JWT).
-func verifyJWT(signedJWT *afgjwt.JSONWebToken) error {
+func verifyJWT(signedJWT *afgjwt.JSONWebToken, leeway time.Duration) error {
 	var claims jwt.Claims
 
 	err := signedJWT.DecodeClaims(&claims)
@@ -336,11 +347,10 @@ func verifyJWT(signedJWT *afgjwt.JSONWebToken) error {
 	}
 
 	// Validate checks claims in a token against expected values.
-	// A default leeway value of one minute is used to compare time values.
 	// It is validated using the expected.Time, or time.Now if not provided
 	expected := jwt.Expected{}
 
-	err = claims.Validate(expected)
+	err = claims.ValidateWithLeeway(expected, leeway)
 	if err != nil {
 		return fmt.Errorf("invalid JWT time values: %w", err)
 	}
