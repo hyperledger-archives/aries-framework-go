@@ -6,6 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	"crypto"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/base64"
@@ -299,11 +300,22 @@ func TestMakeSDJWT(t *testing.T) {
 	require.NoError(t, e)
 
 	t.Run("success", func(t *testing.T) {
-		sdjwt, err := vc.MakeSDJWT(afgojwt.NewEd25519Signer(privKey), "did:example:abc123#key-1")
-		require.NoError(t, err)
+		t.Run("with default hash", func(t *testing.T) {
+			sdjwt, err := vc.MakeSDJWT(afgojwt.NewEd25519Signer(privKey), "did:example:abc123#key-1")
+			require.NoError(t, err)
 
-		_, err = ParseCredential([]byte(sdjwt), WithPublicKeyFetcher(holderPublicKeyFetcher(pubKey)))
-		require.NoError(t, err)
+			_, err = ParseCredential([]byte(sdjwt), WithPublicKeyFetcher(holderPublicKeyFetcher(pubKey)))
+			require.NoError(t, err)
+		})
+
+		t.Run("with hash option", func(t *testing.T) {
+			sdjwt, err := vc.MakeSDJWT(afgojwt.NewEd25519Signer(privKey), "did:example:abc123#key-1",
+				MakeSDJWTWithHash(crypto.SHA512))
+			require.NoError(t, err)
+
+			_, err = ParseCredential([]byte(sdjwt), WithPublicKeyFetcher(holderPublicKeyFetcher(pubKey)))
+			require.NoError(t, err)
+		})
 	})
 
 	t.Run("failure", func(t *testing.T) {

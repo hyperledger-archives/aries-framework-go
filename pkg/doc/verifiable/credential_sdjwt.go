@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	"crypto"
 	"encoding/json"
 	"fmt"
 
@@ -233,10 +234,24 @@ func filterDisclosures(
 	return out, nil
 }
 
+type makeSDJWTOpts struct {
+	hashAlg crypto.Hash
+}
+
+// MakeSDJWTOption provides an option for creating an SD-JWT from a VC.
+type MakeSDJWTOption func(opts *makeSDJWTOpts)
+
+// MakeSDJWTWithHash sets the hash to use for an SD-JWT VC.
+func MakeSDJWTWithHash(hash crypto.Hash) MakeSDJWTOption {
+	return func(opts *makeSDJWTOpts) {
+		opts.hashAlg = hash
+	}
+}
+
 // MakeSDJWT creates an SD-JWT in combined format for issuance, with all fields in credentialSubject converted
 // recursively into selectively-disclosable SD-JWT claims.
-func (vc *Credential) MakeSDJWT(signer jose.Signer, signingKeyID string) (string, error) {
-	sdjwt, err := makeSDJWT(vc, signer, signingKeyID)
+func (vc *Credential) MakeSDJWT(signer jose.Signer, signingKeyID string, options ...MakeSDJWTOption) (string, error) {
+	sdjwt, err := makeSDJWT(vc, signer, signingKeyID, options...)
 	if err != nil {
 		return "", err
 	}
@@ -249,7 +264,14 @@ func (vc *Credential) MakeSDJWT(signer jose.Signer, signingKeyID string) (string
 	return sdjwtSerialized, nil
 }
 
-func makeSDJWT(vc *Credential, signer jose.Signer, signingKeyID string) (*issuer.SelectiveDisclosureJWT, error) {
+func makeSDJWT(vc *Credential, signer jose.Signer, signingKeyID string, options ...MakeSDJWTOption,
+) (*issuer.SelectiveDisclosureJWT, error) {
+	opts := &makeSDJWTOpts{}
+
+	for _, option := range options {
+		option(opts)
+	}
+
 	claims, err := vc.JWTClaims(false)
 	if err != nil {
 		return nil, fmt.Errorf("constructing VC JWT claims: %w", err)
@@ -271,9 +293,16 @@ func makeSDJWT(vc *Credential, signer jose.Signer, signingKeyID string) (*issuer
 		jose.HeaderKeyID: signingKeyID,
 	}
 
-	sdjwt, err := issuer.NewFromVC(claimMap, headers, signer,
+	issuerOptions := []issuer.NewOpt{
 		issuer.WithStructuredClaims(true),
-		issuer.WithNonSelectivelyDisclosableClaims([]string{"id"}))
+		issuer.WithNonSelectivelyDisclosableClaims([]string{"id"}),
+	}
+
+	if opts.hashAlg != 0 {
+		issuerOptions = append(issuerOptions, issuer.WithHashAlgorithm(opts.hashAlg))
+	}
+
+	sdjwt, err := issuer.NewFromVC(claimMap, headers, signer, issuerOptions...)
 	if err != nil {
 		return nil, fmt.Errorf("creating SD-JWT from VC: %w", err)
 	}
