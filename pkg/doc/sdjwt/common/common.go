@@ -355,8 +355,9 @@ func GetDisclosedClaims(disclosureClaims []*DisclosureClaim, claims map[string]i
 	}
 
 	output := copyMap(claims)
+	includedDigests := make(map[string]bool)
 
-	err = processDisclosedClaims(disclosureClaims, output, hash)
+	err = processDisclosedClaims(disclosureClaims, output, includedDigests, hash)
 	if err != nil {
 		return nil, fmt.Errorf("failed to process disclosed claims: %w", err)
 	}
@@ -364,7 +365,7 @@ func GetDisclosedClaims(disclosureClaims []*DisclosureClaim, claims map[string]i
 	return output, nil
 }
 
-func processDisclosedClaims(disclosureClaims []*DisclosureClaim, claims map[string]interface{}, hash crypto.Hash) error { // nolint:lll
+func processDisclosedClaims(disclosureClaims []*DisclosureClaim, claims map[string]interface{}, includedDigests map[string]bool, hash crypto.Hash) error { // nolint:lll
 	digests, err := GetDisclosureDigests(claims)
 	if err != nil {
 		return err
@@ -372,7 +373,7 @@ func processDisclosedClaims(disclosureClaims []*DisclosureClaim, claims map[stri
 
 	for key, value := range claims {
 		if obj, ok := value.(map[string]interface{}); ok {
-			err := processDisclosedClaims(disclosureClaims, obj, hash)
+			err := processDisclosedClaims(disclosureClaims, obj, includedDigests, hash)
 			if err != nil {
 				return err
 			}
@@ -387,15 +388,56 @@ func processDisclosedClaims(disclosureClaims []*DisclosureClaim, claims map[stri
 			return err
 		}
 
-		if _, ok := digests[digest]; ok {
-			claims[dc.Name] = dc.Value
+		if _, ok := digests[digest]; !ok {
+			continue
 		}
+
+		_, digestAlreadyIncluded := includedDigests[digest]
+		if digestAlreadyIncluded {
+			// If there is more than one place where the digest is included,
+			// the Verifier MUST reject the Presentation.
+			return fmt.Errorf("digest '%s' has been included in more than one place", digest)
+		}
+
+		err = validateClaim(dc, claims)
+		if err != nil {
+			return err
+		}
+
+		claims[dc.Name] = dc.Value
+
+		includedDigests[digest] = true
 	}
 
 	delete(claims, SDKey)
 	delete(claims, SDAlgorithmKey)
 
 	return nil
+}
+
+func validateClaim(dc *DisclosureClaim, claims map[string]interface{}) error {
+	_, claimNameExists := claims[dc.Name]
+	if claimNameExists {
+		// If the claim name already exists at the same level, the Verifier MUST reject the Presentation.
+		return fmt.Errorf("claim name '%s' already exists at the same level", dc.Name)
+	}
+
+	m, ok := getMap(dc.Value)
+	if ok {
+		if KeyExistsInMap(SDKey, m) {
+			// If the claim value contains an object with an _sd key (at the top level or nested deeper),
+			// the Verifier MUST reject the Presentation.
+			return fmt.Errorf("claim value contains an object with an '%s' key", SDKey)
+		}
+	}
+
+	return nil
+}
+
+func getMap(value interface{}) (map[string]interface{}, bool) {
+	val, ok := value.(map[string]interface{})
+
+	return val, ok
 }
 
 func stringArray(entry interface{}) ([]string, error) {
@@ -445,4 +487,22 @@ func copyMap(m map[string]interface{}) map[string]interface{} {
 	}
 
 	return cm
+}
+
+// KeyExistsInMap checks if key exists in map.
+func KeyExistsInMap(key string, m map[string]interface{}) bool {
+	for k, v := range m {
+		if k == key {
+			return true
+		}
+
+		if obj, ok := v.(map[string]interface{}); ok {
+			exists := KeyExistsInMap(key, obj)
+			if exists {
+				return true
+			}
+		}
+	}
+
+	return false
 }

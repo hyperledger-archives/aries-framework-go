@@ -200,7 +200,7 @@ func New(issuer string, claims interface{}, headers jose.Headers,
 	}
 
 	// check for the presence of the _sd claim in claims map
-	found := keyExistsInMap(common.SDKey, claimsMap)
+	found := common.KeyExistsInMap(common.SDKey, claimsMap)
 	if found {
 		return nil, fmt.Errorf("key '%s' cannot be present in the claims", common.SDKey)
 	}
@@ -452,23 +452,6 @@ func generateSalt() (string, error) {
 
 	// it is RECOMMENDED to base64url-encode the salt value, producing a string.
 	return base64.RawURLEncoding.EncodeToString(salt), nil
-}
-
-func keyExistsInMap(key string, claims map[string]interface{}) bool {
-	for k, v := range claims {
-		if k == key {
-			return true
-		}
-
-		if obj, ok := v.(map[string]interface{}); ok {
-			exists := keyExistsInMap(key, obj)
-			if exists {
-				return true
-			}
-		}
-	}
-
-	return false
 }
 
 // payload represents SD-JWT payload.
