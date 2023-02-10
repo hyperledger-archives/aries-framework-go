@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package common
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -366,19 +367,93 @@ func TestGetDisclosedClaims(t *testing.T) {
 	t.Run("success - with complex object", func(t *testing.T) {
 		testClaims := copyMap(claims)
 
+		additionalDigest, err := GetHash(crypto.SHA256, additionalDisclosure)
+		r.NoError(err)
+
+		parentObj := make(map[string]interface{})
+		parentObj["last_name"] = "Brown"
+		parentObj[SDKey] = []interface{}{additionalDigest}
+
+		testClaims["father"] = parentObj
+
+		printObject(t, "Complex Claims", testClaims)
+
+		disclosedClaims, err := GetDisclosedClaims(append(disclosureClaims,
+			&DisclosureClaim{
+				Disclosure: additionalDisclosure,
+				Name:       "key-x",
+				Value:      "value-y"}),
+			testClaims)
+		r.NoError(err)
+		r.NotNil(disclosedClaims)
+
+		printObject(t, "Disclosed Claims", disclosedClaims)
+
+		r.Equal(6, len(disclosedClaims))
+		r.Equal("John", disclosedClaims["given_name"])
+		r.Equal("value-y", disclosedClaims["father"].(map[string]interface{})["key-x"])
+	})
+
+	t.Run("error - claim value contains _sd", func(t *testing.T) {
+		testClaims := copyMap(claims)
+
+		additionalDigest, err := GetHash(crypto.SHA256, additionalDisclosure)
+		r.NoError(err)
+
+		parentObj := make(map[string]interface{})
+		parentObj["last_name"] = "Smith"
+		parentObj[SDKey] = []interface{}{additionalDigest}
+
+		testClaims["father"] = parentObj
+
+		disclosedClaims, err := GetDisclosedClaims(append(disclosureClaims,
+			&DisclosureClaim{
+				Disclosure: additionalDisclosure,
+				Name:       "key-x",
+				Value: map[string]interface{}{
+					"_sd": []interface{}{"test-digest"},
+				},
+			}),
+			testClaims)
+		r.Error(err)
+		r.Nil(disclosedClaims)
+		r.Contains(err.Error(), "failed to process disclosed claims: claim value contains an object with an '_sd' key")
+	})
+
+	t.Run("error - same claim key at the same level ", func(t *testing.T) {
+		testClaims := copyMap(claims)
+
 		parentObj := make(map[string]interface{})
 		parentObj["given_name"] = "Albert"
 		parentObj[SDKey] = claims[SDKey]
 
 		testClaims["father"] = parentObj
 
-		disclosedClaims, err := GetDisclosedClaims(disclosureClaims, testClaims)
-		r.NoError(err)
-		r.NotNil(disclosedClaims)
+		printObject(t, "Complex Claims", testClaims)
 
-		r.Equal(6, len(disclosedClaims))
-		r.Equal("John", disclosedClaims["given_name"])
-		r.Equal("John", disclosedClaims["father"].(map[string]interface{})["given_name"])
+		disclosedClaims, err := GetDisclosedClaims(disclosureClaims, testClaims)
+		r.Error(err)
+		r.Nil(disclosedClaims)
+		r.Contains(err.Error(),
+			"failed to process disclosed claims: claim name 'given_name' already exists at the same level")
+	})
+
+	t.Run("error - digest included in more than one spot ", func(t *testing.T) {
+		testClaims := copyMap(claims)
+
+		parentObj := make(map[string]interface{})
+		parentObj["last_name"] = "Smith"
+		parentObj[SDKey] = claims[SDKey]
+
+		testClaims["father"] = parentObj
+
+		printObject(t, "Complex Claims", testClaims)
+
+		disclosedClaims, err := GetDisclosedClaims(disclosureClaims, testClaims)
+		r.Error(err)
+		r.Nil(disclosedClaims)
+		r.Contains(err.Error(),
+			"failed to process disclosed claims: digest 'qqvcqnczAMgYx7EykI6wwtspyvyvK790ge7MBbQ-Nus' has been included in more than one place") //nolint:lll
 	})
 
 	t.Run("error - with complex object", func(t *testing.T) {
@@ -438,7 +513,7 @@ func TestGetDisclosedClaims(t *testing.T) {
 		testClaims[SDAlgorithmKey] = "sha-256"
 		testClaims[SDKey] = []interface{}{"abc"}
 
-		err := processDisclosedClaims(disclosureClaims, testClaims, 0)
+		err := processDisclosedClaims(disclosureClaims, testClaims, make(map[string]bool), 0)
 		r.Error(err)
 
 		r.Contains(err.Error(),
@@ -603,6 +678,70 @@ func TestGetCNF(t *testing.T) {
 
 		r.Contains(err.Error(), "cnf must be an object")
 	})
+}
+
+func TestKeyExistInMap(t *testing.T) {
+	r := require.New(t)
+
+	key := "_sd"
+
+	t.Run("true - claims contain _sd key (top level object)", func(t *testing.T) {
+		claims := map[string]interface{}{
+			key: "whatever",
+		}
+
+		exists := KeyExistsInMap(key, claims)
+		r.True(exists)
+	})
+
+	t.Run("true - claims contain _sd key (inner object)", func(t *testing.T) {
+		claims := map[string]interface{}{
+			"degree": map[string]interface{}{
+				key:    "whatever",
+				"type": "BachelorDegree",
+			},
+		}
+
+		exists := KeyExistsInMap(key, claims)
+		r.True(exists)
+	})
+
+	t.Run("false - _sd key not present in claims", func(t *testing.T) {
+		claims := map[string]interface{}{
+			"key-x": "value-y",
+			"degree": map[string]interface{}{
+				"key-x": "whatever",
+				"type":  "BachelorDegree",
+			},
+		}
+
+		exists := KeyExistsInMap(key, claims)
+		r.False(exists)
+	})
+}
+
+func printObject(t *testing.T, name string, obj interface{}) {
+	t.Helper()
+
+	objBytes, err := json.Marshal(obj)
+	require.NoError(t, err)
+
+	prettyJSON, err := prettyPrint(objBytes)
+	require.NoError(t, err)
+
+	fmt.Println(name + ":")
+	fmt.Println(prettyJSON)
+}
+
+func prettyPrint(msg []byte) (string, error) {
+	var prettyJSON bytes.Buffer
+
+	err := json.Indent(&prettyJSON, msg, "", "\t")
+	if err != nil {
+		return "", err
+	}
+
+	return prettyJSON.String(), nil
 }
 
 type NoopSignatureVerifier struct {
