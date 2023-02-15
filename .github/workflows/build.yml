@@ -9,6 +9,7 @@ on:
     branches-ignore:
     - 'dependabot/**'
   pull_request:
+  workflow_dispatch:
 jobs:
   unitTest:
     name: Unit test
