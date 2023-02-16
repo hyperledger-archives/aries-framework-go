@@ -38,8 +38,8 @@ jobs:
       - name: Save iOS bindings
         uses: actions/upload-artifact@v3
         with:
-          name: ios-bindings
-          path: build/ios
+          name: AriesAgent.xcframework
+          path: ./cmd/aries-agent-mobile/build/ios/AriesAgent.xcframework
   build-android:
     name: Build Android bindings
     runs-on: ubuntu-latest
@@ -77,20 +77,20 @@ jobs:
       - name: Fetch iOS libraries
         uses: actions/download-artifact@v3
         with:
-          name: ios-bindings
+          name: AriesAgent.xcframework
           path: ios/
 
       - uses: a7ul/tar-action@v1.1.2
         with:
           command: c
           files: ./ios
-          outPath: 'aries-ios.tar.gz'
+          outPath: 'aries-agent-ios.tar.gz'
 
       - name: Add library artifacts to release
         uses: svenstaro/upload-release-action@v2
         with:
           file: aries-ios.tar.gz
-          asset_name: 'aries-ios.tar.gz'
+          asset_name: 'aries-agent-ios.tar.gz'
   create-android-release-asset:
     name: Create Android Release Assets
     runs-on: ubuntu-latest
