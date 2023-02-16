@@ -90,7 +90,7 @@ jobs:
       - name: Add library artifacts to release
         uses: svenstaro/upload-release-action@v2
         with:
-          file: aries-ios.tar.gz
+          file: aries-agent-ios.tar.gz
           asset_name: 'aries-agent-ios.tar.gz'
   create-android-release-asset:
     name: Create Android Release Assets
@@ -109,12 +109,12 @@ jobs:
           command: c
           cwd: android
           files: .
-          outPath: 'android-ios.tar.gz'
+          outPath: 'aries-agent-android.tar.gz'
 
       - name: Add library artifacts to release
         uses: svenstaro/upload-release-action@v2
         with:
-          file: aries-android.tar.gz
-          asset_name: 'aries-android.tar.gz'
+          file: aries-agent-android.tar.gz
+          asset_name: 'aries-agent-android.tar.gz'
         
         
