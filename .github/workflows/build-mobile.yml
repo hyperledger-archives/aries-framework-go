@@ -1,4 +1,4 @@
-name: build mbile
+name: build mobile
 
 on:
   push:
@@ -45,6 +45,13 @@ jobs:
         run: |
           go install golang.org/x/mobile/cmd/gomobile@latest
           gomobile init
+      - name: Cache (NDK)
+        uses: actions/cache@v2
+        with:
+          path: ${ANDROID_HOME}/ndk/23.1.7779620
+          key: ndk-cache
+      - name: Install NDK
+        run: echo "y" | sudo ${ANDROID_HOME}/tools/bin/sdkmanager --install 'ndk;23.1.7779620'
       - name: build Android bindings
         run: make bindings-android
       - name: Save Android bindings
