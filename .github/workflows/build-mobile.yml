@@ -6,13 +6,15 @@ on:
     - 'dependabot/**'
   pull_request:
   workflow_dispatch:
+  
+defaults:
+  run:
+    working-directory: ./cmd/aries-agent-mobile
 
 jobs:
   build-ios:
     name: Build iOS bindings
     runs-on: macos-latest
-    env:
-      working-directory: ./cmd/aries-agent-mobile
 
     steps:
       - uses: actions/checkout@v3
@@ -33,8 +35,6 @@ jobs:
   build-android:
     name: Build Android bindings
     runs-on: ubuntu-latest
-    env:
-      working-directory: ./cmd/aries-agent-mobile
 
     steps:
       - uses: actions/checkout@v3
