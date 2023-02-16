@@ -22,5 +22,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
-      - run go install golang.org/x/mobile/cmd/gomobile@latest
-      - run gomobile init
+        with:
+          go-version: 'stable'
+      - name: Install gomobile
+        run: |
+          go install golang.org/x/mobile/cmd/gomobile@latest
+          gomobile init
+        
