@@ -39,7 +39,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: ios-bindings
-          path: ./build/ios
+          path: build/ios
   build-android:
     name: Build Android bindings
     runs-on: ubuntu-latest
@@ -67,7 +67,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: android-bindings
-          path: ./build/android
+          path: build/android
   create-ios-release-asset:
     name: Create iOS Release Assets
     runs-on: ubuntu-latest
