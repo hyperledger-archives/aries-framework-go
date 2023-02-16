@@ -24,6 +24,7 @@ jobs:
       - name: Install gomobile
         run: |
           go get -x golang.org/x/mobile/cmd/gomobile/...
+          export PATH=$PATH:~/go/bin
           gomobile init
       - name: build dependencies
         run: make dependencies
@@ -46,6 +47,7 @@ jobs:
       - name: Install gomobile
         run: |
           go get -x golang.org/x/mobile/cmd/gomobile/...
+          export PATH=$PATH:~/go/bin
           gomobile init
       - name: build dependencies
         run: make dependencies
