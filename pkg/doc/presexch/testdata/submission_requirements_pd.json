@@ -1,0 +1,76 @@
+{
+  "id": "32f54163-7166-48f1-93d8-ff217bdb0653",
+  "submission_requirements": [{
+    "name": "Citizenship Information",
+    "rule": "pick",
+    "count": 1,
+    "from": "A"
+  }],
+  "input_descriptors": [
+    {
+      "id": "VerifiedEmployee",
+      "name": "Verified Employee",
+      "group": ["A"],
+      "constraints": {
+        "fields": [
+          {
+            "path": [
+              "$.type",
+              "$.vc.type"
+            ],
+            "filter": {
+              "type": "array",
+              "contains": {
+                "type": "string",
+                "const": "VerifiedEmployee"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "DriversLicense",
+      "name": "Driver's License",
+      "group": ["A"],
+      "constraints": {
+        "fields": [
+          {
+            "path": [
+              "$.type",
+              "$.vc.type"
+            ],
+            "filter": {
+              "type": "array",
+              "contains": {
+                "type": "string",
+                "const": "DriversLicense"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "degree",
+      "name": "degree",
+      "group": ["A"],
+      "purpose": "We can only hire with bachelor's degree.",
+      "constraints": {
+        "fields": [
+          {
+            "path": [
+              "$.credentialSubject.degree.type",
+              "$.vc.credentialSubject.degree.type"
+            ],
+            "purpose": "We can only hire with bachelor's degree.",
+            "filter": {
+              "type": "string",
+              "const": "BachelorDegree"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

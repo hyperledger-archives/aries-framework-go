@@ -1,0 +1,96 @@
+{
+  "id": "32f54163-7166-48f1-93d8-ff217bdb0653",
+  "submission_requirements": [
+    {
+      "name": "Nested requirements",
+      "rule": "all",
+      "from_nested": [
+        {
+          "name": "VerifiedEmployee or Degree",
+          "rule": "pick",
+          "count": 1,
+          "from": "A"
+        },
+        {
+          "name": "DriversLicense",
+          "rule": "pick",
+          "count": 1,
+          "from": "B"
+        }
+      ]
+    }
+  ],
+  "input_descriptors": [
+    {
+      "id": "VerifiedEmployee",
+      "name": "Verified Employee",
+      "group": [
+        "A"
+      ],
+      "constraints": {
+        "fields": [
+          {
+            "path": [
+              "$.type",
+              "$.vc.type"
+            ],
+            "filter": {
+              "type": "array",
+              "contains": {
+                "type": "string",
+                "const": "VerifiedEmployee"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "DriversLicense",
+      "name": "Driver's License",
+      "group": [
+        "B"
+      ],
+      "constraints": {
+        "fields": [
+          {
+            "path": [
+              "$.type",
+              "$.vc.type"
+            ],
+            "filter": {
+              "type": "array",
+              "contains": {
+                "type": "string",
+                "const": "DriversLicense"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "degree",
+      "name": "degree",
+      "group": [
+        "A"
+      ],
+      "purpose": "We can only hire with bachelor's degree.",
+      "constraints": {
+        "fields": [
+          {
+            "path": [
+              "$.credentialSubject.degree.type",
+              "$.vc.credentialSubject.degree.type"
+            ],
+            "purpose": "We can only hire with bachelor's degree.",
+            "filter": {
+              "type": "string",
+              "const": "BachelorDegree"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

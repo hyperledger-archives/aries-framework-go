@@ -197,6 +197,26 @@ type Filter struct {
 	Contains         map[string]interface{} `json:"contains,omitempty"`
 }
 
+// MatchedSubmissionRequirement contains information about VCs that matched a presentation definition.
+type MatchedSubmissionRequirement struct {
+	Name        string
+	Purpose     string
+	Rule        Selection
+	Count       int
+	Min         int
+	Max         int
+	Descriptors []*MatchedInputDescriptor
+	Nested      []*MatchedSubmissionRequirement
+}
+
+// MatchedInputDescriptor contains information about VCs that matched an input descriptor of presentation definition.
+type MatchedInputDescriptor struct {
+	ID         string
+	Name       string
+	Purpose    string
+	MatchedVCs []*verifiable.Credential
+}
+
 // ValidateSchema validates presentation definition.
 func (pd *PresentationDefinition) ValidateSchema() error {
 	result, err := gojsonschema.Validate(
@@ -234,6 +254,9 @@ func (pd *PresentationDefinition) ValidateSchema() error {
 }
 
 type requirement struct {
+	Name             string
+	Purpose          string
+	Rule             Selection
 	Count            int
 	Min              int
 	Max              int
@@ -305,6 +328,9 @@ func toRequirement(sr *SubmissionRequirement, descriptors []*InputDescriptor) (*
 	}
 
 	return &requirement{
+		Name:             sr.Name,
+		Purpose:          sr.Purpose,
+		Rule:             sr.Rule,
 		Count:            count,
 		Min:              sr.Min,
 		Max:              sr.Max,
@@ -375,8 +401,105 @@ func (pd *PresentationDefinition) CreateVP(credentials []*verifiable.Credential,
 	return vp, nil
 }
 
+func makeRequirementsForMatch(requirements []*SubmissionRequirement,
+	descriptors []*InputDescriptor) ([]*requirement, error) {
+	if len(requirements) == 0 {
+		return []*requirement{{
+			Name:             "",
+			Purpose:          "",
+			Rule:             All,
+			Count:            len(descriptors),
+			InputDescriptors: descriptors,
+			Nested:           nil,
+		}}, nil
+	}
+
+	var reqs []*requirement
+
+	for _, submissionRequirement := range requirements {
+		r, err := toRequirement(submissionRequirement, descriptors)
+		if err != nil {
+			return nil, err
+		}
+
+		reqs = append(reqs, r)
+	}
+
+	return reqs, nil
+}
+
+// MatchSubmissionRequirement return information about matching VCs.
+func (pd *PresentationDefinition) MatchSubmissionRequirement(credentials []*verifiable.Credential,
+	documentLoader ld.DocumentLoader, opts ...verifiable.CredentialOpt) ([]*MatchedSubmissionRequirement, error) {
+	if err := pd.ValidateSchema(); err != nil {
+		return nil, err
+	}
+
+	requirements, err := makeRequirementsForMatch(pd.SubmissionRequirements, pd.InputDescriptors)
+	if err != nil {
+		return nil, err
+	}
+
+	var matchedReqs []*MatchedSubmissionRequirement
+
+	for _, req := range requirements {
+		matched, err := pd.matchRequirement(req, credentials, documentLoader, opts...)
+		if err != nil {
+			return nil, err
+		}
+
+		matchedReqs = append(matchedReqs, matched)
+	}
+
+	return matchedReqs, nil
+}
+
 // ErrNoCredentials when any credentials do not satisfy requirements.
 var ErrNoCredentials = errors.New("credentials do not satisfy requirements")
+
+func (pd *PresentationDefinition) matchRequirement(req *requirement, creds []*verifiable.Credential,
+	documentLoader ld.DocumentLoader,
+	opts ...verifiable.CredentialOpt) (*MatchedSubmissionRequirement, error) {
+	matchedReq := &MatchedSubmissionRequirement{
+		Name:        req.Name,
+		Purpose:     req.Purpose,
+		Rule:        req.Rule,
+		Count:       req.Count,
+		Min:         req.Min,
+		Max:         req.Max,
+		Descriptors: nil,
+		Nested:      nil,
+	}
+
+	if len(req.InputDescriptors) != 0 {
+		for _, descriptor := range req.InputDescriptors {
+			_, filtered, err := pd.filterCredentialsThatMatchDescriptor(
+				creds, descriptor, documentLoader, opts...)
+
+			if err != nil {
+				return nil, err
+			}
+
+			matchedReq.Descriptors = append(matchedReq.Descriptors, &MatchedInputDescriptor{
+				ID:         descriptor.ID,
+				Name:       descriptor.Name,
+				Purpose:    descriptor.Purpose,
+				MatchedVCs: filtered,
+			})
+		}
+	}
+
+	for _, nestedReq := range req.Nested {
+		nestedMatch, err := pd.matchRequirement(nestedReq, creds, documentLoader, opts...)
+		if err != nil {
+			return nil, err
+		}
+
+		matchedReq.Nested = append(matchedReq.Nested, nestedMatch)
+	}
+
+	return matchedReq, nil
+}
 
 // nolint: gocyclo,funlen,gocognit
 func (pd *PresentationDefinition) applyRequirement(req *requirement, creds []*verifiable.Credential,
@@ -389,30 +512,15 @@ func (pd *PresentationDefinition) applyRequirement(req *requirement, creds []*ve
 	vpFormat := FormatLDPVP
 
 	for _, descriptor := range req.InputDescriptors {
-		format := pd.Format
-		if descriptor.Format.notNil() {
-			format = descriptor.Format
-		}
+		descFormat, filtered, err := pd.filterCredentialsThatMatchDescriptor(
+			creds, descriptor, documentLoader, opts...)
 
-		filtered := creds
-
-		filtered, err := frameCreds(pd.Frame, filtered, opts...)
 		if err != nil {
 			return "", nil, err
 		}
 
-		if format.notNil() {
-			vpFormat, filtered = filterFormat(format, filtered)
-		}
-
-		// Validate schema only for v1
-		if descriptor.Schema != nil {
-			filtered = filterSchema(descriptor.Schema, filtered, documentLoader)
-		}
-
-		filtered, err = filterConstraints(descriptor.Constraints, filtered, opts...)
-		if err != nil {
-			return "", nil, err
+		if descFormat != "" {
+			vpFormat = descFormat
 		}
 
 		if len(filtered) != 0 {
@@ -470,6 +578,39 @@ func (pd *PresentationDefinition) applyRequirement(req *requirement, creds []*ve
 	}
 
 	return vpFormat, mergeNestedResult(nestedResult, exclude), nil
+}
+
+func (pd *PresentationDefinition) filterCredentialsThatMatchDescriptor(creds []*verifiable.Credential,
+	descriptor *InputDescriptor,
+	documentLoader ld.DocumentLoader,
+	opts ...verifiable.CredentialOpt) (string, []*verifiable.Credential, error) {
+	format := pd.Format
+	if descriptor.Format.notNil() {
+		format = descriptor.Format
+	}
+
+	vpFormat := ""
+
+	filtered, err := frameCreds(pd.Frame, creds, opts...)
+	if err != nil {
+		return "", nil, err
+	}
+
+	if format.notNil() {
+		vpFormat, filtered = filterFormat(format, filtered)
+	}
+
+	// Validate schema only for v1
+	if descriptor.Schema != nil {
+		filtered = filterSchema(descriptor.Schema, filtered, documentLoader)
+	}
+
+	filtered, err = filterConstraints(descriptor.Constraints, filtered, opts...)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return vpFormat, filtered, nil
 }
 
 func mergeNestedResult(nr []map[string][]*verifiable.Credential,
