@@ -6,7 +6,7 @@
 GO_CMD ?= go
 GOMOBILE_CMD ?= gomobile
 
-PROJECT_ROOT = github.com/hyperledger/aries-framework-go
+PROJECT_ROOT = github.com/PresidioIdentity/aries-framework-go
 MOBILE_PROJECT_ROOT = $(PROJECT_ROOT)/cmd/aries-agent-mobile
 
 MOBILE_BUILD_PACKAGES := $(MOBILE_PROJECT_ROOT)/...
@@ -23,7 +23,7 @@ endif
 ANDROID_JAVA_PKG = org.hyperledger.aries
 
 IOS_BUILD_DIR = $(BUILD_DIR)/ios
-IOS_OUTPUT_FILE_NAME = AriesAgent.framework
+IOS_OUTPUT_FILE_NAME = AriesAgent.xcframework
 ifeq ($(IOS_TARGET),)
     IOS_TARGET = ios
 endif
