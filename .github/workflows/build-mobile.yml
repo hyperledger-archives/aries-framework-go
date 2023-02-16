@@ -1,0 +1,26 @@
+name: Build Mobile
+
+on:
+  push:
+    branches-ignore:
+    - 'dependabot/**'
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    name: Build Library (iOS)
+    runs-on: macos-latest
+    env:
+      working-directory: ./cmd/aries-agent-mobile
+
+    strategy:
+      matrix:
+        architecture:
+          [aarch64-apple-ios, aarch64-apple-ios-sim, x86_64-apple-ios]
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+      - run go install golang.org/x/mobile/cmd/gomobile@latest
+      - run gomobile init
