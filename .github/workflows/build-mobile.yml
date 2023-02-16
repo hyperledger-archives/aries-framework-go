@@ -18,14 +18,16 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
-        with:
-          go-version: 'stable'
-      - name: Install gomobile
+      - name: Install Gomobile
         run: |
-          go get -x golang.org/x/mobile/cmd/gomobile/...
-          export PATH=$PATH:~/go/bin
-          gomobile init
+            go install golang.org/x/mobile/cmd/gomobile@latest
+            go install golang.org/x/mobile/cmd/gobind@latest
+            go get golang.org/x/mobile/cmd/gobind
+            go get golang.org/x/mobile/cmd/gomobile
+            gomobile init
+        env:
+            GOPROXY: https://proxy.golang.org,direct
+            GO111MODULE: "on"
       - name: build dependencies
         run: make dependencies
       - name: build iOS bindings
@@ -41,14 +43,16 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
-        with:
-          go-version: 'stable'
-      - name: Install gomobile
+      - name: Install Gomobile
         run: |
-          go get -x golang.org/x/mobile/cmd/gomobile/...
-          export PATH=$PATH:~/go/bin
-          gomobile init
+            go install golang.org/x/mobile/cmd/gomobile@latest
+            go install golang.org/x/mobile/cmd/gobind@latest
+            go get golang.org/x/mobile/cmd/gobind
+            go get golang.org/x/mobile/cmd/gomobile
+            gomobile init
+        env:
+            GOPROXY: https://proxy.golang.org,direct
+            GO111MODULE: "on"
       - name: build dependencies
         run: make dependencies
       - name: build Android bindings
