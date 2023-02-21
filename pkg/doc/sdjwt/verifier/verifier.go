@@ -4,6 +4,10 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
+/*
+Package verifier enables the Verifier: An entity that requests, checks and
+extracts the claims from an SD-JWT and respective Disclosures.
+*/
 package verifier
 
 import (
@@ -45,7 +49,7 @@ func WithJWTDetachedPayload(payload []byte) ParseOpt {
 	}
 }
 
-// WithSignatureVerifier option is for definition of JWT detached payload.
+// WithSignatureVerifier option is for definition of signature verifier.
 func WithSignatureVerifier(signatureVerifier jose.SignatureVerifier) ParseOpt {
 	return func(opts *parseOpts) {
 		opts.sigVerifier = signatureVerifier
@@ -95,6 +99,20 @@ func WithLeewayForClaimsValidation(duration time.Duration) ParseOpt {
 }
 
 // Parse parses combined format for presentation and returns verified claims.
+// The Verifier has to verify that all disclosed claim values were part of the original, Issuer-signed SD-JWT.
+//
+// At a high level, the Verifier:
+//   - receives the Combined Format for Presentation from the Holder and verifies the signature of the SD-JWT using the
+//     Issuer's public key,
+//   - verifies the Holder Binding JWT, if Holder Binding is required by the Verifier's policy,
+//     using the public key included in the SD-JWT,
+//   - calculates the digests over the Holder-Selected Disclosures and verifies that each digest
+//     is contained in the SD-JWT.
+//
+// Detailed algorithm:
+// https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-02.html#name-verification-by-the-verifier
+//
+// The Verifier will not, however, learn any claim values not disclosed in the Disclosures.
 func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]interface{}, error) {
 	defaultSigningAlgorithms := []string{"EdDSA", "RS256"}
 	pOpts := &parseOpts{
