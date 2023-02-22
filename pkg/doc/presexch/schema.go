@@ -538,8 +538,35 @@ const DefinitionJSONSchemaV2 = `
         "name": { "type": "string" },
         "purpose": { "type": "string" },
         "format": {
-          "$ref": "http://identity.foundation/claim-format-registry/schemas/presentation-definition-claim-format-designations.json"
-        },
+		  "$schema": "http://json-schema.org/draft-07/schema#",
+		  "title": "Presentation Definition Claim Format Designations",
+		  "type": "object",
+		  "additionalProperties": false,
+		  "patternProperties": {
+			"^jwt$|^jwt_vc$|^jwt_vp$": {
+			  "type": "object",
+			  "additionalProperties": false,
+			  "properties": {
+				"alg": {
+				  "type": "array",
+				  "minItems": 1,
+				  "items": { "type": "string" }
+				}
+			  }
+			},
+			"^ldp_vc$|^ldp_vp$|^ldp$": {
+			  "type": "object",
+			  "additionalProperties": false,
+			  "properties": {
+				"proof_type": {
+				  "type": "array",
+				  "minItems": 1,
+				  "items": { "type": "string" }
+				}
+			  }
+			}
+		  }
+		},
         "group": { "type": "array", "items": { "type": "string" } },
         "constraints": {
           "type": "object",
@@ -651,8 +678,35 @@ const DefinitionJSONSchemaV2 = `
         "name": { "type": "string" },
         "purpose": { "type": "string" },
         "format": {
-          "$ref": "http://identity.foundation/claim-format-registry/schemas/presentation-definition-claim-format-designations.json#"
-        },
+		  "$schema": "http://json-schema.org/draft-07/schema#",
+		  "title": "Presentation Definition Claim Format Designations",
+		  "type": "object",
+		  "additionalProperties": false,
+		  "patternProperties": {
+			"^jwt$|^jwt_vc$|^jwt_vp$": {
+			  "type": "object",
+			  "additionalProperties": false,
+			  "properties": {
+				"alg": {
+				  "type": "array",
+				  "minItems": 1,
+				  "items": { "type": "string" }
+				}
+			  }
+			},
+			"^ldp_vc$|^ldp_vp$|^ldp$": {
+			  "type": "object",
+			  "additionalProperties": false,
+			  "properties": {
+				"proof_type": {
+				  "type": "array",
+				  "minItems": 1,
+				  "items": { "type": "string" }
+				}
+			  }
+			}
+		  }
+		},
         "frame": {
           "type": "object",
           "additionalProperties": true
