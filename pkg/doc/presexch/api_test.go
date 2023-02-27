@@ -53,18 +53,244 @@ func TestPresentationDefinition_Match(t *testing.T) {
 
 		docLoader := createTestDocumentLoader(t, uri, customType)
 
-		matched, err := defs.Match(newVP(t,
-			&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
-				ID:   defs.InputDescriptors[0].ID,
-				Path: "$.verifiableCredential[0]",
-			}}},
-			expected,
-		), docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
+		matched, err := defs.Match(
+			[]*verifiable.Presentation{
+				newVP(t,
+					&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
+						ID:   defs.InputDescriptors[0].ID,
+						Path: "$.verifiableCredential[0]",
+					}}},
+					expected,
+				)},
+			docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
 		require.NoError(t, err)
 		require.Len(t, matched, 1)
 		result, ok := matched[defs.InputDescriptors[0].ID]
 		require.True(t, ok)
-		require.Equal(t, expected.ID, result.ID)
+		require.Equal(t, expected.ID, result.Credential.ID)
+	})
+
+	str := "string"
+	subjectKey := "subject-field"
+	subjectVal := "blah"
+
+	t.Run("match two presentations", func(t *testing.T) {
+		uri := randomURI()
+
+		customType := "CustomType" //nolint: goconst
+
+		expected := newVC([]string{uri})
+		expected.Types = append(expected.Types, customType)
+
+		expectedTwo := newVC(nil)
+
+		expectedTwo.Subject.(map[string]interface{})[subjectKey] = subjectVal
+
+		defs := &PresentationDefinition{
+			InputDescriptors: []*InputDescriptor{
+				{
+					ID: "ID-0",
+					Schema: []*Schema{{
+						URI: fmt.Sprintf("%s#%s", uri, customType),
+					}},
+				},
+				{
+					ID: "ID-1",
+					Schema: []*Schema{{
+						URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+					}},
+					Constraints: &Constraints{
+						Fields: []*Field{
+							{
+								ID:   uuid.NewString(),
+								Path: []string{"credentialSubject", subjectKey},
+								Filter: &Filter{
+									Type:  &str,
+									Const: subjectVal,
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		docLoader := createTestDocumentLoader(t, uri, customType)
+
+		presList := []*verifiable.Presentation{
+			newVP(t,
+				&PresentationSubmission{
+					DescriptorMap: []*InputDescriptorMapping{
+						{
+							ID:   defs.InputDescriptors[0].ID,
+							Path: "$", // TODO: $[0]
+							PathNested: &InputDescriptorMapping{
+								ID:   defs.InputDescriptors[0].ID,
+								Path: "$.verifiableCredential[0]",
+							},
+						},
+					},
+				},
+				expected,
+			),
+			newVP(t,
+				&PresentationSubmission{
+					DescriptorMap: []*InputDescriptorMapping{
+						{
+							ID:   defs.InputDescriptors[1].ID,
+							Path: "$", // TODO: $[1]
+							PathNested: &InputDescriptorMapping{
+								ID:   defs.InputDescriptors[1].ID,
+								Path: "$.verifiableCredential[0]",
+							},
+						},
+					},
+				},
+				expectedTwo,
+			)}
+
+		opt := []MatchOption{WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader))}
+
+		matched, err := defs.Match(presList, docLoader, opt...)
+		require.NoError(t, err)
+		require.Len(t, matched, 2)
+		result, ok := matched[defs.InputDescriptors[0].ID]
+		require.True(t, ok)
+		require.Equal(t, expected.ID, result.Credential.ID)
+		result, ok = matched[defs.InputDescriptors[1].ID]
+		require.True(t, ok)
+		require.Equal(t, expectedTwo.ID, result.Credential.ID)
+	})
+
+	t.Run("match two presentations, with merged submission", func(t *testing.T) {
+		uri := randomURI()
+
+		customType := "CustomType" //nolint: goconst
+
+		expected := newVC([]string{uri})
+		expected.Types = append(expected.Types, customType)
+
+		expectedTwo := newVC(nil)
+		expectedTwo.Subject.(map[string]interface{})[subjectKey] = subjectVal
+
+		defs := &PresentationDefinition{
+			InputDescriptors: []*InputDescriptor{
+				{
+					ID: "ID-0",
+					Schema: []*Schema{{
+						URI: fmt.Sprintf("%s#%s", uri, customType),
+					}},
+				},
+				{
+					ID: "ID-1",
+					Schema: []*Schema{{
+						URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+					}},
+					Constraints: &Constraints{
+						Fields: []*Field{
+							{
+								ID:   uuid.NewString(),
+								Path: []string{"credentialSubject", subjectKey},
+								Filter: &Filter{
+									Type:  &str,
+									Const: subjectVal,
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		docLoader := createTestDocumentLoader(t, uri, customType)
+
+		presList := []*verifiable.Presentation{
+			newVP(t, nil, expected),
+			newVP(t, nil, expectedTwo),
+		}
+
+		opt := []MatchOption{
+			WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)),
+			WithMergedSubmission(&PresentationSubmission{
+				DescriptorMap: []*InputDescriptorMapping{
+					{
+						ID:   defs.InputDescriptors[0].ID,
+						Path: "$[0]",
+						PathNested: &InputDescriptorMapping{
+							ID:   defs.InputDescriptors[0].ID,
+							Path: "$.verifiableCredential[0]",
+						},
+					},
+					{
+						ID:   defs.InputDescriptors[1].ID,
+						Path: "$[1]",
+						PathNested: &InputDescriptorMapping{
+							ID:   defs.InputDescriptors[1].ID,
+							Path: "$.verifiableCredential[0]",
+						},
+					},
+				},
+			}),
+		}
+
+		matched, err := defs.Match(presList, docLoader, opt...)
+		require.NoError(t, err)
+		require.Len(t, matched, 2)
+		result, ok := matched[defs.InputDescriptors[0].ID]
+		require.True(t, ok)
+		require.Equal(t, expected.ID, result.Credential.ID)
+		result, ok = matched[defs.InputDescriptors[1].ID]
+		require.True(t, ok)
+		require.Equal(t, expectedTwo.ID, result.Credential.ID)
+	})
+
+	t.Run("match one presentation, with merged submission", func(t *testing.T) {
+		uri := randomURI()
+
+		customType := "CustomType" //nolint: goconst
+
+		expected := newVC([]string{uri})
+		expected.Types = append(expected.Types, customType)
+
+		defs := &PresentationDefinition{
+			InputDescriptors: []*InputDescriptor{
+				{
+					ID: "ID-0",
+					Schema: []*Schema{{
+						URI: fmt.Sprintf("%s#%s", uri, customType),
+					}},
+				},
+			},
+		}
+
+		docLoader := createTestDocumentLoader(t, uri, customType)
+
+		presList := []*verifiable.Presentation{
+			newVP(t, nil, expected),
+		}
+
+		opt := []MatchOption{
+			WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)),
+			WithMergedSubmission(&PresentationSubmission{
+				DescriptorMap: []*InputDescriptorMapping{
+					{
+						ID:   defs.InputDescriptors[0].ID,
+						Path: "$",
+						PathNested: &InputDescriptorMapping{
+							ID:   defs.InputDescriptors[0].ID,
+							Path: "$.verifiableCredential[0]",
+						},
+					},
+				},
+			}),
+		}
+
+		matched, err := defs.Match(presList, docLoader, opt...)
+		require.NoError(t, err)
+		require.Len(t, matched, 1)
+		result, ok := matched[defs.InputDescriptors[0].ID]
+		require.True(t, ok)
+		require.Equal(t, expected.ID, result.Credential.ID)
 	})
 
 	t.Run("match one nested credential", func(t *testing.T) {
@@ -90,22 +316,25 @@ func TestPresentationDefinition_Match(t *testing.T) {
 
 		docLoader := createTestDocumentLoader(t, uri, customType)
 
-		matched, err := defs.Match(newVP(t,
-			&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
-				ID:   defs.InputDescriptors[0].ID,
-				Path: "$.verifiableCredential[0]",
-				PathNested: &InputDescriptorMapping{
-					ID:   defs.InputDescriptors[0].ID,
-					Path: "$.nestedVC",
-				},
-			}}},
-			expected,
-		), docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
+		matched, err := defs.Match(
+			[]*verifiable.Presentation{
+				newVP(t,
+					&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
+						ID:   defs.InputDescriptors[0].ID,
+						Path: "$.verifiableCredential[0]",
+						PathNested: &InputDescriptorMapping{
+							ID:   defs.InputDescriptors[0].ID,
+							Path: "$.nestedVC",
+						},
+					}}},
+					expected,
+				)},
+			docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
 		require.NoError(t, err)
 		require.Len(t, matched, 1)
 		result, ok := matched[defs.InputDescriptors[0].ID]
 		require.True(t, ok)
-		require.Equal(t, expectedNested.ID, result.ID)
+		require.Equal(t, expectedNested.ID, result.Credential.ID)
 	})
 
 	t.Run("match one nested jwt credential", func(t *testing.T) {
@@ -132,17 +361,20 @@ func TestPresentationDefinition_Match(t *testing.T) {
 
 		docLoader := createTestDocumentLoader(t, uri, customType)
 
-		matched, err := defs.Match(newVP(t,
-			&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
-				ID:   defs.InputDescriptors[0].ID,
-				Path: "$.verifiableCredential[0]",
-				PathNested: &InputDescriptorMapping{
-					ID:   defs.InputDescriptors[0].ID,
-					Path: "$.nestedVC",
-				},
-			}}},
-			expected,
-		), docLoader,
+		matched, err := defs.Match(
+			[]*verifiable.Presentation{
+				newVP(t,
+					&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
+						ID:   defs.InputDescriptors[0].ID,
+						Path: "$.verifiableCredential[0]",
+						PathNested: &InputDescriptorMapping{
+							ID:   defs.InputDescriptors[0].ID,
+							Path: "$.nestedVC",
+						},
+					}}},
+					expected,
+				)},
+			docLoader,
 			WithCredentialOptions(
 				verifiable.WithJSONLDDocumentLoader(contextLoader),
 				verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(agent.VDRegistry()).PublicKeyFetcher()),
@@ -152,7 +384,7 @@ func TestPresentationDefinition_Match(t *testing.T) {
 		require.Len(t, matched, 1)
 		result, ok := matched[defs.InputDescriptors[0].ID]
 		require.True(t, ok)
-		require.Equal(t, expectedNested.ID, result.ID)
+		require.Equal(t, expectedNested.ID, result.Credential.ID)
 	})
 
 	t.Run("match with self referencing", func(t *testing.T) {
@@ -171,17 +403,20 @@ func TestPresentationDefinition_Match(t *testing.T) {
 			}},
 		}
 
-		matched, err := defs.Match(newVP(t,
-			&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
-				ID:   defs.InputDescriptors[0].ID,
-				Path: "$",
-				PathNested: &InputDescriptorMapping{
-					ID:   defs.InputDescriptors[0].ID,
-					Path: "$.verifiableCredential[0]",
-				},
-			}}},
-			expected,
-		), contextLoader,
+		matched, err := defs.Match(
+			[]*verifiable.Presentation{
+				newVP(t,
+					&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
+						ID:   defs.InputDescriptors[0].ID,
+						Path: "$",
+						PathNested: &InputDescriptorMapping{
+							ID:   defs.InputDescriptors[0].ID,
+							Path: "$.verifiableCredential[0]",
+						},
+					}}},
+					expected,
+				),
+			}, contextLoader,
 			WithCredentialOptions(
 				verifiable.WithJSONLDDocumentLoader(contextLoader),
 				verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(agent.VDRegistry()).PublicKeyFetcher()),
@@ -191,7 +426,7 @@ func TestPresentationDefinition_Match(t *testing.T) {
 		require.Len(t, matched, 1)
 		result, ok := matched[defs.InputDescriptors[0].ID]
 		require.True(t, ok)
-		require.Equal(t, expected.ID, result.ID)
+		require.Equal(t, expected.ID, result.Credential.ID)
 	})
 
 	t.Run("match one nested sd-jwt credential", func(t *testing.T) {
@@ -218,17 +453,19 @@ func TestPresentationDefinition_Match(t *testing.T) {
 
 		docLoader := createTestDocumentLoader(t, uri, customType)
 
-		matched, err := defs.Match(newVP(t,
-			&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
-				ID:   defs.InputDescriptors[0].ID,
-				Path: "$.verifiableCredential[0]",
-				PathNested: &InputDescriptorMapping{
+		matched, err := defs.Match(
+			[]*verifiable.Presentation{newVP(t,
+				&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
 					ID:   defs.InputDescriptors[0].ID,
-					Path: "$.nestedVC",
-				},
-			}}},
-			expected,
-		), docLoader,
+					Path: "$.verifiableCredential[0]",
+					PathNested: &InputDescriptorMapping{
+						ID:   defs.InputDescriptors[0].ID,
+						Path: "$.nestedVC",
+					},
+				}}},
+				expected,
+			)},
+			docLoader,
 			WithCredentialOptions(
 				verifiable.WithJSONLDDocumentLoader(contextLoader),
 				verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(agent.VDRegistry()).PublicKeyFetcher()),
@@ -238,7 +475,7 @@ func TestPresentationDefinition_Match(t *testing.T) {
 		require.Len(t, matched, 1)
 		result, ok := matched[defs.InputDescriptors[0].ID]
 		require.True(t, ok)
-		require.Equal(t, expectedNested.ID, result.ID)
+		require.Equal(t, expectedNested.ID, result.Credential.ID)
 	})
 
 	t.Run("match with self referencing - sdjwt", func(t *testing.T) {
@@ -257,17 +494,21 @@ func TestPresentationDefinition_Match(t *testing.T) {
 			}},
 		}
 
-		matched, err := defs.Match(newVP(t,
-			&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
-				ID:   defs.InputDescriptors[0].ID,
-				Path: "$",
-				PathNested: &InputDescriptorMapping{
-					ID:   defs.InputDescriptors[0].ID,
-					Path: "$.verifiableCredential[0]",
-				},
-			}}},
-			expected,
-		), contextLoader,
+		matched, err := defs.Match(
+			[]*verifiable.Presentation{
+				newVP(t,
+					&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
+						ID:   defs.InputDescriptors[0].ID,
+						Path: "$",
+						PathNested: &InputDescriptorMapping{
+							ID:   defs.InputDescriptors[0].ID,
+							Path: "$.verifiableCredential[0]",
+						},
+					}}},
+					expected,
+				),
+			},
+			contextLoader,
 			WithCredentialOptions(
 				verifiable.WithJSONLDDocumentLoader(contextLoader),
 				verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(agent.VDRegistry()).PublicKeyFetcher()),
@@ -277,7 +518,7 @@ func TestPresentationDefinition_Match(t *testing.T) {
 		require.Len(t, matched, 1)
 		result, ok := matched[defs.InputDescriptors[0].ID]
 		require.True(t, ok)
-		require.Equal(t, expected.ID, result.ID)
+		require.Equal(t, expected.ID, result.Credential.ID)
 	})
 
 	t.Run("match one signed credential", func(t *testing.T) {
@@ -295,13 +536,15 @@ func TestPresentationDefinition_Match(t *testing.T) {
 		}
 
 		matched, err := defs.Match(
-			newVP(t,
-				&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
-					ID:   defs.InputDescriptors[0].ID,
-					Path: "$.verifiableCredential[0]",
-				}}},
-				expected,
-			),
+			[]*verifiable.Presentation{
+				newVP(t,
+					&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
+						ID:   defs.InputDescriptors[0].ID,
+						Path: "$.verifiableCredential[0]",
+					}}},
+					expected,
+				),
+			},
 			contextLoader,
 			WithCredentialOptions(
 				verifiable.WithJSONLDDocumentLoader(contextLoader),
@@ -312,7 +555,7 @@ func TestPresentationDefinition_Match(t *testing.T) {
 		require.Len(t, matched, 1)
 		result, ok := matched[defs.InputDescriptors[0].ID]
 		require.True(t, ok)
-		require.Equal(t, expected.ID, result.ID)
+		require.Equal(t, expected.ID, result.Credential.ID)
 	})
 
 	t.Run("error if vp does not have the right context", func(t *testing.T) {
@@ -338,8 +581,44 @@ func TestPresentationDefinition_Match(t *testing.T) {
 
 		docLoader := createTestDocumentLoader(t, uri)
 
-		_, err := defs.Match(vp, docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
+		_, err := defs.Match([]*verifiable.Presentation{vp},
+			docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
 		require.Error(t, err)
+	})
+
+	t.Run("error if vp can't marshal", func(t *testing.T) {
+		uri := randomURI()
+
+		customType := "CustomType" //nolint: goconst
+
+		expected := newVC([]string{uri})
+		expected.Types = append(expected.Types, customType)
+
+		defs := &PresentationDefinition{
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: fmt.Sprintf("%s#%s", uri, customType),
+				}},
+			}},
+		}
+
+		docLoader := createTestDocumentLoader(t, uri, customType)
+
+		_, err := defs.Match(
+			[]*verifiable.Presentation{
+				{
+					Context: []string{verifiable.ContextURI, PresentationSubmissionJSONLDContextIRI},
+					Type:    []string{verifiable.VPType, PresentationSubmissionJSONLDType},
+					CustomFields: map[string]interface{}{
+						"no-marshal": new(chan<- int),
+					},
+				}},
+			docLoader,
+			WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)),
+			WithDisableSchemaValidation())
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to marshal vp")
 	})
 
 	t.Run("error if vp does not have the right type", func(t *testing.T) {
@@ -365,7 +644,8 @@ func TestPresentationDefinition_Match(t *testing.T) {
 
 		docLoader := createTestDocumentLoader(t, uri)
 
-		_, err := defs.Match(vp, docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
+		_, err := defs.Match([]*verifiable.Presentation{vp},
+			docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
 		require.Error(t, err)
 	})
 
@@ -382,13 +662,16 @@ func TestPresentationDefinition_Match(t *testing.T) {
 
 		docLoader := createTestDocumentLoader(t, uri)
 
-		_, err := defs.Match(newVP(t,
-			&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
-				ID:   "INVALID",
-				Path: "$.verifiableCredential[0]",
-			}}},
-			newVC([]string{uri}),
-		), docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
+		_, err := defs.Match(
+			[]*verifiable.Presentation{
+				newVP(t,
+					&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
+						ID:   "INVALID",
+						Path: "$.verifiableCredential[0]",
+					}}},
+					newVC([]string{uri}),
+				),
+			}, docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
 		require.Error(t, err)
 	})
 
@@ -405,12 +688,15 @@ func TestPresentationDefinition_Match(t *testing.T) {
 
 		docLoader := createTestDocumentLoader(t, uri)
 
-		_, err := defs.Match(newVP(t,
-			&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
-				ID:   defs.InputDescriptors[0].ID,
-				Path: "$.verifiableCredential[1]",
-			}}}, nil,
-		), docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
+		_, err := defs.Match(
+			[]*verifiable.Presentation{
+				newVP(t,
+					&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
+						ID:   defs.InputDescriptors[0].ID,
+						Path: "$.verifiableCredential[1]",
+					}}}, nil,
+				),
+			}, docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
 		require.Error(t, err)
 	})
 
@@ -427,12 +713,15 @@ func TestPresentationDefinition_Match(t *testing.T) {
 
 		docLoader := createTestDocumentLoader(t, "invalidURI")
 
-		_, err := defs.Match(newVP(t,
-			&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
-				ID:   defs.InputDescriptors[0].ID,
-				Path: "$.verifiableCredential[0]",
-			}}}, newVC([]string{uri}),
-		), docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
+		_, err := defs.Match(
+			[]*verifiable.Presentation{
+				newVP(t,
+					&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
+						ID:   defs.InputDescriptors[0].ID,
+						Path: "$.verifiableCredential[0]",
+					}}}, newVC([]string{uri}),
+				),
+			}, docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
 		require.Error(t, err)
 	})
 
@@ -452,13 +741,16 @@ func TestPresentationDefinition_Match(t *testing.T) {
 
 		docLoader := createTestDocumentLoader(t, diffURI)
 
-		_, err := defs.Match(newVP(t,
-			&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
-				ID:   defs.InputDescriptors[0].ID,
-				Path: "$.verifiableCredential[0]",
-			}}},
-			newVC([]string{diffURI}),
-		), docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
+		_, err := defs.Match(
+			[]*verifiable.Presentation{
+				newVP(t,
+					&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
+						ID:   defs.InputDescriptors[0].ID,
+						Path: "$.verifiableCredential[0]",
+					}}},
+					newVC([]string{diffURI}),
+				),
+			}, docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
 		require.Error(t, err)
 	})
 
@@ -484,13 +776,16 @@ func TestPresentationDefinition_Match(t *testing.T) {
 
 		docLoader := createTestDocumentLoader(t, uriOne)
 
-		_, err := defs.Match(newVP(t,
-			&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
-				ID:   defs.InputDescriptors[0].ID,
-				Path: "$.verifiableCredential[0]",
-			}}},
-			newVC([]string{uriOne}),
-		), docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
+		_, err := defs.Match(
+			[]*verifiable.Presentation{
+				newVP(t,
+					&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
+						ID:   defs.InputDescriptors[0].ID,
+						Path: "$.verifiableCredential[0]",
+					}}},
+					newVC([]string{uriOne}),
+				),
+			}, docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
 		require.Error(t, err)
 	})
 
@@ -507,10 +802,13 @@ func TestPresentationDefinition_Match(t *testing.T) {
 
 		docLoader := createTestDocumentLoader(t, uri)
 
-		_, err := defs.Match(newVP(t,
-			nil,
-			newVC([]string{uri}),
-		), docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
+		_, err := defs.Match(
+			[]*verifiable.Presentation{
+				newVP(t,
+					nil,
+					newVC([]string{uri}),
+				),
+			}, docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
 		require.Error(t, err)
 	})
 
@@ -528,11 +826,131 @@ func TestPresentationDefinition_Match(t *testing.T) {
 			}},
 		}
 
-		_, err := defs.Match(newVP(t,
-			&PresentationSubmission{},
-			newVC([]string{uri}),
-		), docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
+		_, err := defs.Match(
+			[]*verifiable.Presentation{
+				newVP(t,
+					&PresentationSubmission{},
+					newVC([]string{uri}),
+				),
+			}, docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
 		require.Error(t, err)
+	})
+
+	t.Run("error if merged submission has invalid credential paths", func(t *testing.T) {
+		uri := randomURI()
+
+		customType := "CustomType" //nolint: goconst
+
+		expected := newVC([]string{uri})
+		expected.Types = append(expected.Types, customType)
+
+		expectedTwo := newVC(nil)
+		expectedTwo.Subject.(map[string]interface{})[subjectKey] = subjectVal
+
+		defs := &PresentationDefinition{
+			InputDescriptors: []*InputDescriptor{
+				{
+					ID: "ID-0",
+					Schema: []*Schema{{
+						URI: fmt.Sprintf("%s#%s", uri, customType),
+					}},
+				},
+				{
+					ID: "ID-1",
+					Schema: []*Schema{{
+						URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+					}},
+					Constraints: &Constraints{
+						Fields: []*Field{
+							{
+								ID:   uuid.NewString(),
+								Path: []string{"credentialSubject", subjectKey},
+								Filter: &Filter{
+									Type:  &str,
+									Const: subjectVal,
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		docLoader := createTestDocumentLoader(t, uri, customType)
+
+		presList := []*verifiable.Presentation{
+			newVP(t, nil, expected),
+			newVP(t, nil, expectedTwo),
+		}
+
+		opt := []MatchOption{
+			WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)),
+			WithMergedSubmission(&PresentationSubmission{
+				DescriptorMap: []*InputDescriptorMapping{
+					{
+						ID:   defs.InputDescriptors[0].ID,
+						Path: "$",
+						PathNested: &InputDescriptorMapping{
+							ID:   defs.InputDescriptors[0].ID,
+							Path: "$.verifiableCredential[0]",
+						},
+					},
+					{
+						ID:   defs.InputDescriptors[1].ID,
+						Path: "$",
+						PathNested: &InputDescriptorMapping{
+							ID:   defs.InputDescriptors[1].ID,
+							Path: "$.verifiableCredential[0]",
+						},
+					},
+				},
+			}),
+		}
+
+		_, err := defs.Match(presList, docLoader, opt...)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "presentation submission has invalid path")
+	})
+
+	t.Run("error if submission ignores an input descriptor", func(t *testing.T) {
+		uri := randomURI()
+
+		customType := "CustomType" //nolint: goconst
+
+		expected := newVC([]string{uri})
+		expected.Types = append(expected.Types, customType)
+
+		defs := &PresentationDefinition{
+			InputDescriptors: []*InputDescriptor{
+				{
+					ID: uuid.New().String(),
+					Schema: []*Schema{{
+						URI: fmt.Sprintf("%s#%s", uri, customType),
+					}},
+				},
+				{
+					ID: uuid.NewString(),
+					Schema: []*Schema{{
+						URI: randomURI(),
+					}},
+				},
+			},
+		}
+
+		docLoader := createTestDocumentLoader(t, uri, customType)
+
+		_, err := defs.Match(
+			[]*verifiable.Presentation{
+				newVP(t,
+					&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{{
+						ID:   defs.InputDescriptors[0].ID,
+						Path: "$.verifiableCredential[0]",
+					}}},
+					expected,
+				)},
+			docLoader, WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed submission requirements")
 	})
 }
 
@@ -579,13 +997,13 @@ func TestE2E(t *testing.T) {
 
 	// verifier matches the received VP against their definitions
 	matched, err := verifierDefinitions.Match(
-		receivedVP, loader,
+		[]*verifiable.Presentation{receivedVP}, loader,
 		WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(loader)))
 	require.NoError(t, err)
 	require.Len(t, matched, 1)
 	result, ok := matched[verifierDefinitions.InputDescriptors[0].ID]
 	require.True(t, ok)
-	require.Equal(t, holderCredential.ID, result.ID)
+	require.Equal(t, holderCredential.ID, result.Credential.ID)
 }
 
 func newVC(ctx []string) *verifiable.Credential {

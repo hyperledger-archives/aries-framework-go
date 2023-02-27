@@ -72,11 +72,12 @@ func UnmarshalAndValidateAgainstCredentialManifest(credentialApplicationBytes []
 // ValidateCredentialApplication validates credential application presentation by validating
 // the embedded Credential Application object against the given Credential Manifest.
 // There are 3 requirements for the Credential Application to be valid against the Credential Manifest:
-// 1. Credential Application's manifest ID must match the Credential Manifest's ID.
-// 2. If the Credential Manifest has a format property, the Credential Application must also have a
-//    format property which is a subset of the Credential Manifest's.
-// 3. If the Credential Manifest contains a presentation_definition property, the Credential Application
-//    must have a matching presentation_submission property.
+//  1. Credential Application's manifest ID must match the Credential Manifest's ID.
+//  2. If the Credential Manifest has a format property, the Credential Application must also have a
+//     format property which is a subset of the Credential Manifest's.
+//  3. If the Credential Manifest contains a presentation_definition property, the Credential Application
+//     must have a matching presentation_submission property.
+//
 // Proof of all individual credentials can also be validated by using options.
 // Refer to https://identity.foundation/credential-manifest/#credential-application for more info.
 func ValidateCredentialApplication(application *verifiable.Presentation, cm *CredentialManifest,
@@ -111,7 +112,7 @@ func ValidateCredentialApplication(application *verifiable.Presentation, cm *Cre
 		return nil
 	}
 
-	_, err = cm.PresentationDefinition.Match(application, contextLoader, options...)
+	_, err = cm.PresentationDefinition.Match([]*verifiable.Presentation{application}, contextLoader, options...)
 
 	return err
 }
@@ -260,14 +261,14 @@ func WithExistingPresentationForPresentCredentialApplication(
 // "https://identity.foundation/presentation-exchange/submission/v1" context is found, it will be replaced with
 // the "https://identity.foundation/credential-manifest/application/v1" context. Note that any existing proofs are
 // not updated. Note also the following assumptions/limitations of this method:
-// 1. The format of all claims in the Presentation Submission are assumed to be ldp_vp and will be set as such.
-// 2. The format for the Credential Application object will be set to match the format from the Credential Manifest
-//    exactly. If a caller wants to use a smaller subset of the Credential Manifest's format, then they will have to
-//    set it manually.
-// 3. The location of the Verifiable Credentials is assumed to be an array at the root under a field called
-//    "verifiableCredential".
-// 4. The Verifiable Credentials in the presentation is assumed to be in the same order as the Output Descriptors in
-//    the Credential Manifest.
+//  1. The format of all claims in the Presentation Submission are assumed to be ldp_vp and will be set as such.
+//  2. The format for the Credential Application object will be set to match the format from the Credential Manifest
+//     exactly. If a caller wants to use a smaller subset of the Credential Manifest's format, then they will have to
+//     set it manually.
+//  3. The location of the Verifiable Credentials is assumed to be an array at the root under a field called
+//     "verifiableCredential".
+//  4. The Verifiable Credentials in the presentation is assumed to be in the same order as the Output Descriptors in
+//     the Credential Manifest.
 func PresentCredentialApplication(credentialManifest *CredentialManifest,
 	opts ...PresentCredentialApplicationOpt) (*verifiable.Presentation, error) {
 	if credentialManifest == nil {

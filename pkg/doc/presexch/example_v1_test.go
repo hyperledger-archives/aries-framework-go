@@ -85,7 +85,7 @@ func ExamplePresentationDefinition_CreateVP_v1() {
 
 	fmt.Println(string(vpBytes))
 	// Output:
-	//{
+	// {
 	//	"@context": [
 	//		"https://www.w3.org/2018/credentials/v1",
 	//		"https://identity.foundation/presentation-exchange/submission/v1"
@@ -123,7 +123,7 @@ func ExamplePresentationDefinition_CreateVP_v1() {
 	//			"type": "VerifiableCredential"
 	//		}
 	//	]
-	//}
+	// }
 }
 
 func ExamplePresentationDefinition_CreateVP_v1_With_LDP_FormatAndProof() {
@@ -193,7 +193,7 @@ func ExamplePresentationDefinition_CreateVP_v1_With_LDP_FormatAndProof() {
 
 	fmt.Println(string(vpBytes))
 	// Output:
-	//{
+	// {
 	//	"@context": [
 	//		"https://www.w3.org/2018/credentials/v1",
 	//		"https://identity.foundation/presentation-exchange/submission/v1"
@@ -231,7 +231,7 @@ func ExamplePresentationDefinition_CreateVP_v1_With_LDP_FormatAndProof() {
 	//			"type": "VerifiableCredential"
 	//		}
 	//	]
-	//}
+	// }
 }
 
 func ExamplePresentationDefinition_CreateVP_v1_With_LDPVC_FormatAndProof() {
@@ -301,7 +301,7 @@ func ExamplePresentationDefinition_CreateVP_v1_With_LDPVC_FormatAndProof() {
 
 	fmt.Println(string(vpBytes))
 	// Output:
-	//{
+	// {
 	//	"@context": [
 	//		"https://www.w3.org/2018/credentials/v1",
 	//		"https://identity.foundation/presentation-exchange/submission/v1"
@@ -339,7 +339,7 @@ func ExamplePresentationDefinition_CreateVP_v1_With_LDPVC_FormatAndProof() {
 	//			"type": "VerifiableCredential"
 	//		}
 	//	]
-	//}
+	// }
 }
 
 func ExamplePresentationDefinition_CreateVP_multipleMatches() {
@@ -433,7 +433,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 
 	fmt.Println(string(vpBytes))
 	// Output:
-	//{
+	// {
 	//	"@context": [
 	//		"https://www.w3.org/2018/credentials/v1",
 	//		"https://identity.foundation/presentation-exchange/submission/v1"
@@ -516,7 +516,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 	//			"type": "VerifiableCredential"
 	//		}
 	//	]
-	//}
+	// }
 }
 
 func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
@@ -613,7 +613,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 
 	fmt.Println(string(vpBytes))
 	// Output:
-	//{
+	// {
 	//	"@context": [
 	//		"https://www.w3.org/2018/credentials/v1",
 	//		"https://identity.foundation/presentation-exchange/submission/v1"
@@ -718,7 +718,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 	//			"type": "VerifiableCredential"
 	//		}
 	//	]
-	//}
+	// }
 }
 
 func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosure() {
@@ -857,7 +857,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 
 	fmt.Println(string(vpBytes))
 	// Output:
-	//{
+	// {
 	//	"@context": [
 	//		"https://www.w3.org/2018/credentials/v1",
 	//		"https://identity.foundation/presentation-exchange/submission/v1"
@@ -964,7 +964,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 	//			"type": "VerifiableCredential"
 	//		}
 	//	]
-	//}
+	// }
 }
 
 func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
@@ -1099,7 +1099,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 
 	fmt.Println(string(vpBytes))
 	// Output:
-	//{
+	// {
 	//	"@context": [
 	//		"https://www.w3.org/2018/credentials/v1",
 	//		"https://identity.foundation/presentation-exchange/submission/v1"
@@ -1184,7 +1184,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 	//			"type": "VerifiableCredential"
 	//		}
 	//	]
-	//}
+	// }
 }
 
 // Example of a Verifier verifying the presentation submission of a Holder.
@@ -1262,7 +1262,7 @@ func ExamplePresentationDefinition_Match() {
 
 	// verifier matches the received VP against their definitions
 	matched, err := verifierDefinitions.Match(
-		receivedVP, loader,
+		[]*verifiable.Presentation{receivedVP}, loader,
 		WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(loader)),
 	)
 	if err != nil {
@@ -1273,7 +1273,7 @@ func ExamplePresentationDefinition_Match() {
 		receivedCred := matched[descriptor.ID]
 		fmt.Printf(
 			"verifier received the '%s' credential for the input descriptor id '%s'\n",
-			receivedCred.Context[1], descriptor.ID)
+			receivedCred.Credential.Context[1], descriptor.ID)
 	}
 
 	// Output:
