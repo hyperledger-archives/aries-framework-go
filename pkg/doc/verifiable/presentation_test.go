@@ -113,6 +113,9 @@ const validPresentationWithCustomFields = `
 }
 `
 
+//go:embed testdata/validPresentationWithJWTVC.jsonld
+var validPresentationWithJWTVC []byte //nolint:gochecknoglobals
+
 //go:embed testdata/context/presentation_submission_v1.jsonld
 var presentationSubmissionV1 []byte //nolint:gochecknoglobals
 
@@ -292,6 +295,25 @@ func TestParsePresentation(t *testing.T) {
 		require.Error(t, err)
 		require.EqualError(t, err, "JSON-LD doc has different structure after compaction")
 		require.Nil(t, vp)
+	})
+
+	t.Run("parsing VP with a JWT VC succeeds", func(t *testing.T) {
+		loader := createTestDocumentLoader(t, ldcontext.Document{
+			URL:     "https://trustbloc.github.io/context/vc/presentation-exchange-submission-v1.jsonld",
+			Content: presentationSubmissionV1,
+		})
+
+		vp, err := ParsePresentation(validPresentationWithJWTVC, WithPresDisabledProofCheck(),
+			WithPresJSONLDDocumentLoader(loader))
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+	})
+
+	t.Run("parsing VP with a JWT VC with required JSON-LD checks succeeds", func(t *testing.T) {
+		vp, err := ParsePresentation(validPresentationWithJWTVC, WithPresDisabledProofCheck(),
+			WithDisabledJSONLDChecks())
+		require.NoError(t, err)
+		require.NotNil(t, vp)
 	})
 }
 
