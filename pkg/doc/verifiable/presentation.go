@@ -350,12 +350,13 @@ func (rp *rawPresentation) UnmarshalJSON(data []byte) error {
 
 // presentationOpts holds options for the Verifiable Presentation decoding.
 type presentationOpts struct {
-	publicKeyFetcher   PublicKeyFetcher
-	disabledProofCheck bool
-	ldpSuites          []verifier.SignatureSuite
-	strictValidation   bool
-	requireVC          bool
-	requireProof       bool
+	publicKeyFetcher    PublicKeyFetcher
+	disabledProofCheck  bool
+	ldpSuites           []verifier.SignatureSuite
+	strictValidation    bool
+	requireVC           bool
+	requireProof        bool
+	disableJSONLDChecks bool
 
 	jsonldCredentialOpts
 }
@@ -399,6 +400,14 @@ func WithPresStrictValidation() PresentationOpt {
 func WithPresJSONLDDocumentLoader(documentLoader jsonld.DocumentLoader) PresentationOpt {
 	return func(opts *presentationOpts) {
 		opts.jsonldDocumentLoader = documentLoader
+	}
+}
+
+// WithDisabledJSONLDChecks disables JSON-LD checks for VP parsing.
+// By default, JSON-LD checks are enabled.
+func WithDisabledJSONLDChecks() PresentationOpt {
+	return func(opts *presentationOpts) {
+		opts.disableJSONLDChecks = true
 	}
 }
 
@@ -546,6 +555,10 @@ func validateVP(data []byte, opts *presentationOpts) error {
 	err := validateVPJSONSchema(data)
 	if err != nil {
 		return err
+	}
+
+	if opts.disableJSONLDChecks {
+		return nil
 	}
 
 	return validateVPJSONLD(data, opts)
