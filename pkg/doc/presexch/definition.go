@@ -1465,7 +1465,13 @@ func getContext(contextURI string, documentLoader ld.DocumentLoader) (*ld.Contex
 		return nil, fmt.Errorf("@context field not found in context %s", contextURI)
 	}
 
-	activeCtx, err := ld.NewContext(nil, nil).Parse(ctx)
+	var opt *ld.JsonLdOptions
+	if documentLoader != nil {
+		opt = ld.NewJsonLdOptions("")
+		opt.DocumentLoader = documentLoader
+	}
+
+	activeCtx, err := ld.NewContext(nil, opt).Parse(ctx)
 	if err != nil {
 		return nil, err
 	}
