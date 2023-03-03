@@ -2017,6 +2017,50 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 	})
 }
 
+func TestPresentationDefinition_CreateVPArray(t *testing.T) {
+	lddl := createTestJSONLDDocumentLoader(t)
+
+	t.Run("Matches two descriptors", func(t *testing.T) {
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: "https://example.org/examples#UniversityDegreeCredential",
+				}},
+			}, {
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: "https://example.org/examples#DocumentVerification",
+				}},
+			}},
+		}
+
+		vpList, ps, err := pd.CreateVPArray([]*verifiable.Credential{
+			{
+				Context: []string{verifiable.ContextURI, "https://www.w3.org/2018/credentials/examples/v1"},
+				Types:   []string{verifiable.VCType, "UniversityDegreeCredential"},
+				ID:      uuid.New().String(),
+			},
+			{
+				Context: []string{verifiable.ContextURI, "https://trustbloc.github.io/context/vc/examples-v1.jsonld"},
+				Types:   []string{verifiable.VCType, "DocumentVerification"},
+				ID:      uuid.New().String(),
+			},
+		}, lddl)
+
+		require.NoError(t, err)
+		require.NotNil(t, vpList)
+		require.Len(t, vpList, 2)
+
+		checkExternalSubmission(t, vpList, ps, pd)
+
+		for _, vp := range vpList {
+			checkVP(t, vp)
+		}
+	})
+}
+
 func createEdDSAJWS(t *testing.T, cred *verifiable.Credential, signer verifiable.Signer,
 	keyID string, minimize bool) string {
 	t.Helper()
@@ -2155,6 +2199,37 @@ func checkSubmission(t *testing.T, vp *verifiable.Presentation, pd *Presentation
 		path, err := builder.NewEvaluable(descriptor.Path)
 		require.NoError(t, err)
 		_, err = path(context.TODO(), vpAsMap)
+		require.NoError(t, err)
+	}
+}
+
+func checkExternalSubmission(
+	t *testing.T,
+	vpList []*verifiable.Presentation,
+	ps *PresentationSubmission,
+	pd *PresentationDefinition,
+) {
+	t.Helper()
+
+	require.NotEmpty(t, ps.ID)
+	require.Equal(t, ps.DefinitionID, pd.ID)
+
+	src, err := json.Marshal(vpList)
+	require.NoError(t, err)
+
+	rawVPList := []interface{}{}
+	require.NoError(t, json.Unmarshal(src, &rawVPList))
+
+	builder := gval.Full(jsonpath.PlaceholderExtension())
+
+	for _, descriptor := range ps.DescriptorMap {
+		require.NotEmpty(t, descriptor.ID)
+		require.NotEmpty(t, descriptor.Path)
+		require.NotEmpty(t, descriptor.Format)
+
+		path, err := builder.NewEvaluable(descriptor.Path)
+		require.NoError(t, err)
+		_, err = path(context.TODO(), rawVPList)
 		require.NoError(t, err)
 	}
 }

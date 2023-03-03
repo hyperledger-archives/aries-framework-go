@@ -366,37 +366,89 @@ func makeRequirement(requirements []*SubmissionRequirement, descriptors []*Input
 // CreateVP creates verifiable presentation.
 func (pd *PresentationDefinition) CreateVP(credentials []*verifiable.Credential,
 	documentLoader ld.DocumentLoader, opts ...verifiable.CredentialOpt) (*verifiable.Presentation, error) {
-	if err := pd.ValidateSchema(); err != nil {
+	applicableCredentials, submission, err := presentationData(pd, credentials, documentLoader, false, opts...)
+	if err != nil {
 		return nil, err
+	}
+
+	vp, err := presentation(applicableCredentials...)
+	if err != nil {
+		return nil, err
+	}
+
+	vp.CustomFields = verifiable.CustomFields{
+		submissionProperty: submission,
+	}
+
+	return vp, nil
+}
+
+// CreateVPArray creates a list of verifiable presentations, with one presentation for each provided credential.
+// A PresentationSubmission is returned alongside, which uses the presentation list as the root for json paths.
+func (pd *PresentationDefinition) CreateVPArray(
+	credentials []*verifiable.Credential,
+	documentLoader ld.DocumentLoader,
+	opts ...verifiable.CredentialOpt,
+) ([]*verifiable.Presentation, *PresentationSubmission, error) {
+	applicableCredentials, submission, err := presentationData(pd, credentials, documentLoader, true, opts...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var presentations []*verifiable.Presentation
+
+	for _, credential := range applicableCredentials {
+		vp, e := presentation(credential)
+		if e != nil {
+			return nil, nil, e
+		}
+
+		presentations = append(presentations, vp)
+	}
+
+	return presentations, submission, nil
+}
+
+func presentationData(
+	pd *PresentationDefinition,
+	credentials []*verifiable.Credential,
+	documentLoader ld.DocumentLoader,
+	separatePresentations bool,
+	opts ...verifiable.CredentialOpt,
+) ([]*verifiable.Credential, *PresentationSubmission, error) {
+	if err := pd.ValidateSchema(); err != nil {
+		return nil, nil, err
 	}
 
 	req, err := makeRequirement(pd.SubmissionRequirements, pd.InputDescriptors)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	format, result, err := pd.applyRequirement(req, credentials, documentLoader, opts...)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	applicableCredentials, descriptors := merge(format, result)
+	applicableCredentials, descriptors := merge(format, result, separatePresentations)
 
-	vp, err := verifiable.NewPresentation(verifiable.WithCredentials(applicableCredentials...))
-	if err != nil {
-		return nil, err
+	submission := &PresentationSubmission{
+		ID:            uuid.New().String(),
+		DefinitionID:  pd.ID,
+		DescriptorMap: descriptors,
+	}
+
+	return applicableCredentials, submission, nil
+}
+
+func presentation(credentials ...*verifiable.Credential) (*verifiable.Presentation, error) {
+	vp, e := verifiable.NewPresentation(verifiable.WithCredentials(credentials...))
+	if e != nil {
+		return nil, e
 	}
 
 	vp.Context = append(vp.Context, PresentationSubmissionJSONLDContextIRI)
 	vp.Type = append(vp.Type, PresentationSubmissionJSONLDType)
-
-	vp.CustomFields = verifiable.CustomFields{
-		submissionProperty: &PresentationSubmission{
-			ID:            uuid.New().String(),
-			DefinitionID:  pd.ID,
-			DescriptorMap: descriptors,
-		},
-	}
 
 	return vp, nil
 }
@@ -1193,7 +1245,11 @@ func getPath(keys []interface{}, set map[string]int) [2]string {
 	return [...]string{strings.Join(newPath, "."), strings.Join(originalPath, ".")}
 }
 
-func merge(presentationFormat string, setOfCredentials map[string][]*verifiable.Credential) ([]*verifiable.Credential, []*InputDescriptorMapping) { //nolint:lll
+func merge(
+	presentationFormat string,
+	setOfCredentials map[string][]*verifiable.Credential,
+	separatePresentations bool,
+) ([]*verifiable.Credential, []*InputDescriptorMapping) { //nolint:lll
 	setOfCreds := make(map[string]int)
 	setOfDescriptors := make(map[string]struct{})
 
@@ -1225,16 +1281,24 @@ func merge(presentationFormat string, setOfCredentials map[string][]*verifiable.
 			}
 
 			if _, ok := setOfDescriptors[fmt.Sprintf("%s-%s", credential.ID, credential.ID)]; !ok {
-				descriptors = append(descriptors, &InputDescriptorMapping{
+				desc := &InputDescriptorMapping{
 					ID:     descriptorID,
 					Format: presentationFormat,
-					Path:   "$",
 					PathNested: &InputDescriptorMapping{
 						ID:     descriptorID,
 						Format: vcFormat,
-						Path:   fmt.Sprintf("$.verifiableCredential[%d]", setOfCreds[credential.ID]),
 					},
-				})
+				}
+
+				if separatePresentations {
+					desc.Path = fmt.Sprintf("$[%d]", setOfCreds[credential.ID])
+					desc.PathNested.Path = "$.verifiableCredential[0]"
+				} else {
+					desc.Path = "$"
+					desc.PathNested.Path = fmt.Sprintf("$.verifiableCredential[%d]", setOfCreds[credential.ID])
+				}
+
+				descriptors = append(descriptors, desc)
 			}
 		}
 	}
