@@ -1,0 +1,50 @@
+{
+  "@context": {
+    "@protected": true,
+    "StatusList2021Credential": {
+      "@id": "https://w3id.org/vc/status-list#StatusList2021Credential",
+      "@context": {
+        "@protected": true,
+        "id": "@id",
+        "type": "@type",
+        "description": "http://schema.org/description",
+        "name": "http://schema.org/name"
+      }
+    },
+    "RevocationList2021": {
+      "@id": "https://w3id.org/vc/status-list#RevocationList2021",
+      "@context": {
+        "@protected": true,
+        "id": "@id",
+        "type": "@type",
+        "encodedList": "https://w3id.org/vc/status-list#encodedList"
+      }
+    },
+    "RevocationList2021Status": {
+      "@id": "https://w3id.org/vc/status-list#RevocationList2021Status",
+      "@context": {
+        "@protected": true,
+        "id": "@id",
+        "type": "@type",
+        "statusListCredential": {
+          "@id": "https://w3id.org/vc/status-list#statusListCredential",
+          "@type": "@id"
+        },
+        "statusListIndex": "https://w3id.org/vc/status-list#statusListIndex"
+      }
+    },
+    "SuspensionList2021Status": {
+      "@id": "https://w3id.org/vc/status-list#SuspensionList2021Status",
+      "@context": {
+        "@protected": true,
+        "id": "@id",
+        "type": "@type",
+        "statusListCredential": {
+          "@id": "https://w3id.org/vc/status-list#statusListCredential",
+          "@type": "@id"
+        },
+        "statusListIndex": "https://w3id.org/vc/status-list#statusListIndex"
+      }
+    }
+  }
+}

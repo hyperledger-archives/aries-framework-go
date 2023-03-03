@@ -1085,6 +1085,43 @@ func TestWallet_Query(t *testing.T) {
 	})
 }
 
+func TestWallet_Query_TwoInputDescriptorsWithTwoCredentialsWithOverlap(t *testing.T) {
+	mockctx := newMockProvider(t)
+	user := uuid.New().String()
+
+	err := CreateProfile(user, mockctx, WithKeyServerURL(sampleKeyServerURL))
+	require.NoError(t, err)
+
+	walletInstance, err := New(user, mockctx)
+	require.NotEmpty(t, walletInstance)
+	require.NoError(t, err)
+
+	tkn, err := walletInstance.Open(WithUnlockByAuthorizationToken(sampleRemoteKMSAuth))
+	require.NoError(t, err)
+
+	require.NoError(t, walletInstance.Add(tkn, Credential, []byte(testJSONLD)))
+	require.NoError(t, walletInstance.Add(tkn, Credential, []byte(testSDJWT)))
+
+	var pd presexch.PresentationDefinition
+
+	err = json.Unmarshal([]byte(testPD), &pd)
+	require.NoError(t, err)
+
+	vps, err := walletInstance.Query(tkn, &QueryParams{
+		Type:  "PresentationExchange",
+		Query: []json.RawMessage{[]byte(testPD)},
+	})
+
+	require.NoError(t, err)
+
+	for _, vp := range vps {
+		vpBytes, err := json.Marshal(vp)
+		require.NoError(t, err)
+
+		require.False(t, strings.Contains(string(vpBytes), "[2]"))
+	}
+}
+
 func TestWallet_Issue(t *testing.T) {
 	user := uuid.New().String()
 	customVDR := &mockvdr.MockVDRegistry{
@@ -3135,3 +3172,99 @@ func addCredentialsToWallet(t *testing.T, walletInstance *Wallet, auth string, v
 		}
 	}
 }
+
+const testPD = `
+{
+  "id": "32f54163-7166-48f1-93d8-ff217bdb0654",
+  "input_descriptors": [
+    {
+      "id": "type",
+      "name": "type",
+      "purpose": "We can only interact with specific status information for Verifiable Credentials",
+      "schema": [
+        {
+          "uri": "https://www.w3.org/2018/credentials#VerifiableCredential"
+        }
+      ],
+      "constraints": {
+        "fields": [
+          {
+            "path": [
+              "$.credentialStatus.type",
+              "$.vc.credentialStatus.type"
+            ],
+            "purpose": "We can only interact with specific status information for Verifiable Credentials",
+            "filter": {
+              "type": "string",
+              "enum": [
+                "StatusList2021Entry",
+                "RevocationList2021Status",
+                "RevocationList2020Status"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "degree",
+      "name": "degree",
+      "purpose": "We can only hire with bachelor degree.",
+      "schema": [
+        {
+          "uri": "https://www.w3.org/2018/credentials#VerifiableCredential"
+        }
+      ],
+      "constraints": {
+        "fields": [
+          {
+            "path": [
+              "$.credentialSubject.degree.type",
+              "$.vc.credentialSubject.degree.type"
+            ],
+            "purpose": "We can only hire with bachelor degree.",
+            "filter": {
+              "type": "string",
+              "const": "BachelorDegree"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}`
+
+//nolint:lll
+const testJSONLD = `
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://w3id.org/vc/status-list/2021/v1"
+  ],
+  "credentialStatus": {
+    "id": "urn:uuid:1d8e36ae-6334-4bbf-bf33-8df69191b163",
+    "statusListCredential": "http://vc-rest-echo.trustbloc.local:8075/issuer/profiles/i_myprofile_cp_p384/credentials/status/1",
+    "statusListIndex": "28",
+    "statusPurpose": "revocation",
+    "type": "StatusList2021Entry"
+  },
+  "credentialSubject": {
+    "id": "did:orb:uAAA:EiBmZDwNdNMN6eh96dTakcdN8EPjmGoLHOijLw-NGY84Yg",
+    "identifier": "3a185b8f-078a-4646-8343-76a45c2856a5",
+    "name": "Heavy Sour Dilbit"
+  },
+  "description": "Crude oil stream, produced from diluted bitumen.",
+  "id": "urn:uuid:urn:uuid:ec57b5a1-d986-4268-9c55-de23e936aa46",
+  "issuanceDate": "2020-05-01T00:45:04.789Z",
+  "issuer": {
+    "id": "did:orb:uAAA:EiA34UbWMH_0iKQfgcJ1jBPWvQvXZHuxpZ1g13PUw4xysw",
+    "name": "i_myprofile_cp_p384"
+  },
+  "name": "Heavy Sour Dilbit",
+  "type": [
+    "VerifiableCredential"
+  ]
+}`
+
+//nolint:lll
+const testSDJWT = "eyJhbGciOiJFUzM4NCIsImtpZCI6ImRpZDpvcmI6dUFBQTpFaUQ2STdvMHhzUVBCakxsVXhwSC0xM3ptNkZnbXpiQWs5cHhSRlFSdTZDT2J3IzM4MzczODZjLWJiODYtNDExYS05ODljLTZmMzMwZTQ1MzQxNiJ9.eyJpYXQiOjEuNTg0Mzk4MjQ2ZSswOSwiaXNzIjoiZGlkOm9yYjp1QUFBOkVpRDZJN28weHNRUEJqTGxVeHBILTEzem02RmdtemJBazlweFJGUVJ1NkNPYnciLCJqdGkiOiJ1cm46dXVpZDp1cm46dXVpZDpkNmE3NDIyNy1iMzljLTRhOGUtOWI3OS1hNmRiNjE0MWUzNDYiLCJuYmYiOjEuNTg0Mzk4MjQ2ZSswOSwic3ViIjoiZGlkOm9yYjp1QUFBOkVpQm1aRHdOZE5NTjZlaDk2ZFRha2NkTjhFUGptR29MSE9pakx3LU5HWTg0WWciLCJ2YyI6eyJAY29udGV4dCI6WyJodHRwczovL3d3dy53My5vcmcvMjAxOC9jcmVkZW50aWFscy92MSIsImh0dHBzOi8vd3d3LnczLm9yZy8yMDE4L2NyZWRlbnRpYWxzL2V4YW1wbGVzL3YxIiwiaHR0cHM6Ly93M2MtY2NnLmdpdGh1Yi5pby92Yy1yZXZvY2F0aW9uLWxpc3QtMjAyMS9jb250ZXh0cy92MS5qc29ubGQiXSwiX3NkX2FsZyI6InNoYS0zODQiLCJjcmVkZW50aWFsU3RhdHVzIjp7ImlkIjoidXJuOnV1aWQ6NDE0YzZlNDUtNTQzZC00NDUyLWEwYzEtMGM3MWRhYjczMGY1Iiwic3RhdHVzTGlzdENyZWRlbnRpYWwiOiJodHRwOi8vdmMtcmVzdC1lY2hvLnRydXN0YmxvYy5sb2NhbDo4MDc1L2lzc3Vlci9wcm9maWxlcy9pX215cHJvZmlsZV91ZF9lczM4NF9zZGp3dC9jcmVkZW50aWFscy9zdGF0dXMvMSIsInN0YXR1c0xpc3RJbmRleCI6IjI3IiwidHlwZSI6IlJldm9jYXRpb25MaXN0MjAyMVN0YXR1cyJ9LCJjcmVkZW50aWFsU3ViamVjdCI6eyJfc2QiOlsiLWEwRmdBU3FEekZMRjg1bXc3WXFGVmh6cmlUaTFVWjV0d2V4d3otczc4ZVhUYWV1YmZ4TjVsRjFmS3FFMkRxbyIsImI2TDR2ZlFMYUNRWkZZTExfT21SeXhSQTcxVkRGMnVPMXZMdTkxbzVmTlV2YlNja0Y4X29fTU53S3RwUHBIWFIiXSwiZGVncmVlIjp7Il9zZCI6WyJZZ0RxNHNkbDdSQ3FOQnI0bTI0REhwS3RCdzZLUUk0OXhkalBWa0hhVm9DZmNtYUJiMkJlTVB4SVMwS2djcjlUIiwiNVg0czdRdkZZR2VzRmRMTjE0VjA3Zy0yUjBHWFZMWTVzNG5RclB1MFNsM3VBZHA4ZVJxTFlnX3dkLU1nLVF0XyJdfSwiaWQiOiJkaWQ6b3JiOnVBQUE6RWlCbVpEd05kTk1ONmVoOTZkVGFrY2ROOEVQam1Hb0xIT2lqTHctTkdZODRZZyJ9LCJpZCI6InVybjp1dWlkOnVybjp1dWlkOmQ2YTc0MjI3LWIzOWMtNGE4ZS05Yjc5LWE2ZGI2MTQxZTM0NiIsImlzc3VhbmNlRGF0ZSI6IjIwMjAtMDMtMTZUMjI6Mzc6MjZaIiwiaXNzdWVyIjp7ImlkIjoiZGlkOm9yYjp1QUFBOkVpRDZJN28weHNRUEJqTGxVeHBILTEzem02RmdtemJBazlweFJGUVJ1NkNPYnciLCJuYW1lIjoiaV9teXByb2ZpbGVfdWRfZXMzODRfc2Rqd3QifSwidHlwZSI6WyJWZXJpZmlhYmxlQ3JlZGVudGlhbCIsIlVuaXZlcnNpdHlEZWdyZWVDcmVkZW50aWFsIl19fQ.MGYCMQCQKQuj6IHGMSxsv_Jip3Ne8NkyqDMPcigsOk07LEBa1W9tiv_KdAcSz4LB3hM03dcCMQCiPRF2tJ0QvWXANq6QFLsGQrSLi8UyN57kOXn_WEln_JrN0BkpimA3Cx3d09e4pCU~WyJnSjBJRUxtRFpwQnFkLXJMM3I5NmN3IiwiZGVncmVlIiwiTUlUIl0~WyI2RHdTR3VqVnhCVUdwblhPRlowX0dBIiwidHlwZSIsIkJhY2hlbG9yRGVncmVlIl0~WyJ0d2ZzaXVSM00xNTNCUDB2U2ptWkd3IiwibmFtZSIsIkpheWRlbiBEb2UiXQ~WyI3Q0lzNFNPWGNnYnVjSkZONXFJdDlBIiwic3BvdXNlIiwiZGlkOmV4YW1wbGU6YzI3NmUxMmVjMjFlYmZlYjFmNzEyZWJjNmYxIl0~"

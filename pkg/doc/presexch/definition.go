@@ -1216,7 +1216,7 @@ func merge(presentationFormat string, setOfCredentials map[string][]*verifiable.
 			if _, ok := setOfCreds[credential.ID]; !ok {
 				credential.ID = trimTmpID(credential.ID)
 				result = append(result, credential)
-				setOfCreds[credential.ID] = len(descriptors)
+				setOfCreds[credential.ID] = len(result) - 1
 			}
 
 			vcFormat := FormatLDPVC
