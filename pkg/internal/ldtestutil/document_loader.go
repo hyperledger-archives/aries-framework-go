@@ -24,6 +24,8 @@ import (
 var (
 	//go:embed contexts/third_party/w3c-ccg.github.io/citizenship_v1.jsonld
 	citizenship []byte
+	//go:embed contexts/third_party/w3c-ccg.github.io/revocation-list-2021.jsonld
+	revocationList2021 []byte
 	//go:embed contexts/third_party/w3.org/odrl.jsonld
 	odrl []byte
 	//go:embed contexts/third_party/w3.org/credentials-examples_v1.jsonld
@@ -55,6 +57,11 @@ var testContexts = []ldcontext.Document{ //nolint:gochecknoglobals // embedded t
 	{
 		URL:     "https://trustbloc.github.io/context/vc/authorization-credential-v1.jsonld",
 		Content: authCred,
+	},
+	{
+		URL:         "https://w3c-ccg.github.io/vc-revocation-list-2021/contexts/v1.jsonld",
+		DocumentURL: "https://raw.githubusercontent.com/w3c-ccg/vc-status-list-2021/343b8b59cddba4525e1ef355356ae760fc75904e/contexts/v1.jsonld", //nolint:lll
+		Content:     revocationList2021,
 	},
 }
 
