@@ -586,6 +586,7 @@ type credentialOpts struct {
 	strictValidation      bool
 	ldpSuites             []verifier.SignatureSuite
 	defaultSchema         string
+	disableValidation     bool
 
 	jsonldCredentialOpts
 }
@@ -597,6 +598,13 @@ type CredentialOpt func(opts *credentialOpts)
 func WithDisabledProofCheck() CredentialOpt {
 	return func(opts *credentialOpts) {
 		opts.disabledProofCheck = true
+	}
+}
+
+// WithCredDisableValidation options for disabling of JSON-LD and json-schema validation.
+func WithCredDisableValidation() CredentialOpt {
+	return func(opts *credentialOpts) {
+		opts.disableValidation = true
 	}
 }
 
@@ -839,7 +847,7 @@ func ParseCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) 
 		return nil, err
 	}
 
-	if externalJWT == "" {
+	if externalJWT == "" && !vcOpts.disableValidation {
 		// TODO: consider new validation options for, eg, jsonschema only, for JWT VC
 		err = validateCredential(vc, vcDataDecoded, vcOpts)
 		if err != nil {

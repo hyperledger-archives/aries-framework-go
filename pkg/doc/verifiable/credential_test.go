@@ -815,6 +815,15 @@ func TestWithDisabledProofCheck(t *testing.T) {
 	require.True(t, opts.disabledProofCheck)
 }
 
+func TestWithCredDisableValidation(t *testing.T) {
+	credentialOpt := WithCredDisableValidation()
+	require.NotNil(t, credentialOpt)
+
+	opts := &credentialOpts{}
+	credentialOpt(opts)
+	require.True(t, opts.disableValidation)
+}
+
 func TestWithCredentialSchemaLoader(t *testing.T) {
 	httpClient := &http.Client{}
 	jsonSchemaLoader := gojsonschema.NewStringLoader(JSONSchemaLoader())
