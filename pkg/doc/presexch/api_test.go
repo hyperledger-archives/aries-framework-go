@@ -117,22 +117,25 @@ func TestPresentationDefinition_Match(t *testing.T) {
 
 		docLoader := createTestDocumentLoader(t, uri, customType)
 
-		presList := []*verifiable.Presentation{
-			newVP(t,
-				&PresentationSubmission{
-					DescriptorMap: []*InputDescriptorMapping{
-						{
+		vpWithSubmissionType := newVP(t, nil, expected)
+
+		vpWithSubmissionType.CustomFields = map[string]interface{}{
+			"presentation_submission": &PresentationSubmission{
+				DescriptorMap: []*InputDescriptorMapping{
+					{
+						ID:   defs.InputDescriptors[0].ID,
+						Path: "$", // TODO: $[0]
+						PathNested: &InputDescriptorMapping{
 							ID:   defs.InputDescriptors[0].ID,
-							Path: "$", // TODO: $[0]
-							PathNested: &InputDescriptorMapping{
-								ID:   defs.InputDescriptors[0].ID,
-								Path: "$.verifiableCredential[0]",
-							},
+							Path: "$.verifiableCredential[0]",
 						},
 					},
 				},
-				expected,
-			),
+			},
+		}
+
+		presList := []*verifiable.Presentation{
+			vpWithSubmissionType,
 			newVP(t,
 				&PresentationSubmission{
 					DescriptorMap: []*InputDescriptorMapping{
@@ -209,34 +212,60 @@ func TestPresentationDefinition_Match(t *testing.T) {
 			newVP(t, nil, expectedTwo),
 		}
 
-		opt := []MatchOption{
-			WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)),
-			WithMergedSubmission(&PresentationSubmission{
-				DescriptorMap: []*InputDescriptorMapping{
-					{
+		submission := &PresentationSubmission{
+			DescriptorMap: []*InputDescriptorMapping{
+				{
+					ID:   defs.InputDescriptors[0].ID,
+					Path: "$[0]",
+					PathNested: &InputDescriptorMapping{
 						ID:   defs.InputDescriptors[0].ID,
-						Path: "$[0]",
-						PathNested: &InputDescriptorMapping{
-							ID:   defs.InputDescriptors[0].ID,
-							Path: "$.verifiableCredential[0]",
-						},
-					},
-					{
-						ID:   defs.InputDescriptors[1].ID,
-						Path: "$[1]",
-						PathNested: &InputDescriptorMapping{
-							ID:   defs.InputDescriptors[1].ID,
-							Path: "$.verifiableCredential[0]",
-						},
+						Path: "$.verifiableCredential[0]",
 					},
 				},
-			}),
+				{
+					ID:   defs.InputDescriptors[1].ID,
+					Path: "$[1]",
+					PathNested: &InputDescriptorMapping{
+						ID:   defs.InputDescriptors[1].ID,
+						Path: "$.verifiableCredential[0]",
+					},
+				},
+			},
+		}
+
+		opt := []MatchOption{
+			WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)),
+			WithMergedSubmission(submission),
 		}
 
 		matched, err := defs.Match(presList, docLoader, opt...)
 		require.NoError(t, err)
 		require.Len(t, matched, 2)
 		result, ok := matched[defs.InputDescriptors[0].ID]
+		require.True(t, ok)
+		require.Equal(t, expected.ID, result.Credential.ID)
+		result, ok = matched[defs.InputDescriptors[1].ID]
+		require.True(t, ok)
+		require.Equal(t, expectedTwo.ID, result.Credential.ID)
+
+		// json-unmarshalled merged submission
+
+		submissionJSON := map[string]interface{}{}
+
+		submissionBytes, err := json.Marshal(submission)
+		require.NoError(t, err)
+
+		require.NoError(t, json.Unmarshal(submissionBytes, &submissionJSON))
+
+		opt = []MatchOption{
+			WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(docLoader)),
+			WithMergedSubmissionMap(submissionJSON),
+		}
+
+		matched, err = defs.Match(presList, docLoader, opt...)
+		require.NoError(t, err)
+		require.Len(t, matched, 2)
+		result, ok = matched[defs.InputDescriptors[0].ID]
 		require.True(t, ok)
 		require.Equal(t, expected.ID, result.Credential.ID)
 		result, ok = matched[defs.InputDescriptors[1].ID]

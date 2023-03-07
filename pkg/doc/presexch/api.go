@@ -66,6 +66,7 @@ type MatchOptions struct {
 	CredentialOptions       []verifiable.CredentialOpt
 	DisableSchemaValidation bool
 	MergedSubmission        *PresentationSubmission
+	MergedSubmissionMap     map[string]interface{}
 }
 
 // MatchOption is an option that sets an option for when matching.
@@ -93,6 +94,18 @@ func WithDisableSchemaValidation() MatchOption {
 func WithMergedSubmission(submission *PresentationSubmission) MatchOption {
 	return func(m *MatchOptions) {
 		m.MergedSubmission = submission
+	}
+}
+
+// WithMergedSubmissionMap provides a presentation submission that's external to the Presentations being matched,
+// which contains the descriptor mapping for each Presentation. This submission is expected to be in the
+// map[string]interface{} format used by json.Unmarshal.
+//
+// If there are multiple Presentations, this merged submission should use the Presentation array as the JSON Path root
+// when referencing the contained Presentations and the Credentials within.
+func WithMergedSubmissionMap(submissionMap map[string]interface{}) MatchOption {
+	return func(m *MatchOptions) {
+		m.MergedSubmissionMap = submissionMap
 	}
 }
 
@@ -128,12 +141,21 @@ func getMatchedCreds( //nolint:gocyclo,funlen
 
 	descriptorIDs := descriptorIDs(pd.InputDescriptors)
 
-	useMergedSubmission := opts.MergedSubmission != nil
+	useMergedSubmission := opts.MergedSubmission != nil || len(opts.MergedSubmissionMap) != 0
 
 	var mappingsByVPIndex map[int][]*InputDescriptorMapping
 
-	if useMergedSubmission {
+	if opts.MergedSubmission != nil {
 		mappingsByVPIndex = descriptorsByPresentationIndex(opts.MergedSubmission.DescriptorMap)
+	} else if len(opts.MergedSubmissionMap) != 0 {
+		useMergedSubmission = true
+
+		descs, err := getDescriptorMapping(opts.MergedSubmissionMap)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse descriptor map: %w", err)
+		}
+
+		mappingsByVPIndex = descriptorsByPresentationIndex(descs)
 	}
 
 	rawVPs := make([]interface{}, len(vpList))
@@ -295,11 +317,24 @@ func checkJSONLDContextType(vp *verifiable.Presentation) error {
 }
 
 func parseDescriptorMap(vp *verifiable.Presentation) ([]*InputDescriptorMapping, error) {
-	submission, ok := vp.CustomFields[submissionProperty].(map[string]interface{})
+	untypedSubmission, ok := vp.CustomFields[submissionProperty]
 	if !ok {
 		return nil, fmt.Errorf("missing '%s' on verifiable presentation", submissionProperty)
 	}
 
+	switch submission := untypedSubmission.(type) {
+	case map[string]interface{}:
+		return getDescriptorMapping(submission)
+	case *PresentationSubmission:
+		return submission.DescriptorMap, nil
+	case PresentationSubmission:
+		return submission.DescriptorMap, nil
+	default:
+		return nil, fmt.Errorf("missing '%s' on verifiable presentation", submissionProperty)
+	}
+}
+
+func getDescriptorMapping(submission map[string]interface{}) ([]*InputDescriptorMapping, error) {
 	descriptorMap, ok := submission[descriptorMapProperty].([]interface{})
 	if !ok {
 		return nil, fmt.Errorf("missing '%s' on verifiable presentation", descriptorMapProperty)

@@ -92,6 +92,7 @@ func ExamplePresentationDefinition_CreateVP_v2() {
 		panic(err)
 	}
 
+	vp.ID = dummy
 	vp.CustomFields["presentation_submission"].(*PresentationSubmission).ID = dummy
 
 	vpBytes, err := json.MarshalIndent(vp, "", "\t")
@@ -101,11 +102,12 @@ func ExamplePresentationDefinition_CreateVP_v2() {
 
 	fmt.Println(string(vpBytes))
 	// Output:
-	//{
+	// {
 	//	"@context": [
 	//		"https://www.w3.org/2018/credentials/v1",
 	//		"https://identity.foundation/presentation-exchange/submission/v1"
 	//	],
+	//	"id": "DUMMY",
 	//	"presentation_submission": {
 	//		"id": "DUMMY",
 	//		"definition_id": "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
@@ -143,7 +145,7 @@ func ExamplePresentationDefinition_CreateVP_v2() {
 	//			"type": "VerifiableCredential"
 	//		}
 	//	]
-	//}
+	// }
 }
 
 func ExamplePresentationDefinition_CreateVP_with_LdpVC_Format() {
@@ -219,6 +221,7 @@ func ExamplePresentationDefinition_CreateVP_with_LdpVC_Format() {
 		panic(err)
 	}
 
+	vp.ID = dummy
 	vp.CustomFields["presentation_submission"].(*PresentationSubmission).ID = dummy
 
 	vpBytes, err := json.MarshalIndent(vp, "", "\t")
@@ -228,11 +231,12 @@ func ExamplePresentationDefinition_CreateVP_with_LdpVC_Format() {
 
 	fmt.Println(string(vpBytes))
 	// Output:
-	//{
+	// {
 	//	"@context": [
 	//		"https://www.w3.org/2018/credentials/v1",
 	//		"https://identity.foundation/presentation-exchange/submission/v1"
 	//	],
+	//	"id": "DUMMY",
 	//	"presentation_submission": {
 	//		"id": "DUMMY",
 	//		"definition_id": "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
@@ -270,7 +274,7 @@ func ExamplePresentationDefinition_CreateVP_with_LdpVC_Format() {
 	//			"type": "VerifiableCredential"
 	//		}
 	//	]
-	//}
+	// }
 }
 
 func ExamplePresentationDefinition_CreateVP_with_Ldp_Format() {
@@ -346,6 +350,7 @@ func ExamplePresentationDefinition_CreateVP_with_Ldp_Format() {
 		panic(err)
 	}
 
+	vp.ID = dummy
 	vp.CustomFields["presentation_submission"].(*PresentationSubmission).ID = dummy
 
 	vpBytes, err := json.MarshalIndent(vp, "", "\t")
@@ -355,11 +360,12 @@ func ExamplePresentationDefinition_CreateVP_with_Ldp_Format() {
 
 	fmt.Println(string(vpBytes))
 	// Output:
-	//{
+	// {
 	//	"@context": [
 	//		"https://www.w3.org/2018/credentials/v1",
 	//		"https://identity.foundation/presentation-exchange/submission/v1"
 	//	],
+	//	"id": "DUMMY",
 	//	"presentation_submission": {
 	//		"id": "DUMMY",
 	//		"definition_id": "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
@@ -397,7 +403,7 @@ func ExamplePresentationDefinition_CreateVP_with_Ldp_Format() {
 	//			"type": "VerifiableCredential"
 	//		}
 	//	]
-	//}
+	// }
 }
 
 func ExamplePresentationDefinition_CreateVP_withFormatInInputDescriptor() {
@@ -473,6 +479,7 @@ func ExamplePresentationDefinition_CreateVP_withFormatInInputDescriptor() {
 		panic(err)
 	}
 
+	vp.ID = dummy
 	vp.CustomFields["presentation_submission"].(*PresentationSubmission).ID = dummy
 
 	vpBytes, err := json.MarshalIndent(vp, "", "\t")
@@ -482,11 +489,12 @@ func ExamplePresentationDefinition_CreateVP_withFormatInInputDescriptor() {
 
 	fmt.Println(string(vpBytes))
 	// Output:
-	//{
+	// {
 	//	"@context": [
 	//		"https://www.w3.org/2018/credentials/v1",
 	//		"https://identity.foundation/presentation-exchange/submission/v1"
 	//	],
+	//	"id": "DUMMY",
 	//	"presentation_submission": {
 	//		"id": "DUMMY",
 	//		"definition_id": "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
@@ -524,7 +532,7 @@ func ExamplePresentationDefinition_CreateVP_withFormatInInputDescriptor() {
 	//			"type": "VerifiableCredential"
 	//		}
 	//	]
-	//}
+	// }
 }
 
 func TestExamplePresentationDefinition_CreateVPWithFormat_NoMatch(t *testing.T) {
@@ -717,6 +725,7 @@ func ExamplePresentationDefinition_CreateVP_withFrame() {
 		panic(err)
 	}
 
+	vp.ID = dummy
 	vp.CustomFields["presentation_submission"].(*PresentationSubmission).ID = dummy
 	vp.Credentials()[0].(*verifiable.Credential).Proofs[0]["created"] = dummy
 	vp.Credentials()[0].(*verifiable.Credential).Proofs[0]["proofValue"] = dummy
@@ -728,11 +737,12 @@ func ExamplePresentationDefinition_CreateVP_withFrame() {
 
 	fmt.Println(string(vpBytes))
 	// Output:
-	//{
+	// {
 	//	"@context": [
 	//		"https://www.w3.org/2018/credentials/v1",
 	//		"https://identity.foundation/presentation-exchange/submission/v1"
 	//	],
+	//	"id": "DUMMY",
 	//	"presentation_submission": {
 	//		"id": "DUMMY",
 	//		"definition_id": "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
@@ -789,7 +799,7 @@ func ExamplePresentationDefinition_CreateVP_withFrame() {
 	//			]
 	//		}
 	//	]
-	//}
+	// }
 }
 
 func signVCWithBBS(privKey *bbs12381g2pub.PrivateKey, vc *verifiable.Credential, documentLoader ld.DocumentLoader) {

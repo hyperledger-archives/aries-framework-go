@@ -449,6 +449,7 @@ func presentation(credentials ...*verifiable.Credential) (*verifiable.Presentati
 
 	vp.Context = append(vp.Context, PresentationSubmissionJSONLDContextIRI)
 	vp.Type = append(vp.Type, PresentationSubmissionJSONLDType)
+	vp.ID = uuid.NewString()
 
 	return vp, nil
 }
