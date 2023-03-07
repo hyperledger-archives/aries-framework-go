@@ -76,6 +76,7 @@ func ExamplePresentationDefinition_CreateVP_v1() {
 		panic(err)
 	}
 
+	vp.ID = dummy
 	vp.CustomFields["presentation_submission"].(*PresentationSubmission).ID = dummy
 
 	vpBytes, err := json.MarshalIndent(vp, "", "\t")
@@ -90,6 +91,7 @@ func ExamplePresentationDefinition_CreateVP_v1() {
 	//		"https://www.w3.org/2018/credentials/v1",
 	//		"https://identity.foundation/presentation-exchange/submission/v1"
 	//	],
+	//	"id": "DUMMY",
 	//	"presentation_submission": {
 	//		"id": "DUMMY",
 	//		"definition_id": "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
@@ -184,6 +186,7 @@ func ExamplePresentationDefinition_CreateVP_v1_With_LDP_FormatAndProof() {
 		panic(err)
 	}
 
+	vp.ID = dummy
 	vp.CustomFields["presentation_submission"].(*PresentationSubmission).ID = dummy
 
 	vpBytes, err := json.MarshalIndent(vp, "", "\t")
@@ -198,6 +201,7 @@ func ExamplePresentationDefinition_CreateVP_v1_With_LDP_FormatAndProof() {
 	//		"https://www.w3.org/2018/credentials/v1",
 	//		"https://identity.foundation/presentation-exchange/submission/v1"
 	//	],
+	//	"id": "DUMMY",
 	//	"presentation_submission": {
 	//		"id": "DUMMY",
 	//		"definition_id": "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
@@ -292,6 +296,7 @@ func ExamplePresentationDefinition_CreateVP_v1_With_LDPVC_FormatAndProof() {
 		panic(err)
 	}
 
+	vp.ID = dummy
 	vp.CustomFields["presentation_submission"].(*PresentationSubmission).ID = dummy
 
 	vpBytes, err := json.MarshalIndent(vp, "", "\t")
@@ -306,6 +311,7 @@ func ExamplePresentationDefinition_CreateVP_v1_With_LDPVC_FormatAndProof() {
 	//		"https://www.w3.org/2018/credentials/v1",
 	//		"https://identity.foundation/presentation-exchange/submission/v1"
 	//	],
+	//	"id": "DUMMY",
 	//	"presentation_submission": {
 	//		"id": "DUMMY",
 	//		"definition_id": "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
@@ -424,6 +430,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 		panic(err)
 	}
 
+	vp.ID = dummy
 	vp.CustomFields["presentation_submission"].(*PresentationSubmission).ID = dummy
 
 	vpBytes, err := json.MarshalIndent(vp, "", "\t")
@@ -438,6 +445,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 	//		"https://www.w3.org/2018/credentials/v1",
 	//		"https://identity.foundation/presentation-exchange/submission/v1"
 	//	],
+	//	"id": "DUMMY",
 	//	"presentation_submission": {
 	//		"id": "DUMMY",
 	//		"definition_id": "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
@@ -604,6 +612,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 		panic(err)
 	}
 
+	vp.ID = dummy
 	vp.CustomFields["presentation_submission"].(*PresentationSubmission).ID = dummy
 
 	vpBytes, err := json.MarshalIndent(vp, "", "\t")
@@ -618,6 +627,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 	//		"https://www.w3.org/2018/credentials/v1",
 	//		"https://identity.foundation/presentation-exchange/submission/v1"
 	//	],
+	//	"id": "DUMMY",
 	//	"presentation_submission": {
 	//		"id": "DUMMY",
 	//		"definition_id": "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
@@ -848,6 +858,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 		panic(err)
 	}
 
+	vp.ID = dummy
 	vp.CustomFields["presentation_submission"].(*PresentationSubmission).ID = dummy
 
 	vpBytes, err := json.MarshalIndent(vp, "", "\t")
@@ -862,6 +873,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 	//		"https://www.w3.org/2018/credentials/v1",
 	//		"https://identity.foundation/presentation-exchange/submission/v1"
 	//	],
+	//	"id": "DUMMY",
 	//	"presentation_submission": {
 	//		"id": "DUMMY",
 	//		"definition_id": "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
@@ -1090,6 +1102,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 		panic(err)
 	}
 
+	vp.ID = dummy
 	vp.CustomFields["presentation_submission"].(*PresentationSubmission).ID = dummy
 
 	vpBytes, err := json.MarshalIndent(vp, "", "\t")
@@ -1104,6 +1117,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 	//		"https://www.w3.org/2018/credentials/v1",
 	//		"https://identity.foundation/presentation-exchange/submission/v1"
 	//	],
+	//	"id": "DUMMY",
 	//	"presentation_submission": {
 	//		"id": "DUMMY",
 	//		"definition_id": "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
