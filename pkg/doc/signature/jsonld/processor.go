@@ -387,16 +387,19 @@ func (p *Processor) removeMatchingInvalidRDFs(view string, opts *processorOpts) 
 	logger.Debugf("Found invalid RDF dataset, Canonicalizing JSON-LD again after removing invalid data ")
 
 	// all invalid RDF dataset from view are removed, re-generate
-	return p.normalizeFilteredDataset(filteredView)
+	return p.normalizeFilteredDataset(filteredView, opts)
 }
 
 // normalizeFilteredDataset recreates json-ld from RDF view and
 // returns normalized RDF dataset from recreated json-ld.
-func (p *Processor) normalizeFilteredDataset(view string) (string, error) {
+func (p *Processor) normalizeFilteredDataset(view string, opts *processorOpts) (string, error) {
 	ldOptions := ld.NewJsonLdOptions("")
 	ldOptions.ProcessingMode = ld.JsonLd_1_1
 	ldOptions.Algorithm = p.algorithm
 	ldOptions.Format = format
+	if opts != nil {
+		ldOptions.DocumentLoader = opts.documentLoader
+	}
 
 	proc := ld.NewJsonLdProcessor()
 
