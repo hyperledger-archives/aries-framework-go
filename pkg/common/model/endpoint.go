@@ -100,6 +100,13 @@ func (s *Endpoint) URI() (string, error) {
 			return string(o[0]), nil
 		case []interface{}:
 			return fmt.Sprintf("%s", o[0]), nil
+		case map[string]interface{}:
+			switch uri := o["origins"].(type) {
+			case []interface{}:
+				return fmt.Sprintf("%s", uri[0]), nil
+			default:
+				return "", fmt.Errorf("unrecognized DIDCore origins object %s", o)
+			}
 		default:
 			return "", fmt.Errorf("unrecognized DIDCore endpoint object %s", o)
 		}

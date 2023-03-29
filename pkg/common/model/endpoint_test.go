@@ -90,6 +90,14 @@ func TestEndpoint_MarshalUnmarshalJSON(t *testing.T) {
 			expectedValue: []byte(`["some random endpoint","some other endpoint"]`),
 			err:           nil,
 		},
+		{
+			name: "marshal random DIDCore Endpoint (neither DIDcomm V1 nor V2) as map[string]interface{}",
+			endpoint: Endpoint{
+				rawObj: map[string]interface{}{"origins": []interface{}{"some random endpoint"}},
+			},
+			expectedValue: []byte(`{"origins":["some random endpoint"]}`),
+			err:           nil,
+		},
 	}
 
 	for _, tc := range testCases {
