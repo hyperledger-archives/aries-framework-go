@@ -14,15 +14,20 @@ import (
 	"io"
 
 	bls12381 "github.com/kilic/bls12-381"
-	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/hkdf"
+	"golang.org/x/crypto/sha3"
 
 	bls12381intern "github.com/hyperledger/aries-framework-go/internal/third_party/kilic/bls12-381"
 )
 
 const (
 	seedSize        = frCompressedSize
-	generateKeySalt = "BBS-SIG-KEYGEN-SALT-"
+	seedDST         = csID + "SIG_GENERATOR_SEED_"
+	generatorDST    = csID + "SIG_GENERATOR_DST_"
+	generatorSeed   = csID + "MESSAGE_GENERATOR_SEED"
+	generatorBPSeed = csID + "BP_MESSAGE_GENERATOR_SEED"
+	logR2           = 251
+	seedLen         = ((logR2 + k) + 7) / 8 //nolint:gomnd
 )
 
 // PublicKey defines BLS Public Key.
@@ -38,80 +43,100 @@ type PrivateKey struct {
 // PublicKeyWithGenerators extends PublicKey with a blinding generator h0, a commitment to the secret key w,
 // and a generator for each message h.
 type PublicKeyWithGenerators struct {
-	h0 *bls12381.PointG1
+	p1 *bls12381.PointG1
+	q1 *bls12381.PointG1
+	q2 *bls12381.PointG1
 	h  []*bls12381.PointG1
 
 	w *bls12381.PointG2
 
 	messagesCount int
+
+	domain *bls12381.Fr
 }
 
 // ToPublicKeyWithGenerators creates PublicKeyWithGenerators from the PublicKey.
-func (pk *PublicKey) ToPublicKeyWithGenerators(messagesCount int) (*PublicKeyWithGenerators, error) {
-	offset := g2UncompressedSize + 1
+func (pk *PublicKey) ToPublicKeyWithGenerators(messagesCount int, header []byte) (*PublicKeyWithGenerators, error) {
+	specGenCnt := 2
+	genCnt := messagesCount + specGenCnt
 
-	data := calcData(pk, messagesCount)
-
-	h0, err := hashToG1(data)
+	generators, err := CreateMessageGenerators(genCnt)
 	if err != nil {
-		return nil, fmt.Errorf("create G1 point from hash")
+		return nil, err
 	}
 
-	h := make([]*bls12381.PointG1, messagesCount)
-
-	for i := 1; i <= messagesCount; i++ {
-		dataCopy := make([]byte, len(data))
-		copy(dataCopy, data)
-
-		iBytes := uint32ToBytes(uint32(i))
-
-		for j := 0; j < len(iBytes); j++ {
-			dataCopy[j+offset] = iBytes[j]
-		}
-
-		h[i-1], err = hashToG1(dataCopy)
-		if err != nil {
-			return nil, fmt.Errorf("create G1 point from hash: %w", err)
-		}
+	bpGenerators, err := crateGenerators(genCnt, []byte(generatorBPSeed))
+	if err != nil {
+		return nil, err
 	}
+
+	domainBuilder := newEcnodeForHashBuilder()
+	domainBuilder.addPointG2(pk.PointG2)
+	domainBuilder.addInt(messagesCount)
+
+	for _, gen := range generators {
+		domainBuilder.addPointG1(gen)
+	}
+
+	domainBuilder.addCsID()
+	domainBuilder.addBytes(header)
+
+	domain := Hash2scalar(domainBuilder.build())
 
 	return &PublicKeyWithGenerators{
-		h0:            h0,
-		h:             h,
+		p1:            bpGenerators[0],
+		q1:            generators[0],
+		q2:            generators[1],
+		h:             generators[2:],
 		w:             pk.PointG2,
 		messagesCount: messagesCount,
+		domain:        domain,
 	}, nil
 }
 
-func calcData(key *PublicKey, messagesCount int) []byte {
-	data := g2.ToUncompressed(key.PointG2)
-
-	data = append(data, 0, 0, 0, 0, 0, 0)
-
-	mcBytes := uint32ToBytes(uint32(messagesCount))
-
-	data = append(data, mcBytes...)
-
-	return data
-}
-
-func hashToG1(data []byte) (*bls12381.PointG1, error) {
-	dstG1 := []byte("BLS12381G1_XMD:BLAKE2B_SSWU_RO_BBS+_SIGNATURES:1_0_0")
-
-	hashFunc := func() hash.Hash {
-		// We pass a null key so error is impossible here.
-		h, _ := blake2b.New512(nil) //nolint:errcheck
-		return h
-	}
-
+func hashToG1(data, dst []byte) (*bls12381.PointG1, error) {
 	g := bls12381intern.NewG1()
 
-	p, err := g.HashToCurveGeneric(data, dstG1, hashFunc)
+	p, err := g.HashToCurveGenericXOF(data, dst, sha3.NewShake256())
 	if err != nil {
 		return nil, err
 	}
 
 	return g1.FromBytes(g.ToBytes(p))
+}
+
+// CreateMessageGenerators create `cnt` determenistic generators.
+func CreateMessageGenerators(cnt int) ([]*bls12381.PointG1, error) {
+	return crateGenerators(cnt, []byte(generatorSeed))
+}
+
+func crateGenerators(cnt int, seed []byte) ([]*bls12381.PointG1, error) {
+	generators := make([]*bls12381.PointG1, cnt)
+
+	v, err := bls12381intern.ExpandMsgXOF(sha3.NewShake256(), seed, []byte(seedDST), seedLen)
+	if err != nil {
+		return nil, err
+	}
+
+	n := uint32(1)
+	for i := 0; i < cnt; i++ {
+		v = append(v, uint32ToBytes(n)...)
+
+		v, err = bls12381intern.ExpandMsgXOF(sha3.NewShake256(), v, []byte(seedDST), seedLen)
+		if err != nil {
+			return nil, err
+		}
+
+		n++
+
+		// TODO check if candidate is uniq
+		generators[i], err = hashToG1(v, []byte(generatorDST))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return generators, nil
 }
 
 // UnmarshalPrivateKey unmarshals PrivateKey.
@@ -184,6 +209,7 @@ func GenerateKeyPair(h func() hash.Hash, seed []byte) (*PublicKey, *PrivateKey, 
 }
 
 func generateOKM(ikm []byte, h func() hash.Hash) ([]byte, error) {
+	generateKeySalt := "BBS-SIG-KEYGEN-SALT-"
 	salt := []byte(generateKeySalt)
 	info := make([]byte, 2)
 

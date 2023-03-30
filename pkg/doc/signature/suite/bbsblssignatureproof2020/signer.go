@@ -101,7 +101,7 @@ func generateSignatureProof(blsSignature map[string]interface{}, resolver keyRes
 		return nil, fmt.Errorf("get public key and signature: %w", pErr)
 	}
 
-	signatureProofBytes, err := bls.DeriveProof(verData.blsMessages, signatureBytes,
+	signatureProofBytes, err := bls.DeriveProof(nil, verData.blsMessages, signatureBytes,
 		nonce, pubKeyBytes, verData.revealIndexes)
 	if err != nil {
 		return nil, fmt.Errorf("derive BBS+ proof: %w", err)

@@ -35,36 +35,31 @@ func NewPoKOfSignature(signature *Signature, messages []*SignatureMessage, revea
 		return nil, fmt.Errorf("verify input signature: %w", err)
 	}
 
-	r1, r2 := createRandSignatureFr(), createRandSignatureFr()
 	b := computeB(signature.S, messages, pubKey)
+
+	r1, r2, r3 := createRandSignatureFr(), createRandSignatureFr(), bls12381.NewFr()
+	r3.Inverse(r1)
+
 	aPrime := g1.New()
 	g1.MulScalar(aPrime, signature.A, frToRepr(r1))
 
-	aBarDenom := g1.New()
+	aBar, aBarDenom := g1.New(), g1.New()
 	g1.MulScalar(aBarDenom, aPrime, frToRepr(signature.E))
-
-	aBar := g1.New()
 	g1.MulScalar(aBar, b, frToRepr(r1))
 	g1.Sub(aBar, aBar, aBarDenom)
 
-	r2D := bls12381.NewFr()
-	r2D.Neg(r2)
-
 	commitmentBasesCount := 2
-	cb := newCommitmentBuilder(commitmentBasesCount)
-	cb.add(b, r1)
-	cb.add(pubKey.h0, r2D)
-
-	d := cb.build()
-	r3 := bls12381.NewFr()
-	r3.Inverse(r1)
+	cbD := newCommitmentBuilder(commitmentBasesCount)
+	cbD.add(b, r1)
+	cbD.add(pubKey.q1, r2)
+	d := cbD.build()
+	g1.Neg(d, d)
 
 	sPrime := bls12381.NewFr()
 	sPrime.Mul(r2, r3)
-	sPrime.Neg(sPrime)
 	sPrime.Add(sPrime, signature.S)
 
-	pokVC1, secrets1 := newVC1Signature(aPrime, pubKey.h0, signature.E, r2)
+	pokVC1, secrets1 := newVC1Signature(aPrime, pubKey.q1, signature.E, r2)
 
 	revealedMessages := make(map[int]*SignatureMessage, len(revealedIndexes))
 
@@ -74,6 +69,11 @@ func NewPoKOfSignature(signature *Signature, messages []*SignatureMessage, revea
 	}
 
 	for _, ind := range revealedIndexes {
+		if ind >= len(messages) {
+			return nil, fmt.Errorf("invalid revealed index: requested index %d is larger than %d messages count",
+				ind, len(messages))
+		}
+
 		revealedMessages[ind] = messages[ind]
 	}
 
@@ -91,21 +91,17 @@ func NewPoKOfSignature(signature *Signature, messages []*SignatureMessage, revea
 	}, nil
 }
 
-func newVC1Signature(aPrime *bls12381.PointG1, h0 *bls12381.PointG1,
+func newVC1Signature(aPrime *bls12381.PointG1, q1 *bls12381.PointG1,
 	e, r2 *bls12381.Fr) (*ProverCommittedG1, []*bls12381.Fr) {
 	committing1 := NewProverCommittingG1()
 	secrets1 := make([]*bls12381.Fr, 2)
 
 	committing1.Commit(aPrime)
-
-	sigE := bls12381.NewFr()
-	sigE.Neg(e)
-	secrets1[0] = sigE
-
-	committing1.Commit(h0)
-
-	secrets1[1] = r2
+	committing1.Commit(q1)
 	pokVC1 := committing1.Finish()
+
+	secrets1[0] = e
+	secrets1[1] = r2
 
 	return pokVC1, secrets1
 }
@@ -118,15 +114,9 @@ func newVC2Signature(d *bls12381.PointG1, r3 *bls12381.Fr, pubKey *PublicKeyWith
 	secrets2 := make([]*bls12381.Fr, 0, baseSecretsCount+messagesCount)
 
 	committing2.Commit(d)
+	committing2.Commit(pubKey.q1)
 
-	r3D := bls12381.NewFr()
-	r3D.Neg(r3)
-
-	secrets2 = append(secrets2, r3D)
-
-	committing2.Commit(pubKey.h0)
-
-	secrets2 = append(secrets2, sPrime)
+	secrets2 = append(secrets2, r3, sPrime)
 
 	for i := 0; i < messagesCount; i++ {
 		if _, ok := revealedMessages[i]; ok {
@@ -147,23 +137,25 @@ func newVC2Signature(d *bls12381.PointG1, r3 *bls12381.Fr, pubKey *PublicKeyWith
 	return pokVC2, secrets2
 }
 
-// ToBytes converts PoKOfSignature to bytes.
-func (pos *PoKOfSignature) ToBytes() []byte {
-	challengeBytes := g1.ToUncompressed(pos.aBar)
-	challengeBytes = append(challengeBytes, pos.pokVC1.ToBytes()...)
-	challengeBytes = append(challengeBytes, pos.pokVC2.ToBytes()...)
-
-	return challengeBytes
+// CalculateChallenge calculates challenge for the (PoKOfSignature, domain, nonce).
+func (pos *PoKOfSignature) CalculateChallenge(msgCnt int, domain *bls12381.Fr, nonce []byte) *bls12381.Fr {
+	return calculateChallenge(
+		pos.aPrime, pos.aBar, pos.d,
+		pos.pokVC1.commitment, pos.pokVC2.commitment,
+		pos.revealedMessages, msgCnt, domain, nonce)
 }
 
 // GenerateProof generates PoKOfSignatureProof proof from PoKOfSignature signature.
 func (pos *PoKOfSignature) GenerateProof(challengeHash *bls12381.Fr) *PoKOfSignatureProof {
+	vc1 := pos.pokVC1.GenerateProof(challengeHash, pos.secrets1)
+	vc2 := pos.pokVC2.GenerateProof(challengeHash, pos.secrets2)
+
 	return &PoKOfSignatureProof{
 		aPrime:   pos.aPrime,
 		aBar:     pos.aBar,
 		d:        pos.d,
-		proofVC1: pos.pokVC1.GenerateProof(challengeHash, pos.secrets1),
-		proofVC2: pos.pokVC2.GenerateProof(challengeHash, pos.secrets2),
+		proofVC1: vc1,
+		proofVC2: vc2,
 	}
 }
 
@@ -172,17 +164,6 @@ type ProverCommittedG1 struct {
 	bases           []*bls12381.PointG1
 	blindingFactors []*bls12381.Fr
 	commitment      *bls12381.PointG1
-}
-
-// ToBytes converts ProverCommittedG1 to bytes.
-func (g *ProverCommittedG1) ToBytes() []byte {
-	bytes := make([]byte, 0)
-
-	for _, base := range g.bases {
-		bytes = append(bytes, g1.ToUncompressed(base)...)
-	}
-
-	return append(bytes, g1.ToUncompressed(g.commitment)...)
 }
 
 // GenerateProof generates proof ProofG1 for all secrets.
@@ -194,7 +175,7 @@ func (g *ProverCommittedG1) GenerateProof(challenge *bls12381.Fr, secrets []*bls
 		c.Mul(challenge, secrets[i])
 
 		s := bls12381.NewFr()
-		s.Sub(g.blindingFactors[i], c)
+		s.Add(g.blindingFactors[i], c)
 		responses[i] = s
 	}
 

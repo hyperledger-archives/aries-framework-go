@@ -9,9 +9,11 @@ package bbs12381g2pub_test
 import (
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/hex"
 	"testing"
 
 	"github.com/btcsuite/btcutil/base58"
+	bls12381 "github.com/kilic/bls12-381"
 	"github.com/stretchr/testify/require"
 
 	bbs "github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
@@ -56,10 +58,51 @@ func TestPrivateKey_Marshal(t *testing.T) {
 }
 
 func TestPrivateKey_PublicKey(t *testing.T) {
-	pubKey, privKey, err := generateKeyPairRandom()
+	t.Run("random key pair", func(t *testing.T) {
+		pubKey, privKey, err := generateKeyPairRandom()
+		require.NoError(t, err)
+
+		require.Equal(t, pubKey, privKey.PublicKey())
+	})
+
+	t.Run("pre-generated key pair", func(t *testing.T) {
+		// original hex seed 746869732d49532d6a7573742d616e2d546573742d494b4d2d746f2d67656e65726174652d246528724074232d6b6579
+		privateKeyBytes := hexToBytes(t, "47d2ede63ab4c329092b342ab526b1079dbc2595897d4f2ab2de4d841cbe7d56")
+		publicKeyBytesExpeted := hexToBytes(t, "b65b7cbff4e81b723456a13936b6bcc77a078bf6291765f3ae13170072249dd7daa7ec1bd82b818ab60198030b45b8fa159c155fc3841a9ad4045e37161c9f0d9a4f361b93cfdc67d365f3be1a398e56aa173d7a55e01b4a8dd2494e7fb90da7") // nolint: lll
+
+		privateKey, err := bbs.UnmarshalPrivateKey(privateKeyBytes)
+		require.NoError(t, err)
+
+		publicKeyBytes, err := privateKey.PublicKey().Marshal()
+		require.Equal(t, publicKeyBytesExpeted, publicKeyBytes)
+		require.NoError(t, err)
+	})
+}
+
+func TestGenerators(t *testing.T) {
+	msgCnt := 2
+	generators, err := bbs.CreateMessageGenerators(msgCnt + 2)
 	require.NoError(t, err)
 
-	require.Equal(t, pubKey, privKey.PublicKey())
+	bytes := bls12381.NewG1().ToCompressed(generators[0])
+	require.Equal(t,
+		"b60acd4b0dc13b580394d2d8bc6c07d452df8e2a7eff93bc9da965b57e076cae640c2858fb0c2eaf242b1bd11107d635",
+		hex.EncodeToString(bytes))
+
+	bytes = bls12381.NewG1().ToCompressed(generators[1])
+	require.Equal(t,
+		"ad03f655b4c94f312b051aba45977c924bc5b4b1780c969534c183784c7275b70b876db641579604328c0975eaa0a137",
+		hex.EncodeToString(bytes))
+
+	bytes = bls12381.NewG1().ToCompressed(generators[2])
+	require.Equal(t,
+		"b63ae18d3edd64a2edd381290f0c68bebabaf3d37bc9dbb0bd5ad8daf03bbd2c48260255ba73f3389d2d5ad82303ac25",
+		hex.EncodeToString(bytes))
+
+	bytes = bls12381.NewG1().ToCompressed(generators[3])
+	require.Equal(t,
+		"b0b92b79a3e1fc59f39c6b9f78f00b873121c6a4c1814b94c07848efd172762fefbc48447a16f9ba8ed1b638e2933029",
+		hex.EncodeToString(bytes))
 }
 
 func TestPublicKey_Marshal(t *testing.T) {
@@ -84,10 +127,11 @@ func TestParseMattrKeys(t *testing.T) {
 	pubKeyBytes := base58.Decode(pubKeyB58)
 
 	messagesBytes := [][]byte{[]byte("message1"), []byte("message2")}
-	signatureBytes, err := bbs.New().Sign(messagesBytes, privKeyBytes)
+	signatureBytes, err := bbs.New().Sign(nil, messagesBytes, privKeyBytes)
 	require.NoError(t, err)
 
-	err = bbs.New().Verify(messagesBytes, signatureBytes, pubKeyBytes)
+	err = bbs.New().Verify(nil,
+		messagesBytes, signatureBytes, pubKeyBytes)
 	require.NoError(t, err)
 }
 

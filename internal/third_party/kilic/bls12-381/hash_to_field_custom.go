@@ -14,10 +14,12 @@ package bls12381
 import (
 	"errors"
 	"hash"
+
+	"golang.org/x/crypto/sha3"
 )
 
-func hashToFpXMD(f func() hash.Hash, msg []byte, domain []byte, count int) ([]*fe, error) {
-	randBytes, err := expandMsgXMD(f, msg, domain, count*64)
+func hashToFpGeneric(expand func([]byte, []byte, int) ([]byte, error), msg []byte, domain []byte, count int) ([]*fe, error) {
+	randBytes, err := expand(msg, domain, count*64)
 	if err != nil {
 		return nil, err
 	}
@@ -36,10 +38,10 @@ func hashToFpXMD(f func() hash.Hash, msg []byte, domain []byte, count int) ([]*f
 
 func expandMsgXMD(f func() hash.Hash, msg []byte, domain []byte, outLen int) ([]byte, error) {
 	h := f()
-	domainLen := uint8(len(domain))
-	if domainLen > 255 {
+	if len(domain) > 255 {
 		return nil, errors.New("invalid domain length")
 	}
+	domainLen := uint8(len(domain))
 
 	// DST_prime = DST || I2OSP(len(DST), 1)
 	// b_0 = H(Z_pad || msg || l_i_b_str || I2OSP(0, 1) || DST_prime)
@@ -83,4 +85,23 @@ func expandMsgXMD(f func() hash.Hash, msg []byte, domain []byte, outLen int) ([]
 	copy(out[(ell-1)*h.Size():], bi[:])
 
 	return out[:outLen], nil
+}
+
+// TODO move away?
+func ExpandMsgXOF(h sha3.ShakeHash, msg []byte, dst []byte, outBytesCnt int) ([]byte, error) {
+	if len(dst) > 255 {
+		return nil, errors.New("invalid DST length")
+	}
+	dstLen := uint8(len(dst))
+
+	// msg || outBytesCnt || dst || dstLen
+	h.Write(msg)
+	h.Write([]byte{byte(outBytesCnt >> 8), byte(outBytesCnt & 0xFF)})
+	h.Write(dst)
+	h.Write([]byte{byte(dstLen)})
+
+	out := make([]byte, outBytesCnt)
+	h.Read(out)
+
+	return out, nil
 }

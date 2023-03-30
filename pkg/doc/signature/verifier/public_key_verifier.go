@@ -443,7 +443,7 @@ type BBSG2SignatureVerifier struct {
 func (v *BBSG2SignatureVerifier) Verify(pubKeyValue *PublicKey, doc, signature []byte) error {
 	bbs := bbs12381g2pub.New()
 
-	return bbs.Verify(splitMessageIntoLines(string(doc), false), signature, pubKeyValue.Value)
+	return bbs.Verify(nil, splitMessageIntoLines(string(doc), false), signature, pubKeyValue.Value)
 }
 
 // NewBBSG2SignatureProofVerifier creates a new BBSG2SignatureProofVerifier.
@@ -467,7 +467,7 @@ type BBSG2SignatureProofVerifier struct {
 func (v *BBSG2SignatureProofVerifier) Verify(pubKeyValue *PublicKey, doc, signature []byte) error {
 	bbs := bbs12381g2pub.New()
 
-	return bbs.VerifyProof(splitMessageIntoLines(string(doc), true),
+	return bbs.VerifyProof(nil, splitMessageIntoLines(string(doc), true),
 		signature, v.nonce, pubKeyValue.Value)
 }
 

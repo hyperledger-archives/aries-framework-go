@@ -25,30 +25,13 @@ type PoKOfSignatureProof struct {
 	proofVC2 *ProofG1
 }
 
-// GetBytesForChallenge creates bytes for proof challenge.
-func (sp *PoKOfSignatureProof) GetBytesForChallenge(revealedMessages map[int]*SignatureMessage,
-	pubKey *PublicKeyWithGenerators) []byte {
-	hiddenCount := pubKey.messagesCount - len(revealedMessages)
-
-	bytesLen := (7 + hiddenCount) * g1UncompressedSize //nolint:gomnd
-	bytes := make([]byte, 0, bytesLen)
-
-	bytes = append(bytes, g1.ToUncompressed(sp.aBar)...)
-	bytes = append(bytes, g1.ToUncompressed(sp.aPrime)...)
-	bytes = append(bytes, g1.ToUncompressed(pubKey.h0)...)
-	bytes = append(bytes, g1.ToUncompressed(sp.proofVC1.commitment)...)
-	bytes = append(bytes, g1.ToUncompressed(sp.d)...)
-	bytes = append(bytes, g1.ToUncompressed(pubKey.h0)...)
-
-	for i := range pubKey.h {
-		if _, ok := revealedMessages[i]; !ok {
-			bytes = append(bytes, g1.ToUncompressed(pubKey.h[i])...)
-		}
-	}
-
-	bytes = append(bytes, g1.ToUncompressed(sp.proofVC2.commitment)...)
-
-	return bytes
+// CalculateChallenge calculates challenge for the (PoKOfSignatureProof, domain, nonce).
+func (sp *PoKOfSignatureProof) CalculateChallenge(revealedMessages map[int]*SignatureMessage,
+	pubKey *PublicKeyWithGenerators, nonce []byte) *bls12381.Fr {
+	return calculateChallenge(
+		sp.aPrime, sp.aBar, sp.d,
+		sp.proofVC1.commitment, sp.proofVC2.commitment,
+		revealedMessages, pubKey.messagesCount, pubKey.domain, nonce)
 }
 
 // Verify verifies PoKOfSignatureProof.
@@ -71,9 +54,9 @@ func (sp *PoKOfSignatureProof) Verify(challenge *bls12381.Fr, pubKey *PublicKeyW
 }
 
 func (sp *PoKOfSignatureProof) verifyVC1Proof(challenge *bls12381.Fr, pubKey *PublicKeyWithGenerators) error {
-	basesVC1 := []*bls12381.PointG1{sp.aPrime, pubKey.h0}
+	basesVC1 := []*bls12381.PointG1{sp.aPrime, pubKey.q1}
 	aBarD := new(bls12381.PointG1)
-	g1.Sub(aBarD, sp.aBar, sp.d)
+	g1.Add(aBarD, sp.aBar, sp.d)
 
 	err := sp.proofVC1.Verify(basesVC1, aBarD, challenge)
 	if err != nil {
@@ -88,40 +71,30 @@ func (sp *PoKOfSignatureProof) verifyVC2Proof(challenge *bls12381.Fr, pubKey *Pu
 	revealedMessagesCount := len(revealedMessages)
 
 	basesVC2 := make([]*bls12381.PointG1, 0, 2+pubKey.messagesCount-revealedMessagesCount)
-	basesVC2 = append(basesVC2, sp.d, pubKey.h0)
+	basesVC2 = append(basesVC2, sp.d, pubKey.q1)
 
-	basesDisclosed := make([]*bls12381.PointG1, 0, 1+revealedMessagesCount)
-	exponents := make([]*bls12381.Fr, 0, 1+revealedMessagesCount)
+	disclousedElementsCnt := 1 /* binding */ + 1 /* domain */ + revealedMessagesCount
+	basesDisclosed := make([]*bls12381.PointG1, 0, disclousedElementsCnt)
+	exponentsDisclosed := make([]*bls12381.Fr, 0, disclousedElementsCnt)
 
-	basesDisclosed = append(basesDisclosed, g1.One())
-	exponents = append(exponents, bls12381.NewFr().One())
+	basesDisclosed = append(basesDisclosed, pubKey.p1, pubKey.q2)
+	exponentsDisclosed = append(exponentsDisclosed, bls12381.NewFr().One(), pubKey.domain)
 
 	revealedMessagesInd := 0
 
-	for i := range pubKey.h {
+	for i, hi := range pubKey.h {
 		if _, ok := revealedMessages[i]; ok {
-			basesDisclosed = append(basesDisclosed, pubKey.h[i])
-			exponents = append(exponents, messages[revealedMessagesInd].FR)
+			basesDisclosed = append(basesDisclosed, hi)
+			exponentsDisclosed = append(exponentsDisclosed, messages[revealedMessagesInd].FR)
 			revealedMessagesInd++
 		} else {
-			basesVC2 = append(basesVC2, pubKey.h[i])
+			basesVC2 = append(basesVC2, hi)
 		}
 	}
 
-	pr := g1.Zero()
+	t := sumOfG1Products(basesDisclosed, exponentsDisclosed)
 
-	for i := 0; i < len(basesDisclosed); i++ {
-		b := basesDisclosed[i]
-		s := exponents[i]
-
-		g := g1.New()
-		g1.MulScalar(g, b, frToRepr(s))
-		g1.Add(pr, pr, g)
-	}
-
-	g1.Neg(pr, pr)
-
-	err := sp.proofVC2.Verify(basesVC2, pr, challenge)
+	err := sp.proofVC2.Verify(basesVC2, t, challenge)
 	if err != nil {
 		return errors.New("bad signature")
 	}

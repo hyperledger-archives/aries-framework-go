@@ -30,14 +30,14 @@ func NewBLS12381G2Verifier(signerPublicKey []byte) *BLS12381G2Verifier {
 // returns:
 // 		error in case of errors or nil if signature verification was successful
 func (v *BLS12381G2Verifier) Verify(messages [][]byte, signature []byte) error {
-	return v.bbsPrimitive.Verify(messages, signature, v.signerPubKeyBytes)
+	return v.bbsPrimitive.Verify(nil, messages, signature, v.signerPubKeyBytes)
 }
 
 // VerifyProof will verify a BBS+ signature proof (generated e.g. by DeriveProof()) with the signer's public key.
 // returns:
 // 		error in case of errors or nil if signature proof verification was successful
 func (v *BLS12381G2Verifier) VerifyProof(messages [][]byte, proof, nonce []byte) error {
-	return v.bbsPrimitive.VerifyProof(messages, proof, nonce, v.signerPubKeyBytes)
+	return v.bbsPrimitive.VerifyProof(nil, messages, proof, nonce, v.signerPubKeyBytes)
 }
 
 // DeriveProof will create a BBS+ signature proof for a list of revealed messages using BBS signature
@@ -47,5 +47,5 @@ func (v *BLS12381G2Verifier) VerifyProof(messages [][]byte, proof, nonce []byte)
 //		error in case of errors
 func (v *BLS12381G2Verifier) DeriveProof(messages [][]byte, signature, nonce []byte,
 	revealedIndexes []int) ([]byte, error) {
-	return v.bbsPrimitive.DeriveProof(messages, signature, nonce, v.signerPubKeyBytes, revealedIndexes)
+	return v.bbsPrimitive.DeriveProof(nil, messages, signature, nonce, v.signerPubKeyBytes, revealedIndexes)
 }
