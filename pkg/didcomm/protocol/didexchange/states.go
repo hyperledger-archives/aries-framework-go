@@ -17,6 +17,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/mitchellh/mapstructure"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/jwkkid"
+
 	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
@@ -26,7 +28,6 @@ import (
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/didcommutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	connectionstore "github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
@@ -572,7 +573,7 @@ func (ctx *context) didDocAttachment(doc *did.Doc, myVerKey string) (*decorator.
 		}
 
 		// TODO: use dynamic context KeyType
-		signingKID, err := localkms.CreateKID(pubKeyBytes, kms.ED25519Type)
+		signingKID, err := jwkkid.CreateKID(pubKeyBytes, kms.ED25519Type)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate KID from public key: %w", err)
 		}

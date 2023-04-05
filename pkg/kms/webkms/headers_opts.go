@@ -7,50 +7,34 @@ SPDX-License-Identifier: Apache-2.0
 package webkms
 
 import (
-	"encoding/json"
-	"net/http"
-
-	"github.com/bluele/gcache"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/pkg/kms/webkms"
 )
 
-// addHeaders function supports adding custom http headers.
-type addHeaders func(req *http.Request) (*http.Header, error)
-
 // Opts represents option.
-type Opts struct {
-	HeadersFunc     addHeaders
-	ComputeMACCache gcache.Cache
-	marshal         marshalFunc
-}
+type Opts = webkms.Opts
 
 // NewOpt creates a new empty option.
 // Not to be used directly. It's intended for implementations of remoteKMS.
 // Use WithHeaders() option function below instead.
 func NewOpt() *Opts {
-	return &Opts{marshal: json.Marshal}
+	return webkms.NewOpt()
 }
 
 // Opt are the remoteKMS option.
-type Opt func(opts *Opts)
+type Opt = webkms.Opt
 
 // WithHeaders option is for setting additional http request headers (since it's a function, it can call a remote
 // authorization server to fetch the necessary info needed in these headers).
-func WithHeaders(addHeadersFunc addHeaders) Opt {
-	return func(opts *Opts) {
-		opts.HeadersFunc = addHeadersFunc
-	}
+func WithHeaders(addHeadersFunc webkms.AddHeaders) Opt {
+	return webkms.WithHeaders(addHeadersFunc)
 }
 
 // WithCache add cache. if size is zero cache content will not be purged.
 func WithCache(cacheSize int) Opt {
-	return func(opts *Opts) {
-		opts.ComputeMACCache = gcache.New(cacheSize).Build()
-	}
+	return webkms.WithCache(cacheSize)
 }
 
 // WithMarshalFn allows providing marshal function.
 func WithMarshalFn(fn marshalFunc) Opt {
-	return func(opts *Opts) {
-		opts.marshal = fn
-	}
+	return webkms.WithMarshalFn(fn)
 }

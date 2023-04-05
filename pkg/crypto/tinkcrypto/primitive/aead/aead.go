@@ -10,15 +10,6 @@ SPDX-License-Identifier: Apache-2.0
 package aead
 
 import (
-	"fmt"
-
-	"github.com/google/tink/go/core/registry"
+	// import to initialize.
+	_ "github.com/hyperledger/aries-framework-go/component/kmscrypto/pkg/crypto/tinkcrypto/primitive/aead"
 )
-
-// TODO - find a better way to setup tink than init.
-// nolint: gochecknoinits
-func init() {
-	if err := registry.RegisterKeyManager(newAESCBCHMACAEADKeyManager()); err != nil {
-		panic(fmt.Sprintf("aead.init() failed: %v", err))
-	}
-}

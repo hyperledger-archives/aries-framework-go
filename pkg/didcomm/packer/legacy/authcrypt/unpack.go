@@ -14,10 +14,11 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	chacha "golang.org/x/crypto/chacha20poly1305"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/jwkkid"
+
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 )
 
 // Unpack will decode the envelope using the legacy format
@@ -128,7 +129,7 @@ func findVerKey(km kms.KeyManager, candidateKeys []string) (int, error) {
 	var errs []error
 
 	for i, key := range candidateKeys {
-		recKID, err := localkms.CreateKID(base58.Decode(key), kms.ED25519Type)
+		recKID, err := jwkkid.CreateKID(base58.Decode(key), kms.ED25519Type)
 		if err != nil {
 			return -1, err
 		}

@@ -7,19 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package bbs12381g2pub
 
 import (
-	bls12381 "github.com/kilic/bls12-381"
+	bbs "github.com/hyperledger/aries-framework-go/component/kmscrypto/pkg/crypto/primitive/bbs12381g2pub"
 )
 
 // SignatureMessage defines a message to be used for a signature check.
-type SignatureMessage struct {
-	FR *bls12381.Fr
-}
+type SignatureMessage = bbs.SignatureMessage
 
 // ParseSignatureMessage parses SignatureMessage from bytes.
 func ParseSignatureMessage(message []byte) *SignatureMessage {
-	elm := frFromOKM(message)
-
-	return &SignatureMessage{
-		FR: elm,
-	}
+	return bbs.ParseSignatureMessage(message)
 }

@@ -20,6 +20,7 @@ require (
 	github.com/google/tink/go v1.7.0
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.7.3
+	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0
 	github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20221025204933-b807371b6f1e
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220322085443-50e8f9bd208b
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20221025204933-b807371b6f1e
@@ -39,8 +40,6 @@ require (
 	github.com/tidwall/sjson v1.1.4
 	github.com/xeipuuv/gojsonschema v1.2.0
 	golang.org/x/crypto v0.1.0
-	golang.org/x/sys v0.1.0
-	google.golang.org/protobuf v1.28.1
 	nhooyr.io/websocket v1.8.3
 )
 
@@ -48,8 +47,8 @@ require (
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
+	github.com/hyperledger/aries-framework-go/component/log v0.0.0 // indirect
 	github.com/klauspost/compress v1.10.0 // indirect
-	github.com/kr/pretty v0.2.1 // indirect
 	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1 // indirect
 	github.com/minio/sha256-simd v0.1.1 // indirect
 	github.com/mr-tron/base58 v1.2.0 // indirect
@@ -64,10 +63,15 @@ require (
 	github.com/tidwall/pretty v1.0.2 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
+	golang.org/x/sys v0.1.0 // indirect
 	golang.org/x/time v0.1.0 // indirect
-	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
+	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/hyperledger/aries-framework-go/component/kmscrypto => ./component/kmscrypto
+
+replace github.com/hyperledger/aries-framework-go/component/log => ./component/log
 
 go 1.19
 

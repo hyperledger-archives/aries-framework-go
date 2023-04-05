@@ -9,8 +9,9 @@ SPDX-License-Identifier: Apache-2.0
 
 package api
 
+import (
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/pkg/crypto/tinkcrypto/primitive/cl/api"
+)
+
 // Blinder is the blinding interface primitive for CL Anoncreds used by Tink.
-type Blinder interface {
-	Blind(values map[string]interface{}) ([]byte, error)
-	Free() error
-}
+type Blinder = api.Blinder

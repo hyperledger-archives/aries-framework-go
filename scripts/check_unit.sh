@@ -63,25 +63,40 @@ cd cmd/aries-agent-rest
 PKGS=$(go list github.com/hyperledger/aries-framework-go/cmd/aries-agent-rest/... 2> /dev/null | grep -v /mocks)
 $GO_TEST_CMD $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
 amend_coverage_file
+cd ../..
 
 # Running storageutil unit tests
-cd ../../component/storageutil
+cd component/storageutil
 PKGS=$(go list github.com/hyperledger/aries-framework-go/component/storageutil/... 2> /dev/null)
 $GO_TEST_CMD $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
 amend_coverage_file
+cd ../..
 
 # Running storage/leveldb unit tests
-cd ../storage/leveldb/
+cd component/storage/leveldb/
 PKGS=$(go list github.com/hyperledger/aries-framework-go/component/storage/leveldb/... 2> /dev/null)
 $GO_TEST_CMD $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
 amend_coverage_file
+cd ../../..
+
+# Running kmscrypto unit tests
+cd component/kmscrypto
+PKGS=$(go list github.com/hyperledger/aries-framework-go/component/kmscrypto/... 2> /dev/null)
+$GO_TEST_CMD $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
+amend_coverage_file
+cd ../..
+
+# Running log unit tests
+cd component/log
+PKGS=$(go list github.com/hyperledger/aries-framework-go/component/log/... 2> /dev/null)
+$GO_TEST_CMD $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
+amend_coverage_file
+cd ../..
 
 if [ "$SKIP_DOCKER" = true ]; then
     echo "Skipping edv unit tests"
 else
   # Running storage/edv unit tests
-  cd ../../..
-
   . "$ROOT"/scripts/start_edv_test_docker_images.sh
 
   cd component/storage/edv

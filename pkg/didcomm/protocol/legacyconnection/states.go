@@ -17,6 +17,8 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/jwkkid"
+
 	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	model2 "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
@@ -30,7 +32,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/didcommutil"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/didkeyutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	connectionstore "github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
@@ -428,7 +429,7 @@ func (ctx *context) prepareConnectionSignature(didDoc *did.Doc, verKey string) (
 		signingKey = base58.Decode(verKey)
 	}
 
-	signingKID, err := localkms.CreateKID(signingKey, kms.ED25519Type)
+	signingKID, err := jwkkid.CreateKID(signingKey, kms.ED25519Type)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate KID from public key: %w", err)
 	}

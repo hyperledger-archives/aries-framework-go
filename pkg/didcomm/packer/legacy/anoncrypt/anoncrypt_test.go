@@ -19,6 +19,8 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/jwkkid"
+
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
@@ -111,7 +113,7 @@ func newKMS(t *testing.T) (kms.KeyManager, storage.Store) {
 func persistKey(t *testing.T, pub, priv string, km kms.KeyManager) error {
 	t.Helper()
 
-	kid, err := localkms.CreateKID(base58.Decode(pub), kms.ED25519Type)
+	kid, err := jwkkid.CreateKID(base58.Decode(pub), kms.ED25519Type)
 	if err != nil {
 		return err
 	}
