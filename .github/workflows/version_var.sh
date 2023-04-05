@@ -6,7 +6,7 @@
 
 # Release Parameters
 BASE_VERSION=0.2.0
-IS_RELEASE=false
+IS_RELEASE=true
 
 ARCH=$(go env GOARCH)
 
