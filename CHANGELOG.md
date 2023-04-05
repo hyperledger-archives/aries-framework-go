@@ -1,3 +1,20 @@
+# 0.2.0
+
+## Apr 5, 2023
+
+- Presentation Exchange improvements
+- SD-JWT documentation
+- CI : Ubuntu runner update to v22.04
+
+Refer https://github.com/hyperledger/aries-framework-go/releases/tag/v0.2.0 for new commits.
+
+# 0.1.9
+
+## Feb 24, 2023
+
+Refer https://github.com/hyperledger/aries-framework-go/releases/tag/v0.1.9 for new commits.
+
+
 # 0.1.8
 
 ## March 29, 2022
