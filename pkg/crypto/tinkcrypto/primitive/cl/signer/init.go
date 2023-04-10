@@ -10,17 +10,6 @@ SPDX-License-Identifier: Apache-2.0
 package signer
 
 import (
-	"fmt"
-
-	"github.com/google/tink/go/core/registry"
+	// import to initialize
+	_ "github.com/hyperledger/aries-framework-go/component/kmscrypto/pkg/crypto/tinkcrypto/primitive/cl/signer"
 )
-
-// TODO - find a better way to setup tink than init.
-// nolint: gochecknoinits
-func init() {
-	// TODO - avoid the tink registry singleton.
-	err := registry.RegisterKeyManager(newCLSignerKeyManager())
-	if err != nil {
-		panic(fmt.Sprintf("CL signer.init() failed: %v", err))
-	}
-}

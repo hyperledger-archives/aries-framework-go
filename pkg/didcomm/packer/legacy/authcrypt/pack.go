@@ -16,6 +16,8 @@ import (
 	chacha "golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/poly1305"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/jwkkid"
+
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -134,7 +136,7 @@ func (p *Packer) buildRecipient(cek *[chacha.KeySize]byte, senderKey, recKey []b
 		return nil, fmt.Errorf("buildRecipient: failed to generate random nonce: %w", err)
 	}
 
-	senderKID, err := localkms.CreateKID(senderKey, kms.ED25519Type)
+	senderKID, err := jwkkid.CreateKID(senderKey, kms.ED25519Type)
 	if err != nil {
 		return nil, fmt.Errorf("buildRecipient: failed to create KID for public key: %w", err)
 	}

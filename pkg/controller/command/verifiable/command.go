@@ -15,6 +15,8 @@ import (
 
 	"github.com/piprate/json-gold/ld"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/jwkkid"
+
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
@@ -31,7 +33,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/kmssigner"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	didstore "github.com/hyperledger/aries-framework-go/pkg/store/did"
 	verifiablestore "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
@@ -1066,7 +1067,7 @@ func buildKIDOption(opts *ProofOptions, vms []did.VerificationMethod) error {
 					kt = kmsKeyTypeByJWKCurve(vm.JSONWebKey().Crv)
 				}
 
-				kid, err := localkms.CreateKID(vm.Value, kt)
+				kid, err := jwkkid.CreateKID(vm.Value, kt)
 				if err != nil {
 					return fmt.Errorf("failed to get default verification method: %w", err)
 				}

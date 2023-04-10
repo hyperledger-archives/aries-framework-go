@@ -7,23 +7,53 @@ SPDX-License-Identifier: Apache-2.0
 package secp256k1
 
 import (
-	"fmt"
-
 	"github.com/google/tink/go/core/registry"
+	"github.com/google/tink/go/keyset"
+	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
+	"github.com/google/tink/go/tink"
+
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/pkg/crypto/tinkcrypto/primitive/secp256k1"
 )
 
-// Package secp256k1 provides implementations of the Signer and Verifier
-// primitives.
-//
-// To sign data using Tink you can use the Secp256k1 key templates.
-// nolint:gochecknoinits
-func init() {
-	// ECDSA Secp256K1 key managers.
-	if err := registry.RegisterKeyManager(newSecp256K2SignerKeyManager()); err != nil {
-		panic(fmt.Sprintf("signature.init() failed: %v", err))
-	}
+// This file contains pre-generated KeyTemplates for Signer and Verifier.
+// One can use these templates to generate new Keysets.
 
-	if err := registry.RegisterKeyManager(newSecp256K1VerifierKeyManager()); err != nil {
-		panic(fmt.Sprintf("signature.init() failed: %v", err))
-	}
+// DERKeyTemplate is a KeyTemplate that generates a new ECDSA secp256k1 private key with the following parameters:
+//   - Hash function: SHA256
+//   - Curve: secp256k1
+//   - Signature encoding: DER
+//   - Output prefix type: TINK
+func DERKeyTemplate() (*tinkpb.KeyTemplate, error) {
+	return secp256k1.DERKeyTemplate()
+}
+
+// IEEEP1363KeyTemplate is a KeyTemplate that generates a new ECDSA secp256k1 private key with the following parameters:
+//   - Hash function: SHA256
+//   - Curve: secp256k1
+//   - Signature encoding: IEEE-P1363
+//   - Output prefix type: TINK
+func IEEEP1363KeyTemplate() (*tinkpb.KeyTemplate, error) {
+	return secp256k1.IEEEP1363KeyTemplate()
+}
+
+// NewSigner returns a Signer primitive from the given keyset handle.
+func NewSigner(h *keyset.Handle) (tink.Signer, error) {
+	return secp256k1.NewSigner(h)
+}
+
+// NewSignerWithKeyManager returns a Signer primitive from the given keyset handle and custom key manager.
+// Deprecated: register the KeyManager and use New above.
+func NewSignerWithKeyManager(h *keyset.Handle, km registry.KeyManager) (tink.Signer, error) {
+	return secp256k1.NewSignerWithKeyManager(h, km)
+}
+
+// NewVerifier returns a Verifier primitive from the given keyset handle.
+func NewVerifier(h *keyset.Handle) (tink.Verifier, error) {
+	return secp256k1.NewVerifier(h)
+}
+
+// NewVerifierWithKeyManager returns a Verifier primitive from the given keyset handle and custom key manager.
+// Deprecated: register the KeyManager and use New above.
+func NewVerifierWithKeyManager(h *keyset.Handle, km registry.KeyManager) (tink.Verifier, error) {
+	return secp256k1.NewVerifierWithKeyManager(h, km)
 }

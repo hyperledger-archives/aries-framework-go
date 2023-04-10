@@ -16,6 +16,8 @@ import (
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/jwkkid"
+
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/client/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
@@ -29,7 +31,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	verifiableStore "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
@@ -415,7 +416,7 @@ func (a *SDKSteps) acceptRequestPresentation(prover, verifier, format string) er
 	km := a.bddContext.AgentCtx[prover].KMS()
 	cr := a.bddContext.AgentCtx[prover].Crypto()
 
-	kid, err := localkms.CreateKID(pubKey.Value, kms.ED25519)
+	kid, err := jwkkid.CreateKID(pubKey.Value, kms.ED25519)
 	if err != nil {
 		return fmt.Errorf("failed to key kid for kms: %w", err)
 	}
@@ -520,7 +521,7 @@ func (a *SDKSteps) acceptRequestPresentationV3(prover, verifier, format string) 
 	km := a.bddContext.AgentCtx[prover].KMS()
 	cr := a.bddContext.AgentCtx[prover].Crypto()
 
-	kid, err := localkms.CreateKID(pubKey.Value, kms.ED25519)
+	kid, err := jwkkid.CreateKID(pubKey.Value, kms.ED25519)
 	if err != nil {
 		return fmt.Errorf("failed to key kid for kms: %w", err)
 	}

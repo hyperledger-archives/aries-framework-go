@@ -30,6 +30,8 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/tink/go v1.7.0 // indirect
 	github.com/gorilla/mux v1.7.3 // indirect
+	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0 // indirect
+	github.com/hyperledger/aries-framework-go/component/log v0.0.0 // indirect
 	github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20221025204933-b807371b6f1e // indirect
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20221025204933-b807371b6f1e // indirect
 	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
@@ -38,7 +40,6 @@ require (
 	github.com/kilic/bls12-381 v0.1.1-0.20210503002446-7b7597926c69 // indirect
 	github.com/klauspost/compress v1.10.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.1.2 // indirect
-	github.com/kr/text v0.2.0 // indirect
 	github.com/minio/sha256-simd v1.0.0 // indirect
 	github.com/mr-tron/base58 v1.2.0 // indirect
 	github.com/multiformats/go-base32 v0.1.0 // indirect
@@ -70,6 +71,8 @@ require (
 
 replace (
 	github.com/hyperledger/aries-framework-go => ../..
+	github.com/hyperledger/aries-framework-go/component/kmscrypto => ../../component/kmscrypto
+	github.com/hyperledger/aries-framework-go/component/log => ../../component/log
 	github.com/hyperledger/aries-framework-go/component/storage/edv => ../../component/storage/edv // TODO (#2815) remove this once the wallet package doesn't import edv
 	github.com/hyperledger/aries-framework-go/component/storage/indexeddb => ../../component/storage/indexeddb
 	github.com/hyperledger/aries-framework-go/component/storageutil => ../../component/storageutil

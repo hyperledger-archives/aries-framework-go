@@ -8,12 +8,12 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	crypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
+	crypto "github.com/hyperledger/aries-framework-go/component/kmscrypto/pkg/crypto"
+	kms "github.com/hyperledger/aries-framework-go/component/kmscrypto/pkg/kms"
 	service "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	presentproof "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
 	verifiable "github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdr "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	kms "github.com/hyperledger/aries-framework-go/pkg/kms"
 	verifiable0 "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 	ld "github.com/piprate/json-gold/ld"
 )

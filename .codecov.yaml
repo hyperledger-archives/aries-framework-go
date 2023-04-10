@@ -15,4 +15,5 @@ coverage:
 ignore:
   - "test/bdd"  # ignore bdd tests
   - "proto"
-  - "pkg/crypto/tinkcrypto/primitive/proto"
+  - "component/kmscrypto/pkg/crypto/tinkcrypto/primitive/proto"
+  - "component/kmscrypto/internal/third_party"

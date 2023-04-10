@@ -36,6 +36,8 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/tink/go v1.7.0 // indirect
 	github.com/google/uuid v1.3.0 // indirect
+	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0 // indirect
+	github.com/hyperledger/aries-framework-go/component/log v0.0.0 // indirect
 	github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20221025204933-b807371b6f1e // indirect
 	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
@@ -105,6 +107,8 @@ require (
 
 replace (
 	github.com/hyperledger/aries-framework-go => ../..
+	github.com/hyperledger/aries-framework-go/component/kmscrypto => ../../component/kmscrypto
+	github.com/hyperledger/aries-framework-go/component/log => ../../component/log
 	//	github.com/hyperledger/aries-framework-go/component/storage/edv => ../../component/storage/edv // TODO (#2815) remove this once the wallet package doesn't import edv
 	github.com/hyperledger/aries-framework-go/component/storage/leveldb => ../../component/storage/leveldb
 	github.com/hyperledger/aries-framework-go/component/storageutil => ../../component/storageutil
