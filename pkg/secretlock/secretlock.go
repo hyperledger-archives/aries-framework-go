@@ -7,7 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 // and more specifically used by the KMS service.
 package secretlock
 
-import "github.com/hyperledger/aries-framework-go/component/kmscrypto/pkg/secretlock"
+import (
+	"github.com/hyperledger/aries-framework-go/spi/secretlock"
+)
 
 // Service provides crypto service used internally by the KMS
 // it is responsible for wrapping/unwrapping keys stored by the KMS using a master key.

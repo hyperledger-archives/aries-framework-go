@@ -12,7 +12,7 @@ package signer
 import (
 	"github.com/google/tink/go/keyset"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/pkg/crypto/tinkcrypto/primitive/cl/signer"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/cl/signer"
 )
 
 // ExportCredDefPubKey will export corresponding pubKey in bytes.

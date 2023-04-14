@@ -11,5 +11,5 @@ package aead
 
 import (
 	// import to initialize.
-	_ "github.com/hyperledger/aries-framework-go/component/kmscrypto/pkg/crypto/tinkcrypto/primitive/aead"
+	_ "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/aead"
 )

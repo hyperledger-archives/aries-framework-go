@@ -70,8 +70,6 @@ github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-202210252
 github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20221025204933-b807371b6f1e/go.mod h1:ACGP1L+WeecDtyA0Mi2E1kqtPLIGrCWPSJ43q2elwX8=
 github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220322085443-50e8f9bd208b h1:IoD7+sHQRLMouwHjhrOj5vhg+rPt/aKl4P+WiBZVHVk=
 github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220322085443-50e8f9bd208b/go.mod h1:yLgRpVlZ2heeeOpTgvEnG/yHL9q1keUu5ILQ6s2qpLU=
-github.com/hyperledger/aries-framework-go/spi v0.0.0-20221025204933-b807371b6f1e h1:SxbXlF39661T9w/L9PhVdtbJfJ51Pm4JYEEW6XfZHEQ=
-github.com/hyperledger/aries-framework-go/spi v0.0.0-20221025204933-b807371b6f1e/go.mod h1:oryUyWb23l/a3tAP9KW+GBbfcfqp9tZD4y5hSkFrkqI=
 github.com/hyperledger/aries-framework-go/test/component v0.0.0-20220428211718-66cc046674a1 h1:vxZ0DlFNLjgxMdBESLZu895AsI1JWL2SJerphwIn8Po=
 github.com/hyperledger/ursa-wrapper-go v0.3.1 h1:Do+QrVNniY77YK2jTIcyWqj9rm/Yb5SScN0bqCjiibA=
 github.com/hyperledger/ursa-wrapper-go v0.3.1/go.mod h1:nPSAuMasIzSVciQo22PedBk4Opph6bJ6ia3ms7BH/mk=

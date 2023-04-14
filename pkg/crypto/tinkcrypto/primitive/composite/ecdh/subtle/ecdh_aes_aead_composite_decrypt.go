@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package subtle
 
 import (
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/pkg/crypto/tinkcrypto/primitive/composite/ecdh/subtle"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/composite/ecdh/subtle"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 )
 
