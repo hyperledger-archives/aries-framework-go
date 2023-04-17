@@ -10,7 +10,7 @@ SPDX-License-Identifier: Apache-2.0
 package subtle
 
 import (
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/pkg/crypto/tinkcrypto/primitive/cl/subtle"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/cl/subtle"
 )
 
 // CLSigner is used for CL signature using the provided CredDef key.

@@ -21,6 +21,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.7.3
 	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0
+	github.com/hyperledger/aries-framework-go/component/log v0.0.0
 	github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20221025204933-b807371b6f1e
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220322085443-50e8f9bd208b
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20221025204933-b807371b6f1e
@@ -47,7 +48,6 @@ require (
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
-	github.com/hyperledger/aries-framework-go/component/log v0.0.0 // indirect
 	github.com/klauspost/compress v1.10.0 // indirect
 	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1 // indirect
 	github.com/minio/sha256-simd v0.1.1 // indirect
@@ -72,6 +72,8 @@ require (
 replace github.com/hyperledger/aries-framework-go/component/kmscrypto => ./component/kmscrypto
 
 replace github.com/hyperledger/aries-framework-go/component/log => ./component/log
+
+replace github.com/hyperledger/aries-framework-go/spi => ./spi
 
 go 1.19
 

@@ -11,7 +11,7 @@ SPDX-License-Identifier: Apache-2.0
 package tinkcrypto
 
 import (
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/pkg/crypto/tinkcrypto"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto"
 )
 
 const (

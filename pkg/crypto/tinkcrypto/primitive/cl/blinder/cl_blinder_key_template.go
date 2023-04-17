@@ -12,7 +12,7 @@ package blinder
 import (
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/pkg/crypto/tinkcrypto/primitive/cl/blinder"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/cl/blinder"
 )
 
 // MasterSecretKeyTemplate is for creating CL Master Secret key template.

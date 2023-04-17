@@ -9,7 +9,7 @@ package bbs12381g2pub
 import (
 	bls12381 "github.com/kilic/bls12-381"
 
-	bbs "github.com/hyperledger/aries-framework-go/component/kmscrypto/pkg/crypto/primitive/bbs12381g2pub"
+	bbs "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/primitive/bbs12381g2pub"
 )
 
 // PoKOfSignatureProof defines BLS signature proof.

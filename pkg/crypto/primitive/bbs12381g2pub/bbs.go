@@ -12,7 +12,7 @@ SPDX-License-Identifier: Apache-2.0
 package bbs12381g2pub
 
 import (
-	bbs "github.com/hyperledger/aries-framework-go/component/kmscrypto/pkg/crypto/primitive/bbs12381g2pub"
+	bbs "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/primitive/bbs12381g2pub"
 )
 
 // BBSG2Pub defines BBS+ signature scheme where public key is a point in the field of G2.

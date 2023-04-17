@@ -13,7 +13,7 @@ package pbkdf2
 import (
 	"hash"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/pkg/secretlock/local/masterlock/pbkdf2"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/local/masterlock/pbkdf2"
 
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 )

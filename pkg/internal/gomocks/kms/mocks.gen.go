@@ -8,8 +8,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	kms "github.com/hyperledger/aries-framework-go/component/kmscrypto/pkg/kms"
-	secretlock "github.com/hyperledger/aries-framework-go/component/kmscrypto/pkg/secretlock"
+	kms "github.com/hyperledger/aries-framework-go/spi/kms"
+	secretlock "github.com/hyperledger/aries-framework-go/spi/secretlock"
 )
 
 // MockProvider is a mock of Provider interface.

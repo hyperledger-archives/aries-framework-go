@@ -1,3 +1,7 @@
+// Copyright Gen Digital Inc. All Rights Reserved.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 module github.com/hyperledger/aries-framework-go/component/kmscrypto
 
 go 1.19
@@ -28,4 +32,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/hyperledger/aries-framework-go/component/log => ../log
+replace (
+	github.com/hyperledger/aries-framework-go/component/log => ../log
+	github.com/hyperledger/aries-framework-go/spi => ../../spi
+)

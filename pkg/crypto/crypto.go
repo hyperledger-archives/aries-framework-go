@@ -15,23 +15,24 @@ package crypto
 import (
 	"crypto/ecdsa"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto"
+	cryptoapi "github.com/hyperledger/aries-framework-go/spi/crypto"
 )
 
 // Crypto interface provides all crypto operations needed in the Aries framework.
-type Crypto = crypto.Crypto
+type Crypto = cryptoapi.Crypto
 
 // DefKeySize is the default key size for crypto primitives.
 const DefKeySize = crypto.DefKeySize
 
 // RecipientWrappedKey contains recipient key material required to unwrap CEK.
-type RecipientWrappedKey = crypto.RecipientWrappedKey
+type RecipientWrappedKey = cryptoapi.RecipientWrappedKey
 
 // PublicKey mainly to exchange EPK in RecipientWrappedKey.
-type PublicKey = crypto.PublicKey
+type PublicKey = cryptoapi.PublicKey
 
 // PrivateKey mainly used to exchange ephemeral private key in JWE encrypter.
-type PrivateKey = crypto.PrivateKey
+type PrivateKey = cryptoapi.PrivateKey
 
 // ToECKey converts key to an ecdsa public key. It returns an error if the curve is invalid.
 func ToECKey(key *PublicKey) (*ecdsa.PublicKey, error) {
@@ -39,7 +40,7 @@ func ToECKey(key *PublicKey) (*ecdsa.PublicKey, error) {
 }
 
 // WrapKeyOpts are the crypto.Wrap key options.
-type WrapKeyOpts = crypto.WrapKeyOpts
+type WrapKeyOpts = cryptoapi.WrapKeyOpts
 
 // WithSender option is for setting a sender key with crypto wrapping (eg: AuthCrypt). For Anoncrypt,
 // this option must not be set.
@@ -49,7 +50,7 @@ type WrapKeyOpts = crypto.WrapKeyOpts
 //   - *crypto.PublicKey (available for UnwrapKey() only)
 //   - *ecdsa.PublicKey (available for UnwrapKey() only)
 func WithSender(senderKey interface{}) WrapKeyOpts {
-	return crypto.WithSender(senderKey)
+	return cryptoapi.WithSender(senderKey)
 }
 
 // WithXC20PKW option is a flag option for crypto wrapping. When used, key wrapping will use XChacha20Poly1305
@@ -57,14 +58,14 @@ func WithSender(senderKey interface{}) WrapKeyOpts {
 // used in the crypto wrapping function is selected based on the type of recipient key argument of KeyWrap(), it is
 // independent of this option.
 func WithXC20PKW() WrapKeyOpts {
-	return crypto.WithXC20PKW()
+	return cryptoapi.WithXC20PKW()
 }
 
 // WithTag option is to instruct the key wrapping function of the authentication tag to be used in the wrapping process.
 // It is mainly used with CBC+HMAC content encryption to authenticate the sender of an encrypted JWE message (ie
 // authcrypt/ECDH-1PU). The absence of this option means the sender's identity is not revealed (ie anoncrypt/ECDH-ES).
 func WithTag(tag []byte) WrapKeyOpts {
-	return crypto.WithTag(tag)
+	return cryptoapi.WithTag(tag)
 }
 
 // WithEPK option is to instruct the key wrapping function of the ephemeral key to be used in the wrapping process.
@@ -72,5 +73,5 @@ func WithTag(tag []byte) WrapKeyOpts {
 // one when wrapping. It is useful for Wrap() call only since Unwrap() already uses a predefined EPK. The absence of
 // this option means a new EPK will be generated internally.
 func WithEPK(epk *PrivateKey) WrapKeyOpts {
-	return crypto.WithEPK(epk)
+	return cryptoapi.WithEPK(epk)
 }

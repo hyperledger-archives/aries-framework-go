@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package bbs12381g2pub
 
 import (
-	bbs "github.com/hyperledger/aries-framework-go/component/kmscrypto/pkg/crypto/primitive/bbs12381g2pub"
+	bbs "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/primitive/bbs12381g2pub"
 )
 
 // PoKOfSignature is Proof of Knowledge of a Signature that is used by the prover to construct PoKOfSignatureProof.

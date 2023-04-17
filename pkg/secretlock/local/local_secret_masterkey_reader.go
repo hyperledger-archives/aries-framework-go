@@ -8,7 +8,7 @@ package local
 import (
 	"io"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/pkg/secretlock/local"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/local"
 )
 
 // MasterKeyFromPath creates a new instance of a local secret lock Reader to read a master key stored in `path`.

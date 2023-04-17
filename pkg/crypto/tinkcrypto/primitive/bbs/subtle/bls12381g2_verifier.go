@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package subtle
 
 import (
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/pkg/crypto/tinkcrypto/primitive/bbs/subtle"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/bbs/subtle"
 )
 
 // BLS12381G2Verifier is the BBS+ signature/proof verifier for keys on BLS12-381 curve with a point in the G2 group.
