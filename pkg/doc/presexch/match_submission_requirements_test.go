@@ -77,8 +77,6 @@ func TestInstance_GetSubmissionRequirements(t *testing.T) {
 		requirements, err := pdQuery.MatchSubmissionRequirement(
 			credentials,
 			docLoader,
-			verifiable.WithDisabledProofCheck(),
-			verifiable.WithJSONLDDocumentLoader(docLoader),
 		)
 
 		require.NoError(t, err)
@@ -101,8 +99,6 @@ func TestInstance_GetSubmissionRequirements(t *testing.T) {
 		requirements, err := pdQuery.MatchSubmissionRequirement(
 			credentials,
 			docLoader,
-			verifiable.WithDisabledProofCheck(),
-			verifiable.WithJSONLDDocumentLoader(docLoader),
 		)
 
 		require.NoError(t, err)
@@ -125,8 +121,6 @@ func TestInstance_GetSubmissionRequirements(t *testing.T) {
 		requirements, err := pdQuery.MatchSubmissionRequirement(
 			credentials,
 			docLoader,
-			verifiable.WithDisabledProofCheck(),
-			verifiable.WithJSONLDDocumentLoader(docLoader),
 		)
 
 		require.NoError(t, err)
