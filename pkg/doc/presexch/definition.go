@@ -253,6 +253,12 @@ func (pd *PresentationDefinition) ValidateSchema() error {
 	return errors.New(strings.Join(errs, ","))
 }
 
+type constraintsFilterResult struct {
+	credential    *verifiable.Credential
+	credentialSrc []byte
+	constraints   *Constraints
+}
+
 type requirement struct {
 	Name             string
 	Purpose          string
@@ -483,7 +489,7 @@ func makeRequirementsForMatch(requirements []*SubmissionRequirement,
 
 // MatchSubmissionRequirement return information about matching VCs.
 func (pd *PresentationDefinition) MatchSubmissionRequirement(credentials []*verifiable.Credential,
-	documentLoader ld.DocumentLoader, opts ...verifiable.CredentialOpt) ([]*MatchedSubmissionRequirement, error) {
+	documentLoader ld.DocumentLoader) ([]*MatchedSubmissionRequirement, error) {
 	if err := pd.ValidateSchema(); err != nil {
 		return nil, err
 	}
@@ -496,7 +502,7 @@ func (pd *PresentationDefinition) MatchSubmissionRequirement(credentials []*veri
 	var matchedReqs []*MatchedSubmissionRequirement
 
 	for _, req := range requirements {
-		matched, err := pd.matchRequirement(req, credentials, documentLoader, opts...)
+		matched, err := pd.matchRequirement(req, credentials, documentLoader)
 		if err != nil {
 			return nil, err
 		}
@@ -511,8 +517,7 @@ func (pd *PresentationDefinition) MatchSubmissionRequirement(credentials []*veri
 var ErrNoCredentials = errors.New("credentials do not satisfy requirements")
 
 func (pd *PresentationDefinition) matchRequirement(req *requirement, creds []*verifiable.Credential,
-	documentLoader ld.DocumentLoader,
-	opts ...verifiable.CredentialOpt) (*MatchedSubmissionRequirement, error) {
+	documentLoader ld.DocumentLoader) (*MatchedSubmissionRequirement, error) {
 	matchedReq := &MatchedSubmissionRequirement{
 		Name:        req.Name,
 		Purpose:     req.Purpose,
@@ -527,23 +532,28 @@ func (pd *PresentationDefinition) matchRequirement(req *requirement, creds []*ve
 	if len(req.InputDescriptors) != 0 {
 		for _, descriptor := range req.InputDescriptors {
 			_, filtered, err := pd.filterCredentialsThatMatchDescriptor(
-				creds, descriptor, documentLoader, opts...)
+				creds, descriptor, documentLoader)
 
 			if err != nil {
 				return nil, err
+			}
+
+			var matchedVCs []*verifiable.Credential
+			for _, credRes := range filtered {
+				matchedVCs = append(matchedVCs, credRes.credential)
 			}
 
 			matchedReq.Descriptors = append(matchedReq.Descriptors, &MatchedInputDescriptor{
 				ID:         descriptor.ID,
 				Name:       descriptor.Name,
 				Purpose:    descriptor.Purpose,
-				MatchedVCs: filtered,
+				MatchedVCs: matchedVCs,
 			})
 		}
 	}
 
 	for _, nestedReq := range req.Nested {
-		nestedMatch, err := pd.matchRequirement(nestedReq, creds, documentLoader, opts...)
+		nestedMatch, err := pd.matchRequirement(nestedReq, creds, documentLoader)
 		if err != nil {
 			return nil, err
 		}
@@ -565,9 +575,13 @@ func (pd *PresentationDefinition) applyRequirement(req *requirement, creds []*ve
 	vpFormat := FormatLDPVP
 
 	for _, descriptor := range req.InputDescriptors {
-		descFormat, filtered, err := pd.filterCredentialsThatMatchDescriptor(
-			creds, descriptor, documentLoader, opts...)
+		framedCreds, err := frameCreds(pd.Frame, creds, opts...)
+		if err != nil {
+			return "", nil, err
+		}
 
+		descFormat, filtered, err := pd.filterCredentialsThatMatchDescriptor(
+			framedCreds, descriptor, documentLoader)
 		if err != nil {
 			return "", nil, err
 		}
@@ -576,8 +590,13 @@ func (pd *PresentationDefinition) applyRequirement(req *requirement, creds []*ve
 			vpFormat = descFormat
 		}
 
+		filteredCreds, err := limitDisclosure(filtered, opts...)
+		if err != nil {
+			return "", nil, err
+		}
+
 		if len(filtered) != 0 {
-			result[descriptor.ID] = filtered
+			result[descriptor.ID] = filteredCreds
 		}
 	}
 
@@ -635,19 +654,14 @@ func (pd *PresentationDefinition) applyRequirement(req *requirement, creds []*ve
 
 func (pd *PresentationDefinition) filterCredentialsThatMatchDescriptor(creds []*verifiable.Credential,
 	descriptor *InputDescriptor,
-	documentLoader ld.DocumentLoader,
-	opts ...verifiable.CredentialOpt) (string, []*verifiable.Credential, error) {
+	documentLoader ld.DocumentLoader) (string, []constraintsFilterResult, error) {
 	format := pd.Format
 	if descriptor.Format.notNil() {
 		format = descriptor.Format
 	}
 
 	vpFormat := ""
-
-	filtered, err := frameCreds(pd.Frame, creds, opts...)
-	if err != nil {
-		return "", nil, err
-	}
+	filtered := creds
 
 	if format.notNil() {
 		vpFormat, filtered = filterFormat(format, filtered)
@@ -658,12 +672,12 @@ func (pd *PresentationDefinition) filterCredentialsThatMatchDescriptor(creds []*
 		filtered = filterSchema(descriptor.Schema, filtered, documentLoader)
 	}
 
-	filtered, err = filterConstraints(descriptor.Constraints, filtered, opts...)
+	filteredByConstraints, err := filterConstraints(descriptor.Constraints, filtered)
 	if err != nil {
 		return "", nil, err
 	}
 
-	return vpFormat, filtered, nil
+	return vpFormat, filteredByConstraints, nil
 }
 
 func mergeNestedResult(nr []map[string][]*verifiable.Credential,
@@ -759,13 +773,18 @@ func subjectIsIssuer(credential *verifiable.Credential) bool {
 }
 
 // nolint: gocyclo,funlen,gocognit
-func filterConstraints(constraints *Constraints, creds []*verifiable.Credential,
-	opts ...verifiable.CredentialOpt) ([]*verifiable.Credential, error) {
-	if constraints == nil {
-		return creds, nil
-	}
+func filterConstraints(constraints *Constraints, creds []*verifiable.Credential) ([]constraintsFilterResult, error) {
+	var result []constraintsFilterResult
 
-	var result []*verifiable.Credential
+	if constraints == nil {
+		for _, credential := range creds {
+			result = append(result, constraintsFilterResult{
+				credential: credential,
+			})
+		}
+
+		return result, nil
+	}
 
 	for _, credential := range creds {
 		if constraints.SubjectIsIssuer.isRequired() && !subjectIsIssuer(credential) {
@@ -808,8 +827,6 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential,
 			return nil, err
 		}
 
-		var predicate bool
-
 		for i, field := range constraints.Fields {
 			err = filterField(field, credentialMap)
 			if errors.Is(err, errPathNotApplicable) {
@@ -822,15 +839,46 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential,
 				return nil, fmt.Errorf("filter field.%d: %w", i, err)
 			}
 
-			if field.Predicate.isRequired() {
-				predicate = true
-			}
-
 			applicable = true
 		}
 
 		if !applicable {
 			continue
+		}
+
+		filterRes := constraintsFilterResult{
+			credential:    credential,
+			credentialSrc: credentialSrc,
+			constraints:   constraints,
+		}
+
+		result = append(result, filterRes)
+	}
+
+	return result, nil
+}
+
+// nolint: gocyclo, funlen
+func limitDisclosure(filterResults []constraintsFilterResult,
+	opts ...verifiable.CredentialOpt) ([]*verifiable.Credential, error) {
+	var result []*verifiable.Credential
+
+	for _, filtered := range filterResults {
+		credential := filtered.credential
+		constraints := filtered.constraints
+		credentialSrc := filtered.credentialSrc
+
+		if constraints == nil {
+			result = append(result, credential)
+			continue
+		}
+
+		var predicate bool
+
+		for _, field := range constraints.Fields {
+			if field.Predicate.isRequired() {
+				predicate = true
+			}
 		}
 
 		if (constraints.LimitDisclosure.isRequired() || predicate) && credential.SDJWTHashAlg == "" {
@@ -845,6 +893,8 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential,
 			contexts = append(contexts, credential.CustomContext...)
 
 			if constraints.LimitDisclosure.isRequired() {
+				var err error
+
 				template, err = json.Marshal(map[string]interface{}{
 					"id":                credential.ID,
 					"type":              credential.Types,
