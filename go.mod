@@ -20,7 +20,7 @@ require (
 	github.com/google/tink/go v1.7.0
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.7.3
-	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230417184158-344a7f82c4c2
+	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230420151605-a45b1b02336f
 	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230417184158-344a7f82c4c2
 	github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20221025204933-b807371b6f1e
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220322085443-50e8f9bd208b
