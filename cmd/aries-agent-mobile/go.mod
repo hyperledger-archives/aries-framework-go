@@ -10,7 +10,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/hyperledger/aries-framework-go v0.1.9-0.20221025204933-b807371b6f1e
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220322085443-50e8f9bd208b
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20221025204933-b807371b6f1e
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20230417184158-344a7f82c4c2
 	github.com/hyperledger/aries-framework-go/test/component v0.0.0-20220428211718-66cc046674a1
 	github.com/piprate/json-gold v0.4.2
 	github.com/stretchr/testify v1.8.1
