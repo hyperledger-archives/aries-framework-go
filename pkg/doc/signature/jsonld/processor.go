@@ -15,6 +15,7 @@ import (
 	"github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/common/utils"
 )
 
 const (
@@ -246,7 +247,7 @@ func removeDuplicateIDs(inputDoc map[string]interface{}, proc *ld.JsonLdProcesso
 	var randomIds map[string]string
 
 	if len(duplicatedIDs) > 0 {
-		inputDocCopy = copyMap(inputDoc)
+		inputDocCopy = utils.CopyMap(inputDoc)
 
 		randomIds = make(map[string]string)
 
@@ -265,21 +266,6 @@ func removeDuplicateIDs(inputDoc map[string]interface{}, proc *ld.JsonLdProcesso
 	}
 
 	return inputDocCopy, randomIds, nil
-}
-
-func copyMap(m map[string]interface{}) map[string]interface{} {
-	cm := make(map[string]interface{})
-
-	for k, v := range m {
-		vm, ok := v.(map[string]interface{})
-		if ok {
-			cm[k] = copyMap(vm)
-		} else {
-			cm[k] = v
-		}
-	}
-
-	return cm
 }
 
 func getDuplicatedIDs(doc map[string]interface{}, proc *ld.JsonLdProcessor, options *ld.JsonLdOptions) (

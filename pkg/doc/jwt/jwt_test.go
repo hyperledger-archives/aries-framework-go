@@ -18,6 +18,7 @@ import (
 
 	"github.com/go-jose/go-jose/v3/json"
 	"github.com/go-jose/go-jose/v3/jwt"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
@@ -87,7 +88,7 @@ func TestNewUnsecured(t *testing.T) {
 		r.NoError(err)
 		r.NotEmpty(jwtUnsecured)
 
-		parsedJWT, err := Parse(jwtUnsecured, WithSignatureVerifier(UnsecuredJWTVerifier()))
+		parsedJWT, _, err := Parse(jwtUnsecured, WithSignatureVerifier(UnsecuredJWTVerifier()))
 		r.NoError(err)
 		r.NotNil(parsedJWT)
 
@@ -141,7 +142,7 @@ func TestParse(t *testing.T) {
 	verifier, err := NewEd25519Verifier(pubKey)
 	r.NoError(err)
 
-	jsonWebToken, err := Parse(jws, WithSignatureVerifier(verifier))
+	jsonWebToken, _, err := Parse(jws, WithSignatureVerifier(verifier))
 	r.NoError(err)
 
 	var parsedClaims map[string]interface{}
@@ -150,6 +151,11 @@ func TestParse(t *testing.T) {
 
 	r.Equal(claims, parsedClaims)
 
+	// parse without .Payload data
+	jsonWebToken, _, err = Parse(jws, WithSignatureVerifier(verifier), WithIgnoreClaimsMapDecoding(true))
+	r.NoError(err)
+	assert.Nil(t, jsonWebToken.Payload)
+
 	// parse detached JWT
 	jwsParts := strings.Split(jws, ".")
 	jwsDetached := fmt.Sprintf("%s..%s", jwsParts[0], jwsParts[2])
@@ -157,7 +163,7 @@ func TestParse(t *testing.T) {
 	jwsPayload, err := base64.RawURLEncoding.DecodeString(jwsParts[1])
 	require.NoError(t, err)
 
-	jsonWebToken, err = Parse(jwsDetached,
+	jsonWebToken, _, err = Parse(jwsDetached,
 		WithSignatureVerifier(verifier), WithJWTDetachedPayload(jwsPayload))
 	r.NoError(err)
 	r.NotNil(r, jsonWebToken)
@@ -165,7 +171,7 @@ func TestParse(t *testing.T) {
 	// claims is not JSON
 	jws, err = buildJWS(signer, "not JSON")
 	r.NoError(err)
-	token, err = Parse(jws, WithSignatureVerifier(verifier))
+	token, _, err = Parse(jws, WithSignatureVerifier(verifier))
 	r.Error(err)
 	r.Contains(err.Error(), "read JWT claims from JWS payload")
 	r.Nil(token)
@@ -174,7 +180,7 @@ func TestParse(t *testing.T) {
 	signer.headers = map[string]interface{}{"alg": "EdDSA", "typ": "JWM"}
 	jws, err = buildJWS(signer, map[string]interface{}{"iss": "Albert"})
 	r.NoError(err)
-	token, err = Parse(jws, WithSignatureVerifier(verifier))
+	token, _, err = Parse(jws, WithSignatureVerifier(verifier))
 	r.Error(err)
 	r.Contains(err.Error(), "typ is not JWT")
 	r.Nil(token)
@@ -183,19 +189,19 @@ func TestParse(t *testing.T) {
 	signer.headers = map[string]interface{}{"alg": "EdDSA", "typ": "JWT", "cty": "JWT"}
 	jws, err = buildJWS(signer, map[string]interface{}{"iss": "Albert"})
 	r.NoError(err)
-	token, err = Parse(jws, WithSignatureVerifier(verifier))
+	token, _, err = Parse(jws, WithSignatureVerifier(verifier))
 	r.Error(err)
 	r.Contains(err.Error(), "nested JWT is not supported")
 	r.Nil(token)
 
 	// handle compact JWS of invalid form
-	token, err = Parse("invalid.compact.JWS")
+	token, _, err = Parse("invalid.compact.JWS")
 	r.Error(err)
 	r.Contains(err.Error(), "parse JWT from compact JWS")
 	r.Nil(token)
 
 	// pass not compact JWS
-	token, err = Parse("invalid jws")
+	token, _, err = Parse("invalid jws")
 	r.Error(err)
 	r.EqualError(err, "JWT of compacted JWS form is supported only")
 	r.Nil(token)

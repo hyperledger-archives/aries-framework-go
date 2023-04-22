@@ -156,7 +156,7 @@ func SignJWT( // nolint: funlen,gocyclo
 //   - A VDR that can resolve the JWT's signing DID.
 func VerifyJWT(compactJWT string,
 	didResolver didResolver) error {
-	_, err := jwt.Parse(compactJWT, jwt.WithSignatureVerifier(jwt.NewVerifier(
+	_, _, err := jwt.Parse(compactJWT, jwt.WithSignatureVerifier(jwt.NewVerifier(
 		jwt.KeyResolverFunc(verifiable.NewVDRKeyResolver(didResolver).PublicKeyFetcher())),
 	))
 	if err != nil {
@@ -168,12 +168,12 @@ func VerifyJWT(compactJWT string,
 
 // ResolveSigningVM resolves a DID KeyID using the given did resolver, and returns either:
 //
-//  - the Verification Method identified by the given key ID, or
-//  - the first Assertion Method in the DID doc, if the DID provided has no fragment component.
+//   - the Verification Method identified by the given key ID, or
+//   - the first Assertion Method in the DID doc, if the DID provided has no fragment component.
 //
 // Returns:
-//  - a verification method suitable for signing.
-//  - the full DID#KID identifier of the returned verification method.
+//   - a verification method suitable for signing.
+//   - the full DID#KID identifier of the returned verification method.
 func ResolveSigningVM(kid string, didResolver didResolver) (*did.VerificationMethod, string, error) {
 	vmSplit := strings.Split(kid, "#")
 

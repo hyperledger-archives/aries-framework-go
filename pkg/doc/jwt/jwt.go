@@ -33,8 +33,9 @@ type Claims jwt.Claims
 
 // jwtParseOpts holds options for the JWT parsing.
 type parseOpts struct {
-	detachedPayload []byte
-	sigVerifier     jose.SignatureVerifier
+	detachedPayload         []byte
+	sigVerifier             jose.SignatureVerifier
+	ignoreClaimsMapDecoding bool
 }
 
 // ParseOpt is the JWT Parser option.
@@ -44,6 +45,14 @@ type ParseOpt func(opts *parseOpts)
 func WithJWTDetachedPayload(payload []byte) ParseOpt {
 	return func(opts *parseOpts) {
 		opts.detachedPayload = payload
+	}
+}
+
+// WithIgnoreClaimsMapDecoding option is for ignore decoding claims into .Payload map[string]interface.
+// Decoding to map[string]interface is pretty expensive, so this option can be used for performance critical operations.
+func WithIgnoreClaimsMapDecoding(ignoreClaimsMapDecoding bool) ParseOpt {
+	return func(opts *parseOpts) {
+		opts.ignoreClaimsMapDecoding = ignoreClaimsMapDecoding
 	}
 }
 
@@ -105,9 +114,9 @@ type JSONWebToken struct {
 
 // Parse parses input JWT in serialized form into JSON Web Token.
 // Currently JWS and unsecured JWT is supported.
-func Parse(jwtSerialized string, opts ...ParseOpt) (*JSONWebToken, error) {
+func Parse(jwtSerialized string, opts ...ParseOpt) (*JSONWebToken, []byte, error) {
 	if !jose.IsCompactJWS(jwtSerialized) {
-		return nil, errors.New("JWT of compacted JWS form is supported only")
+		return nil, nil, errors.New("JWT of compacted JWS form is supported only")
 	}
 
 	pOpts := &parseOpts{}
@@ -149,7 +158,7 @@ func (j *JSONWebToken) Serialize(detached bool) (string, error) {
 	return j.jws.SerializeCompact(detached)
 }
 
-func parseJWS(jwtSerialized string, opts *parseOpts) (*JSONWebToken, error) {
+func parseJWS(jwtSerialized string, opts *parseOpts) (*JSONWebToken, []byte, error) {
 	jwsOpts := make([]jose.JWSParseOpt, 0)
 
 	if opts.detachedPayload != nil {
@@ -158,30 +167,34 @@ func parseJWS(jwtSerialized string, opts *parseOpts) (*JSONWebToken, error) {
 
 	jws, err := jose.ParseJWS(jwtSerialized, opts.sigVerifier, jwsOpts...)
 	if err != nil {
-		return nil, fmt.Errorf("parse JWT from compact JWS: %w", err)
+		return nil, nil, fmt.Errorf("parse JWT from compact JWS: %w", err)
 	}
 
-	return mapJWSToJWT(jws)
+	return mapJWSToJWT(jws, opts)
 }
 
-func mapJWSToJWT(jws *jose.JSONWebSignature) (*JSONWebToken, error) {
+func mapJWSToJWT(jws *jose.JSONWebSignature, opts *parseOpts) (*JSONWebToken, []byte, error) {
 	headers := jws.ProtectedHeaders
 
 	err := checkHeaders(headers)
 	if err != nil {
-		return nil, fmt.Errorf("check JWT headers: %w", err)
+		return nil, nil, fmt.Errorf("check JWT headers: %w", err)
 	}
 
-	claims, err := PayloadToMap(jws.Payload)
-	if err != nil {
-		return nil, fmt.Errorf("read JWT claims from JWS payload: %w", err)
-	}
-
-	return &JSONWebToken{
+	token := &JSONWebToken{
 		Headers: headers,
-		Payload: claims,
 		jws:     jws,
-	}, nil
+	}
+
+	if !opts.ignoreClaimsMapDecoding {
+		claims, err := PayloadToMap(jws.Payload)
+		if err != nil {
+			return nil, nil, fmt.Errorf("read JWT claims from JWS payload: %w", err)
+		}
+		token.Payload = claims
+	}
+
+	return token, jws.Payload, nil
 }
 
 // NewSigned creates new signed JSON Web Token based on input claims.

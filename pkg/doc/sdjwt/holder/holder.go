@@ -78,7 +78,7 @@ func Parse(combinedFormatForIssuance string, opts ...ParseOpt) ([]*Claim, error)
 
 	cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
 
-	signedJWT, err := afgjwt.Parse(cfi.SDJWT, jwtOpts...)
+	signedJWT, _, err := afgjwt.Parse(cfi.SDJWT, jwtOpts...)
 	if err != nil {
 		return nil, err
 	}

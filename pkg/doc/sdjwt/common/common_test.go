@@ -18,6 +18,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/utils"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	afjwt "github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 )
@@ -142,7 +143,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuance)
 		require.Equal(t, 1, len(sdJWT.Disclosures))
 
-		signedJWT, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
 		require.NoError(t, err)
 
 		err = VerifyDisclosuresInSDJWT(sdJWT.Disclosures, signedJWT)
@@ -154,7 +155,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 
 		sdJWT := ParseCombinedFormatForPresentation(specExample2bPresentation)
 
-		signedJWT, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
 		require.NoError(t, err)
 
 		err = VerifyDisclosuresInSDJWT(sdJWT.Disclosures, signedJWT)
@@ -190,7 +191,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuance)
 		require.Equal(t, 1, len(sdJWT.Disclosures))
 
-		signedJWT, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
 		require.NoError(t, err)
 
 		err = VerifyDisclosuresInSDJWT(append(sdJWT.Disclosures, additionalDisclosure), signedJWT)
@@ -269,7 +270,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 	t.Run("error - selective disclosures must be a string", func(t *testing.T) {
 		payload := make(map[string]interface{})
 		payload[SDAlgorithmKey] = testAlg
-		payload[SDKey] = []int{123}
+		payload[SDKey] = []float64{123}
 
 		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
 		r.NoError(err)
@@ -344,7 +345,7 @@ func TestGetDisclosedClaims(t *testing.T) {
 	disclosureClaims, err := GetDisclosureClaims(cfi.Disclosures)
 	r.NoError(err)
 
-	token, err := afjwt.Parse(cfi.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+	token, _, err := afjwt.Parse(cfi.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
 	r.NoError(err)
 
 	var claims map[string]interface{}
@@ -365,7 +366,7 @@ func TestGetDisclosedClaims(t *testing.T) {
 	})
 
 	t.Run("success - with complex object", func(t *testing.T) {
-		testClaims := copyMap(claims)
+		testClaims := utils.CopyMap(claims)
 
 		additionalDigest, err := GetHash(crypto.SHA256, additionalDisclosure)
 		r.NoError(err)
@@ -395,7 +396,7 @@ func TestGetDisclosedClaims(t *testing.T) {
 	})
 
 	t.Run("error - claim value contains _sd", func(t *testing.T) {
-		testClaims := copyMap(claims)
+		testClaims := utils.CopyMap(claims)
 
 		additionalDigest, err := GetHash(crypto.SHA256, additionalDisclosure)
 		r.NoError(err)
@@ -421,7 +422,7 @@ func TestGetDisclosedClaims(t *testing.T) {
 	})
 
 	t.Run("error - same claim key at the same level ", func(t *testing.T) {
-		testClaims := copyMap(claims)
+		testClaims := utils.CopyMap(claims)
 
 		parentObj := make(map[string]interface{})
 		parentObj["given_name"] = "Albert"
@@ -439,7 +440,7 @@ func TestGetDisclosedClaims(t *testing.T) {
 	})
 
 	t.Run("error - digest included in more than one spot ", func(t *testing.T) {
-		testClaims := copyMap(claims)
+		testClaims := utils.CopyMap(claims)
 
 		parentObj := make(map[string]interface{})
 		parentObj["last_name"] = "Smith"
@@ -457,7 +458,7 @@ func TestGetDisclosedClaims(t *testing.T) {
 	})
 
 	t.Run("error - with complex object", func(t *testing.T) {
-		testClaims := copyMap(claims)
+		testClaims := utils.CopyMap(claims)
 
 		parentObj := make(map[string]interface{})
 		parentObj["given_name"] = "Albert"
