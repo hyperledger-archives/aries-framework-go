@@ -367,7 +367,7 @@ func TestNew(t *testing.T) {
 		cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
 		r.Equal(1, len(cfi.Disclosures))
 
-		afjwtToken, err := afjwt.Parse(cfi.SDJWT, afjwt.WithSignatureVerifier(verifier))
+		afjwtToken, _, err := afjwt.Parse(cfi.SDJWT, afjwt.WithSignatureVerifier(verifier))
 		r.NoError(err)
 
 		var parsedClaims map[string]interface{}
@@ -877,7 +877,7 @@ func verifyEd25519(jws string, pubKey ed25519.PublicKey) error {
 		Verifier: v,
 	})
 
-	token, err := afjwt.Parse(jws, afjwt.WithSignatureVerifier(sVerifier))
+	token, _, err := afjwt.Parse(jws, afjwt.WithSignatureVerifier(sVerifier))
 	if err != nil {
 		return err
 	}
@@ -897,7 +897,7 @@ func verifyRS256(jws string, pubKey *rsa.PublicKey) error {
 		Verifier: v,
 	})
 
-	token, err := afjwt.Parse(jws, afjwt.WithSignatureVerifier(sVerifier))
+	token, _, err := afjwt.Parse(jws, afjwt.WithSignatureVerifier(sVerifier))
 	if err != nil {
 		return err
 	}

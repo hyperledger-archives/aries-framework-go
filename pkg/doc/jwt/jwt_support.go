@@ -149,7 +149,7 @@ func verifyEd25519(jws string, pubKey ed25519.PublicKey) error {
 		Verifier: v,
 	})
 
-	token, err := Parse(jws, WithSignatureVerifier(sVerifier))
+	token, _, err := Parse(jws, WithSignatureVerifier(sVerifier))
 	if err != nil {
 		return err
 	}
@@ -169,7 +169,7 @@ func verifyRS256(jws string, pubKey *rsa.PublicKey) error {
 		Verifier: v,
 	})
 
-	token, err := Parse(jws, WithSignatureVerifier(sVerifier))
+	token, _, err := Parse(jws, WithSignatureVerifier(sVerifier))
 	if err != nil {
 		return err
 	}

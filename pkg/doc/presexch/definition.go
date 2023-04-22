@@ -1388,7 +1388,7 @@ func filterFormat(format *Format, credentials []*verifiable.Credential) (string,
 		)
 
 		if credential.JWT != "" {
-			pJWT, err := jwt.Parse(credential.JWT, jwt.WithSignatureVerifier(&noVerifier{}))
+			pJWT, _, err := jwt.Parse(credential.JWT, jwt.WithSignatureVerifier(&noVerifier{}))
 			if err != nil {
 				logger.Warnf("unmarshal credential error: %w", err)
 

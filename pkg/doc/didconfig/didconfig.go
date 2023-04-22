@@ -209,7 +209,7 @@ func validateDomainLinkageCredential(vc *verifiable.Credential, did, origin stri
 }
 
 func validateJWT(vc *verifiable.Credential, did, origin string) error {
-	jsonWebToken, err := jwt.Parse(vc.JWT, jwt.WithSignatureVerifier(&noVerifier{}))
+	jsonWebToken, _, err := jwt.Parse(vc.JWT, jwt.WithSignatureVerifier(&noVerifier{}))
 	if err != nil {
 		return fmt.Errorf("parse JWT: %w", err)
 	}

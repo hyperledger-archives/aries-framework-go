@@ -46,80 +46,96 @@ import (
 	bddldcontext "github.com/hyperledger/aries-framework-go/test/bdd/pkg/ldcontext"
 )
 
+// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/spruce/credential-0--key-0-ed25519.vc-jwt.json
+//
 //go:embed testdata/interop_credential_1_ed25519.jwt
 //nolint:lll
-// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/spruce/credential-0--key-0-ed25519.vc-jwt.json
 var credential1Ed25519 string //nolint:gochecknoglobals
 
+// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/spruce/credential-1--key-0-ed25519.vc-jwt.json
+//
 //go:embed testdata/interop_credential_2_ed25519.jwt
 //nolint:lll
-// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/spruce/credential-1--key-0-ed25519.vc-jwt.json
 var credential2Ed25519 string //nolint:gochecknoglobals
 
+// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/spruce/credential-2--key-0-ed25519.vc-jwt.json
+//
 //go:embed testdata/interop_credential_3_ed25519.jwt
 //nolint:lll
-// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/spruce/credential-2--key-0-ed25519.vc-jwt.json
 var credential3Ed25519 string //nolint:gochecknoglobals
 
+// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/transmute/credential-0--key-1-secp256k1.vc-jwt.json
+//
 //go:embed testdata/interop_credential_4_secp256k1.jwt
 //nolint:lll
-// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/transmute/credential-0--key-1-secp256k1.vc-jwt.json
 var credential4Secp256k1 string //nolint:gochecknoglobals
 
+// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/transmute/credential-1--key-1-secp256k1.vc-jwt.json
+//
 //go:embed testdata/interop_credential_5_secp256k1.jwt
 //nolint:lll
-// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/transmute/credential-1--key-1-secp256k1.vc-jwt.json
 var credential5Secp256k1 string //nolint:gochecknoglobals
 
+// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/transmute/credential-2--key-1-secp256k1.vc-jwt.json
+//
 //go:embed testdata/interop_credential_6_secp256k1.jwt
 //nolint:lll
-// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/transmute/credential-2--key-1-secp256k1.vc-jwt.json
 var credential6Secp256k1 string //nolint:gochecknoglobals
 
+// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/transmute/credential-0--key-2-secp256r1.vc-jwt.json
+//
 //go:embed testdata/interop_credential_7_secp256r1.jwt
 //nolint:lll
-// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/transmute/credential-0--key-2-secp256r1.vc-jwt.json
 var credential7Secp256r1 string //nolint:gochecknoglobals
 
+// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/transmute/credential-1--key-2-secp256r1.vc-jwt.json
+//
 //go:embed testdata/interop_credential_8_secp256r1.jwt
 //nolint:lll
-// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/transmute/credential-1--key-2-secp256r1.vc-jwt.json
 var credential8Secp256r1 string //nolint:gochecknoglobals
 
+// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/transmute/credential-2--key-2-secp256r1.vc-jwt.json
+//
 //go:embed testdata/interop_credential_9_secp256r1.jwt
 //nolint:lll
-// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/transmute/credential-2--key-2-secp256r1.vc-jwt.json
 var credential9Secp256r1 string //nolint:gochecknoglobals
 
+// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/transmute/credential-0--key-3-secp384r1.vc-jwt.json
+//
 //go:embed testdata/interop_credential_10_secp384r1.jwt
 //nolint:lll
-// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/transmute/credential-0--key-3-secp384r1.vc-jwt.json
 var credential10Secp384r1 string //nolint:gochecknoglobals
 
+// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/transmute/credential-1--key-3-secp384r1.vc-jwt.json
+//
 //go:embed testdata/interop_credential_11_secp384r1.jwt
 //nolint:lll
-// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/transmute/credential-1--key-3-secp384r1.vc-jwt.json
 var credential11Secp384r1 string //nolint:gochecknoglobals
 
+// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/transmute/credential-2--key-3-secp384r1.vc-jwt.json
+//
 //go:embed testdata/interop_credential_12_secp384r1.jwt
 //nolint:lll
-// picked up from https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/implementations/transmute/credential-2--key-3-secp384r1.vc-jwt.json
 var credential12Secp384r1 string //nolint:gochecknoglobals
 
-//go:embed testdata/interop_key_ed25519.jwk
 // ref https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/keys/key-0-ed25519.json
+//
+//go:embed testdata/interop_key_ed25519.jwk
 var interopKeyEd25519 string //nolint:gochecknoglobals
 
-//go:embed testdata/interop_key_secp256k1.jwk
 // ref https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/keys/key-1-secp256k1.json
+//
+//go:embed testdata/interop_key_secp256k1.jwk
 var interopKeyECDSASecp256k1 string //nolint:gochecknoglobals
 
-//go:embed testdata/interop_key_secp256r1.jwk
 // ref https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/keys/key-2-secp256r1.json
+//
+//go:embed testdata/interop_key_secp256r1.jwk
 var interopKeyECDSASecp256r1 string //nolint:gochecknoglobals
 
-//go:embed testdata/interop_key_secp384r1.jwk
 // ref https://github.com/decentralized-identity/JWS-Test-Suite/blob/main/data/keys/key-3-secp384r1.json
+//
+//go:embed testdata/interop_key_secp384r1.jwk
 var interopKeyECDSASecp384r1 string //nolint:gochecknoglobals
 
 // SDKSteps is steps for verifiable credentials using client SDK.
@@ -290,7 +306,7 @@ func (s *SDKSteps) loadInteropCredentialAndVerify(claimID, signature string) err
 		return err
 	}
 
-	jwtCred, err := jwt.Parse(interopCred.JWT, jwt.WithSignatureVerifier(s.joseVerifier[signature]))
+	jwtCred, _, err := jwt.Parse(interopCred.JWT, jwt.WithSignatureVerifier(s.joseVerifier[signature]))
 	if jwtCred == nil {
 		return fmt.Errorf("interop jwt cred was nil, err: %w", err)
 	}

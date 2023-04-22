@@ -11,8 +11,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/utils"
 	afgjwt "github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 )
 
@@ -177,12 +179,7 @@ func GetHash(hash crypto.Hash, value string) (string, error) {
 
 // VerifyDisclosuresInSDJWT checks for disclosure inclusion in SD-JWT.
 func VerifyDisclosuresInSDJWT(disclosures []string, signedJWT *afgjwt.JSONWebToken) error {
-	var claims map[string]interface{}
-
-	err := signedJWT.DecodeClaims(&claims)
-	if err != nil {
-		return err
-	}
+	claims := utils.CopyMap(signedJWT.Payload)
 
 	// check that the _sd_alg claim is present
 	// check that _sd_alg value is understood and the hash algorithm is deemed secure.
@@ -354,7 +351,7 @@ func GetDisclosedClaims(disclosureClaims []*DisclosureClaim, claims map[string]i
 		return nil, fmt.Errorf("failed to get crypto hash from claims: %w", err)
 	}
 
-	output := copyMap(claims)
+	output := utils.CopyMap(claims)
 	includedDigests := make(map[string]bool)
 
 	err = processDisclosedClaims(disclosureClaims, output, includedDigests, hash)
@@ -445,22 +442,26 @@ func stringArray(entry interface{}) ([]string, error) {
 		return nil, nil
 	}
 
-	entries, ok := entry.([]interface{})
-	if !ok {
+	sliceValue := reflect.ValueOf(entry)
+	if sliceValue.Kind() != reflect.Slice {
 		return nil, fmt.Errorf("entry type[%T] is not an array", entry)
 	}
 
-	var result []string
+	// Iterate over the slice and convert each element to a string
+	stringSlice := make([]string, sliceValue.Len())
 
-	for _, e := range entries {
-		if eStr, ok := e.(string); ok {
-			result = append(result, eStr)
-		} else {
-			return nil, fmt.Errorf("entry item type[%T] is not a string", e)
+	for i := 0; i < sliceValue.Len(); i++ {
+		sliceVal := sliceValue.Index(i).Interface()
+		val, ok := sliceVal.(string)
+
+		if !ok {
+			return nil, fmt.Errorf("entry item type[%T] is not a string", sliceVal)
 		}
+
+		stringSlice[i] = val
 	}
 
-	return result, nil
+	return stringSlice, nil
 }
 
 // SliceToMap converts slice to map.
@@ -472,21 +473,6 @@ func SliceToMap(ids []string) map[string]bool {
 	}
 
 	return values
-}
-
-func copyMap(m map[string]interface{}) map[string]interface{} {
-	cm := make(map[string]interface{})
-
-	for k, v := range m {
-		vm, ok := v.(map[string]interface{})
-		if ok {
-			cm[k] = copyMap(vm)
-		} else {
-			cm[k] = v
-		}
-	}
-
-	return cm
 }
 
 // KeyExistsInMap checks if key exists in map.

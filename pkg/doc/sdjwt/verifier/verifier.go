@@ -16,7 +16,9 @@ import (
 	"time"
 
 	"github.com/go-jose/go-jose/v3/jwt"
+	"github.com/mitchellh/mapstructure"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/utils"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	afgjwt "github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
@@ -134,7 +136,7 @@ func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]i
 	cfp := common.ParseCombinedFormatForPresentation(combinedFormatForPresentation)
 
 	// Validate the signature over the SD-JWT
-	signedJWT, err := afgjwt.Parse(cfp.SDJWT, jwtOpts...)
+	signedJWT, _, err := afgjwt.Parse(cfp.SDJWT, jwtOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -185,19 +187,12 @@ func verifyHolderBinding(sdJWT *afgjwt.JSONWebToken, holderBinding string, pOpts
 		return nil
 	}
 
-	var claims map[string]interface{}
-
-	err := sdJWT.DecodeClaims(&claims)
-	if err != nil {
-		return fmt.Errorf("failed to decode presentation claims: %w", err)
-	}
-
-	signatureVerifier, err := getSignatureVerifier(claims)
+	signatureVerifier, err := getSignatureVerifier(utils.CopyMap(sdJWT.Payload))
 	if err != nil {
 		return fmt.Errorf("failed to get signature verifier from presentation claims: %w", err)
 	}
 
-	holderJWT, err := afgjwt.Parse(holderBinding,
+	holderJWT, _, err := afgjwt.Parse(holderBinding,
 		afgjwt.WithSignatureVerifier(signatureVerifier))
 	if err != nil {
 		return fmt.Errorf("failed to parse holder binding: %w", err)
@@ -226,9 +221,19 @@ func verifyHolderJWT(holderJWT *afgjwt.JSONWebToken, pOpts *parseOpts) error {
 
 	var bindingPayload holderBindingPayload
 
-	err = holderJWT.DecodeClaims(&bindingPayload)
+	d, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		Result:           &bindingPayload,
+		TagName:          "json",
+		Squash:           true,
+		WeaklyTypedInput: true,
+		DecodeHook:       utils.JSONNumberToJwtNumericDate(),
+	})
 	if err != nil {
-		return fmt.Errorf("failed to decode holder claims: %w", err)
+		return fmt.Errorf("mapstruct verifyHodlder. error: %w", err)
+	}
+
+	if err = d.Decode(holderJWT.Payload); err != nil {
+		return fmt.Errorf("mapstruct verifyHodlder decode. error: %w", err)
 	}
 
 	if pOpts.expectedNonceForHolderBinding != "" && pOpts.expectedNonceForHolderBinding != bindingPayload.Nonce {
@@ -293,14 +298,7 @@ func getDisclosedClaims(disclosures []string, signedJWT *afgjwt.JSONWebToken) (m
 		return nil, fmt.Errorf("failed to get verified payload: %w", err)
 	}
 
-	var claims map[string]interface{}
-
-	err = signedJWT.DecodeClaims(&claims)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode verified payload: %w", err)
-	}
-
-	disclosedClaims, err := common.GetDisclosedClaims(disclosureClaims, claims)
+	disclosedClaims, err := common.GetDisclosedClaims(disclosureClaims, utils.CopyMap(signedJWT.Payload))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get disclosed claims: %w", err)
 	}
@@ -359,9 +357,19 @@ func checkForDuplicates(values []string) error {
 func verifyJWT(signedJWT *afgjwt.JSONWebToken, leeway time.Duration) error {
 	var claims jwt.Claims
 
-	err := signedJWT.DecodeClaims(&claims)
+	d, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		Result:           &claims,
+		TagName:          "json",
+		Squash:           true,
+		WeaklyTypedInput: true,
+		DecodeHook:       utils.JSONNumberToJwtNumericDate(),
+	})
 	if err != nil {
-		return err
+		return fmt.Errorf("mapstruct verifyJWT. error: %w", err)
+	}
+
+	if err = d.Decode(signedJWT.Payload); err != nil {
+		return fmt.Errorf("mapstruct verifyJWT decode. error: %w", err)
 	}
 
 	// Validate checks claims in a token against expected values.

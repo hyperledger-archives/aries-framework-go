@@ -6,6 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
@@ -79,12 +80,12 @@ func unmarshalJWS(rawJwt string, checkProof bool, fetcher PublicKeyFetcher, clai
 		verifier = &noVerifier{}
 	}
 
-	jsonWebToken, err := jwt.Parse(rawJwt, jwt.WithSignatureVerifier(verifier))
+	_, claimsRaw, err := jwt.Parse(rawJwt, jwt.WithSignatureVerifier(verifier))
 	if err != nil {
 		return fmt.Errorf("parse JWT: %w", err)
 	}
 
-	err = jsonWebToken.DecodeClaims(claims)
+	err = json.Unmarshal(claimsRaw, claims)
 	if err != nil {
 		return err
 	}
