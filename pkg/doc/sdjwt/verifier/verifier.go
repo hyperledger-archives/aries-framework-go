@@ -226,7 +226,7 @@ func verifyHolderJWT(holderJWT *afgjwt.JSONWebToken, pOpts *parseOpts) error {
 		TagName:          "json",
 		Squash:           true,
 		WeaklyTypedInput: true,
-		DecodeHook:       utils.JsonNumberToJsonDate(),
+		DecodeHook:       utils.JSONNumberToJwtNumericDate(),
 	})
 	if err != nil {
 		return fmt.Errorf("mapstruct verifyHodlder. error: %w", err)
@@ -362,7 +362,7 @@ func verifyJWT(signedJWT *afgjwt.JSONWebToken, leeway time.Duration) error {
 		TagName:          "json",
 		Squash:           true,
 		WeaklyTypedInput: true,
-		DecodeHook:       utils.JsonNumberToJsonDate(),
+		DecodeHook:       utils.JSONNumberToJwtNumericDate(),
 	})
 	if err != nil {
 		return fmt.Errorf("mapstruct verifyJWT. error: %w", err)

@@ -449,12 +449,15 @@ func stringArray(entry interface{}) ([]string, error) {
 
 	// Iterate over the slice and convert each element to a string
 	stringSlice := make([]string, sliceValue.Len())
+
 	for i := 0; i < sliceValue.Len(); i++ {
 		sliceVal := sliceValue.Index(i).Interface()
 		val, ok := sliceVal.(string)
+
 		if !ok {
 			return nil, fmt.Errorf("entry item type[%T] is not a string", sliceVal)
 		}
+
 		stringSlice[i] = val
 	}
 

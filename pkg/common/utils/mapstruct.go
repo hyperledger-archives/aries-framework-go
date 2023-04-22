@@ -17,7 +17,8 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
-func JsonNumberToJsonDate() mapstructure.DecodeHookFuncType {
+// JSONNumberToJwtNumericDate hook for mapstructure library to decode json.Number to jwt.NumericDate.
+func JSONNumberToJwtNumericDate() mapstructure.DecodeHookFuncType {
 	return func(
 		f reflect.Type,
 		t reflect.Type,
@@ -37,6 +38,7 @@ func JsonNumberToJsonDate() mapstructure.DecodeHookFuncType {
 		if t.String() == "jwt.NumericDate" {
 			return date, nil
 		}
+
 		return &date, nil
 	}
 }

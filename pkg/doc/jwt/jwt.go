@@ -191,6 +191,7 @@ func mapJWSToJWT(jws *jose.JSONWebSignature, opts *parseOpts) (*JSONWebToken, []
 		if err != nil {
 			return nil, nil, fmt.Errorf("read JWT claims from JWS payload: %w", err)
 		}
+
 		token.Payload = claims
 	}
 
