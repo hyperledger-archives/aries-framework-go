@@ -630,6 +630,7 @@ func decodeRawPresentation(vpData []byte, vpOpts *presentationOpts) ([]byte, *ra
 		return nil, nil, "", err
 	}
 
+	// trigger build
 	err = checkEmbeddedProof(vpData, embeddedProofCheckOpts)
 	if err != nil {
 		return nil, nil, "", err
