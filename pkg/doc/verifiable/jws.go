@@ -80,7 +80,10 @@ func unmarshalJWS(rawJwt string, checkProof bool, fetcher PublicKeyFetcher, clai
 		verifier = &noVerifier{}
 	}
 
-	_, claimsRaw, err := jwt.Parse(rawJwt, jwt.WithSignatureVerifier(verifier))
+	_, claimsRaw, err := jwt.Parse(rawJwt,
+		jwt.WithSignatureVerifier(verifier),
+		jwt.WithIgnoreClaimsMapDecoding(true),
+	)
 	if err != nil {
 		return fmt.Errorf("parse JWT: %w", err)
 	}

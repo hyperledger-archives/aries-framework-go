@@ -625,12 +625,12 @@ func decodeRawPresentation(vpData []byte, vpOpts *presentationOpts) ([]byte, *ra
 		return rawBytes, rawPres, "", nil
 	}
 
-	vpBytes, vpRaw, err := decodeVPFromJSON(vpData)
+	vpRaw, err := decodeVPFromJSON(vpData)
 	if err != nil {
 		return nil, nil, "", err
 	}
 
-	err = checkEmbeddedProof(vpBytes, embeddedProofCheckOpts)
+	err = checkEmbeddedProof(vpData, embeddedProofCheckOpts)
 	if err != nil {
 		return nil, nil, "", err
 	}
@@ -640,19 +640,19 @@ func decodeRawPresentation(vpData []byte, vpOpts *presentationOpts) ([]byte, *ra
 		return nil, nil, "", errors.New("embedded proof is missing")
 	}
 
-	return vpBytes, vpRaw, "", err
+	return vpData, vpRaw, "", err
 }
 
-func decodeVPFromJSON(vpData []byte) ([]byte, *rawPresentation, error) {
+func decodeVPFromJSON(vpData []byte) (*rawPresentation, error) {
 	// unmarshal VP from JSON
 	raw := new(rawPresentation)
 
 	err := json.Unmarshal(vpData, raw)
 	if err != nil {
-		return nil, nil, fmt.Errorf("JSON unmarshalling of verifiable presentation: %w", err)
+		return nil, fmt.Errorf("JSON unmarshalling of verifiable presentation: %w", err)
 	}
 
-	return vpData, raw, nil
+	return raw, nil
 }
 
 func defaultPresentationOpts() *presentationOpts {
