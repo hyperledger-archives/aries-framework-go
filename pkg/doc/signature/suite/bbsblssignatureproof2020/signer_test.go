@@ -16,10 +16,11 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignatureproof2020"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
+	"github.com/hyperledger/aries-framework-go/component/models/ld/testutil"
+	"github.com/hyperledger/aries-framework-go/component/models/signature/suite/bbsblssignatureproof2020"
+	"github.com/hyperledger/aries-framework-go/component/models/signature/verifier"
+
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
 )
 
 //nolint:gochecknoglobals
@@ -36,7 +37,7 @@ var (
 	docWithManyProofsJSON string //nolint:unused // re-enable test that uses this var (#2562)
 )
 
-//nolint
+// nolint
 func TestSuite_SelectiveDisclosure(t *testing.T) {
 	// pkBase58 from did:key:zUC724vuGvHpnCGFG1qqpXb81SiBLu3KLSqVzenwEZNPoY35i2Bscb8DLaVwHvRFs6F2NkNNXRcPWvqnPDUd9ukdjLkjZd3u9zzL4wDZDUpkPAatLDGLEYVo8kkAzuAKJQMr7N2
 	pkBase58 := "nEP2DEdbRaQ2r5Azeatui9MG6cj7JUHa8GD7khub4egHJREEuvj4Y8YG8w51LnhPEXxVV1ka93HpSLkVzeQuuPE1mH9oCMrqoHXAKGBsuDT1yJvj9cKgxxLCXiRRirCycki"
@@ -61,7 +62,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 
 	t.Run("single BBS+ signature", func(t *testing.T) {
 		docWithSelectiveDisclosure, err := s.SelectiveDisclosure(docMap, revealDocMap, nonce,
-			pubKeyResolver, ldtestutil.WithDocumentLoader(t))
+			pubKeyResolver, testutil.WithDocumentLoader(t))
 		require.NoError(t, err)
 		require.NotEmpty(t, docWithSelectiveDisclosure)
 		require.Contains(t, docWithSelectiveDisclosure, proofField)
@@ -93,7 +94,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 		}
 
 		docWithSelectiveDisclosure, err := s.SelectiveDisclosure(docWithSeveralProofsMap, revealDocMap, nonce,
-			compositeResolver, ldtestutil.WithDocumentLoader(t))
+			compositeResolver, testutil.WithDocumentLoader(t))
 		require.NoError(t, err)
 		require.NotEmpty(t, docWithSelectiveDisclosure)
 		require.Contains(t, docWithSelectiveDisclosure, proofField)
@@ -114,7 +115,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 		docMap["bad"] = "example"
 		docMap["proof"] = "example"
 
-		_, err := s.SelectiveDisclosure(docMap, revealDocMap, nonce, pubKeyResolver, ldtestutil.WithDocumentLoader(t))
+		_, err := s.SelectiveDisclosure(docMap, revealDocMap, nonce, pubKeyResolver, testutil.WithDocumentLoader(t))
 		require.Error(t, err)
 	})
 
@@ -128,7 +129,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 		}
 
 		docWithSelectiveDisclosure, err := s.SelectiveDisclosure(docMapWithoutProof, revealDocMap, nonce,
-			pubKeyResolver, ldtestutil.WithDocumentLoader(t))
+			pubKeyResolver, testutil.WithDocumentLoader(t))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "document does not have a proof")
 		require.Empty(t, docWithSelectiveDisclosure)
@@ -146,7 +147,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 		}
 
 		docWithSelectiveDisclosure, err := s.SelectiveDisclosure(docMapWithInvalidProof, revealDocMap, nonce,
-			pubKeyResolver, ldtestutil.WithDocumentLoader(t))
+			pubKeyResolver, testutil.WithDocumentLoader(t))
 		require.Error(t, err)
 		require.EqualError(t, err, "get BLS proofs: read document proofs: proof is not map or array of maps")
 		require.Empty(t, docWithSelectiveDisclosure)
@@ -174,7 +175,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 		}
 
 		docWithSelectiveDisclosure, err := s.SelectiveDisclosure(docMapWithInvalidProofValue, revealDocMap, nonce,
-			pubKeyResolver, ldtestutil.WithDocumentLoader(t))
+			pubKeyResolver, testutil.WithDocumentLoader(t))
 		require.Error(t, err)
 		require.EqualError(t, err, "generate signature proof: derive BBS+ proof: parse signature: invalid size of signature") //nolint:lll
 		require.Empty(t, docWithSelectiveDisclosure)
@@ -202,7 +203,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 		}
 
 		docWithSelectiveDisclosure, err := s.SelectiveDisclosure(docMapWithInvalidProofType, revealDocMap, nonce,
-			pubKeyResolver, ldtestutil.WithDocumentLoader(t))
+			pubKeyResolver, testutil.WithDocumentLoader(t))
 		require.Error(t, err)
 		require.EqualError(t, err, "no BbsBlsSignature2020 proof present")
 		require.Empty(t, docWithSelectiveDisclosure)
@@ -214,7 +215,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 		}
 
 		docWithSelectiveDisclosure, err := s.SelectiveDisclosure(docMap, revealDocMap, nonce,
-			failingPublicKeyResolver, ldtestutil.WithDocumentLoader(t))
+			failingPublicKeyResolver, testutil.WithDocumentLoader(t))
 		require.Error(t, err)
 		require.EqualError(t, err, "generate signature proof: get public key and signature: resolve public key of BBS+ signature: public key not found") //nolint:lll
 		require.Empty(t, docWithSelectiveDisclosure)
@@ -228,7 +229,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 		require.NoError(t, err)
 
 		docWithSelectiveDisclosure, err := s.SelectiveDisclosure(case18DocMap, case18RevealDocMap, case19Nonce,
-			pubKeyResolver, ldtestutil.WithDocumentLoader(t))
+			pubKeyResolver, testutil.WithDocumentLoader(t))
 		require.NoError(t, err)
 		require.NotEmpty(t, docWithSelectiveDisclosure)
 		require.Contains(t, docWithSelectiveDisclosure, proofField)
@@ -244,7 +245,7 @@ func TestSuite_SelectiveDisclosure(t *testing.T) {
 
 		pubKeyFetcher := verifiable.SingleKey(pubKeyBytes, "Bls12381G2Key2020")
 
-		loader, err := ldtestutil.DocumentLoader()
+		loader, err := testutil.DocumentLoader()
 		require.NoError(t, err)
 
 		_, err = verifiable.ParseCredential(case18DerivationBytes, verifiable.WithPublicKeyFetcher(pubKeyFetcher),
@@ -259,4 +260,22 @@ func toMap(t *testing.T, doc string) map[string]interface{} {
 	require.NoError(t, err)
 
 	return docMap
+}
+
+type testKeyResolver struct {
+	publicKey *verifier.PublicKey
+	variants  map[string]*verifier.PublicKey
+	err       error
+}
+
+func (r *testKeyResolver) Resolve(id string) (*verifier.PublicKey, error) {
+	if r.err != nil {
+		return nil, r.err
+	}
+
+	if len(r.variants) > 0 {
+		return r.variants[id], nil
+	}
+
+	return r.publicKey, r.err
 }
