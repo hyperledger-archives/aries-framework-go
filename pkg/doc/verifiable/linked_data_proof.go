@@ -66,7 +66,7 @@ type LinkedDataProofContext struct {
 	CapabilityChain []interface{}
 }
 
-func checkLinkedDataProof(jsonldBytes []byte, suites []verifier.SignatureSuite,
+func checkLinkedDataProof(jsonldBytes map[string]interface{}, suites []verifier.SignatureSuite,
 	pubKeyFetcher PublicKeyFetcher, jsonldOpts *jsonldCredentialOpts) error {
 	documentVerifier, err := verifier.New(&keyResolverAdapter{pubKeyFetcher}, suites...)
 	if err != nil {
@@ -75,7 +75,7 @@ func checkLinkedDataProof(jsonldBytes []byte, suites []verifier.SignatureSuite,
 
 	processorOpts := mapJSONLDProcessorOpts(jsonldOpts)
 
-	err = documentVerifier.Verify(jsonldBytes, processorOpts...)
+	err = documentVerifier.VerifyObject(jsonldBytes, processorOpts...)
 	if err != nil {
 		return fmt.Errorf("check linked data proof: %w", err)
 	}

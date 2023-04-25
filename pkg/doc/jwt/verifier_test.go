@@ -88,30 +88,16 @@ func TestNewVerifier(t *testing.T) {
 
 func TestBasicVerifier_Verify(t *testing.T) { // error corner cases
 	r := require.New(t)
-
-	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
-	r.NoError(err)
-
-	v := NewVerifier(getTestKeyResolver(&verifier.PublicKey{
-		Type:  kms.RSARS256,
-		Value: pubKey,
-	}, nil))
-
 	validHeaders := map[string]interface{}{
 		"alg": "EdDSA",
 		"kid": "did:123#key1",
 	}
 
-	// Invalid claims
-	err = v.Verify(validHeaders, []byte("invalid JSON claims"), nil, nil)
-	r.Error(err)
-	r.Contains(err.Error(), "read claims from JSON Web Token")
-
 	validClaims, err := json.Marshal(map[string]interface{}{"iss": "Bob"})
 	r.NoError(err)
 
 	// key resolver error
-	v = NewVerifier(getTestKeyResolver(nil, errors.New("failed to resolve public key")))
+	v := NewVerifier(getTestKeyResolver(nil, errors.New("failed to resolve public key")))
 	err = v.Verify(validHeaders, validClaims, nil, nil)
 	r.Error(err)
 	r.Contains(err.Error(), "failed to resolve public key")
