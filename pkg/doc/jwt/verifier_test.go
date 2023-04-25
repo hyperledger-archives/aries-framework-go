@@ -102,11 +102,6 @@ func TestBasicVerifier_Verify(t *testing.T) { // error corner cases
 		"kid": "did:123#key1",
 	}
 
-	// Invalid claims
-	err = v.Verify(validHeaders, []byte("invalid JSON claims"), nil, nil)
-	r.Error(err)
-	r.Contains(err.Error(), "read claims from JSON Web Token")
-
 	validClaims, err := json.Marshal(map[string]interface{}{"iss": "Bob"})
 	r.NoError(err)
 

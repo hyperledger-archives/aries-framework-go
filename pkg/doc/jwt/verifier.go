@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-jose/go-jose/v3/json"
 	"golang.org/x/crypto/ed25519"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
@@ -142,14 +141,7 @@ func getPublicKeyVerifier(publicKey *verifier.PublicKey, v verifier.SignatureVer
 }
 
 func verifySignature(resolver KeyResolver, signatureVerifier signatureVerifier,
-	joseHeaders jose.Headers, payload, signingInput, signature []byte) error {
-	claims := make(map[string]interface{})
-
-	err := json.Unmarshal(payload, &claims)
-	if err != nil {
-		return fmt.Errorf("read claims from JSON Web Token: %w", err)
-	}
-
+	joseHeaders jose.Headers, _, signingInput, signature []byte) error {
 	kid, _ := joseHeaders.KeyID()
 
 	if !strings.HasPrefix(kid, "did:") {
