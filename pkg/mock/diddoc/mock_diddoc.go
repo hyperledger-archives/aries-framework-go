@@ -13,7 +13,7 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/model"
+	"github.com/hyperledger/aries-framework-go/component/models/did/endpoint"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
@@ -29,14 +29,14 @@ func GetMockDIDDoc(t *testing.T, isDIDCommV2 bool) *did.Doc {
 
 	services := []did.Service{
 		{
-			ServiceEndpoint: model.NewDIDCommV1Endpoint("https://localhost:8090"),
+			ServiceEndpoint: endpoint.NewDIDCommV1Endpoint("https://localhost:8090"),
 			RoutingKeys:     []string{MockDIDKey(t)},
 			Type:            "did-communication",
 			Priority:        0,
 			RecipientKeys:   []string{MockDIDKey(t)},
 		},
 		{
-			ServiceEndpoint: model.NewDIDCommV1Endpoint("https://localhost:9090"),
+			ServiceEndpoint: endpoint.NewDIDCommV1Endpoint("https://localhost:9090"),
 			RoutingKeys:     []string{MockDIDKey(t)},
 			Type:            "did-communication",
 			Priority:        1,
@@ -45,7 +45,7 @@ func GetMockDIDDoc(t *testing.T, isDIDCommV2 bool) *did.Doc {
 	}
 
 	if isDIDCommV2 {
-		services[0].ServiceEndpoint = model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{
+		services[0].ServiceEndpoint = endpoint.NewDIDCommV2Endpoint([]endpoint.DIDCommV2Endpoint{
 			{
 				URI:         "https://localhost:8090",
 				Accept:      []string{"didcomm/v2"},
@@ -118,13 +118,13 @@ func GetLegacyInteropMockDIDDoc(t *testing.T, id string, ed25519PubKey []byte) *
 		ID:      peerDID,
 		Service: []did.Service{
 			{
-				ServiceEndpoint: model.NewDIDCommV1Endpoint("https://localhost:8090"),
+				ServiceEndpoint: endpoint.NewDIDCommV1Endpoint("https://localhost:8090"),
 				Type:            "did-communication",
 				Priority:        0,
 				RecipientKeys:   []string{pubKeyBase58},
 			},
 			{
-				ServiceEndpoint: model.NewDIDCommV1Endpoint("https://localhost:8090"),
+				ServiceEndpoint: endpoint.NewDIDCommV1Endpoint("https://localhost:8090"),
 				Type:            "IndyAgent",
 				Priority:        0,
 				RecipientKeys:   []string{pubKeyBase58},
@@ -178,7 +178,7 @@ func GetMockDIDDocWithDIDCommV2Bloc(t *testing.T, id string) *did.Doc {
 		ID:      peerDID,
 		Service: []did.Service{
 			{
-				ServiceEndpoint: model.NewDIDCommV2Endpoint([]model.DIDCommV2Endpoint{{
+				ServiceEndpoint: endpoint.NewDIDCommV2Endpoint([]endpoint.DIDCommV2Endpoint{{
 					URI:         "https://localhost:8090",
 					Accept:      []string{"didcomm/v2"},
 					RoutingKeys: []string{MockDIDKey(t)},
@@ -244,7 +244,7 @@ func GetMockIndyDoc(t *testing.T) *did.Doc {
 				Type:            "IndyAgent",
 				Priority:        0,
 				RecipientKeys:   []string{"6SFxbqdqGKtVVmLvXDnq9JP4ziZCG2fJzETpMYHt1VNx"},
-				ServiceEndpoint: model.NewDIDCommV1Endpoint("https://localhost:8090"),
+				ServiceEndpoint: endpoint.NewDIDCommV1Endpoint("https://localhost:8090"),
 			},
 		},
 		Authentication: []did.Verification{

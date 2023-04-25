@@ -51,6 +51,7 @@ require (
 	github.com/google/tink/go v1.7.0 // indirect
 	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0 // indirect
 	github.com/hyperledger/aries-framework-go/component/log v0.0.0 // indirect
+	github.com/hyperledger/aries-framework-go/component/models v0.0.0 // indirect
 	github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20221025204933-b807371b6f1e // indirect
 	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
 	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a // indirect
@@ -100,6 +101,7 @@ replace (
 	github.com/hyperledger/aries-framework-go => ../..
 	github.com/hyperledger/aries-framework-go/component/kmscrypto => ../../component/kmscrypto
 	github.com/hyperledger/aries-framework-go/component/log => ../../component/log
+	github.com/hyperledger/aries-framework-go/component/models => ../../component/models
 	github.com/hyperledger/aries-framework-go/component/storage/leveldb => ../../component/storage/leveldb
 	github.com/hyperledger/aries-framework-go/component/storageutil => ../../component/storageutil
 	github.com/hyperledger/aries-framework-go/spi => ../../spi

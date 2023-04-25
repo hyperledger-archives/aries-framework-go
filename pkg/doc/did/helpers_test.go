@@ -11,7 +11,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	. "github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	. "github.com/hyperledger/aries-framework-go/component/models/did"
+
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
 )
 
