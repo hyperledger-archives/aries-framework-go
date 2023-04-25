@@ -7,10 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package jwksupport
 
 import (
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk/jwksupport"
 	"github.com/hyperledger/aries-framework-go/spi/crypto"
-	"github.com/hyperledger/aries-framework-go/spi/kms"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 // JWKFromKey creates a JWK from an opaque key struct.
