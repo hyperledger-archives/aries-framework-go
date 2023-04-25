@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/component/models/ld/proof"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/proof"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 )

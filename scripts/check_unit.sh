@@ -93,13 +93,6 @@ $GO_TEST_CMD $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -t
 amend_coverage_file
 cd ../..
 
-# Running models unit tests
-cd component/models
-PKGS=$(go list github.com/hyperledger/aries-framework-go/component/models/... 2> /dev/null)
-$GO_TEST_CMD $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
-amend_coverage_file
-cd ../..
-
 if [ "$SKIP_DOCKER" = true ]; then
     echo "Skipping edv unit tests"
 else

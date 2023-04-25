@@ -11,6 +11,7 @@ require (
 	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/VictoriaMetrics/fastcache v1.5.7
 	github.com/bluele/gcache v0.0.0-20190518031135-bc40bd653833
+	github.com/btcsuite/btcd v0.22.0-beta
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/cenkalti/backoff/v4 v4.0.2
 	github.com/go-jose/go-jose/v3 v3.0.1-0.20221117193127-916db76e8214
@@ -21,7 +22,6 @@ require (
 	github.com/gorilla/mux v1.7.3
 	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230420151605-a45b1b02336f
 	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230417184158-344a7f82c4c2
-	github.com/hyperledger/aries-framework-go/component/models v0.0.0
 	github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20221025204933-b807371b6f1e
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220322085443-50e8f9bd208b
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20230417184158-344a7f82c4c2
@@ -45,7 +45,6 @@ require (
 )
 
 require (
-	github.com/btcsuite/btcd v0.22.0-beta // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
@@ -74,11 +73,7 @@ replace github.com/hyperledger/aries-framework-go/component/kmscrypto => ./compo
 
 replace github.com/hyperledger/aries-framework-go/component/log => ./component/log
 
-replace github.com/hyperledger/aries-framework-go/component/models => ./component/models
-
 replace github.com/hyperledger/aries-framework-go/spi => ./spi
-
-replace github.com/hyperledger/aries-framework-go/component/storageutil => ./component/storageutil
 
 go 1.19
 

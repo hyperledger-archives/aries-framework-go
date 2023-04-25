@@ -13,7 +13,7 @@ import (
 
 	"github.com/piprate/json-gold/ld"
 
-	"github.com/hyperledger/aries-framework-go/component/models/ld/processor"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/json"
 )
 
@@ -78,11 +78,11 @@ func ValidateJSONLD(doc string, options ...ValidateOpts) error {
 		return fmt.Errorf("convert JSON-LD doc to map: %w", err)
 	}
 
-	jsonldProc := processor.Default()
+	jsonldProc := jsonld.Default()
 
 	docCompactedMap, err := jsonldProc.Compact(docMap,
-		nil, processor.WithDocumentLoader(opts.jsonldDocumentLoader),
-		processor.WithExternalContext(opts.externalContext...))
+		nil, jsonld.WithDocumentLoader(opts.jsonldDocumentLoader),
+		jsonld.WithExternalContext(opts.externalContext...))
 	if err != nil {
 		return fmt.Errorf("compact JSON-LD document: %w", err)
 	}
