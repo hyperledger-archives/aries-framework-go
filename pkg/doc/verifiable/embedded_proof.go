@@ -89,15 +89,12 @@ func checkEmbeddedProof(docBytes []byte, opts *embeddedProofCheckOpts) error {
 		return errors.New("public key fetcher is not defined")
 	}
 
-	checkedDoc := docBytes
-
 	if len(opts.externalContext) > 0 {
 		// Use external contexts for check of the linked data proofs to enrich JSON-LD context vocabulary.
 		jsonldDoc["@context"] = jsonld.AppendExternalContexts(jsonldDoc["@context"], opts.externalContext...)
-		checkedDoc, _ = json.Marshal(jsonldDoc) //nolint:errcheck
 	}
 
-	err = checkLinkedDataProof(checkedDoc, ldpSuites, opts.publicKeyFetcher, &opts.jsonldCredentialOpts)
+	err = checkLinkedDataProof(jsonldDoc, ldpSuites, opts.publicKeyFetcher, &opts.jsonldCredentialOpts)
 	if err != nil {
 		return fmt.Errorf("check embedded proof: %w", err)
 	}
