@@ -1,0 +1,36 @@
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://w3id.org/citizenship/v1",
+    "https://w3id.org/security/bbs/v1"
+  ],
+  "id": "https://issuer.oidp.uscis.gov/credentials/83627465",
+  "type": [
+    "PermanentResidentCard",
+    "VerifiableCredential"
+  ],
+  "description": "Government of Example Permanent Resident Card.",
+  "identifier": "83627465",
+  "name": "Permanent Resident Card",
+  "credentialSubject": {
+    "id": "did:example:b34ca6cd37bbf23",
+    "type": [
+      "Person",
+      "PermanentResident"
+    ],
+    "familyName": "SMITH",
+    "gender": "Male",
+    "givenName": "JOHN"
+  },
+  "expirationDate": "2029-12-03T12:19:52Z",
+  "issuanceDate": "2019-12-03T12:19:52Z",
+  "issuer": "did:example:489398593",
+  "proof": {
+    "created": "2020-12-06T19:23:10Z",
+    "nonce": "bm9uY2U=",
+    "proofPurpose": "assertionMethod",
+    "proofValue": "ABkB/wbvj3hl666VoVa0OoBPw/vBqSAJzGCSA/jmyXu3ou2awUn4C9pQA+QNNkbqQwqloyPEqcFxpS7zok6xYA1pUOx5igu1eYBorAv9+kIOCPONGcW2rsXvZOO2hdn4GWT9xc2ir675V61HhqFF0ETZLkNzH+N5NZOUaiXG2gegI2EjVk8M0TaBJ1bUxb5ZZ0qhnLM1AAAAdIj56X6YvHWghzNhFyUt8FbMDSpTk3i4lujEP0M0OHGEm+hNUhJj2r0ZA4lDsD/tBAAAAAJPSSQ/NOVm7iXCoX2STQESM2yWKrDRErWI+mfzn5wmAklSgf0VA5BunaiRNYh57MA6CJ94cagGixys6rCZ42N7p8F4Yp4pUPpJE3EvHhc63YWRK6y3/smRM+Y3OgVJAcPmpYOjTB7owrHLxNRC7+E+AAAACRp7vxsK7oY3WdStSIA5RcrvMl0tUW5r5e8o4HpOvD2ANlZcne08y6wbRHYFtA22J7pbTliW1NJyLYUj18gOYfg0S+w20OYscVAShjYIwpjRvvvvHpCmIiU0/WD9fOOBPXAeFQJogHPCHM+oKO6YlUS4qmXl/No7oHCedyh11Ty/Bi2x8dRLDXPFpLt3D7dZUg96mkJ5LbGQ35soqepPreYv3JWKh75r6wJny7kN2nNQ0/2CYpMTTNqewxz0XSMVQ0X2ztsCKX9+npiqVWDNe77pT3BYyT3ZUWeV2geJfGTXcpyn7+rAdD0GddYIleYXXVSr4I4/tzEYWWKC2xKsGBwRXq64T//cOdbzEt5i60aPVs9QIsecysZ2gIjuoeVEMg==",
+    "type": "BbsBlsSignatureProof2020",
+    "verificationMethod": "did:example:489398593#test"
+  }
+}
