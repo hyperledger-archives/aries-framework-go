@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	did "github.com/hyperledger/aries-framework-go/component/models/did"
+	did "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdr "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 )
 

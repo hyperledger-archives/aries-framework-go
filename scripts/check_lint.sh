@@ -43,9 +43,6 @@ echo "done linting component/storageutil"
 echo "linting component/kmscrypto.."
 ${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace/component/kmscrypto ${GOLANGCI_LINT_IMAGE} golangci-lint run -c ../../.golangci.yml
 echo "done linting component/kmscrypto"
-echo "linting component/models.."
-${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace/component/models ${GOLANGCI_LINT_IMAGE} golangci-lint run -c ../../.golangci.yml
-echo "done linting component/models"
 echo "linting component/storage/edv.."
 ${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace/component/storage/edv ${GOLANGCI_LINT_IMAGE} golangci-lint run -c ../../../.golangci.yml
 echo "done linting component/storage/edv"
