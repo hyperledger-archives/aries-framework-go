@@ -217,6 +217,29 @@ type MatchedInputDescriptor struct {
 	MatchedVCs []*verifiable.Credential
 }
 
+// matchRequirementsOpts holds options for the MatchSubmissionRequirement.
+type matchRequirementsOpts struct {
+	applySelectiveDisclosure bool
+	credOpts                 []verifiable.CredentialOpt
+}
+
+// MatchRequirementsOpt is the MatchSubmissionRequirement option.
+type MatchRequirementsOpt func(opts *matchRequirementsOpts)
+
+// WithSelectiveDisclosureApply enables selective disclosure apply on resulting VC.
+func WithSelectiveDisclosureApply() MatchRequirementsOpt {
+	return func(opts *matchRequirementsOpts) {
+		opts.applySelectiveDisclosure = true
+	}
+}
+
+// WithSDCredentialOptions used when applying selective disclosure.
+func WithSDCredentialOptions(options ...verifiable.CredentialOpt) MatchRequirementsOpt {
+	return func(opts *matchRequirementsOpts) {
+		opts.credOpts = options
+	}
+}
+
 // ValidateSchema validates presentation definition.
 func (pd *PresentationDefinition) ValidateSchema() error {
 	result, err := gojsonschema.Validate(
@@ -489,7 +512,12 @@ func makeRequirementsForMatch(requirements []*SubmissionRequirement,
 
 // MatchSubmissionRequirement return information about matching VCs.
 func (pd *PresentationDefinition) MatchSubmissionRequirement(credentials []*verifiable.Credential,
-	documentLoader ld.DocumentLoader) ([]*MatchedSubmissionRequirement, error) {
+	documentLoader ld.DocumentLoader, opts ...MatchRequirementsOpt) ([]*MatchedSubmissionRequirement, error) {
+	matchOpts := &matchRequirementsOpts{}
+	for _, opt := range opts {
+		opt(matchOpts)
+	}
+
 	if err := pd.ValidateSchema(); err != nil {
 		return nil, err
 	}
@@ -502,7 +530,7 @@ func (pd *PresentationDefinition) MatchSubmissionRequirement(credentials []*veri
 	var matchedReqs []*MatchedSubmissionRequirement
 
 	for _, req := range requirements {
-		matched, err := pd.matchRequirement(req, credentials, documentLoader)
+		matched, err := pd.matchRequirement(req, credentials, documentLoader, matchOpts)
 		if err != nil {
 			return nil, err
 		}
@@ -516,8 +544,9 @@ func (pd *PresentationDefinition) MatchSubmissionRequirement(credentials []*veri
 // ErrNoCredentials when any credentials do not satisfy requirements.
 var ErrNoCredentials = errors.New("credentials do not satisfy requirements")
 
+// nolint: funlen
 func (pd *PresentationDefinition) matchRequirement(req *requirement, creds []*verifiable.Credential,
-	documentLoader ld.DocumentLoader) (*MatchedSubmissionRequirement, error) {
+	documentLoader ld.DocumentLoader, opts *matchRequirementsOpts) (*MatchedSubmissionRequirement, error) {
 	matchedReq := &MatchedSubmissionRequirement{
 		Name:        req.Name,
 		Purpose:     req.Purpose,
@@ -529,31 +558,47 @@ func (pd *PresentationDefinition) matchRequirement(req *requirement, creds []*ve
 		Nested:      nil,
 	}
 
-	if len(req.InputDescriptors) != 0 {
-		for _, descriptor := range req.InputDescriptors {
-			_, filtered, err := pd.filterCredentialsThatMatchDescriptor(
-				creds, descriptor, documentLoader)
+	for _, descriptor := range req.InputDescriptors {
+		framedCreds := creds
 
+		var err error
+
+		if opts.applySelectiveDisclosure {
+			framedCreds, err = frameCreds(pd.Frame, creds, opts.credOpts...)
 			if err != nil {
 				return nil, err
 			}
+		}
 
-			var matchedVCs []*verifiable.Credential
+		_, filtered, err := pd.filterCredentialsThatMatchDescriptor(
+			framedCreds, descriptor, documentLoader)
+		if err != nil {
+			return nil, err
+		}
+
+		var matchedVCs []*verifiable.Credential
+
+		if opts.applySelectiveDisclosure {
+			matchedVCs, err = limitDisclosure(filtered, opts.credOpts...)
+			if err != nil {
+				return nil, err
+			}
+		} else {
 			for _, credRes := range filtered {
 				matchedVCs = append(matchedVCs, credRes.credential)
 			}
-
-			matchedReq.Descriptors = append(matchedReq.Descriptors, &MatchedInputDescriptor{
-				ID:         descriptor.ID,
-				Name:       descriptor.Name,
-				Purpose:    descriptor.Purpose,
-				MatchedVCs: matchedVCs,
-			})
 		}
+
+		matchedReq.Descriptors = append(matchedReq.Descriptors, &MatchedInputDescriptor{
+			ID:         descriptor.ID,
+			Name:       descriptor.Name,
+			Purpose:    descriptor.Purpose,
+			MatchedVCs: matchedVCs,
+		})
 	}
 
 	for _, nestedReq := range req.Nested {
-		nestedMatch, err := pd.matchRequirement(nestedReq, creds, documentLoader)
+		nestedMatch, err := pd.matchRequirement(nestedReq, creds, documentLoader, opts)
 		if err != nil {
 			return nil, err
 		}
