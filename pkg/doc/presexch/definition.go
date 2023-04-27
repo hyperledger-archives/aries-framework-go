@@ -178,6 +178,7 @@ type Field struct {
 	Filter         *Filter     `json:"filter,omitempty"`
 	Predicate      *Preference `json:"predicate,omitempty"`
 	IntentToRetain bool        `json:"intent_to_retain,omitempty"`
+	Optional       bool        `json:"optional,omitempty"`
 }
 
 // Filter describes filter.
@@ -1287,6 +1288,8 @@ func filterField(f *Field, credential map[string]interface{}) error {
 			}
 
 			lastErr = err
+		} else if f.Optional {
+			return nil
 		} else {
 			lastErr = errPathNotApplicable
 		}
