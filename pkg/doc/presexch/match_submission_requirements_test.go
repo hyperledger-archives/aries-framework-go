@@ -7,14 +7,22 @@ SPDX-License-Identifier: Apache-2.0
 package presexch_test
 
 import (
+	"crypto/sha256"
 	_ "embed"
 	"encoding/json"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
 
@@ -139,6 +147,112 @@ func TestInstance_GetSubmissionRequirements(t *testing.T) {
 				require.Len(t, req.Descriptors[0].MatchedVCs, 2)
 			}
 		}
+	})
+
+	t.Run("Limit disclosure BBS+", func(t *testing.T) {
+		required := presexch.Required
+
+		pd := &presexch.PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*presexch.InputDescriptor{{
+				Schema: []*presexch.Schema{{
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				}},
+				ID: uuid.New().String(),
+				Constraints: &presexch.Constraints{
+					LimitDisclosure: &required,
+					Fields: []*presexch.Field{{
+						Path:   []string{"$.credentialSubject.degree.degreeSchool"},
+						Filter: &presexch.Filter{Type: &strFilterType},
+					}},
+				},
+			}},
+		}
+
+		vc := &verifiable.Credential{
+			ID: "https://issuer.oidp.uscis.gov/credentials/83627465",
+			Context: []string{
+				verifiable.ContextURI,
+				"https://www.w3.org/2018/credentials/examples/v1",
+				"https://w3id.org/security/bbs/v1",
+			},
+			Types: []string{
+				"VerifiableCredential",
+				"UniversityDegreeCredential",
+			},
+			Subject: verifiable.Subject{
+				ID: "did:example:b34ca6cd37bbf23",
+				CustomFields: map[string]interface{}{
+					"name":   "Jayden Doe",
+					"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+					"degree": map[string]interface{}{
+						"degree":       "MIT",
+						"degreeSchool": "MIT school",
+						"type":         "BachelorDegree",
+					},
+				},
+			},
+			Issued: &util.TimeWrapper{
+				Time: time.Now(),
+			},
+			Expired: &util.TimeWrapper{
+				Time: time.Now().AddDate(1, 0, 0),
+			},
+			Issuer: verifiable.Issuer{
+				ID: "did:example:489398593",
+			},
+			CustomFields: map[string]interface{}{
+				"identifier":  "83627465",
+				"name":        "Permanent Resident Card",
+				"description": "Government of Example Permanent Resident Card.",
+			},
+		}
+
+		publicKey, privateKey, err := bbs12381g2pub.GenerateKeyPair(sha256.New, nil)
+		require.NoError(t, err)
+
+		srcPublicKey, err := publicKey.Marshal()
+		require.NoError(t, err)
+
+		signer, err := newBBSSigner(privateKey)
+		require.NoError(t, err)
+
+		lddl := createTestJSONLDDocumentLoader(t)
+
+		require.NoError(t, vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
+			SignatureType:           "BbsBlsSignature2020",
+			SignatureRepresentation: verifiable.SignatureProofValue,
+			Suite:                   bbsblssignature2020.New(suite.WithSigner(signer)),
+			VerificationMethod:      "did:example:123456#key1",
+		}, jsonld.WithDocumentLoader(lddl)))
+
+		matched, err := pd.MatchSubmissionRequirement([]*verifiable.Credential{vc}, lddl,
+			presexch.WithSelectiveDisclosureApply(),
+			presexch.WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(lddl),
+				verifiable.WithPublicKeyFetcher(verifiable.SingleKey(srcPublicKey, "Bls12381G2Key2020"))),
+		)
+		require.NoError(t, err)
+		require.Len(t, matched, 1)
+		require.Equal(t, 1, len(matched[0].Descriptors))
+		require.Equal(t, 1, len(matched[0].Descriptors[0].MatchedVCs))
+
+		matchedVC := matched[0].Descriptors[0].MatchedVCs[0]
+
+		subject := matchedVC.Subject.([]verifiable.Subject)[0]
+		degree := subject.CustomFields["degree"]
+		require.NotNil(t, degree)
+
+		degreeMap, ok := degree.(map[string]interface{})
+		require.True(t, ok)
+
+		require.Equal(t, "MIT school", degreeMap["degreeSchool"])
+		require.Equal(t, "BachelorDegree", degreeMap["type"])
+		require.Empty(t, degreeMap["degree"])
+		require.Equal(t, "did:example:b34ca6cd37bbf23", subject.ID)
+		require.Empty(t, subject.CustomFields["spouse"])
+		require.Empty(t, matchedVC.CustomFields["name"])
+
+		require.NotEmpty(t, matchedVC.Proofs)
 	})
 
 	t.Run("Checks schema", func(t *testing.T) {
