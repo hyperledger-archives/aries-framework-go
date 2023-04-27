@@ -16,8 +16,8 @@ import (
 
 	"golang.org/x/crypto/ed25519"
 
+	"github.com/hyperledger/aries-framework-go/component/models/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	kmsapi "github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 

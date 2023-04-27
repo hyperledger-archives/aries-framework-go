@@ -7,10 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package jwkkid
 
 import (
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/jwkkid"
-
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/spi/kms"
 )
 
 // CreateKID creates a KID value based on the marshalled keyBytes of type kt. This function should be called for
