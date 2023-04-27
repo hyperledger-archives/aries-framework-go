@@ -8,9 +8,9 @@ go 1.19
 
 require (
 	github.com/google/uuid v1.3.0
-	github.com/hyperledger/aries-framework-go v0.1.9-0.20221025204933-b807371b6f1e
-	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220322085443-50e8f9bd208b
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20230417184158-344a7f82c4c2
+	github.com/hyperledger/aries-framework-go v0.1.9-0.20221021224215-368f53b380a4
+	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20230427134832-0c9969493bd3
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20230427134832-0c9969493bd3
 	github.com/hyperledger/aries-framework-go/test/component v0.0.0-20220428211718-66cc046674a1
 	github.com/piprate/json-gold v0.4.2
 	github.com/stretchr/testify v1.8.1
@@ -32,9 +32,9 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/tink/go v1.7.0 // indirect
 	github.com/gorilla/mux v1.7.3 // indirect
-	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0 // indirect
-	github.com/hyperledger/aries-framework-go/component/log v0.0.0 // indirect
-	github.com/hyperledger/aries-framework-go/component/models v0.0.0 // indirect
+	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230427134832-0c9969493bd3 // indirect
+	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3 // indirect
+	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230427134832-0c9969493bd3 // indirect
 	github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20221025204933-b807371b6f1e // indirect
 	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
 	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a // indirect
@@ -71,9 +71,6 @@ require (
 
 replace (
 	github.com/hyperledger/aries-framework-go => ../../
-	github.com/hyperledger/aries-framework-go/component/kmscrypto => ../../component/kmscrypto
-	github.com/hyperledger/aries-framework-go/component/log => ../../component/log
-	github.com/hyperledger/aries-framework-go/component/models => ../../component/models
 	// github.com/hyperledger/aries-framework-go/component/storage/edv => ../../component/storage/edv // TODO (#2815) remove this once the wallet package doesn't import edv
 	github.com/hyperledger/aries-framework-go/component/storageutil => ../../component/storageutil
 	github.com/hyperledger/aries-framework-go/spi => ../../spi
