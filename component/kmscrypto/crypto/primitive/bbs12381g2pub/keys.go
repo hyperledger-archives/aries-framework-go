@@ -13,35 +13,35 @@ import (
 	"hash"
 	"io"
 
-	bls12381 "github.com/kilic/bls12-381"
-	"golang.org/x/crypto/blake2b"
+	ml "github.com/IBM/mathlib"
 	"golang.org/x/crypto/hkdf"
-
-	bls12381intern "github.com/hyperledger/aries-framework-go/component/kmscrypto/internal/third_party/kilic/bls12-381"
 )
 
-const (
-	seedSize        = frCompressedSize
+var (
+	// nolint:gochecknoglobals
+	seedSize = frCompressedSize
+
+	// nolint:gochecknoglobals
 	generateKeySalt = "BBS-SIG-KEYGEN-SALT-"
 )
 
 // PublicKey defines BLS Public Key.
 type PublicKey struct {
-	PointG2 *bls12381.PointG2
+	PointG2 *ml.G2
 }
 
 // PrivateKey defines BLS Public Key.
 type PrivateKey struct {
-	FR *bls12381.Fr
+	FR *ml.Zr
 }
 
 // PublicKeyWithGenerators extends PublicKey with a blinding generator h0, a commitment to the secret key w,
 // and a generator for each message h.
 type PublicKeyWithGenerators struct {
-	h0 *bls12381.PointG1
-	h  []*bls12381.PointG1
+	h0 *ml.G1
+	h  []*ml.G1
 
-	w *bls12381.PointG2
+	w *ml.G2
 
 	messagesCount int
 }
@@ -52,12 +52,9 @@ func (pk *PublicKey) ToPublicKeyWithGenerators(messagesCount int) (*PublicKeyWit
 
 	data := calcData(pk, messagesCount)
 
-	h0, err := hashToG1(data)
-	if err != nil {
-		return nil, fmt.Errorf("create G1 point from hash")
-	}
+	h0 := hashToG1(data)
 
-	h := make([]*bls12381.PointG1, messagesCount)
+	h := make([]*ml.G1, messagesCount)
 
 	for i := 1; i <= messagesCount; i++ {
 		dataCopy := make([]byte, len(data))
@@ -69,10 +66,7 @@ func (pk *PublicKey) ToPublicKeyWithGenerators(messagesCount int) (*PublicKeyWit
 			dataCopy[j+offset] = iBytes[j]
 		}
 
-		h[i-1], err = hashToG1(dataCopy)
-		if err != nil {
-			return nil, fmt.Errorf("create G1 point from hash: %w", err)
-		}
+		h[i-1] = hashToG1(dataCopy)
 	}
 
 	return &PublicKeyWithGenerators{
@@ -84,7 +78,7 @@ func (pk *PublicKey) ToPublicKeyWithGenerators(messagesCount int) (*PublicKeyWit
 }
 
 func calcData(key *PublicKey, messagesCount int) []byte {
-	data := g2.ToUncompressed(key.PointG2)
+	data := key.PointG2.Bytes()
 
 	data = append(data, 0, 0, 0, 0, 0, 0)
 
@@ -95,23 +89,10 @@ func calcData(key *PublicKey, messagesCount int) []byte {
 	return data
 }
 
-func hashToG1(data []byte) (*bls12381.PointG1, error) {
-	dstG1 := []byte("BLS12381G1_XMD:BLAKE2B_SSWU_RO_BBS+_SIGNATURES:1_0_0")
+func hashToG1(data []byte) *ml.G1 {
+	var dstG1 = []byte("BLS12381G1_XMD:BLAKE2B_SSWU_RO_BBS+_SIGNATURES:1_0_0")
 
-	hashFunc := func() hash.Hash {
-		// We pass a null key so error is impossible here.
-		h, _ := blake2b.New512(nil) //nolint:errcheck
-		return h
-	}
-
-	g := bls12381intern.NewG1()
-
-	p, err := g.HashToCurveGeneric(data, dstG1, hashFunc)
-	if err != nil {
-		return nil, err
-	}
-
-	return g1.FromBytes(g.ToBytes(p))
+	return curve.HashToG1WithDomain(data, dstG1)
 }
 
 // UnmarshalPrivateKey unmarshals PrivateKey.
@@ -129,14 +110,13 @@ func UnmarshalPrivateKey(privKeyBytes []byte) (*PrivateKey, error) {
 
 // Marshal marshals PrivateKey.
 func (k *PrivateKey) Marshal() ([]byte, error) {
-	bytes := k.FR.ToBytes()
+	bytes := k.FR.Bytes()
 	return bytes, nil
 }
 
 // PublicKey returns a Public Key as G2 point generated from the Private Key.
 func (k *PrivateKey) PublicKey() *PublicKey {
-	pointG2 := g2.One()
-	g2.MulScalar(pointG2, pointG2, frToRepr(k.FR))
+	pointG2 := curve.GenG2.Mul(frToRepr(k.FR))
 
 	return &PublicKey{pointG2}
 }
@@ -147,7 +127,7 @@ func UnmarshalPublicKey(pubKeyBytes []byte) (*PublicKey, error) {
 		return nil, errors.New("invalid size of public key")
 	}
 
-	pointG2, err := g2.FromCompressed(pubKeyBytes)
+	pointG2, err := curve.NewG2FromCompressed(pubKeyBytes)
 	if err != nil {
 		return nil, fmt.Errorf("deserialize public key: %w", err)
 	}
@@ -159,7 +139,7 @@ func UnmarshalPublicKey(pubKeyBytes []byte) (*PublicKey, error) {
 
 // Marshal marshals PublicKey.
 func (pk *PublicKey) Marshal() ([]byte, error) {
-	pkBytes := g2.ToCompressed(pk.PointG2)
+	pkBytes := pk.PointG2.Compressed()
 
 	return pkBytes, nil
 }

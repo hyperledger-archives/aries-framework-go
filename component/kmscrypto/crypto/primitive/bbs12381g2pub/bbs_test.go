@@ -182,7 +182,7 @@ func TestBBSG2Pub_VerifyProof(t *testing.T) {
 
 		err = bls.VerifyProof(revealedMessagesBytes, proofBytesCopy, nonce, pkBytes)
 		require.Error(t, err)
-		require.EqualError(t, err, "parse signature proof: parse G1 point: point is not on curve")
+		require.ErrorContains(t, err, "parse signature proof: parse G1 point: failure [set bytes failed")
 	})
 
 	t.Run("invalid input public key", func(t *testing.T) {

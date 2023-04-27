@@ -356,7 +356,7 @@ func TestJWK_BBSKeyValidation(t *testing.T) {
 
 		err = jwk4.UnmarshalJSON([]byte(goodJWK))
 		require.EqualError(t, err, "unable to read BBS+ JWE: jwk invalid public key unmarshal: deserialize "+
-			"public key: point is not on curve")
+			"public key: failure [set bytes failed [point is not on curve]]")
 	})
 }
 

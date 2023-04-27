@@ -28,6 +28,7 @@ require (
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
+	github.com/IBM/mathlib v0.0.3-0.20230428120512-8afa4e643d4c // indirect
 	github.com/Microsoft/go-winio v0.4.16 // indirect
 	github.com/Microsoft/hcsshim v0.8.11 // indirect
 	github.com/PaesslerAG/gval v1.1.0 // indirect
@@ -36,6 +37,8 @@ require (
 	github.com/bluele/gcache v0.0.0-20190518031135-bc40bd653833 // indirect
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
+	github.com/consensys/bavard v0.1.13 // indirect
+	github.com/consensys/gnark-crypto v0.9.1 // indirect
 	github.com/containerd/cgroups v0.0.0-20201119153540-4cbc285b3327 // indirect
 	github.com/containerd/containerd v1.4.3 // indirect
 	github.com/containerd/continuity v0.0.0-20201208142359-180525291bb7 // indirect
@@ -49,10 +52,11 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/tink/go v1.7.0 // indirect
-	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230516135652-20c4d4beb991 // indirect
+	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0 // indirect
 	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3 // indirect
 	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230501135648-a9a7ad029347 // indirect
 	github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20221025204933-b807371b6f1e // indirect
+	github.com/hyperledger/fabric-amcl v0.0.0-20210603140002-2670f91851c8 // indirect
 	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
 	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a // indirect
 	github.com/kawamuray/jsonpath v0.0.0-20201211160320-7483bafabd7e // indirect
@@ -61,6 +65,7 @@ require (
 	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1 // indirect
 	github.com/minio/sha256-simd v0.1.1 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
+	github.com/mmcloughlin/addchain v0.4.0 // indirect
 	github.com/moby/sys/mountinfo v0.4.0 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/mr-tron/base58 v1.2.0 // indirect
@@ -92,9 +97,10 @@ require (
 	go.opencensus.io v0.23.0 // indirect
 	golang.org/x/crypto v0.1.0 // indirect
 	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a // indirect
-	golang.org/x/sys v0.1.0 // indirect
+	golang.org/x/sys v0.2.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	rsc.io/tmplfunc v0.0.3 // indirect
 )
 
 replace (

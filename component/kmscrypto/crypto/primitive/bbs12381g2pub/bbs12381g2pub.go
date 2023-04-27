@@ -19,14 +19,11 @@ import (
 	"fmt"
 	"sort"
 
-	bls12381 "github.com/kilic/bls12-381"
+	ml "github.com/IBM/mathlib"
 )
 
 // nolint:gochecknoglobals
-var (
-	g1 = bls12381.NewG1()
-	g2 = bls12381.NewG2()
-)
+var curve = ml.Curves[ml.BLS12_381_BBS]
 
 // BBSG2Pub defines BBS+ signature scheme where public key is a point in the field of G2.
 // BBS+ signature scheme (as defined in https://eprint.iacr.org/2016/663.pdf, section 4.3).
@@ -37,27 +34,33 @@ func New() *BBSG2Pub {
 	return &BBSG2Pub{}
 }
 
-const (
+// Number of bytes in scalar compressed form.
+const frCompressedSize = 32
+
+var (
+	// nolint:gochecknoglobals
 	// Signature length.
-	bls12381SignatureLen = 112
+	bls12381SignatureLen = curve.CompressedG1ByteSize + 2*frCompressedSize
 
+	// nolint:gochecknoglobals
 	// Default BLS 12-381 public key length in G2 field.
-	bls12381G2PublicKeyLen = 96
+	bls12381G2PublicKeyLen = curve.CompressedG2ByteSize
 
+	// nolint:gochecknoglobals
 	// Number of bytes in G1 X coordinate.
-	g1CompressedSize = 48
+	g1CompressedSize = curve.CompressedG1ByteSize
 
+	// nolint:gochecknoglobals
 	// Number of bytes in G1 X and Y coordinates.
-	g1UncompressedSize = 96
+	g1UncompressedSize = curve.G1ByteSize
 
+	// nolint:gochecknoglobals
 	// Number of bytes in G2 X(a, b) and Y(a, b) coordinates.
-	g2UncompressedSize = 192
+	g2UncompressedSize = curve.G2ByteSize
 
-	// Number of bytes in scalar compressed form.
-	frCompressedSize = 32
-
+	// nolint:gochecknoglobals
 	// Number of bytes in scalar uncompressed form.
-	frUncompressedSize = 48
+	frUncompressedSize = curve.ScalarByteSize
 )
 
 // Verify makes BLS BBS12-381 signature verification.
@@ -213,14 +216,13 @@ func (bbs *BBSG2Pub) SignWithKey(messages [][]byte, privKey *PrivateKey) ([]byte
 	}
 
 	e, s := createRandSignatureFr(), createRandSignatureFr()
-	exp := bls12381.NewFr().Set(privKey.FR)
-	exp.Add(exp, e)
-	exp.Inverse(exp)
+	exp := privKey.FR.Copy()
+	exp = exp.Plus(e)
+	exp.InvModP(curve.GroupOrder)
 
-	sig := g1.New()
 	b := computeB(s, messagesFr, pubKeyWithGenerators)
 
-	g1.MulScalar(sig, b, frToRepr(exp))
+	sig := b.Mul(frToRepr(exp))
 
 	signature := &Signature{
 		A: sig,
@@ -231,12 +233,12 @@ func (bbs *BBSG2Pub) SignWithKey(messages [][]byte, privKey *PrivateKey) ([]byte
 	return signature.ToBytes()
 }
 
-func computeB(s *bls12381.Fr, messages []*SignatureMessage, key *PublicKeyWithGenerators) *bls12381.PointG1 {
+func computeB(s *ml.Zr, messages []*SignatureMessage, key *PublicKeyWithGenerators) *ml.G1 {
 	const basesOffset = 2
 
 	cb := newCommitmentBuilder(len(messages) + basesOffset)
 
-	cb.add(g1.One(), bls12381.NewFr().One())
+	cb.add(curve.GenG1, curve.NewZrFromInt(1))
 	cb.add(key.h0, s)
 
 	for i := 0; i < len(messages); i++ {
@@ -247,55 +249,55 @@ func computeB(s *bls12381.Fr, messages []*SignatureMessage, key *PublicKeyWithGe
 }
 
 type commitmentBuilder struct {
-	bases   []*bls12381.PointG1
-	scalars []*bls12381.Fr
+	bases   []*ml.G1
+	scalars []*ml.Zr
 }
 
 func newCommitmentBuilder(expectedSize int) *commitmentBuilder {
 	return &commitmentBuilder{
-		bases:   make([]*bls12381.PointG1, 0, expectedSize),
-		scalars: make([]*bls12381.Fr, 0, expectedSize),
+		bases:   make([]*ml.G1, 0, expectedSize),
+		scalars: make([]*ml.Zr, 0, expectedSize),
 	}
 }
 
-func (cb *commitmentBuilder) add(base *bls12381.PointG1, scalar *bls12381.Fr) {
+func (cb *commitmentBuilder) add(base *ml.G1, scalar *ml.Zr) {
 	cb.bases = append(cb.bases, base)
 	cb.scalars = append(cb.scalars, scalar)
 }
 
-func (cb *commitmentBuilder) build() *bls12381.PointG1 {
+func (cb *commitmentBuilder) build() *ml.G1 {
 	return sumOfG1Products(cb.bases, cb.scalars)
 }
 
-func sumOfG1Products(bases []*bls12381.PointG1, scalars []*bls12381.Fr) *bls12381.PointG1 {
-	res := g1.Zero()
+func sumOfG1Products(bases []*ml.G1, scalars []*ml.Zr) *ml.G1 {
+	var res *ml.G1
 
 	for i := 0; i < len(bases); i++ {
 		b := bases[i]
 		s := scalars[i]
 
-		g := g1.New()
-
-		g1.MulScalar(g, b, frToRepr(s))
-		g1.Add(res, res, g)
+		g := b.Mul(frToRepr(s))
+		if res == nil {
+			res = g
+		} else {
+			res.Add(g)
+		}
 	}
 
 	return res
 }
 
-func compareTwoPairings(p1 *bls12381.PointG1, q1 *bls12381.PointG2,
-	p2 *bls12381.PointG1, q2 *bls12381.PointG2) bool {
-	engine := bls12381.NewEngine()
+func compareTwoPairings(p1 *ml.G1, q1 *ml.G2,
+	p2 *ml.G1, q2 *ml.G2) bool {
+	p := curve.Pairing2(q1, p1, q2, p2)
+	p = curve.FExp(p)
 
-	engine.AddPair(p1, q1)
-	engine.AddPair(p2, q2)
-
-	return engine.Check()
+	return p.IsUnity()
 }
 
 // ProofNonce is a nonce for Proof of Knowledge proof.
 type ProofNonce struct {
-	fr *bls12381.Fr
+	fr *ml.Zr
 }
 
 // ParseProofNonce creates a new ProofNonce from bytes.
@@ -307,5 +309,5 @@ func ParseProofNonce(proofNonceBytes []byte) *ProofNonce {
 
 // ToBytes converts ProofNonce into bytes.
 func (pn *ProofNonce) ToBytes() []byte {
-	return frToRepr(pn.fr).ToBytes()
+	return frToRepr(pn.fr).Bytes()
 }

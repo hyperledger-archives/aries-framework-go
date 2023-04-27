@@ -11,15 +11,15 @@ import (
 	"errors"
 	"fmt"
 
-	bls12381 "github.com/kilic/bls12-381"
+	ml "github.com/IBM/mathlib"
 )
 
 // PoKOfSignatureProof defines BLS signature proof.
 // It is the actual proof that is sent from prover to verifier.
 type PoKOfSignatureProof struct {
-	aPrime *bls12381.PointG1
-	aBar   *bls12381.PointG1
-	d      *bls12381.PointG1
+	aPrime *ml.G1
+	aBar   *ml.G1
+	d      *ml.G1
 
 	proofVC1 *ProofG1
 	proofVC2 *ProofG1
@@ -33,31 +33,31 @@ func (sp *PoKOfSignatureProof) GetBytesForChallenge(revealedMessages map[int]*Si
 	bytesLen := (7 + hiddenCount) * g1UncompressedSize //nolint:gomnd
 	bytes := make([]byte, 0, bytesLen)
 
-	bytes = append(bytes, g1.ToUncompressed(sp.aBar)...)
-	bytes = append(bytes, g1.ToUncompressed(sp.aPrime)...)
-	bytes = append(bytes, g1.ToUncompressed(pubKey.h0)...)
-	bytes = append(bytes, g1.ToUncompressed(sp.proofVC1.commitment)...)
-	bytes = append(bytes, g1.ToUncompressed(sp.d)...)
-	bytes = append(bytes, g1.ToUncompressed(pubKey.h0)...)
+	bytes = append(bytes, sp.aBar.Bytes()...)
+	bytes = append(bytes, sp.aPrime.Bytes()...)
+	bytes = append(bytes, pubKey.h0.Bytes()...)
+	bytes = append(bytes, sp.proofVC1.commitment.Bytes()...)
+	bytes = append(bytes, sp.d.Bytes()...)
+	bytes = append(bytes, pubKey.h0.Bytes()...)
 
 	for i := range pubKey.h {
 		if _, ok := revealedMessages[i]; !ok {
-			bytes = append(bytes, g1.ToUncompressed(pubKey.h[i])...)
+			bytes = append(bytes, pubKey.h[i].Bytes()...)
 		}
 	}
 
-	bytes = append(bytes, g1.ToUncompressed(sp.proofVC2.commitment)...)
+	bytes = append(bytes, sp.proofVC2.commitment.Bytes()...)
 
 	return bytes
 }
 
 // Verify verifies PoKOfSignatureProof.
-func (sp *PoKOfSignatureProof) Verify(challenge *bls12381.Fr, pubKey *PublicKeyWithGenerators,
+func (sp *PoKOfSignatureProof) Verify(challenge *ml.Zr, pubKey *PublicKeyWithGenerators,
 	revealedMessages map[int]*SignatureMessage, messages []*SignatureMessage) error {
-	aBar := new(bls12381.PointG1)
-	g1.Neg(aBar, sp.aBar)
+	aBar := sp.aBar.Copy()
+	aBar.Neg()
 
-	ok := compareTwoPairings(sp.aPrime, pubKey.w, aBar, g2.One())
+	ok := compareTwoPairings(sp.aPrime, pubKey.w, aBar, curve.GenG2)
 	if !ok {
 		return errors.New("bad signature")
 	}
@@ -70,10 +70,10 @@ func (sp *PoKOfSignatureProof) Verify(challenge *bls12381.Fr, pubKey *PublicKeyW
 	return sp.verifyVC2Proof(challenge, pubKey, revealedMessages, messages)
 }
 
-func (sp *PoKOfSignatureProof) verifyVC1Proof(challenge *bls12381.Fr, pubKey *PublicKeyWithGenerators) error {
-	basesVC1 := []*bls12381.PointG1{sp.aPrime, pubKey.h0}
-	aBarD := new(bls12381.PointG1)
-	g1.Sub(aBarD, sp.aBar, sp.d)
+func (sp *PoKOfSignatureProof) verifyVC1Proof(challenge *ml.Zr, pubKey *PublicKeyWithGenerators) error {
+	basesVC1 := []*ml.G1{sp.aPrime, pubKey.h0}
+	aBarD := sp.aBar.Copy()
+	aBarD.Sub(sp.d)
 
 	err := sp.proofVC1.Verify(basesVC1, aBarD, challenge)
 	if err != nil {
@@ -83,18 +83,18 @@ func (sp *PoKOfSignatureProof) verifyVC1Proof(challenge *bls12381.Fr, pubKey *Pu
 	return nil
 }
 
-func (sp *PoKOfSignatureProof) verifyVC2Proof(challenge *bls12381.Fr, pubKey *PublicKeyWithGenerators,
+func (sp *PoKOfSignatureProof) verifyVC2Proof(challenge *ml.Zr, pubKey *PublicKeyWithGenerators,
 	revealedMessages map[int]*SignatureMessage, messages []*SignatureMessage) error {
 	revealedMessagesCount := len(revealedMessages)
 
-	basesVC2 := make([]*bls12381.PointG1, 0, 2+pubKey.messagesCount-revealedMessagesCount)
+	basesVC2 := make([]*ml.G1, 0, 2+pubKey.messagesCount-revealedMessagesCount)
 	basesVC2 = append(basesVC2, sp.d, pubKey.h0)
 
-	basesDisclosed := make([]*bls12381.PointG1, 0, 1+revealedMessagesCount)
-	exponents := make([]*bls12381.Fr, 0, 1+revealedMessagesCount)
+	basesDisclosed := make([]*ml.G1, 0, 1+revealedMessagesCount)
+	exponents := make([]*ml.Zr, 0, 1+revealedMessagesCount)
 
-	basesDisclosed = append(basesDisclosed, g1.One())
-	exponents = append(exponents, bls12381.NewFr().One())
+	basesDisclosed = append(basesDisclosed, curve.GenG1)
+	exponents = append(exponents, curve.NewZrFromInt(1))
 
 	revealedMessagesInd := 0
 
@@ -108,18 +108,19 @@ func (sp *PoKOfSignatureProof) verifyVC2Proof(challenge *bls12381.Fr, pubKey *Pu
 		}
 	}
 
-	pr := g1.Zero()
+	// TODO: expose 0
+	pr := curve.GenG1.Copy()
+	pr.Sub(curve.GenG1)
 
 	for i := 0; i < len(basesDisclosed); i++ {
 		b := basesDisclosed[i]
 		s := exponents[i]
 
-		g := g1.New()
-		g1.MulScalar(g, b, frToRepr(s))
-		g1.Add(pr, pr, g)
+		g := b.Mul(frToRepr(s))
+		pr.Add(g)
 	}
 
-	g1.Neg(pr, pr)
+	pr.Neg()
 
 	err := sp.proofVC2.Verify(basesVC2, pr, challenge)
 	if err != nil {
@@ -133,9 +134,9 @@ func (sp *PoKOfSignatureProof) verifyVC2Proof(challenge *bls12381.Fr, pubKey *Pu
 func (sp *PoKOfSignatureProof) ToBytes() []byte {
 	bytes := make([]byte, 0)
 
-	bytes = append(bytes, g1.ToCompressed(sp.aPrime)...)
-	bytes = append(bytes, g1.ToCompressed(sp.aBar)...)
-	bytes = append(bytes, g1.ToCompressed(sp.d)...)
+	bytes = append(bytes, sp.aPrime.Compressed()...)
+	bytes = append(bytes, sp.aBar.Compressed()...)
+	bytes = append(bytes, sp.d.Compressed()...)
 
 	proof1Bytes := sp.proofVC1.ToBytes()
 	lenBytes := make([]byte, 4)
@@ -150,12 +151,12 @@ func (sp *PoKOfSignatureProof) ToBytes() []byte {
 
 // ProofG1 is a proof of knowledge of a signature and hidden messages.
 type ProofG1 struct {
-	commitment *bls12381.PointG1
-	responses  []*bls12381.Fr
+	commitment *ml.G1
+	responses  []*ml.Zr
 }
 
 // NewProofG1 creates a new ProofG1.
-func NewProofG1(commitment *bls12381.PointG1, responses []*bls12381.Fr) *ProofG1 {
+func NewProofG1(commitment *ml.G1, responses []*ml.Zr) *ProofG1 {
 	return &ProofG1{
 		commitment: commitment,
 		responses:  responses,
@@ -163,19 +164,19 @@ func NewProofG1(commitment *bls12381.PointG1, responses []*bls12381.Fr) *ProofG1
 }
 
 // Verify verifies the ProofG1.
-func (pg1 *ProofG1) Verify(bases []*bls12381.PointG1, commitment *bls12381.PointG1, challenge *bls12381.Fr) error {
+func (pg1 *ProofG1) Verify(bases []*ml.G1, commitment *ml.G1, challenge *ml.Zr) error {
 	contribution := pg1.getChallengeContribution(bases, commitment, challenge)
-	g1.Sub(contribution, contribution, pg1.commitment)
+	contribution.Sub(pg1.commitment)
 
-	if !g1.IsZero(contribution) {
+	if !contribution.IsInfinity() {
 		return errors.New("contribution is not zero")
 	}
 
 	return nil
 }
 
-func (pg1 *ProofG1) getChallengeContribution(bases []*bls12381.PointG1, commitment *bls12381.PointG1,
-	challenge *bls12381.Fr) *bls12381.PointG1 {
+func (pg1 *ProofG1) getChallengeContribution(bases []*ml.G1, commitment *ml.G1,
+	challenge *ml.Zr) *ml.G1 {
 	points := append(bases, commitment)
 	scalars := append(pg1.responses, challenge)
 
@@ -186,7 +187,7 @@ func (pg1 *ProofG1) getChallengeContribution(bases []*bls12381.PointG1, commitme
 func (pg1 *ProofG1) ToBytes() []byte {
 	bytes := make([]byte, 0)
 
-	commitmentBytes := g1.ToCompressed(pg1.commitment)
+	commitmentBytes := pg1.commitment.Compressed()
 	bytes = append(bytes, commitmentBytes...)
 
 	lenBytes := make([]byte, 4)
@@ -194,7 +195,7 @@ func (pg1 *ProofG1) ToBytes() []byte {
 	bytes = append(bytes, lenBytes...)
 
 	for i := range pg1.responses {
-		responseBytes := frToRepr(pg1.responses[i]).ToBytes()
+		responseBytes := frToRepr(pg1.responses[i]).Bytes()
 		bytes = append(bytes, responseBytes...)
 	}
 
@@ -207,11 +208,11 @@ func ParseSignatureProof(sigProofBytes []byte) (*PoKOfSignatureProof, error) {
 		return nil, errors.New("invalid size of signature proof")
 	}
 
-	g1Points := make([]*bls12381.PointG1, 3)
+	g1Points := make([]*ml.G1, 3)
 	offset := 0
 
 	for i := range g1Points {
-		g1Point, err := g1.FromCompressed(sigProofBytes[offset : offset+g1CompressedSize])
+		g1Point, err := curve.NewG1FromCompressed(sigProofBytes[offset : offset+g1CompressedSize])
 		if err != nil {
 			return nil, fmt.Errorf("parse G1 point: %w", err)
 		}
@@ -252,7 +253,7 @@ func ParseProofG1(bytes []byte) (*ProofG1, error) {
 
 	offset := 0
 
-	commitment, err := g1.FromCompressed(bytes[:g1CompressedSize])
+	commitment, err := curve.NewG1FromCompressed(bytes[:g1CompressedSize])
 	if err != nil {
 		return nil, fmt.Errorf("parse G1 point: %w", err)
 	}
@@ -265,7 +266,7 @@ func ParseProofG1(bytes []byte) (*ProofG1, error) {
 		return nil, errors.New("invalid size of G1 signature proof")
 	}
 
-	responses := make([]*bls12381.Fr, length)
+	responses := make([]*ml.Zr, length)
 	for i := 0; i < length; i++ {
 		responses[i] = parseFr(bytes[offset : offset+frCompressedSize])
 		offset += frCompressedSize

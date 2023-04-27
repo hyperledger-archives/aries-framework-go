@@ -9,19 +9,27 @@ package bbs12381g2pub
 import (
 	"crypto/rand"
 
-	bls12381 "github.com/kilic/bls12-381"
+	ml "github.com/IBM/mathlib"
 	"golang.org/x/crypto/blake2b"
 )
 
-func parseFr(data []byte) *bls12381.Fr {
-	return bls12381.NewFr().FromBytes(data)
+func parseFr(data []byte) *ml.Zr {
+	return curve.NewZrFromBytes(data)
 }
 
-func f2192() *bls12381.Fr {
-	return &bls12381.Fr{0, 0, 0, 1}
+// nolint:gochecknoglobals
+var f2192Bytes = []byte{
+	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1,
+	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
 }
 
-func frFromOKM(message []byte) *bls12381.Fr {
+func f2192() *ml.Zr {
+	return curve.NewZrFromBytes(f2192Bytes)
+}
+
+func frFromOKM(message []byte) *ml.Zr {
 	const (
 		eightBytes = 8
 		okmMiddle  = 24
@@ -35,20 +43,17 @@ func frFromOKM(message []byte) *bls12381.Fr {
 	okm := h.Sum(nil)
 	emptyEightBytes := make([]byte, eightBytes)
 
-	elm := bls12381.NewFr().FromBytes(append(emptyEightBytes, okm[:okmMiddle]...))
-	elm.Mul(elm, f2192())
+	elm := curve.NewZrFromBytes(append(emptyEightBytes, okm[:okmMiddle]...))
+	elm = elm.Mul(f2192())
 
-	fr := bls12381.NewFr().FromBytes(append(emptyEightBytes, okm[okmMiddle:]...))
-	elm.Add(elm, fr)
+	fr := curve.NewZrFromBytes(append(emptyEightBytes, okm[okmMiddle:]...))
+	elm = elm.Plus(fr)
 
 	return elm
 }
 
-func frToRepr(fr *bls12381.Fr) *bls12381.Fr {
-	frRepr := bls12381.NewFr()
-	frRepr.Mul(fr, &bls12381.Fr{1})
-
-	return frRepr
+func frToRepr(fr *ml.Zr) *ml.Zr {
+	return fr.Copy()
 }
 
 func messagesToFr(messages [][]byte) []*SignatureMessage {
@@ -61,8 +66,6 @@ func messagesToFr(messages [][]byte) []*SignatureMessage {
 	return messagesFr
 }
 
-func createRandSignatureFr() *bls12381.Fr {
-	fr, _ := bls12381.NewFr().Rand(rand.Reader) //nolint:errcheck
-
-	return frToRepr(fr)
+func createRandSignatureFr() *ml.Zr {
+	return curve.NewRandomZr(rand.Reader)
 }
