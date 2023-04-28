@@ -19,12 +19,12 @@ require (
 	github.com/google/tink/go v1.7.0
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.7.3
-	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230420151605-a45b1b02336f
-	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230417184158-344a7f82c4c2
-	github.com/hyperledger/aries-framework-go/component/models v0.0.0
+	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230427134832-0c9969493bd3
+	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3
+	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230427134832-0c9969493bd3
 	github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20221025204933-b807371b6f1e
-	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220322085443-50e8f9bd208b
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20230417184158-344a7f82c4c2
+	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20230427134832-0c9969493bd3
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20230427134832-0c9969493bd3
 	github.com/hyperledger/ursa-wrapper-go v0.3.1
 	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a
 	github.com/kawamuray/jsonpath v0.0.0-20201211160320-7483bafabd7e
@@ -69,16 +69,6 @@ require (
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/hyperledger/aries-framework-go/component/kmscrypto => ./component/kmscrypto
-
-replace github.com/hyperledger/aries-framework-go/component/log => ./component/log
-
-replace github.com/hyperledger/aries-framework-go/component/models => ./component/models
-
-replace github.com/hyperledger/aries-framework-go/spi => ./spi
-
-replace github.com/hyperledger/aries-framework-go/component/storageutil => ./component/storageutil
 
 go 1.19
 
