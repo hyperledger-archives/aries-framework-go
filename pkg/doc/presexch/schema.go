@@ -505,6 +505,7 @@ const DefinitionJSONSchemaV2 = `
             },
             "purpose": { "type": "string" },
             "intent_to_retain": { "type": "boolean" },
+            "optional": { "type": "boolean" },
             "filter": { "$ref": "http://json-schema.org/draft-07/schema#" }
           },
           "required": ["path"],
