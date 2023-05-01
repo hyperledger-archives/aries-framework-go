@@ -545,7 +545,7 @@ func (pd *PresentationDefinition) MatchSubmissionRequirement(credentials []*veri
 // ErrNoCredentials when any credentials do not satisfy requirements.
 var ErrNoCredentials = errors.New("credentials do not satisfy requirements")
 
-// nolint: funlen
+// nolint: funlen,gocyclo
 func (pd *PresentationDefinition) matchRequirement(req *requirement, creds []*verifiable.Credential,
 	documentLoader ld.DocumentLoader, opts *matchRequirementsOpts) (*MatchedSubmissionRequirement, error) {
 	matchedReq := &MatchedSubmissionRequirement{
@@ -583,6 +583,12 @@ func (pd *PresentationDefinition) matchRequirement(req *requirement, creds []*ve
 			matchedVCs, err = limitDisclosure(filtered, opts.credOpts...)
 			if err != nil {
 				return nil, err
+			}
+
+			// TODO: remove this workaround after refactoring "merge" function to get rid of
+			// TODO: the trick with the modification of credential id.
+			for _, cred := range matchedVCs {
+				cred.ID = trimTmpID(cred.ID)
 			}
 		} else {
 			for _, credRes := range filtered {
