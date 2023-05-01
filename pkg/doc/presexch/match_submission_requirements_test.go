@@ -238,6 +238,8 @@ func TestInstance_GetSubmissionRequirements(t *testing.T) {
 
 		matchedVC := matched[0].Descriptors[0].MatchedVCs[0]
 
+		require.Equal(t, vc.ID, matchedVC.ID)
+
 		subject := matchedVC.Subject.([]verifiable.Subject)[0]
 		degree := subject.CustomFields["degree"]
 		require.NotNil(t, degree)
