@@ -68,8 +68,8 @@ github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230427134
 github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230427134832-0c9969493bd3/go.mod h1:aEk0vHBmZsAdDfXaI12Kg5ipZGiB3qNqgbPt/e/Hm2s=
 github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3 h1:x5qFQraTX86z9GCwF28IxfnPm6QH5YgHaX+4x97Jwvw=
 github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3/go.mod h1:CvYs4l8X2NrrF93weLOu5RTOIJeVdoZITtjEflyuTyM=
-github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230427134832-0c9969493bd3 h1:PH/0T4Rg9dGE+LAmCWoPgV5y6shnWPaGqlLT1tuWz54=
-github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230427134832-0c9969493bd3/go.mod h1:t+VZHdJbTF0nDnr9zQXPgxBUJ9rFeaAGnUzFTuQCs5o=
+github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230501135648-a9a7ad029347 h1:oPGUCpmnm7yxsVllcMQnHF3uc3hy4jfrSCh7nvzXA00=
+github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230501135648-a9a7ad029347/go.mod h1:nF8fHsYY+GZl74AFAQaKAhYWOOSaLVzW/TZ0Sq/6axI=
 github.com/hyperledger/aries-framework-go/test/component v0.0.0-20220428211718-66cc046674a1 h1:vxZ0DlFNLjgxMdBESLZu895AsI1JWL2SJerphwIn8Po=
 github.com/hyperledger/ursa-wrapper-go v0.3.1 h1:Do+QrVNniY77YK2jTIcyWqj9rm/Yb5SScN0bqCjiibA=
 github.com/hyperledger/ursa-wrapper-go v0.3.1/go.mod h1:nPSAuMasIzSVciQo22PedBk4Opph6bJ6ia3ms7BH/mk=
