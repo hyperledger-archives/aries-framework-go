@@ -14,6 +14,7 @@ import (
 	"github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/component/models/ld/processor"
+
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/json"
 )
 
@@ -71,12 +72,17 @@ func getValidateOpts(options []ValidateOpts) *validateOpts {
 
 // ValidateJSONLD validates jsonld structure.
 func ValidateJSONLD(doc string, options ...ValidateOpts) error {
-	opts := getValidateOpts(options)
-
 	docMap, err := json.ToMap(doc)
 	if err != nil {
 		return fmt.Errorf("convert JSON-LD doc to map: %w", err)
 	}
+
+	return ValidateJSONLDMap(docMap, options...)
+}
+
+// ValidateJSONLDMap validates jsonld structure.
+func ValidateJSONLDMap(docMap map[string]interface{}, options ...ValidateOpts) error {
+	opts := getValidateOpts(options)
 
 	jsonldProc := processor.Default()
 
