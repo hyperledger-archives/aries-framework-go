@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/holder"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/issuer"
+	json2 "github.com/hyperledger/aries-framework-go/pkg/doc/util/json"
 )
 
 type marshalDisclosureOpts struct {
@@ -389,16 +390,16 @@ func (vc *Credential) CreateDisplayCredential( // nolint:funlen,gocyclo
 	return newVC, nil
 }
 
-// CreateDisplayCredentialBytes creates, for SD-JWT credentials, a Credential whose selective-disclosure subject fields
+// CreateDisplayCredentialMap creates, for SD-JWT credentials, a Credential whose selective-disclosure subject fields
 // are replaced with the disclosure data.
 //
 // Options may be provided to filter the disclosures that will be included in the display credential. If a disclosure is
 // not included, the associated claim will not be present in the returned credential.
 //
 // If the calling Credential is not an SD-JWT credential, this method returns the credential itself.
-func (vc *Credential) CreateDisplayCredentialBytes( // nolint:funlen,gocyclo
+func (vc *Credential) CreateDisplayCredentialMap( // nolint:funlen,gocyclo
 	opts ...DisplayCredentialOption,
-) ([]byte, error) {
+) (map[string]interface{}, error) {
 	options := &displayCredOpts{}
 
 	for _, opt := range opts {
@@ -410,7 +411,12 @@ func (vc *Credential) CreateDisplayCredentialBytes( // nolint:funlen,gocyclo
 	}
 
 	if vc.SDJWTHashAlg == "" || vc.JWT == "" {
-		return vc.MarshalJSON()
+		bytes, err := vc.MarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+
+		return json2.ToMap(bytes)
 	}
 
 	credClaims, err := unmarshalJWSClaims(vc.JWT, false, nil)
@@ -431,12 +437,7 @@ func (vc *Credential) CreateDisplayCredentialBytes( // nolint:funlen,gocyclo
 		clearEmpty(subj)
 	}
 
-	vcBytes, err := json.Marshal(&newVCObj)
-	if err != nil {
-		return nil, fmt.Errorf("marshalling vc object to JSON: %w", err)
-	}
-
-	return vcBytes, nil
+	return newVCObj, nil
 }
 
 func filterDisclosureList(disclosures []*common.DisclosureClaim, options *displayCredOpts) []*common.DisclosureClaim {

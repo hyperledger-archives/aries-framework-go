@@ -379,17 +379,17 @@ func TestCreateDisplayCredential(t *testing.T) {
 			require.Equal(t, expectedFields, subj[0].CustomFields)
 		})
 
-		t.Run("not a SD-JWT credential bytes", func(t *testing.T) {
+		t.Run("not a SD-JWT credential map", func(t *testing.T) {
 			vc2, err := parseTestCredential(t, []byte(jwtTestCredential))
 			require.NoError(t, err)
 
-			displayVC, err := vc2.CreateDisplayCredentialBytes(DisplayAllDisclosures())
+			displayVC, err := vc2.CreateDisplayCredentialMap(DisplayAllDisclosures())
 			require.NoError(t, err)
 			require.NotEmpty(t, displayVC)
 		})
 
-		t.Run("display all claims bytes", func(t *testing.T) {
-			displayVC, err := vc.CreateDisplayCredentialBytes(DisplayAllDisclosures())
+		t.Run("display all claims map", func(t *testing.T) {
+			displayVC, err := vc.CreateDisplayCredentialMap(DisplayAllDisclosures())
 			require.NoError(t, err)
 			require.NotEmpty(t, displayVC)
 		})
