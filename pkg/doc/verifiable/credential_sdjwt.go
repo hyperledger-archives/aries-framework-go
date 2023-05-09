@@ -389,6 +389,56 @@ func (vc *Credential) CreateDisplayCredential( // nolint:funlen,gocyclo
 	return newVC, nil
 }
 
+// CreateDisplayCredentialBytes creates, for SD-JWT credentials, a Credential whose selective-disclosure subject fields
+// are replaced with the disclosure data.
+//
+// Options may be provided to filter the disclosures that will be included in the display credential. If a disclosure is
+// not included, the associated claim will not be present in the returned credential.
+//
+// If the calling Credential is not an SD-JWT credential, this method returns the credential itself.
+func (vc *Credential) CreateDisplayCredentialBytes( // nolint:funlen,gocyclo
+	opts ...DisplayCredentialOption,
+) ([]byte, error) {
+	options := &displayCredOpts{}
+
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	if options.displayAll && len(options.displayGiven) > 0 {
+		return nil, fmt.Errorf("incompatible options provided")
+	}
+
+	if vc.SDJWTHashAlg == "" || vc.JWT == "" {
+		return vc.MarshalJSON()
+	}
+
+	credClaims, err := unmarshalJWSClaims(vc.JWT, false, nil)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal VC JWT claims: %w", err)
+	}
+
+	credClaims.refineFromJWTClaims()
+
+	useDisclosures := filterDisclosureList(vc.SDJWTDisclosures, options)
+
+	newVCObj, err := common.GetDisclosedClaims(useDisclosures, credClaims.VC)
+	if err != nil {
+		return nil, fmt.Errorf("assembling disclosed claims into vc: %w", err)
+	}
+
+	if subj, ok := newVCObj["credentialSubject"].(map[string]interface{}); ok {
+		clearEmpty(subj)
+	}
+
+	vcBytes, err := json.Marshal(&newVCObj)
+	if err != nil {
+		return nil, fmt.Errorf("marshalling vc object to JSON: %w", err)
+	}
+
+	return vcBytes, nil
+}
+
 func filterDisclosureList(disclosures []*common.DisclosureClaim, options *displayCredOpts) []*common.DisclosureClaim {
 	if options.displayAll {
 		return disclosures
