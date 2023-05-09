@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/holder"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/issuer"
+	json2 "github.com/hyperledger/aries-framework-go/pkg/doc/util/json"
 )
 
 type marshalDisclosureOpts struct {
@@ -387,6 +388,56 @@ func (vc *Credential) CreateDisplayCredential( // nolint:funlen,gocyclo
 	}
 
 	return newVC, nil
+}
+
+// CreateDisplayCredentialMap creates, for SD-JWT credentials, a Credential whose selective-disclosure subject fields
+// are replaced with the disclosure data.
+//
+// Options may be provided to filter the disclosures that will be included in the display credential. If a disclosure is
+// not included, the associated claim will not be present in the returned credential.
+//
+// If the calling Credential is not an SD-JWT credential, this method returns the credential itself.
+func (vc *Credential) CreateDisplayCredentialMap( // nolint:funlen,gocyclo
+	opts ...DisplayCredentialOption,
+) (map[string]interface{}, error) {
+	options := &displayCredOpts{}
+
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	if options.displayAll && len(options.displayGiven) > 0 {
+		return nil, fmt.Errorf("incompatible options provided")
+	}
+
+	if vc.SDJWTHashAlg == "" || vc.JWT == "" {
+		bytes, err := vc.MarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+
+		return json2.ToMap(bytes)
+	}
+
+	credClaims, err := unmarshalJWSClaims(vc.JWT, false, nil)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal VC JWT claims: %w", err)
+	}
+
+	credClaims.refineFromJWTClaims()
+
+	useDisclosures := filterDisclosureList(vc.SDJWTDisclosures, options)
+
+	newVCObj, err := common.GetDisclosedClaims(useDisclosures, credClaims.VC)
+	if err != nil {
+		return nil, fmt.Errorf("assembling disclosed claims into vc: %w", err)
+	}
+
+	if subj, ok := newVCObj["credentialSubject"].(map[string]interface{}); ok {
+		clearEmpty(subj)
+	}
+
+	return newVCObj, nil
 }
 
 func filterDisclosureList(disclosures []*common.DisclosureClaim, options *displayCredOpts) []*common.DisclosureClaim {
