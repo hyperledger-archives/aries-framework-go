@@ -89,7 +89,24 @@ const DefinitionJSONSchemaV1 = `
             "not":{
                "type":"object",
                "minProperties":1
-            }
+            },
+			"contains":{
+				"type":"object",
+				"properties":{
+					"type":{
+					   "type":"string"
+					},
+					"pattern":{
+					   "type":"string"
+					},
+					"const":{
+					   "type":"string"
+					}
+				},
+				"required":[
+					"type"
+				]
+			}
          },
          "required":[
             "type"
@@ -390,6 +407,9 @@ const DefinitionJSONSchemaV1 = `
                   },
                   "filter":{
                      "$ref":"#/definitions/filter"
+                  },
+                  "optional":{
+                     "type":"boolean"
                   }
                },
                "required":[
