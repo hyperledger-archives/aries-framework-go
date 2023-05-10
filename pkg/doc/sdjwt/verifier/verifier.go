@@ -18,12 +18,13 @@ import (
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/mitchellh/mapstructure"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/utils"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
-	afgjwt "github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
+	afgjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
+	"github.com/hyperledger/aries-framework-go/component/models/signature/verifier"
+	utils "github.com/hyperledger/aries-framework-go/component/models/util/maphelpers"
+
 	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/common"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 )
 
 // jwtParseOpts holds options for the SD-JWT parsing.

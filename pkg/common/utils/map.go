@@ -6,18 +6,9 @@ SPDX-License-Identifier: Apache-2.0
 
 package utils
 
+import "github.com/hyperledger/aries-framework-go/component/models/util/maphelpers"
+
 // CopyMap performs shallow copy of map and nested maps.
 func CopyMap(m map[string]interface{}) map[string]interface{} {
-	cm := make(map[string]interface{})
-
-	for k, v := range m {
-		vm, ok := v.(map[string]interface{})
-		if ok {
-			cm[k] = CopyMap(vm)
-		} else {
-			cm[k] = v
-		}
-	}
-
-	return cm
+	return maphelpers.CopyMap(m)
 }

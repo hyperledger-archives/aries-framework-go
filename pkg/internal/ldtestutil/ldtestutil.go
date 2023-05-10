@@ -9,11 +9,10 @@ package ldtestutil
 import (
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/component/models/ld/testutil"
-
 	ldcontext "github.com/hyperledger/aries-framework-go/component/models/ld/context"
 	"github.com/hyperledger/aries-framework-go/component/models/ld/documentloader"
 	"github.com/hyperledger/aries-framework-go/component/models/ld/processor"
+	"github.com/hyperledger/aries-framework-go/component/models/ld/testutil"
 )
 
 // WithDocumentLoader returns an option with a custom JSON-LD document loader preloaded with embedded contexts.

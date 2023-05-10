@@ -15,6 +15,7 @@ require (
 	github.com/golang/protobuf v1.5.2
 	github.com/google/tink/go v1.7.0
 	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230417184158-344a7f82c4c2
+	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20230427134832-0c9969493bd3
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20230417184158-344a7f82c4c2
 	github.com/hyperledger/ursa-wrapper-go v0.3.1
 	github.com/kilic/bls12-381 v0.1.1-0.20210503002446-7b7597926c69
