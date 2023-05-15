@@ -1005,6 +1005,8 @@ func getLimitedDisclosures(constraints *Constraints, displaySrc []byte, credenti
 
 	var limitedDisclosures []*common.DisclosureClaim
 
+	parsedGJSON := gjson.ParseBytes(credentialSrc)
+
 	for _, f := range constraints.Fields {
 		jPaths, err := getJSONPaths(f.Path, displaySrc)
 		if err != nil {
@@ -1026,7 +1028,7 @@ func getLimitedDisclosures(constraints *Constraints, displaySrc []byte, credenti
 				key = pathParts[len(pathParts)-1]
 			}
 
-			parentObj, ok := gjson.GetBytes(credentialSrc, parentPath).Value().(map[string]interface{})
+			parentObj, ok := parsedGJSON.Get(parentPath).Value().(map[string]interface{})
 			if !ok {
 				// no selective disclosures at this level, so nothing to add to limited disclosures
 				continue
