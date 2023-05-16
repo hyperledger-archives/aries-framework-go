@@ -10,6 +10,7 @@ import (
 	"errors"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	spivdr "github.com/hyperledger/aries-framework-go/spi/vdr"
 )
 
 // ErrNotFound is returned when a DID resolver does not find the DID.
@@ -47,16 +48,12 @@ type VDR interface {
 }
 
 // DIDMethodOpts did method opts.
-type DIDMethodOpts struct {
-	Values map[string]interface{}
-}
+type DIDMethodOpts = spivdr.DIDMethodOpts
 
 // DIDMethodOption is a did method option.
-type DIDMethodOption func(opts *DIDMethodOpts)
+type DIDMethodOption = spivdr.DIDMethodOption
 
 // WithOption add option for did method.
 func WithOption(name string, value interface{}) DIDMethodOption {
-	return func(didMethodOpts *DIDMethodOpts) {
-		didMethodOpts.Values[name] = value
-	}
+	return spivdr.WithOption(name, value)
 }

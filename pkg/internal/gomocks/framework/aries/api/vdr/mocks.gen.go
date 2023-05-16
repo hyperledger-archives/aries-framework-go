@@ -9,7 +9,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	did "github.com/hyperledger/aries-framework-go/component/models/did"
-	vdr "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	vdr "github.com/hyperledger/aries-framework-go/spi/vdr"
 )
 
 // MockRegistry is a mock of Registry interface.

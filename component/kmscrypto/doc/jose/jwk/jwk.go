@@ -22,7 +22,7 @@ import (
 	"github.com/go-jose/go-jose/v3"
 	"golang.org/x/crypto/ed25519"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/internal/cryptoutil"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/util/cryptoutil"
 
 	"github.com/hyperledger/aries-framework-go/spi/kms"
 

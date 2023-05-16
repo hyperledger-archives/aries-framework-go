@@ -7,8 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package jose
 
 import (
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/composite/ecdh"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
 )
 
 // IANA registered JOSE headers (https://tools.ietf.org/html/rfc7515#section-4.1)
@@ -102,72 +101,5 @@ const (
 	A256CBCHS512ALG = "A256CBC-HS512"
 )
 
-var aeadAlg = map[EncAlg]ecdh.AEADAlg{ //nolint:gochecknoglobals
-	A256GCM:      ecdh.AES256GCM,
-	XC20P:        ecdh.XC20P,
-	A128CBCHS256: ecdh.AES128CBCHMACSHA256,
-	A192CBCHS384: ecdh.AES192CBCHMACSHA384,
-	A256CBCHS384: ecdh.AES256CBCHMACSHA384,
-	A256CBCHS512: ecdh.AES256CBCHMACSHA512,
-}
-
 // Headers represents JOSE headers.
-type Headers map[string]interface{}
-
-// KeyID gets Key ID from JOSE headers.
-func (h Headers) KeyID() (string, bool) {
-	return h.stringValue(HeaderKeyID)
-}
-
-// SenderKeyID gets the sender Key ID from Jose headers.
-func (h Headers) SenderKeyID() (string, bool) {
-	return h.stringValue(HeaderSenderKeyID)
-}
-
-// Algorithm gets Algorithm from JOSE headers.
-func (h Headers) Algorithm() (string, bool) {
-	return h.stringValue(HeaderAlgorithm)
-}
-
-// Encryption gets content encryption algorithm from JOSE headers.
-func (h Headers) Encryption() (string, bool) {
-	return h.stringValue(HeaderEncryption)
-}
-
-// Type gets content encryption type from JOSE headers.
-func (h Headers) Type() (string, bool) {
-	return h.stringValue(HeaderType)
-}
-
-// ContentType gets the payload content type from JOSE headers.
-func (h Headers) ContentType() (string, bool) {
-	return h.stringValue(HeaderContentType)
-}
-
-func (h Headers) stringValue(key string) (string, bool) {
-	raw, ok := h[key]
-	if !ok {
-		return "", false
-	}
-
-	str, ok := raw.(string)
-
-	return str, ok
-}
-
-// JWK gets JWK from JOSE headers.
-func (h Headers) JWK() (*jwk.JWK, bool) {
-	jwkRaw, ok := h[HeaderJSONWebKey]
-	if !ok {
-		return nil, false
-	}
-
-	var jwkKey jwk.JWK
-
-	err := convertMapToValue(jwkRaw, &jwkKey)
-	if err != nil {
-		return nil, false
-	}
-
-	return &jwkKey, true
-}
+type Headers = jose.Headers

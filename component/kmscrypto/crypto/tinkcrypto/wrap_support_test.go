@@ -19,7 +19,7 @@ import (
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/curve25519"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/internal/cryptoutil"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/util/cryptoutil"
 )
 
 func Test_ecKWSupportFailures(t *testing.T) {

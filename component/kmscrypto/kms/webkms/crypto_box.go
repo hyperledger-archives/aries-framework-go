@@ -14,7 +14,7 @@ import (
 
 	"golang.org/x/crypto/nacl/box"
 
-	cryptoutil2 "github.com/hyperledger/aries-framework-go/component/kmscrypto/internal/cryptoutil"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/util/cryptoutil"
 
 	"github.com/hyperledger/aries-framework-go/spi/kms"
 
@@ -199,11 +199,11 @@ func (b *CryptoBox) Seal(payload, theirEncPub []byte, randSource io.Reader) ([]b
 		return nil, err
 	}
 
-	var recPubBytes [cryptoutil2.Curve25519KeySize]byte
+	var recPubBytes [cryptoutil.Curve25519KeySize]byte
 
 	copy(recPubBytes[:], theirEncPub)
 
-	nonce, err := cryptoutil2.Nonce(epk[:], theirEncPub)
+	nonce, err := cryptoutil.Nonce(epk[:], theirEncPub)
 	if err != nil {
 		return nil, err
 	}

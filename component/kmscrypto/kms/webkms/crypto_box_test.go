@@ -21,7 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/nacl/box"
 
-	cryptoutil2 "github.com/hyperledger/aries-framework-go/component/kmscrypto/internal/cryptoutil"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/util/cryptoutil"
 
 	mockkms "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/kms"
 )
@@ -72,7 +72,7 @@ func TestSealAndSealOpen(t *testing.T) {
 	require.NoError(t, err)
 
 	payload := []byte("loremipsum")
-	recEncPub, err := cryptoutil2.PublicEd25519toCurve25519(recPubKey)
+	recEncPub, err := cryptoutil.PublicEd25519toCurve25519(recPubKey)
 	require.NoError(t, err)
 
 	cipherText, err := cryptoBox.Seal(payload, recEncPub, rand.Reader)
@@ -160,7 +160,7 @@ func processPOSTSealOpenRequest(w http.ResponseWriter, r *http.Request, recipien
 		pkBytes := make([]byte, ed25519.PrivateKeySize)
 		copy(pkBytes, recipientPrivKey)
 
-		recipientEncPriv, err := cryptoutil2.SecretEd25519toCurve25519(pkBytes)
+		recipientEncPriv, err := cryptoutil.SecretEd25519toCurve25519(pkBytes)
 		if err != nil {
 			return fmt.Errorf("failed to convert Ed25519 to Curve25519 private key for SealOpen [%s, %w]",
 				destination, err)
@@ -169,24 +169,24 @@ func processPOSTSealOpenRequest(w http.ResponseWriter, r *http.Request, recipien
 		cipherText := httpReq.Ciphertext
 
 		var (
-			epk  [cryptoutil2.Curve25519KeySize]byte
-			priv [cryptoutil2.Curve25519KeySize]byte
+			epk  [cryptoutil.Curve25519KeySize]byte
+			priv [cryptoutil.Curve25519KeySize]byte
 		)
 
-		copy(epk[:], cipherText[:cryptoutil2.Curve25519KeySize])
+		copy(epk[:], cipherText[:cryptoutil.Curve25519KeySize])
 		copy(priv[:], recipientEncPriv)
 
-		recEncPub, err := cryptoutil2.PublicEd25519toCurve25519(recipientPubKey)
+		recEncPub, err := cryptoutil.PublicEd25519toCurve25519(recipientPubKey)
 		if err != nil {
 			return fmt.Errorf("sealOpen: failed to convert pub Ed25519 to X25519 key: %w", err)
 		}
 
-		nonce, err := cryptoutil2.Nonce(epk[:], recEncPub)
+		nonce, err := cryptoutil.Nonce(epk[:], recEncPub)
 		if err != nil {
 			return err
 		}
 
-		out, success := box.Open(nil, cipherText[cryptoutil2.Curve25519KeySize:], nonce, &epk, &priv)
+		out, success := box.Open(nil, cipherText[cryptoutil.Curve25519KeySize:], nonce, &epk, &priv)
 		if !success {
 			return errors.New("failed to unpack")
 		}
@@ -236,15 +236,15 @@ func TestEasyAndEasyOpen(t *testing.T) {
 	require.NoError(t, err)
 
 	payload := []byte("loremipsum")
-	nonce := random.GetRandomBytes(uint32(cryptoutil2.NonceSize))
+	nonce := random.GetRandomBytes(uint32(cryptoutil.NonceSize))
 
-	recEncPub, err := cryptoutil2.PublicEd25519toCurve25519(recPubKey)
+	recEncPub, err := cryptoutil.PublicEd25519toCurve25519(recPubKey)
 	require.NoError(t, err)
 
 	cipherText, err := cryptoBox.Easy(payload, nonce, recEncPub, defaultKID)
 	require.NoError(t, err)
 
-	senderEncPub, err := cryptoutil2.PublicEd25519toCurve25519(senderPubKey)
+	senderEncPub, err := cryptoutil.PublicEd25519toCurve25519(senderPubKey)
 	require.NoError(t, err)
 
 	decPayload, err := cryptoBox.EasyOpen(cipherText, nonce, senderEncPub, recPubKey)
@@ -344,12 +344,12 @@ func processPOSTEasyOpenRequest(w http.ResponseWriter, r *http.Request, recPrivK
 		recEncPub := httpReq.TheirPub
 
 		var (
-			recPubBytes [cryptoutil2.Curve25519KeySize]byte
-			priv        [cryptoutil2.Curve25519KeySize]byte
-			nonceBytes  [cryptoutil2.NonceSize]byte
+			recPubBytes [cryptoutil.Curve25519KeySize]byte
+			priv        [cryptoutil.Curve25519KeySize]byte
+			nonceBytes  [cryptoutil.NonceSize]byte
 		)
 
-		senderEncPriv, err := cryptoutil2.SecretEd25519toCurve25519(sPrivKey)
+		senderEncPriv, err := cryptoutil.SecretEd25519toCurve25519(sPrivKey)
 		if err != nil {
 			return fmt.Errorf("failed to convert Ed25519 to Curve25519 private key for Easy [%s, %w]",
 				destination, err)
@@ -395,7 +395,7 @@ func processPOSTEasyOpenRequest(w http.ResponseWriter, r *http.Request, recPrivK
 		pkBytes := make([]byte, ed25519.PrivateKeySize)
 		copy(pkBytes, recPrivKey)
 
-		recipientEncPriv, err := cryptoutil2.SecretEd25519toCurve25519(pkBytes)
+		recipientEncPriv, err := cryptoutil.SecretEd25519toCurve25519(pkBytes)
 		if err != nil {
 			return fmt.Errorf("failed to convert Ed25519 to Curve25519 private key for EasyOpen [%s, %w]",
 				destination, err)
@@ -406,9 +406,9 @@ func processPOSTEasyOpenRequest(w http.ResponseWriter, r *http.Request, recPrivK
 		nonceReq := httpReq.Nonce
 
 		var (
-			senderPubKeyBytes [cryptoutil2.Curve25519KeySize]byte
-			priv              [cryptoutil2.Curve25519KeySize]byte
-			nonce             [cryptoutil2.NonceSize]byte
+			senderPubKeyBytes [cryptoutil.Curve25519KeySize]byte
+			priv              [cryptoutil.Curve25519KeySize]byte
+			nonce             [cryptoutil.NonceSize]byte
 		)
 
 		copy(senderPubKeyBytes[:], senderPubKey)

@@ -21,7 +21,7 @@ import (
 	"github.com/btcsuite/btcd/btcec"
 	hybrid "github.com/google/tink/go/hybrid/subtle"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/internal/cryptoutil"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/util/cryptoutil"
 
 	"github.com/hyperledger/aries-framework-go/spi/kms"
 

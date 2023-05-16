@@ -108,6 +108,7 @@ require (
 
 replace (
 	github.com/hyperledger/aries-framework-go => ../..
+	github.com/hyperledger/aries-framework-go/component/kmscrypto => ../../component/kmscrypto
 	github.com/hyperledger/aries-framework-go/component/models => ../../component/models
 	//	github.com/hyperledger/aries-framework-go/component/storage/edv => ../../component/storage/edv // TODO (#2815) remove this once the wallet package doesn't import edv
 	github.com/hyperledger/aries-framework-go/component/storage/leveldb => ../../component/storage/leveldb
