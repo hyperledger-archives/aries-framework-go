@@ -32,7 +32,7 @@ require (
 	github.com/gorilla/mux v1.7.3 // indirect
 	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230516135652-20c4d4beb991 // indirect
 	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3 // indirect
-	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230501135648-a9a7ad029347 // indirect
+	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230517133327-301aa0597250 // indirect
 	github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20221025204933-b807371b6f1e // indirect
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20230427134832-0c9969493bd3 // indirect
 	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
@@ -72,7 +72,6 @@ require (
 
 replace (
 	github.com/hyperledger/aries-framework-go => ../..
-	github.com/hyperledger/aries-framework-go/component/models => ../../component/models
 	github.com/hyperledger/aries-framework-go/component/storage/edv => ../../component/storage/edv // TODO (#2815) remove this once the wallet package doesn't import edv
 	github.com/hyperledger/aries-framework-go/component/storage/indexeddb => ../../component/storage/indexeddb
 	github.com/hyperledger/aries-framework-go/component/storageutil => ../../component/storageutil
