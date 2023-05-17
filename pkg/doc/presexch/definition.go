@@ -933,7 +933,8 @@ func limitDisclosure(filterResults []constraintsFilterResult,
 			}
 		}
 
-		if (constraints.LimitDisclosure.isRequired() || predicate) && credential.SDJWTHashAlg == "" {
+		// Non-SDJWT case.
+		if (constraints.LimitDisclosure.isRequired() || predicate) && credential.SDJWTHashAlg == "" { //nolint:nestif
 			template := credentialSrc
 
 			var contexts []interface{}
@@ -962,14 +963,35 @@ func limitDisclosure(filterResults []constraintsFilterResult,
 
 			var err error
 
+			isJWTVC := credential.JWT != ""
+
 			credential, err = createNewCredential(constraints, credentialSrc, template, credential, opts...)
 			if err != nil {
 				return nil, fmt.Errorf("create new credential: %w", err)
 			}
 
+			if isJWTVC {
+				var jwtClaims *verifiable.JWTCredClaims
+
+				jwtClaims, err = credential.JWTClaims(false)
+				if err != nil {
+					return nil, fmt.Errorf("limitDisclosure JWTClaims: %w", err)
+				}
+
+				var jwtVC string
+				jwtVC, err = jwtClaims.MarshalUnsecuredJWT()
+
+				if err != nil {
+					return nil, fmt.Errorf("limitDisclosure MarshalUnsecuredJWT: %w", err)
+				}
+
+				credential.JWT = jwtVC
+			}
+
 			credential.ID = tmpID(credential.ID)
 		}
 
+		// SDJWT case.
 		if constraints.LimitDisclosure.isRequired() && credential.SDJWTHashAlg != "" {
 			limitedDisclosures, err := getLimitedDisclosures(constraints, credentialSrc, credential)
 			if err != nil {
