@@ -8,9 +8,9 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	api "github.com/hyperledger/aries-framework-go/component/vdr/api"
 	service "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	issuecredential "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
-	vdr "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	verifiable "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 	ld "github.com/piprate/json-gold/ld"
 )
@@ -53,10 +53,10 @@ func (mr *MockProviderMockRecorder) JSONLDDocumentLoader() *gomock.Call {
 }
 
 // VDRegistry mocks base method.
-func (m *MockProvider) VDRegistry() vdr.Registry {
+func (m *MockProvider) VDRegistry() api.Registry {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "VDRegistry")
-	ret0, _ := ret[0].(vdr.Registry)
+	ret0, _ := ret[0].(api.Registry)
 	return ret0
 }
 

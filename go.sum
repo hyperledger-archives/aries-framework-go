@@ -79,8 +79,8 @@ github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-202210252
 github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20221025204933-b807371b6f1e/go.mod h1:ACGP1L+WeecDtyA0Mi2E1kqtPLIGrCWPSJ43q2elwX8=
 github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20230427134832-0c9969493bd3 h1:JGYA9l5zTlvsvfnXT9hYPpCokAjmVKX0/r7njba7OX4=
 github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20230427134832-0c9969493bd3/go.mod h1:aSG2dWjYVzu2PVBtOqsYghaChA5+UUXnBbL+MfVceYQ=
-github.com/hyperledger/aries-framework-go/spi v0.0.0-20230516135652-20c4d4beb991 h1:1V0SW20i/MYefmu+O13/VNrzcO0fQ1FjTbGMFj2Bf5Y=
-github.com/hyperledger/aries-framework-go/spi v0.0.0-20230516135652-20c4d4beb991/go.mod h1:oryUyWb23l/a3tAP9KW+GBbfcfqp9tZD4y5hSkFrkqI=
+github.com/hyperledger/aries-framework-go/spi v0.0.0-20230517133327-301aa0597250 h1:xohFDAv9+SbJD0t75QhSAdY0ZnxUf+k7wj2Jty+Sw7Y=
+github.com/hyperledger/aries-framework-go/spi v0.0.0-20230517133327-301aa0597250/go.mod h1:oryUyWb23l/a3tAP9KW+GBbfcfqp9tZD4y5hSkFrkqI=
 github.com/hyperledger/aries-framework-go/test/component v0.0.0-20220428211718-66cc046674a1 h1:vxZ0DlFNLjgxMdBESLZu895AsI1JWL2SJerphwIn8Po=
 github.com/hyperledger/fabric-amcl v0.0.0-20210603140002-2670f91851c8 h1:BCR8ZlOZ+deUbWxyY6fpoY8LbB7PR5wGGwCTvWQOU2g=
 github.com/hyperledger/fabric-amcl v0.0.0-20210603140002-2670f91851c8/go.mod h1:X+DIyUsaTmalOpmpQfIvFZjKHQedrURQ5t4YqquX7lE=

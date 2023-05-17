@@ -12,7 +12,7 @@ require (
 	github.com/hyperledger/aries-framework-go v0.1.9-0.20221021224215-368f53b380a4
 	github.com/hyperledger/aries-framework-go/component/storage/leveldb v0.0.0-20220322085443-50e8f9bd208b
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20230427134832-0c9969493bd3
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20230516135652-20c4d4beb991
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20230517133327-301aa0597250
 	github.com/rs/cors v1.7.0
 	github.com/spf13/cobra v1.5.0
 	github.com/stretchr/testify v1.8.1
@@ -41,8 +41,9 @@ require (
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0 // indirect
 	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3 // indirect
-	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230501135648-a9a7ad029347 // indirect
+	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230517133327-301aa0597250 // indirect
 	github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20221025204933-b807371b6f1e // indirect
+	github.com/hyperledger/aries-framework-go/component/vdr v0.0.0-00010101000000-000000000000 // indirect
 	github.com/hyperledger/fabric-amcl v0.0.0-20210603140002-2670f91851c8 // indirect
 	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
@@ -119,5 +120,6 @@ replace (
 	//	github.com/hyperledger/aries-framework-go/component/storage/edv => ../../component/storage/edv // TODO (#2815) remove this once the wallet package doesn't import edv
 	github.com/hyperledger/aries-framework-go/component/storage/leveldb => ../../component/storage/leveldb
 	github.com/hyperledger/aries-framework-go/component/storageutil => ../../component/storageutil
+	github.com/hyperledger/aries-framework-go/component/vdr => ../../component/vdr
 	github.com/hyperledger/aries-framework-go/spi => ../../spi
 )

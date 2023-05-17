@@ -16,19 +16,28 @@ import (
 	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/fingerprint"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/localkms"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/noop"
+	"github.com/hyperledger/aries-framework-go/component/models/did"
+	ldcontext "github.com/hyperledger/aries-framework-go/component/models/ld/context"
+	ldprocessor "github.com/hyperledger/aries-framework-go/component/models/ld/processor"
+	ldtestutil "github.com/hyperledger/aries-framework-go/component/models/ld/testutil"
+	. "github.com/hyperledger/aries-framework-go/component/models/presexch"
+	"github.com/hyperledger/aries-framework-go/component/models/signature/suite"
+	"github.com/hyperledger/aries-framework-go/component/models/signature/suite/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/component/models/signature/verifier"
+	utiltime "github.com/hyperledger/aries-framework-go/component/models/util/time"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
-	. "github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
-	jsonldsig "github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
+	cryptoapi "github.com/hyperledger/aries-framework-go/spi/crypto"
+	kmsapi "github.com/hyperledger/aries-framework-go/spi/kms"
+	"github.com/hyperledger/aries-framework-go/spi/secretlock"
+
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 )
 
 const testCredID = "http://test.credential.com/123456"
@@ -406,7 +415,7 @@ func TestPresentationDefinition_Match(t *testing.T) {
 			docLoader,
 			WithCredentialOptions(
 				verifiable.WithJSONLDDocumentLoader(contextLoader),
-				verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(agent.VDRegistry()).PublicKeyFetcher()),
+				verifiable.WithPublicKeyFetcher(didKeyFetcher()),
 			),
 		)
 		require.NoError(t, err)
@@ -448,7 +457,7 @@ func TestPresentationDefinition_Match(t *testing.T) {
 			}, contextLoader,
 			WithCredentialOptions(
 				verifiable.WithJSONLDDocumentLoader(contextLoader),
-				verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(agent.VDRegistry()).PublicKeyFetcher()),
+				verifiable.WithPublicKeyFetcher(didKeyFetcher()),
 			),
 		)
 		require.NoError(t, err)
@@ -497,7 +506,7 @@ func TestPresentationDefinition_Match(t *testing.T) {
 			docLoader,
 			WithCredentialOptions(
 				verifiable.WithJSONLDDocumentLoader(contextLoader),
-				verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(agent.VDRegistry()).PublicKeyFetcher()),
+				verifiable.WithPublicKeyFetcher(didKeyFetcher()),
 			),
 		)
 		require.NoError(t, err)
@@ -540,7 +549,7 @@ func TestPresentationDefinition_Match(t *testing.T) {
 			contextLoader,
 			WithCredentialOptions(
 				verifiable.WithJSONLDDocumentLoader(contextLoader),
-				verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(agent.VDRegistry()).PublicKeyFetcher()),
+				verifiable.WithPublicKeyFetcher(didKeyFetcher()),
 			),
 		)
 		require.NoError(t, err)
@@ -577,7 +586,7 @@ func TestPresentationDefinition_Match(t *testing.T) {
 			contextLoader,
 			WithCredentialOptions(
 				verifiable.WithJSONLDDocumentLoader(contextLoader),
-				verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(agent.VDRegistry()).PublicKeyFetcher()),
+				verifiable.WithPublicKeyFetcher(didKeyFetcher()),
 			),
 		)
 		require.NoError(t, err)
@@ -1041,7 +1050,7 @@ func newVC(ctx []string) *verifiable.Credential {
 		Types:   []string{verifiable.VCType},
 		ID:      "http://test.credential.com/123",
 		Issuer:  verifiable.Issuer{ID: "http://test.issuer.com"},
-		Issued: &util.TimeWrapper{
+		Issued: &utiltime.TimeWrapper{
 			Time: time.Now(),
 		},
 		Subject: map[string]interface{}{
@@ -1062,7 +1071,7 @@ func newVCWithCustomFld(ctx []string, fldName string, fld interface{}) *verifiab
 		Types:   []string{verifiable.VCType},
 		ID:      "http://test.credential.com/123",
 		Issuer:  verifiable.Issuer{ID: "http://test.issuer.com"},
-		Issued: &util.TimeWrapper{
+		Issued: &utiltime.TimeWrapper{
 			Time: time.Now(),
 		},
 		Subject: map[string]interface{}{
@@ -1081,12 +1090,12 @@ func newVCWithCustomFld(ctx []string, fldName string, fld interface{}) *verifiab
 }
 
 func newSignedVC(t *testing.T,
-	agent *context.Provider, ctx []string, ctxLoader jsonld.DocumentLoader) *verifiable.Credential {
+	agent provider, ctx []string, ctxLoader jsonld.DocumentLoader) *verifiable.Credential {
 	t.Helper()
 
 	vc := newVC(ctx)
 
-	keyID, kh, err := agent.KMS().Create(kms.ED25519Type)
+	keyID, kh, err := agent.KMS().Create(kmsapi.ED25519Type)
 	require.NoError(t, err)
 
 	signer := suite.NewCryptoSigner(agent.Crypto(), kh)
@@ -1094,7 +1103,7 @@ func newSignedVC(t *testing.T,
 
 	pubKey, kt, err := agent.KMS().ExportPubKeyBytes(keyID)
 	require.NoError(t, err)
-	require.Equal(t, kms.ED25519Type, kt)
+	require.Equal(t, kmsapi.ED25519Type, kt)
 
 	_, verMethod := fingerprint.CreateDIDKeyByCode(fingerprint.ED25519PubKeyMultiCodec, pubKey)
 
@@ -1107,7 +1116,7 @@ func newSignedVC(t *testing.T,
 			VerificationMethod:      verMethod,
 			Purpose:                 "assertionMethod",
 		},
-		jsonldsig.WithDocumentLoader(ctxLoader),
+		ldprocessor.WithDocumentLoader(ctxLoader),
 	)
 	require.NoError(t, err)
 
@@ -1115,19 +1124,19 @@ func newSignedVC(t *testing.T,
 }
 
 func newSignedJWTVC(t *testing.T,
-	agent *context.Provider, ctx []string) *verifiable.Credential {
+	agent provider, ctx []string) *verifiable.Credential {
 	t.Helper()
 
 	vc := newVC(ctx)
 
-	keyID, kh, err := agent.KMS().Create(kms.ED25519Type)
+	keyID, kh, err := agent.KMS().Create(kmsapi.ED25519Type)
 	require.NoError(t, err)
 
 	signer := suite.NewCryptoSigner(agent.Crypto(), kh)
 
 	pubKey, kt, err := agent.KMS().ExportPubKeyBytes(keyID)
 	require.NoError(t, err)
-	require.Equal(t, kms.ED25519Type, kt)
+	require.Equal(t, kmsapi.ED25519Type, kt)
 
 	issuer, verMethod := fingerprint.CreateDIDKeyByCode(fingerprint.ED25519PubKeyMultiCodec, pubKey)
 
@@ -1136,7 +1145,7 @@ func newSignedJWTVC(t *testing.T,
 	claims, err := vc.JWTClaims(false)
 	require.NoError(t, err)
 
-	jwsAlgo, err := verifiable.KeyTypeToJWSAlgo(kms.ED25519Type)
+	jwsAlgo, err := verifiable.KeyTypeToJWSAlgo(kmsapi.ED25519Type)
 	require.NoError(t, err)
 
 	jws, err := claims.MarshalJWS(jwsAlgo, signer, verMethod)
@@ -1148,25 +1157,25 @@ func newSignedJWTVC(t *testing.T,
 }
 
 func newSignedSDJWTVC(t *testing.T,
-	agent *context.Provider, ctx []string) *verifiable.Credential {
+	agent provider, ctx []string) *verifiable.Credential {
 	t.Helper()
 
 	vc := getTestVCWithContext(ctx)
 
-	keyID, kh, err := agent.KMS().Create(kms.ED25519Type)
+	keyID, kh, err := agent.KMS().Create(kmsapi.ED25519Type)
 	require.NoError(t, err)
 
 	signer := suite.NewCryptoSigner(agent.Crypto(), kh)
 
 	pubKey, kt, err := agent.KMS().ExportPubKeyBytes(keyID)
 	require.NoError(t, err)
-	require.Equal(t, kms.ED25519Type, kt)
+	require.Equal(t, kmsapi.ED25519Type, kt)
 
 	issuer, verMethod := fingerprint.CreateDIDKeyByCode(fingerprint.ED25519PubKeyMultiCodec, pubKey)
 
 	vc.Issuer = verifiable.Issuer{ID: issuer}
 
-	jwsAlgo, err := verifiable.KeyTypeToJWSAlgo(kms.ED25519Type)
+	jwsAlgo, err := verifiable.KeyTypeToJWSAlgo(kmsapi.ED25519Type)
 	require.NoError(t, err)
 
 	algName, err := jwsAlgo.Name()
@@ -1247,14 +1256,116 @@ func createTestDocumentLoader(t *testing.T, contextURL string, types ...string) 
 	return loader
 }
 
-func newAgent(t *testing.T) *context.Provider {
+func newAgent(t *testing.T) provider {
 	t.Helper()
 
-	a, err := aries.New(aries.WithStoreProvider(mem.NewProvider()))
+	storeProv := mem.NewProvider()
+
+	kmsStore, err := kms.NewAriesProviderWrapper(storeProv)
 	require.NoError(t, err)
 
-	ctx, err := a.Context()
+	kmsInstance, err := localkms.New("local-lock://test", &kmsProvider{
+		store: kmsStore,
+	})
 	require.NoError(t, err)
 
-	return ctx
+	cryptoInstance, err := tinkcrypto.New()
+	require.NoError(t, err)
+
+	return &mockProvider{
+		KMSInstance:    kmsInstance,
+		CryptoInstance: cryptoInstance,
+	}
+}
+
+func getTestVCWithContext(ctx []string) *verifiable.Credential {
+	subject := map[string]interface{}{
+		"id":           uuid.New().String(),
+		"sub":          "john_doe_42",
+		"given_name":   "John",
+		"family_name":  "Doe",
+		"email":        "johndoe@example.com",
+		"phone_number": "+1-202-555-0101",
+		"birthdate":    "1940-01-01",
+		"address": map[string]interface{}{
+			"street_address": "123 Main St",
+			"locality":       "Anytown",
+			"region":         "Anystate",
+			"country":        "US",
+		},
+	}
+
+	vc := verifiable.Credential{
+		Context: []string{verifiable.ContextURI},
+		Types:   []string{verifiable.VCType},
+		ID:      "http://example.edu/credentials/1872",
+		Issued: &utiltime.TimeWrapper{
+			Time: time.Now(),
+		},
+		Issuer: verifiable.Issuer{
+			ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		},
+		Schemas: []verifiable.TypedID{{
+			ID:   "https://www.w3.org/TR/vc-data-model/2.0/#types",
+			Type: "JsonSchemaValidator2018",
+		}},
+		Subject: subject,
+	}
+
+	if ctx != nil {
+		vc.Context = append(vc.Context, ctx...)
+	}
+
+	return &vc
+}
+
+func holderPublicKeyFetcher(pubKeyBytes []byte) verifiable.PublicKeyFetcher {
+	return func(issuerID, keyID string) (*verifier.PublicKey, error) {
+		return &verifier.PublicKey{
+			Type:  kmsapi.RSARS256,
+			Value: pubKeyBytes,
+		}, nil
+	}
+}
+
+func didKeyFetcher() verifiable.PublicKeyFetcher {
+	kv := key.New()
+
+	return verifiable.NewVDRKeyResolver(resolveFunc(kv.Read)).PublicKeyFetcher()
+}
+
+type resolveFunc func(did string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error)
+
+func (r resolveFunc) Resolve(did string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error) {
+	return r(did, opts...)
+}
+
+type provider interface {
+	KMS() kmsapi.KeyManager
+	Crypto() cryptoapi.Crypto
+}
+
+type mockProvider struct {
+	KMSInstance    kmsapi.KeyManager
+	CryptoInstance cryptoapi.Crypto
+}
+
+func (m *mockProvider) KMS() kmsapi.KeyManager {
+	return m.KMSInstance
+}
+
+func (m *mockProvider) Crypto() cryptoapi.Crypto {
+	return m.CryptoInstance
+}
+
+type kmsProvider struct {
+	store kmsapi.Store
+}
+
+func (k *kmsProvider) StorageProvider() kmsapi.Store {
+	return k.store
+}
+
+func (k *kmsProvider) SecretLock() secretlock.Service {
+	return &noop.NoLock{}
 }
