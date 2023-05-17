@@ -480,7 +480,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		checkVP(t, vp)
 	})
 
-	t.Run("Predicate (limit disclosure)", func(t *testing.T) {
+	t.Run("Predicate (limit disclosure) LDP", func(t *testing.T) {
 		required := Required
 
 		pd := &PresentationDefinition{
@@ -530,6 +530,90 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		require.True(t, vc.CustomFields["first_name"].(bool))
 		require.True(t, vc.CustomFields["last_name"].(bool))
+		require.Empty(t, vc.JWT)
+		require.Nil(t, vc.Proofs)
+
+		_, ok = vc.CustomFields["info"]
+		require.False(t, ok)
+
+		checkSubmission(t, vp, pd)
+		checkVP(t, vp)
+	})
+
+	t.Run("Predicate (limit disclosure) JWT", func(t *testing.T) {
+		required := Required
+
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				}},
+				Constraints: &Constraints{
+					LimitDisclosure: &required,
+					Fields: []*Field{{
+						Path:      []string{"$.first_name", "$.last_name"},
+						Predicate: &required,
+						Filter:    &Filter{Type: &strFilterType},
+					}},
+				},
+			}},
+		}
+
+		cred := &verifiable.Credential{
+			Context: []string{verifiable.ContextURI},
+			Types:   []string{verifiable.VCType},
+			ID:      "http://example.edu/credentials/1872",
+			Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			Issued: &util.TimeWrapper{
+				Time: time.Now(),
+			},
+			Issuer: verifiable.Issuer{
+				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			},
+			CustomFields: map[string]interface{}{
+				"first_name": "First name",
+				"last_name":  "Last name",
+				"info":       "Info",
+			},
+		}
+
+		claims, err := cred.JWTClaims(false)
+		require.NoError(t, err)
+		credJWT, err := claims.MarshalUnsecuredJWT()
+		require.NoError(t, err)
+
+		cred.JWT = credJWT
+
+		vp, err := pd.CreateVP([]*verifiable.Credential{cred},
+			lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
+
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.Equal(t, 1, len(vp.Credentials()))
+
+		vc, ok := vp.Credentials()[0].(*verifiable.Credential)
+		require.True(t, ok)
+
+		require.True(t, vc.CustomFields["first_name"].(bool))
+		require.True(t, vc.CustomFields["last_name"].(bool))
+		require.Nil(t, vc.Proofs)
+
+		_, ok = vc.CustomFields["info"]
+		require.False(t, ok)
+
+		// Check parsed JWT.
+		require.NotEmpty(t, vc.JWT)
+		require.False(t, vc.JWT == credJWT)
+		vc, err = verifiable.ParseCredential([]byte(vc.JWT),
+			verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
+		require.NoError(t, err)
+
+		require.True(t, vc.CustomFields["first_name"].(bool))
+		require.True(t, vc.CustomFields["last_name"].(bool))
+		require.Nil(t, vc.Proofs)
 
 		_, ok = vc.CustomFields["info"]
 		require.False(t, ok)
