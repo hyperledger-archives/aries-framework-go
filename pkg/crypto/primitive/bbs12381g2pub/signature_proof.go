@@ -7,8 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package bbs12381g2pub
 
 import (
-	bls12381 "github.com/kilic/bls12-381"
-
+	ml "github.com/IBM/mathlib"
 	bbs "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/primitive/bbs12381g2pub"
 )
 
@@ -20,7 +19,7 @@ type PoKOfSignatureProof = bbs.PoKOfSignatureProof
 type ProofG1 = bbs.ProofG1
 
 // NewProofG1 creates a new ProofG1.
-func NewProofG1(commitment *bls12381.PointG1, responses []*bls12381.Fr) *ProofG1 {
+func NewProofG1(commitment *ml.G1, responses []*ml.Zr) *ProofG1 {
 	return bbs.NewProofG1(commitment, responses)
 }
 

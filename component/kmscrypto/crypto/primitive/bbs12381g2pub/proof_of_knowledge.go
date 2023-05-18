@@ -9,20 +9,20 @@ package bbs12381g2pub
 import (
 	"fmt"
 
-	bls12381 "github.com/kilic/bls12-381"
+	ml "github.com/IBM/mathlib"
 )
 
 // PoKOfSignature is Proof of Knowledge of a Signature that is used by the prover to construct PoKOfSignatureProof.
 type PoKOfSignature struct {
-	aPrime *bls12381.PointG1
-	aBar   *bls12381.PointG1
-	d      *bls12381.PointG1
+	aPrime *ml.G1
+	aBar   *ml.G1
+	d      *ml.G1
 
 	pokVC1   *ProverCommittedG1
-	secrets1 []*bls12381.Fr
+	secrets1 []*ml.Zr
 
 	pokVC2   *ProverCommittedG1
-	secrets2 []*bls12381.Fr
+	secrets2 []*ml.Zr
 
 	revealedMessages map[int]*SignatureMessage
 }
@@ -37,18 +37,15 @@ func NewPoKOfSignature(signature *Signature, messages []*SignatureMessage, revea
 
 	r1, r2 := createRandSignatureFr(), createRandSignatureFr()
 	b := computeB(signature.S, messages, pubKey)
-	aPrime := g1.New()
-	g1.MulScalar(aPrime, signature.A, frToRepr(r1))
+	aPrime := signature.A.Mul(frToRepr(r1))
 
-	aBarDenom := g1.New()
-	g1.MulScalar(aBarDenom, aPrime, frToRepr(signature.E))
+	aBarDenom := aPrime.Mul(frToRepr(signature.E))
 
-	aBar := g1.New()
-	g1.MulScalar(aBar, b, frToRepr(r1))
-	g1.Sub(aBar, aBar, aBarDenom)
+	aBar := b.Mul(frToRepr(r1))
+	aBar.Sub(aBarDenom)
 
-	r2D := bls12381.NewFr()
-	r2D.Neg(r2)
+	r2D := r2.Copy()
+	r2D.Neg()
 
 	commitmentBasesCount := 2
 	cb := newCommitmentBuilder(commitmentBasesCount)
@@ -56,13 +53,12 @@ func NewPoKOfSignature(signature *Signature, messages []*SignatureMessage, revea
 	cb.add(pubKey.h0, r2D)
 
 	d := cb.build()
-	r3 := bls12381.NewFr()
-	r3.Inverse(r1)
+	r3 := r1.Copy()
+	r3.InvModP(curve.GroupOrder)
 
-	sPrime := bls12381.NewFr()
-	sPrime.Mul(r2, r3)
-	sPrime.Neg(sPrime)
-	sPrime.Add(sPrime, signature.S)
+	sPrime := r2.Mul(r3)
+	sPrime.Neg()
+	sPrime = sPrime.Plus(signature.S)
 
 	pokVC1, secrets1 := newVC1Signature(aPrime, pubKey.h0, signature.E, r2)
 
@@ -91,15 +87,15 @@ func NewPoKOfSignature(signature *Signature, messages []*SignatureMessage, revea
 	}, nil
 }
 
-func newVC1Signature(aPrime *bls12381.PointG1, h0 *bls12381.PointG1,
-	e, r2 *bls12381.Fr) (*ProverCommittedG1, []*bls12381.Fr) {
+func newVC1Signature(aPrime *ml.G1, h0 *ml.G1,
+	e, r2 *ml.Zr) (*ProverCommittedG1, []*ml.Zr) {
 	committing1 := NewProverCommittingG1()
-	secrets1 := make([]*bls12381.Fr, 2)
+	secrets1 := make([]*ml.Zr, 2)
 
 	committing1.Commit(aPrime)
 
-	sigE := bls12381.NewFr()
-	sigE.Neg(e)
+	sigE := e.Copy()
+	sigE.Neg()
 	secrets1[0] = sigE
 
 	committing1.Commit(h0)
@@ -110,17 +106,17 @@ func newVC1Signature(aPrime *bls12381.PointG1, h0 *bls12381.PointG1,
 	return pokVC1, secrets1
 }
 
-func newVC2Signature(d *bls12381.PointG1, r3 *bls12381.Fr, pubKey *PublicKeyWithGenerators, sPrime *bls12381.Fr,
-	messages []*SignatureMessage, revealedMessages map[int]*SignatureMessage) (*ProverCommittedG1, []*bls12381.Fr) {
+func newVC2Signature(d *ml.G1, r3 *ml.Zr, pubKey *PublicKeyWithGenerators, sPrime *ml.Zr,
+	messages []*SignatureMessage, revealedMessages map[int]*SignatureMessage) (*ProverCommittedG1, []*ml.Zr) {
 	messagesCount := len(messages)
 	committing2 := NewProverCommittingG1()
 	baseSecretsCount := 2
-	secrets2 := make([]*bls12381.Fr, 0, baseSecretsCount+messagesCount)
+	secrets2 := make([]*ml.Zr, 0, baseSecretsCount+messagesCount)
 
 	committing2.Commit(d)
 
-	r3D := bls12381.NewFr()
-	r3D.Neg(r3)
+	r3D := r3.Copy()
+	r3D.Neg()
 
 	secrets2 = append(secrets2, r3D)
 
@@ -136,8 +132,7 @@ func newVC2Signature(d *bls12381.PointG1, r3 *bls12381.Fr, pubKey *PublicKeyWith
 		committing2.Commit(pubKey.h[i])
 
 		sourceFR := messages[i].FR
-		hiddenFRCopy := bls12381.NewFr()
-		hiddenFRCopy.Set(sourceFR)
+		hiddenFRCopy := sourceFR.Copy()
 
 		secrets2 = append(secrets2, hiddenFRCopy)
 	}
@@ -149,7 +144,7 @@ func newVC2Signature(d *bls12381.PointG1, r3 *bls12381.Fr, pubKey *PublicKeyWith
 
 // ToBytes converts PoKOfSignature to bytes.
 func (pos *PoKOfSignature) ToBytes() []byte {
-	challengeBytes := g1.ToUncompressed(pos.aBar)
+	challengeBytes := pos.aBar.Bytes()
 	challengeBytes = append(challengeBytes, pos.pokVC1.ToBytes()...)
 	challengeBytes = append(challengeBytes, pos.pokVC2.ToBytes()...)
 
@@ -157,7 +152,7 @@ func (pos *PoKOfSignature) ToBytes() []byte {
 }
 
 // GenerateProof generates PoKOfSignatureProof proof from PoKOfSignature signature.
-func (pos *PoKOfSignature) GenerateProof(challengeHash *bls12381.Fr) *PoKOfSignatureProof {
+func (pos *PoKOfSignature) GenerateProof(challengeHash *ml.Zr) *PoKOfSignatureProof {
 	return &PoKOfSignatureProof{
 		aPrime:   pos.aPrime,
 		aBar:     pos.aBar,
@@ -169,9 +164,9 @@ func (pos *PoKOfSignature) GenerateProof(challengeHash *bls12381.Fr) *PoKOfSigna
 
 // ProverCommittedG1 helps to generate a ProofG1.
 type ProverCommittedG1 struct {
-	bases           []*bls12381.PointG1
-	blindingFactors []*bls12381.Fr
-	commitment      *bls12381.PointG1
+	bases           []*ml.G1
+	blindingFactors []*ml.Zr
+	commitment      *ml.G1
 }
 
 // ToBytes converts ProverCommittedG1 to bytes.
@@ -179,22 +174,20 @@ func (g *ProverCommittedG1) ToBytes() []byte {
 	bytes := make([]byte, 0)
 
 	for _, base := range g.bases {
-		bytes = append(bytes, g1.ToUncompressed(base)...)
+		bytes = append(bytes, base.Bytes()...)
 	}
 
-	return append(bytes, g1.ToUncompressed(g.commitment)...)
+	return append(bytes, g.commitment.Bytes()...)
 }
 
 // GenerateProof generates proof ProofG1 for all secrets.
-func (g *ProverCommittedG1) GenerateProof(challenge *bls12381.Fr, secrets []*bls12381.Fr) *ProofG1 {
-	responses := make([]*bls12381.Fr, len(g.bases))
+func (g *ProverCommittedG1) GenerateProof(challenge *ml.Zr, secrets []*ml.Zr) *ProofG1 {
+	responses := make([]*ml.Zr, len(g.bases))
 
 	for i := range g.blindingFactors {
-		c := bls12381.NewFr()
-		c.Mul(challenge, secrets[i])
+		c := challenge.Mul(secrets[i])
 
-		s := bls12381.NewFr()
-		s.Sub(g.blindingFactors[i], c)
+		s := g.blindingFactors[i].Minus(c)
 		responses[i] = s
 	}
 
@@ -206,20 +199,20 @@ func (g *ProverCommittedG1) GenerateProof(challenge *bls12381.Fr, secrets []*bls
 
 // ProverCommittingG1 is a proof of knowledge of messages in a vector commitment.
 type ProverCommittingG1 struct {
-	bases           []*bls12381.PointG1
-	blindingFactors []*bls12381.Fr
+	bases           []*ml.G1
+	blindingFactors []*ml.Zr
 }
 
 // NewProverCommittingG1 creates a new ProverCommittingG1.
 func NewProverCommittingG1() *ProverCommittingG1 {
 	return &ProverCommittingG1{
-		bases:           make([]*bls12381.PointG1, 0),
-		blindingFactors: make([]*bls12381.Fr, 0),
+		bases:           make([]*ml.G1, 0),
+		blindingFactors: make([]*ml.Zr, 0),
 	}
 }
 
 // Commit append a base point and randomly generated blinding factor.
-func (pc *ProverCommittingG1) Commit(base *bls12381.PointG1) {
+func (pc *ProverCommittingG1) Commit(base *ml.G1) {
 	pc.bases = append(pc.bases, base)
 	r := createRandSignatureFr()
 	pc.blindingFactors = append(pc.blindingFactors, r)
