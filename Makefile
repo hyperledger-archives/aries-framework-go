@@ -33,8 +33,15 @@ all: clean checks unit-test unit-test-wasm unit-test-mobile bdd-test
 checks: license lint generate-openapi-spec
 
 .PHONY: lint
-lint:
+lint: lint-core lint-components
+
+.PHONY: lint-core
+lint-core:
 	@scripts/check_lint.sh
+
+.PHONY: lint-components
+lint-components:
+	@scripts/check_lint_components.sh
 
 .PHONY: license
 license:

@@ -9,9 +9,9 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	verifiable "github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	api "github.com/hyperledger/aries-framework-go/component/vdr/api"
 	service "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	presentproof "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
-	vdr "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	verifiable0 "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 	crypto "github.com/hyperledger/aries-framework-go/spi/crypto"
 	kms "github.com/hyperledger/aries-framework-go/spi/kms"
@@ -84,10 +84,10 @@ func (mr *MockProviderMockRecorder) KMS() *gomock.Call {
 }
 
 // VDRegistry mocks base method.
-func (m *MockProvider) VDRegistry() vdr.Registry {
+func (m *MockProvider) VDRegistry() api.Registry {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "VDRegistry")
-	ret0, _ := ret[0].(vdr.Registry)
+	ret0, _ := ret[0].(api.Registry)
 	return ret0
 }
 

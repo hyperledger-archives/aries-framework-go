@@ -10,12 +10,14 @@ on:
     - 'dependabot/**'
     paths:
     - 'pkg/doc/verifiable/**'
+    - 'component/models/verifiable/**'
     - 'scripts/*_test_suite.sh'
     - '.github/workflows/test-suite.yml'
     - 'Makefile'
   pull_request:
     paths:
     - 'pkg/doc/verifiable/**'
+    - 'component/models/verifiable/**'
     - 'scripts/*_test_suite.sh'
     - '.github/workflows/test-suite.yml'
     - 'Makefile'

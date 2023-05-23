@@ -16,23 +16,24 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/kmsdidkey"
+	"github.com/hyperledger/aries-framework-go/component/models/did"
+	"github.com/hyperledger/aries-framework-go/component/models/did/endpoint"
+	ldtestutil "github.com/hyperledger/aries-framework-go/component/models/ld/testutil"
+	"github.com/hyperledger/aries-framework-go/component/models/signature/suite"
+	"github.com/hyperledger/aries-framework-go/component/models/signature/suite/ed25519signature2018"
+	sigutil "github.com/hyperledger/aries-framework-go/component/models/signature/util"
+	afgotime "github.com/hyperledger/aries-framework-go/component/models/util/time"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
-	"github.com/hyperledger/aries-framework-go/pkg/common/model"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/util/kmsdidkey"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/component/vdr"
+	"github.com/hyperledger/aries-framework-go/component/vdr/peer"
+	"github.com/hyperledger/aries-framework-go/spi/crypto"
+	"github.com/hyperledger/aries-framework-go/spi/kms"
+	vdrspi "github.com/hyperledger/aries-framework-go/spi/vdr"
+
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
-	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/peer"
+	context "github.com/hyperledger/aries-framework-go/pkg/framework/context"
 )
 
 func Test_LDProofs_Compatibility(t *testing.T) {
@@ -98,7 +99,7 @@ func Test_LDProofs_Compatibility(t *testing.T) {
 		didMethod, err := vdr.GetDidMethod(actualPeerDID.ID)
 		require.NoError(t, err)
 
-		_, err = bob.VDRegistry().Create(didMethod, actualPeerDID, vdrapi.WithOption("store", true))
+		_, err = bob.VDRegistry().Create(didMethod, actualPeerDID, vdrspi.WithOption("store", true))
 		require.NoError(t, err)
 
 		loader, err := ldtestutil.DocumentLoader()
@@ -154,7 +155,7 @@ func createPeerDIDLikeDIDExchangeService(t *testing.T, a *context.Provider) *did
 		peer.DIDMethod, &did.Doc{
 			Service: []did.Service{
 				{
-					ServiceEndpoint: model.NewDIDCommV1Endpoint("http://example.com/didcomm"),
+					ServiceEndpoint: endpoint.NewDIDCommV1Endpoint("http://example.com/didcomm"),
 					Type:            "did-communication",
 				},
 			},
@@ -245,7 +246,7 @@ func universityDegreeVC() *verifiable.Credential {
 				"name": "Transmute University",
 			},
 		},
-		Issued: &util.TimeWrapper{Time: time.Now()},
+		Issued: &afgotime.TimeWrapper{Time: time.Now()},
 		Subject: &verifiable.Subject{
 			ID: "did:example:ebfeb1f712ebc6f1c276e12ec21",
 			CustomFields: map[string]interface{}{
@@ -261,7 +262,7 @@ func universityDegreeVC() *verifiable.Credential {
 }
 
 func newCryptoSigner(t *testing.T, kid string, agentKMS kms.KeyManager,
-	agentCrypto crypto.Crypto) signature.Signer {
+	agentCrypto crypto.Crypto) sigutil.Signer {
 	t.Helper()
 
 	kh, err := agentKMS.Get(kid)

@@ -7,45 +7,30 @@ SPDX-License-Identifier: Apache-2.0
 package vdr
 
 import (
-	"errors"
-
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/component/vdr/api"
 	spivdr "github.com/hyperledger/aries-framework-go/spi/vdr"
 )
 
 // ErrNotFound is returned when a DID resolver does not find the DID.
-var ErrNotFound = errors.New("DID does not exist")
+var ErrNotFound = api.ErrNotFound
 
 const (
 	// DIDCommServiceType default DID Communication service endpoint type.
-	DIDCommServiceType = "did-communication"
+	DIDCommServiceType = api.DIDCommServiceType
 
 	// DIDCommV2ServiceType is the DID Communications V2 service type.
-	DIDCommV2ServiceType = "DIDCommMessaging"
+	DIDCommV2ServiceType = api.DIDCommV2ServiceType
 
 	// LegacyServiceType is the DID Communication V1 indy based service type.
-	LegacyServiceType = "IndyAgent"
+	LegacyServiceType = api.LegacyServiceType
 )
 
 // Registry vdr registry.
-type Registry interface {
-	Resolve(did string, opts ...DIDMethodOption) (*did.DocResolution, error)
-	Create(method string, did *did.Doc, opts ...DIDMethodOption) (*did.DocResolution, error)
-	Update(did *did.Doc, opts ...DIDMethodOption) error
-	Deactivate(did string, opts ...DIDMethodOption) error
-	Close() error
-}
+type Registry = api.Registry
 
 // VDR verifiable data registry interface.
 // TODO https://github.com/hyperledger/aries-framework-go/issues/2475
-type VDR interface {
-	Read(did string, opts ...DIDMethodOption) (*did.DocResolution, error)
-	Create(did *did.Doc, opts ...DIDMethodOption) (*did.DocResolution, error)
-	Accept(method string, opts ...DIDMethodOption) bool
-	Update(did *did.Doc, opts ...DIDMethodOption) error
-	Deactivate(did string, opts ...DIDMethodOption) error
-	Close() error
-}
+type VDR = api.VDR
 
 // DIDMethodOpts did method opts.
 type DIDMethodOpts = spivdr.DIDMethodOpts
