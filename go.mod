@@ -21,7 +21,7 @@ require (
 	github.com/gorilla/mux v1.7.3
 	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230523135653-2f2e9595514f
 	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3
-	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230523135653-2f2e9595514f
+	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230523152718-aa3f65b7ac13
 	github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20221025204933-b807371b6f1e
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20230427134832-0c9969493bd3
 	github.com/hyperledger/aries-framework-go/component/vdr v0.0.0-20230523135653-2f2e9595514f
@@ -78,8 +78,6 @@ require (
 )
 
 go 1.19
-
-replace github.com/hyperledger/aries-framework-go/component/models => ./component/models
 
 //replace github.com/square/go-jose/v3 => github.com/go-jose/go-jose/v3 v3.0.1-0.20221117193127-916db76e8214
 //

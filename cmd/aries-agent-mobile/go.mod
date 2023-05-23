@@ -37,7 +37,7 @@ require (
 	github.com/gorilla/mux v1.7.3 // indirect
 	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0 // indirect
 	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3 // indirect
-	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230523135653-2f2e9595514f // indirect
+	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230523152718-aa3f65b7ac13 // indirect
 	github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20221025204933-b807371b6f1e // indirect
 	github.com/hyperledger/aries-framework-go/component/vdr v0.0.0-20230523135653-2f2e9595514f // indirect
 	github.com/hyperledger/fabric-amcl v0.0.0-20210603140002-2670f91851c8 // indirect
