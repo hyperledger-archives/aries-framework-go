@@ -19,12 +19,12 @@ require (
 	github.com/google/tink/go v1.7.0
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.7.3
-	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0
+	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230523135653-2f2e9595514f
 	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3
-	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230517133327-301aa0597250
+	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230523135653-2f2e9595514f
 	github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20221025204933-b807371b6f1e
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20230427134832-0c9969493bd3
-	github.com/hyperledger/aries-framework-go/component/vdr v0.0.0-00010101000000-000000000000
+	github.com/hyperledger/aries-framework-go/component/vdr v0.0.0-20230523135653-2f2e9595514f
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20230517133327-301aa0597250
 	github.com/hyperledger/ursa-wrapper-go v0.3.1
 	github.com/mitchellh/mapstructure v1.5.0
@@ -79,11 +79,7 @@ require (
 
 go 1.19
 
-replace github.com/hyperledger/aries-framework-go/component/kmscrypto => ./component/kmscrypto
-
 replace github.com/hyperledger/aries-framework-go/component/models => ./component/models
-
-replace github.com/hyperledger/aries-framework-go/component/vdr => ./component/vdr
 
 //replace github.com/square/go-jose/v3 => github.com/go-jose/go-jose/v3 v3.0.1-0.20221117193127-916db76e8214
 //
