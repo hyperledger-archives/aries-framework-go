@@ -29,7 +29,7 @@ require (
 	github.com/hyperledger/ursa-wrapper-go v0.3.1
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/multiformats/go-multibase v0.1.1
-	github.com/piprate/json-gold v0.4.2
+	github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f
 	github.com/pkg/errors v0.9.1
 	github.com/rs/cors v1.7.0
 	github.com/stretchr/testify v1.8.1
