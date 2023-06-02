@@ -1,5 +1,5 @@
-github.com/IBM/mathlib v0.0.3-0.20230428120512-8afa4e643d4c h1:eLCIQV1wI6WBt1T+s2vUWFg7tBB0Xu/+YZSZ877+kyM=
-github.com/IBM/mathlib v0.0.3-0.20230428120512-8afa4e643d4c/go.mod h1:p0HGSuwoOwAlts8u8rMJrInDo9BEwWUfzTIzdA+QuDo=
+github.com/IBM/mathlib v0.0.3-0.20230605104224-932ab92f2ce0 h1:V3ElfC3Xs8bxJyc7VPcBQ9th6vyBBX8u/5bIUOXljk4=
+github.com/IBM/mathlib v0.0.3-0.20230605104224-932ab92f2ce0/go.mod h1:k0NBSWMYVgaZ2keDuI8DSwdIEhUNhp8XnlVmm6Xwyuk=
 github.com/PaesslerAG/gval v1.0.0/go.mod h1:y/nm5yEyTeX6av0OfKJNp9rBNj2XrGhAf5+v24IBN1I=
 github.com/PaesslerAG/gval v1.1.0 h1:k3RuxeZDO3eejD4cMPSt+74tUSvTnbGvLx0df4mdwFc=
 github.com/PaesslerAG/gval v1.1.0/go.mod h1:y/nm5yEyTeX6av0OfKJNp9rBNj2XrGhAf5+v24IBN1I=
@@ -88,8 +88,8 @@ github.com/hyperledger/aries-framework-go/component/vdr v0.0.0-20230523135653-2f
 github.com/hyperledger/aries-framework-go/spi v0.0.0-20230517133327-301aa0597250 h1:xohFDAv9+SbJD0t75QhSAdY0ZnxUf+k7wj2Jty+Sw7Y=
 github.com/hyperledger/aries-framework-go/spi v0.0.0-20230517133327-301aa0597250/go.mod h1:oryUyWb23l/a3tAP9KW+GBbfcfqp9tZD4y5hSkFrkqI=
 github.com/hyperledger/aries-framework-go/test/component v0.0.0-20220428211718-66cc046674a1 h1:vxZ0DlFNLjgxMdBESLZu895AsI1JWL2SJerphwIn8Po=
-github.com/hyperledger/fabric-amcl v0.0.0-20210603140002-2670f91851c8 h1:BCR8ZlOZ+deUbWxyY6fpoY8LbB7PR5wGGwCTvWQOU2g=
-github.com/hyperledger/fabric-amcl v0.0.0-20210603140002-2670f91851c8/go.mod h1:X+DIyUsaTmalOpmpQfIvFZjKHQedrURQ5t4YqquX7lE=
+github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2 h1:B1Nt8hKb//KvgGRprk0h1t4lCnwhE9/ryb1WqfZbV+M=
+github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2/go.mod h1:X+DIyUsaTmalOpmpQfIvFZjKHQedrURQ5t4YqquX7lE=
 github.com/hyperledger/ursa-wrapper-go v0.3.1 h1:Do+QrVNniY77YK2jTIcyWqj9rm/Yb5SScN0bqCjiibA=
 github.com/hyperledger/ursa-wrapper-go v0.3.1/go.mod h1:nPSAuMasIzSVciQo22PedBk4Opph6bJ6ia3ms7BH/mk=
 github.com/jessevdk/go-flags v0.0.0-20141203071132-1679536dcc89/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
