@@ -7,7 +7,7 @@ module github.com/hyperledger/aries-framework-go
 // TODO (#2815): Remove circular dependency between the main module and component/storage/edv
 
 require (
-	github.com/IBM/mathlib v0.0.3-0.20230428120512-8afa4e643d4c
+	github.com/IBM/mathlib v0.0.3-0.20230605104224-932ab92f2ce0
 	github.com/PaesslerAG/gval v1.1.0
 	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/bluele/gcache v0.0.0-20190518031135-bc40bd653833
@@ -45,7 +45,7 @@ require (
 	github.com/consensys/gnark-crypto v0.9.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
-	github.com/hyperledger/fabric-amcl v0.0.0-20210603140002-2670f91851c8 // indirect
+	github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2 // indirect
 	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a // indirect
 	github.com/kawamuray/jsonpath v0.0.0-20201211160320-7483bafabd7e // indirect
 	github.com/kilic/bls12-381 v0.1.1-0.20210503002446-7b7597926c69 // indirect

@@ -32,14 +32,14 @@ require (
 )
 
 require (
-	github.com/IBM/mathlib v0.0.3-0.20230428120512-8afa4e643d4c // indirect
+	github.com/IBM/mathlib v0.0.3-0.20230605104224-932ab92f2ce0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/consensys/bavard v0.1.13 // indirect
 	github.com/consensys/gnark-crypto v0.9.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
-	github.com/hyperledger/fabric-amcl v0.0.0-20210603140002-2670f91851c8 // indirect
+	github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2 // indirect
 	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
 	github.com/kilic/bls12-381 v0.1.1-0.20210503002446-7b7597926c69 // indirect
 	github.com/mmcloughlin/addchain v0.4.0 // indirect

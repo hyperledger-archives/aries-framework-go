@@ -1,5 +1,5 @@
-github.com/IBM/mathlib v0.0.3-0.20230428120512-8afa4e643d4c h1:eLCIQV1wI6WBt1T+s2vUWFg7tBB0Xu/+YZSZ877+kyM=
-github.com/IBM/mathlib v0.0.3-0.20230428120512-8afa4e643d4c/go.mod h1:p0HGSuwoOwAlts8u8rMJrInDo9BEwWUfzTIzdA+QuDo=
+github.com/IBM/mathlib v0.0.3-0.20230605104224-932ab92f2ce0 h1:V3ElfC3Xs8bxJyc7VPcBQ9th6vyBBX8u/5bIUOXljk4=
+github.com/IBM/mathlib v0.0.3-0.20230605104224-932ab92f2ce0/go.mod h1:k0NBSWMYVgaZ2keDuI8DSwdIEhUNhp8XnlVmm6Xwyuk=
 github.com/aead/siphash v1.0.1/go.mod h1:Nywa3cDsYNNK3gaciGTWPwHt0wlpNV15vwmswBAUSII=
 github.com/bluele/gcache v0.0.0-20190518031135-bc40bd653833 h1:yCfXxYaelOyqnia8F/Yng47qhmfC9nKTRIbYRrRueq4=
 github.com/bluele/gcache v0.0.0-20190518031135-bc40bd653833/go.mod h1:8c4/i2VlovMO2gBnHGQPN5EJw+H0lx1u/5p+cgsXtCk=
@@ -44,8 +44,8 @@ github.com/google/tink/go v1.7.0/go.mod h1:GAUOd+QE3pgj9q8VKIGTCP33c/B7eb4NhxLcg
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
 github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20230427134832-0c9969493bd3 h1:JGYA9l5zTlvsvfnXT9hYPpCokAjmVKX0/r7njba7OX4=
 github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20230427134832-0c9969493bd3/go.mod h1:aSG2dWjYVzu2PVBtOqsYghaChA5+UUXnBbL+MfVceYQ=
-github.com/hyperledger/fabric-amcl v0.0.0-20210603140002-2670f91851c8 h1:BCR8ZlOZ+deUbWxyY6fpoY8LbB7PR5wGGwCTvWQOU2g=
-github.com/hyperledger/fabric-amcl v0.0.0-20210603140002-2670f91851c8/go.mod h1:X+DIyUsaTmalOpmpQfIvFZjKHQedrURQ5t4YqquX7lE=
+github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2 h1:B1Nt8hKb//KvgGRprk0h1t4lCnwhE9/ryb1WqfZbV+M=
+github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2/go.mod h1:X+DIyUsaTmalOpmpQfIvFZjKHQedrURQ5t4YqquX7lE=
 github.com/hyperledger/ursa-wrapper-go v0.3.1 h1:Do+QrVNniY77YK2jTIcyWqj9rm/Yb5SScN0bqCjiibA=
 github.com/hyperledger/ursa-wrapper-go v0.3.1/go.mod h1:nPSAuMasIzSVciQo22PedBk4Opph6bJ6ia3ms7BH/mk=
 github.com/jessevdk/go-flags v0.0.0-20141203071132-1679536dcc89/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=

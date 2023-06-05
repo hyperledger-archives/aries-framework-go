@@ -16,7 +16,7 @@ require (
 )
 
 require (
-	github.com/IBM/mathlib v0.0.3-0.20230428120512-8afa4e643d4c // indirect
+	github.com/IBM/mathlib v0.0.3-0.20230605104224-932ab92f2ce0 // indirect
 	github.com/PaesslerAG/gval v1.1.0 // indirect
 	github.com/PaesslerAG/jsonpath v0.1.1 // indirect
 	github.com/VictoriaMetrics/fastcache v1.12.0 // indirect
@@ -39,7 +39,7 @@ require (
 	github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20221025204933-b807371b6f1e // indirect
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20230427134832-0c9969493bd3 // indirect
 	github.com/hyperledger/aries-framework-go/component/vdr v0.0.0-20230523135653-2f2e9595514f // indirect
-	github.com/hyperledger/fabric-amcl v0.0.0-20210603140002-2670f91851c8 // indirect
+	github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2 // indirect
 	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
 	github.com/jinzhu/copier v0.3.5 // indirect
 	github.com/kawamuray/jsonpath v0.0.0-20201211160320-7483bafabd7e // indirect
