@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package store_test
+package store
 
 import (
 	"errors"
@@ -12,7 +12,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	ldstore "github.com/hyperledger/aries-framework-go/component/models/ld/store"
 	mockstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mock/storage"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
@@ -21,7 +20,7 @@ func TestNewRemoteProviderStore(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		storageProvider := mockstorage.NewMockStoreProvider()
 
-		store, err := ldstore.NewRemoteProviderStore(storageProvider)
+		store, err := NewRemoteProviderStore(storageProvider)
 
 		require.NoError(t, err)
 		require.NotNil(t, store)
@@ -31,7 +30,7 @@ func TestNewRemoteProviderStore(t *testing.T) {
 		storageProvider := mockstorage.NewMockStoreProvider()
 		storageProvider.ErrOpenStoreHandle = errors.New("open store error")
 
-		store, err := ldstore.NewRemoteProviderStore(storageProvider)
+		store, err := NewRemoteProviderStore(storageProvider)
 
 		require.Nil(t, store)
 		require.Error(t, err)
@@ -42,7 +41,7 @@ func TestNewRemoteProviderStore(t *testing.T) {
 		storageProvider := mockstorage.NewMockStoreProvider()
 		storageProvider.ErrSetStoreConfig = errors.New("set store config error")
 
-		store, err := ldstore.NewRemoteProviderStore(storageProvider)
+		store, err := NewRemoteProviderStore(storageProvider)
 
 		require.Nil(t, store)
 		require.Error(t, err)
@@ -54,10 +53,10 @@ func TestRemoteProviderStoreImpl_Get(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		storageProvider := mockstorage.NewMockStoreProvider()
 
-		err := storageProvider.Store.Put("id", []byte("endpoint"), storage.Tag{Name: ldstore.RemoteProviderRecordTag})
+		err := storageProvider.Store.Put("id", []byte("endpoint"), storage.Tag{Name: RemoteProviderRecordTag})
 		require.NoError(t, err)
 
-		store, err := ldstore.NewRemoteProviderStore(storageProvider)
+		store, err := NewRemoteProviderStore(storageProvider)
 		require.NoError(t, err)
 
 		record, err := store.Get("id")
@@ -71,7 +70,7 @@ func TestRemoteProviderStoreImpl_Get(t *testing.T) {
 		storageProvider := mockstorage.NewMockStoreProvider()
 		storageProvider.Store.ErrGet = errors.New("get error")
 
-		store, err := ldstore.NewRemoteProviderStore(storageProvider)
+		store, err := NewRemoteProviderStore(storageProvider)
 		require.NoError(t, err)
 
 		record, err := store.Get("id")
@@ -86,13 +85,13 @@ func TestRemoteProviderStoreImpl_GetAll(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		storageProvider := mockstorage.NewMockStoreProvider()
 
-		err := storageProvider.Store.Put("id", []byte("endpoint"), storage.Tag{Name: ldstore.RemoteProviderRecordTag})
+		err := storageProvider.Store.Put("id", []byte("endpoint"), storage.Tag{Name: RemoteProviderRecordTag})
 		require.NoError(t, err)
 
-		err = storageProvider.Store.Put("id2", []byte("endpoint2"), storage.Tag{Name: ldstore.RemoteProviderRecordTag})
+		err = storageProvider.Store.Put("id2", []byte("endpoint2"), storage.Tag{Name: RemoteProviderRecordTag})
 		require.NoError(t, err)
 
-		store, err := ldstore.NewRemoteProviderStore(storageProvider)
+		store, err := NewRemoteProviderStore(storageProvider)
 		require.NoError(t, err)
 
 		records, err := store.GetAll()
@@ -105,7 +104,7 @@ func TestRemoteProviderStoreImpl_GetAll(t *testing.T) {
 		storageProvider := mockstorage.NewMockStoreProvider()
 		storageProvider.Store.ErrQuery = errors.New("query error")
 
-		store, err := ldstore.NewRemoteProviderStore(storageProvider)
+		store, err := NewRemoteProviderStore(storageProvider)
 		require.NoError(t, err)
 
 		records, err := store.GetAll()
@@ -119,7 +118,7 @@ func TestRemoteProviderStoreImpl_GetAll(t *testing.T) {
 		storageProvider := mockstorage.NewMockStoreProvider()
 		storageProvider.Store.ErrNext = errors.New("next error")
 
-		store, err := ldstore.NewRemoteProviderStore(storageProvider)
+		store, err := NewRemoteProviderStore(storageProvider)
 		require.NoError(t, err)
 
 		records, err := store.GetAll()
@@ -133,10 +132,10 @@ func TestRemoteProviderStoreImpl_GetAll(t *testing.T) {
 		storageProvider := mockstorage.NewMockStoreProvider()
 		storageProvider.Store.ErrKey = errors.New("key error")
 
-		err := storageProvider.Store.Put("id", []byte("endpoint"), storage.Tag{Name: ldstore.RemoteProviderRecordTag})
+		err := storageProvider.Store.Put("id", []byte("endpoint"), storage.Tag{Name: RemoteProviderRecordTag})
 		require.NoError(t, err)
 
-		store, err := ldstore.NewRemoteProviderStore(storageProvider)
+		store, err := NewRemoteProviderStore(storageProvider)
 		require.NoError(t, err)
 
 		records, err := store.GetAll()
@@ -150,10 +149,10 @@ func TestRemoteProviderStoreImpl_GetAll(t *testing.T) {
 		storageProvider := mockstorage.NewMockStoreProvider()
 		storageProvider.Store.ErrValue = errors.New("value error")
 
-		err := storageProvider.Store.Put("id", []byte("endpoint"), storage.Tag{Name: ldstore.RemoteProviderRecordTag})
+		err := storageProvider.Store.Put("id", []byte("endpoint"), storage.Tag{Name: RemoteProviderRecordTag})
 		require.NoError(t, err)
 
-		store, err := ldstore.NewRemoteProviderStore(storageProvider)
+		store, err := NewRemoteProviderStore(storageProvider)
 		require.NoError(t, err)
 
 		records, err := store.GetAll()
@@ -168,7 +167,7 @@ func TestRemoteProviderStoreImpl_Save(t *testing.T) {
 	t.Run("Save new remote provider record", func(t *testing.T) {
 		storageProvider := mockstorage.NewMockStoreProvider()
 
-		store, err := ldstore.NewRemoteProviderStore(storageProvider)
+		store, err := NewRemoteProviderStore(storageProvider)
 		require.NoError(t, err)
 
 		record, err := store.Save("endpoint")
@@ -181,10 +180,10 @@ func TestRemoteProviderStoreImpl_Save(t *testing.T) {
 	t.Run("Return existing remote provider record", func(t *testing.T) {
 		storageProvider := mockstorage.NewMockStoreProvider()
 
-		err := storageProvider.Store.Put("id", []byte("endpoint"), storage.Tag{Name: ldstore.RemoteProviderRecordTag})
+		err := storageProvider.Store.Put("id", []byte("endpoint"), storage.Tag{Name: RemoteProviderRecordTag})
 		require.NoError(t, err)
 
-		store, err := ldstore.NewRemoteProviderStore(storageProvider)
+		store, err := NewRemoteProviderStore(storageProvider)
 		require.NoError(t, err)
 
 		record, err := store.Save("endpoint")
@@ -199,8 +198,10 @@ func TestRemoteProviderStoreImpl_Save(t *testing.T) {
 		storageProvider := mockstorage.NewMockStoreProvider()
 		storageProvider.Store.ErrQuery = errors.New("query error")
 
-		store, err := ldstore.NewRemoteProviderStore(storageProvider)
+		store, err := NewRemoteProviderStore(storageProvider)
 		require.NoError(t, err)
+
+		store.debugDisableBackoff = true
 
 		record, err := store.Save("endpoint")
 
@@ -213,8 +214,10 @@ func TestRemoteProviderStoreImpl_Save(t *testing.T) {
 		storageProvider := mockstorage.NewMockStoreProvider()
 		storageProvider.Store.ErrNext = errors.New("next error")
 
-		store, err := ldstore.NewRemoteProviderStore(storageProvider)
+		store, err := NewRemoteProviderStore(storageProvider)
 		require.NoError(t, err)
+
+		store.debugDisableBackoff = true
 
 		record, err := store.Save("endpoint")
 
@@ -227,11 +230,13 @@ func TestRemoteProviderStoreImpl_Save(t *testing.T) {
 		storageProvider := mockstorage.NewMockStoreProvider()
 		storageProvider.Store.ErrKey = errors.New("key error")
 
-		err := storageProvider.Store.Put("id", []byte("endpoint"), storage.Tag{Name: ldstore.RemoteProviderRecordTag})
+		err := storageProvider.Store.Put("id", []byte("endpoint"), storage.Tag{Name: RemoteProviderRecordTag})
 		require.NoError(t, err)
 
-		store, err := ldstore.NewRemoteProviderStore(storageProvider)
+		store, err := NewRemoteProviderStore(storageProvider)
 		require.NoError(t, err)
+
+		store.debugDisableBackoff = true
 
 		record, err := store.Save("endpoint")
 
@@ -244,11 +249,13 @@ func TestRemoteProviderStoreImpl_Save(t *testing.T) {
 		storageProvider := mockstorage.NewMockStoreProvider()
 		storageProvider.Store.ErrValue = errors.New("value error")
 
-		err := storageProvider.Store.Put("id", []byte("endpoint"), storage.Tag{Name: ldstore.RemoteProviderRecordTag})
+		err := storageProvider.Store.Put("id", []byte("endpoint"), storage.Tag{Name: RemoteProviderRecordTag})
 		require.NoError(t, err)
 
-		store, err := ldstore.NewRemoteProviderStore(storageProvider)
+		store, err := NewRemoteProviderStore(storageProvider)
 		require.NoError(t, err)
+
+		store.debugDisableBackoff = true
 
 		record, err := store.Save("endpoint")
 
@@ -261,8 +268,10 @@ func TestRemoteProviderStoreImpl_Save(t *testing.T) {
 		storageProvider := mockstorage.NewMockStoreProvider()
 		storageProvider.Store.ErrPut = errors.New("put error")
 
-		store, err := ldstore.NewRemoteProviderStore(storageProvider)
+		store, err := NewRemoteProviderStore(storageProvider)
 		require.NoError(t, err)
+
+		store.debugDisableBackoff = true
 
 		record, err := store.Save("endpoint")
 
@@ -276,10 +285,10 @@ func TestRemoteProviderStoreImpl_Delete(t *testing.T) {
 	t.Run("Delete remote provider record", func(t *testing.T) {
 		storageProvider := mockstorage.NewMockStoreProvider()
 
-		err := storageProvider.Store.Put("id", []byte("endpoint"), storage.Tag{Name: ldstore.RemoteProviderRecordTag})
+		err := storageProvider.Store.Put("id", []byte("endpoint"), storage.Tag{Name: RemoteProviderRecordTag})
 		require.NoError(t, err)
 
-		store, err := ldstore.NewRemoteProviderStore(storageProvider)
+		store, err := NewRemoteProviderStore(storageProvider)
 		require.NoError(t, err)
 
 		err = store.Delete("id")
@@ -292,7 +301,7 @@ func TestRemoteProviderStoreImpl_Delete(t *testing.T) {
 		storageProvider := mockstorage.NewMockStoreProvider()
 		storageProvider.Store.ErrDelete = errors.New("delete error")
 
-		store, err := ldstore.NewRemoteProviderStore(storageProvider)
+		store, err := NewRemoteProviderStore(storageProvider)
 		require.NoError(t, err)
 
 		err = store.Delete("id")
