@@ -83,6 +83,9 @@ const (
 
 const (
 	updateTimeout = 10 * time.Second
+
+	queryRetryBackoffInterval = 100 * time.Millisecond
+	queryRetryMaxRetries      = 5
 )
 
 // ErrConnectionNotFound connection not found error.
@@ -155,6 +158,7 @@ type Service struct {
 	keyAgreementType     kms.KeyType
 	mediaTypeProfiles    []string
 	initialized          bool
+	debugDisableBackoff  bool
 }
 
 // New return route coordination service.
@@ -705,58 +709,70 @@ func (s *Service) Unregister(connID string) error {
 }
 
 // GetConnections returns the connections of the router.
-func (s *Service) GetConnections(options ...ConnectionOption) ([]string, error) {
+func (s *Service) GetConnections(options ...ConnectionOption) ([]string, error) { // nolint:gocyclo
 	opts := &getConnectionOpts{}
 
 	for _, option := range options {
 		option(opts)
 	}
 
-	records, err := s.routeStore.Query(routeConnIDDataKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query route store: %w", err)
+	var (
+		conns   []string
+		retries backoff.BackOff
+	)
+
+	if s.debugDisableBackoff {
+		retries = &backoff.StopBackOff{}
+	} else {
+		retries = backoff.WithMaxRetries(backoff.NewConstantBackOff(queryRetryBackoffInterval), queryRetryMaxRetries)
 	}
 
-	defer storage.Close(records, logger)
-
-	var conns []string
-
-	more, err := records.Next()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get next record: %w", err)
-	}
-
-	for more {
-		value, err := records.Value()
+	return conns, backoff.Retry(func() error {
+		records, err := s.routeStore.Query(routeConnIDDataKey)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get value from records: %w", err)
+			return fmt.Errorf("failed to query route store: %w", err)
 		}
 
-		data := &routerConnectionEntry{}
+		defer storage.Close(records, logger)
 
-		err = json.Unmarshal(value, data)
+		more, err := records.Next()
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal router connection entry: %w", err)
+			return fmt.Errorf("failed to get next record: %w", err)
 		}
 
-		if opts.version == "" || opts.version == data.DIDCommVersion {
-			conns = append(conns, data.ConnectionID)
+		for more {
+			value, err := records.Value()
+			if err != nil {
+				return fmt.Errorf("failed to get value from records: %w", err)
+			}
+
+			data := &routerConnectionEntry{}
+
+			err = json.Unmarshal(value, data)
+			if err != nil {
+				return fmt.Errorf("failed to unmarshal router connection entry: %w", err)
+			}
+
+			if opts.version == "" || opts.version == data.DIDCommVersion {
+				conns = append(conns, data.ConnectionID)
+			}
+
+			more, err = records.Next()
+			if err != nil {
+				return fmt.Errorf("failed to get next record: %w", err)
+			}
 		}
 
-		more, err = records.Next()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get next record: %w", err)
-		}
-	}
-
-	return conns, nil
+		return nil
+	}, retries)
 }
 
 // AddKey adds a recKey of the agent to the registered router. This method blocks until a response is
 // received from the router or it times out.
 // TODO https://github.com/hyperledger/aries-framework-go/issues/1076 Support for multiple routers
 // TODO https://github.com/hyperledger/aries-framework-go/issues/1105 Support to Add multiple
-//  recKeys to the Router
+//
+//	recKeys to the Router
 func (s *Service) AddKey(connID, recKey string) error {
 	// check if router is already registered
 	err := s.ensureConnectionExists(connID)

@@ -1472,6 +1472,8 @@ func TestGetConnections(t *testing.T) {
 		)
 		require.NoError(t, err)
 
+		svc.debugDisableBackoff = true
+
 		connID, err := svc.GetConnections()
 		require.NoError(t, err)
 		require.Empty(t, connID)
@@ -1526,6 +1528,8 @@ func TestGetConnections(t *testing.T) {
 			},
 		)
 		require.NoError(t, err)
+
+		svc.debugDisableBackoff = true
 
 		err = svc.routeStore.Put(
 			fmt.Sprintf(routeConnIDDataKey, routerConnectionID),

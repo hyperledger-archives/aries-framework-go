@@ -8,7 +8,9 @@ package store
 
 import (
 	"fmt"
+	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/spi/storage"
@@ -20,6 +22,9 @@ const (
 
 	// RemoteProviderRecordTag is a tag associated with every record in the store.
 	RemoteProviderRecordTag = "record"
+
+	queryRetryBackoffInterval = 100 * time.Millisecond
+	queryRetryMaxRetries      = 5
 )
 
 // RemoteProviderRecord is a record in store with remote provider info.
@@ -38,7 +43,8 @@ type RemoteProviderStore interface {
 
 // RemoteProviderStoreImpl is a default implementation of remote provider repository.
 type RemoteProviderStoreImpl struct {
-	store storage.Store
+	store               storage.Store
+	debugDisableBackoff bool
 }
 
 // NewRemoteProviderStore returns a new instance of RemoteProviderStoreImpl.
@@ -116,44 +122,14 @@ func (s *RemoteProviderStoreImpl) GetAll() ([]RemoteProviderRecord, error) {
 
 // Save creates a new remote provider record and saves it to the underlying storage.
 // If record with given endpoint already exists in the store, it is returned to the caller.
-func (s *RemoteProviderStoreImpl) Save(endpoint string) (*RemoteProviderRecord, error) { //nolint:gocyclo
-	iter, err := s.store.Query(RemoteProviderRecordTag)
+func (s *RemoteProviderStoreImpl) Save(endpoint string) (*RemoteProviderRecord, error) {
+	foundRecord, err := s.findEndpoint(endpoint)
 	if err != nil {
-		return nil, fmt.Errorf("query store: %w", err)
+		return nil, err
 	}
 
-	defer func() {
-		er := iter.Close()
-		if er != nil {
-			logger.Errorf("Failed to close iterator: %s", er.Error())
-		}
-	}()
-
-	for {
-		if ok, err := iter.Next(); !ok || err != nil {
-			if err != nil {
-				return nil, fmt.Errorf("next entry: %w", err)
-			}
-
-			break
-		}
-
-		k, err := iter.Key()
-		if err != nil {
-			return nil, fmt.Errorf("get key: %w", err)
-		}
-
-		v, err := iter.Value()
-		if err != nil {
-			return nil, fmt.Errorf("get value: %w", err)
-		}
-
-		if endpoint == string(v) {
-			return &RemoteProviderRecord{
-				ID:       k,
-				Endpoint: string(v),
-			}, nil
-		}
+	if foundRecord != nil {
+		return foundRecord, nil
 	}
 
 	record := &RemoteProviderRecord{
@@ -169,6 +145,64 @@ func (s *RemoteProviderStoreImpl) Save(endpoint string) (*RemoteProviderRecord, 
 	}
 
 	return record, nil
+}
+
+func (s RemoteProviderStoreImpl) findEndpoint(endpoint string) (*RemoteProviderRecord, error) { // nolint:gocyclo
+	var (
+		foundRecord *RemoteProviderRecord
+		retries     backoff.BackOff
+	)
+
+	if s.debugDisableBackoff {
+		retries = &backoff.StopBackOff{}
+	} else {
+		retries = backoff.WithMaxRetries(backoff.NewConstantBackOff(queryRetryBackoffInterval), queryRetryMaxRetries)
+	}
+
+	return foundRecord, backoff.Retry(func() error {
+		iter, err := s.store.Query(RemoteProviderRecordTag)
+		if err != nil {
+			return fmt.Errorf("query store: %w", err)
+		}
+
+		defer func() {
+			er := iter.Close()
+			if er != nil {
+				logger.Errorf("Failed to close iterator: %s", er.Error())
+			}
+		}()
+
+		for {
+			if ok, err := iter.Next(); !ok || err != nil {
+				if err != nil {
+					return fmt.Errorf("next entry: %w", err)
+				}
+
+				break
+			}
+
+			k, err := iter.Key()
+			if err != nil {
+				return fmt.Errorf("get key: %w", err)
+			}
+
+			v, err := iter.Value()
+			if err != nil {
+				return fmt.Errorf("get value: %w", err)
+			}
+
+			if endpoint == string(v) {
+				foundRecord = &RemoteProviderRecord{
+					ID:       k,
+					Endpoint: string(v),
+				}
+
+				return nil
+			}
+		}
+
+		return nil
+	}, retries)
 }
 
 // Delete deletes a remote provider record in the underlying storage.
