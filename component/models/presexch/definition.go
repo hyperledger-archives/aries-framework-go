@@ -580,15 +580,13 @@ func (pd *PresentationDefinition) matchRequirement(req *requirement, creds []*ve
 		var matchedVCs []*verifiable.Credential
 
 		if opts.applySelectiveDisclosure {
-			matchedVCs, err = limitDisclosure(filtered, opts.credOpts...)
+			limitedVCs, err := limitDisclosure(filtered, opts.credOpts...)
 			if err != nil {
 				return nil, err
 			}
 
-			// TODO: remove this workaround after refactoring "merge" function to get rid of
-			// TODO: the trick with the modification of credential id.
-			for _, cred := range matchedVCs {
-				cred.ID = trimTmpID(cred.ID)
+			for _, cred := range limitedVCs {
+				matchedVCs = append(matchedVCs, cred.vc)
 			}
 		} else {
 			for _, credRes := range filtered {
@@ -616,22 +614,37 @@ func (pd *PresentationDefinition) matchRequirement(req *requirement, creds []*ve
 	return matchedReq, nil
 }
 
-// nolint: gocyclo,funlen,gocognit
+type credWrapper struct {
+	uniqueID string
+	vc       *verifiable.Credential
+}
+
 func (pd *PresentationDefinition) applyRequirement(req *requirement, creds []*verifiable.Credential,
 	documentLoader ld.DocumentLoader,
-	opts ...verifiable.CredentialOpt) (string, map[string][]*verifiable.Credential, error) {
-	result := make(map[string][]*verifiable.Credential)
+	opts ...verifiable.CredentialOpt) (string, map[string][]*credWrapper, error) {
+	if len(req.InputDescriptors) > 0 {
+		return pd.applyRequirementLeaf(req, creds, documentLoader, opts...)
+	}
+
+	return pd.applyRequirementNested(req, creds, documentLoader, opts...)
+}
+
+// nolint: gocyclo,funlen,gocognit
+func (pd *PresentationDefinition) applyRequirementLeaf(req *requirement, creds []*verifiable.Credential,
+	documentLoader ld.DocumentLoader,
+	opts ...verifiable.CredentialOpt) (string, map[string][]*credWrapper, error) {
+	result := make(map[string][]*credWrapper)
 	// assume LDPVP format if pd.Format is not set.
 	// Usually pd.Format will be set when creds include a non-empty Proofs field since they represent the designated
 	// format.
 	vpFormat := FormatLDPVP
 
-	for _, descriptor := range req.InputDescriptors {
-		framedCreds, err := frameCreds(pd.Frame, creds, opts...)
-		if err != nil {
-			return "", nil, err
-		}
+	framedCreds, e := frameCreds(pd.Frame, creds, opts...)
+	if e != nil {
+		return "", nil, e
+	}
 
+	for _, descriptor := range req.InputDescriptors {
 		descFormat, filtered, err := pd.filterCredentialsThatMatchDescriptor(
 			framedCreds, descriptor, documentLoader)
 		if err != nil {
@@ -652,18 +665,25 @@ func (pd *PresentationDefinition) applyRequirement(req *requirement, creds []*ve
 		}
 	}
 
-	if len(req.InputDescriptors) != 0 {
-		if req.isLenApplicable(len(result)) {
-			return vpFormat, result, nil
-		}
-
-		return "", nil, ErrNoCredentials
+	if req.isLenApplicable(len(result)) {
+		return vpFormat, result, nil
 	}
 
-	var nestedResult []map[string][]*verifiable.Credential
+	return "", nil, ErrNoCredentials
+}
 
-	// maps credential to descriptors that satisfy requirements
-	set := map[string]map[string]string{}
+// nolint: gocyclo,funlen,gocognit
+func (pd *PresentationDefinition) applyRequirementNested(req *requirement, creds []*verifiable.Credential,
+	documentLoader ld.DocumentLoader,
+	opts ...verifiable.CredentialOpt) (string, map[string][]*credWrapper, error) {
+	// assume LDPVP format if pd.Format is not set.
+	// Usually pd.Format will be set when creds include a non-empty Proofs field since they represent the designated
+	// format.
+	vpFormat := FormatLDPVP
+
+	var nestedResult []map[string][]*credWrapper
+
+	satisfiedDescriptors := map[string]map[string]string{}
 
 	for _, r := range req.Nested {
 		vpFmt, res, err := pd.applyRequirement(r, creds, documentLoader, opts...)
@@ -677,11 +697,11 @@ func (pd *PresentationDefinition) applyRequirement(req *requirement, creds []*ve
 
 		for desc, credentials := range res {
 			for _, cred := range credentials {
-				if _, ok := set[trimTmpID(cred.ID)]; !ok {
-					set[trimTmpID(cred.ID)] = map[string]string{}
+				if _, ok := satisfiedDescriptors[cred.vc.ID]; !ok {
+					satisfiedDescriptors[cred.vc.ID] = map[string]string{}
 				}
 
-				set[trimTmpID(cred.ID)][desc] = cred.ID
+				satisfiedDescriptors[cred.vc.ID][desc] = cred.uniqueID
 			}
 		}
 
@@ -693,10 +713,10 @@ func (pd *PresentationDefinition) applyRequirement(req *requirement, creds []*ve
 
 	exclude := map[string]struct{}{}
 
-	for k := range set {
-		if !req.isLenApplicable(len(set[k])) {
-			for desc, cID := range set[k] {
-				exclude[desc+cID] = struct{}{}
+	for _, descriptors := range satisfiedDescriptors {
+		if !req.isLenApplicable(len(descriptors)) {
+			for descID, credUniqueID := range descriptors {
+				exclude[descID+credUniqueID] = struct{}{}
 			}
 		}
 	}
@@ -732,33 +752,26 @@ func (pd *PresentationDefinition) filterCredentialsThatMatchDescriptor(creds []*
 	return vpFormat, filteredByConstraints, nil
 }
 
-func mergeNestedResult(nr []map[string][]*verifiable.Credential,
-	exclude map[string]struct{}) map[string][]*verifiable.Credential {
-	result := make(map[string][]*verifiable.Credential)
+func mergeNestedResult(nr []map[string][]*credWrapper,
+	exclude map[string]struct{}) map[string][]*credWrapper {
+	result := make(map[string][]*credWrapper)
+
+	credAlreadyAdded := map[string]map[string]struct{}{}
 
 	for _, res := range nr {
 		for key, credentials := range res {
-			set := map[string]struct{}{}
-
-			var mergedCredentials []*verifiable.Credential
-
-			for _, credential := range result[key] {
-				if _, ok := set[credential.ID]; !ok {
-					mergedCredentials = append(mergedCredentials, credential)
-					set[credential.ID] = struct{}{}
-				}
+			if _, ok := credAlreadyAdded[key]; !ok {
+				credAlreadyAdded[key] = map[string]struct{}{}
 			}
 
 			for _, credential := range credentials {
-				if _, ok := set[credential.ID]; !ok {
-					if _, exist := exclude[key+credential.ID]; !exist {
-						mergedCredentials = append(mergedCredentials, credential)
-						set[credential.ID] = struct{}{}
+				if _, ok := credAlreadyAdded[key][credential.uniqueID]; !ok {
+					if _, excludeThis := exclude[key+credential.uniqueID]; !excludeThis {
+						result[key] = append(result[key], credential)
+						credAlreadyAdded[key][credential.uniqueID] = struct{}{}
 					}
 				}
 			}
-
-			result[key] = mergedCredentials
 		}
 	}
 
@@ -912,8 +925,8 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential)
 
 // nolint: gocyclo, funlen
 func limitDisclosure(filterResults []constraintsFilterResult,
-	opts ...verifiable.CredentialOpt) ([]*verifiable.Credential, error) {
-	var result []*verifiable.Credential
+	opts ...verifiable.CredentialOpt) ([]*credWrapper, error) {
+	var result []*credWrapper
 
 	for _, filtered := range filterResults {
 		credential := filtered.credential
@@ -921,7 +934,7 @@ func limitDisclosure(filterResults []constraintsFilterResult,
 		credentialSrc := filtered.credentialSrc
 
 		if constraints == nil {
-			result = append(result, credential)
+			result = append(result, &credWrapper{uniqueID: credential.ID, vc: credential})
 			continue
 		}
 
@@ -933,20 +946,23 @@ func limitDisclosure(filterResults []constraintsFilterResult,
 			}
 		}
 
+		uniqueCredID := credential.ID
+
 		// Non-SDJWT case.
 		if (constraints.LimitDisclosure.isRequired() || predicate) && credential.SDJWTHashAlg == "" { //nolint:nestif
 			template := credentialSrc
 
-			var contexts []interface{}
-
-			for _, ctx := range credential.Context {
-				contexts = append(contexts, ctx)
-			}
-
-			contexts = append(contexts, credential.CustomContext...)
-
 			if constraints.LimitDisclosure.isRequired() {
-				var err error
+				var (
+					contexts []interface{}
+					err      error
+				)
+
+				for _, ctx := range credential.Context {
+					contexts = append(contexts, ctx)
+				}
+
+				contexts = append(contexts, credential.CustomContext...)
 
 				template, err = json.Marshal(map[string]interface{}{
 					"id":                credential.ID,
@@ -988,7 +1004,7 @@ func limitDisclosure(filterResults []constraintsFilterResult,
 				credential.JWT = jwtVC
 			}
 
-			credential.ID = tmpID(credential.ID)
+			uniqueCredID = tmpID(credential.ID)
 		}
 
 		// SDJWT case.
@@ -1001,7 +1017,7 @@ func limitDisclosure(filterResults []constraintsFilterResult,
 			credential.SDJWTDisclosures = limitedDisclosures
 		}
 
-		result = append(result, credential)
+		result = append(result, &credWrapper{uniqueID: uniqueCredID, vc: credential})
 	}
 
 	return result, nil
@@ -1106,17 +1122,10 @@ func toSubject(subject interface{}) interface{} {
 	return subject
 }
 
+// Note: tmpID is needed when one VC is selectively-disclosed for multiple requirements.
+// So, to remove tmpID, we need to handle those unique IDs in another way.
 func tmpID(id string) string {
 	return id + tmpEnding + uuid.New().String()
-}
-
-func trimTmpID(id string) string {
-	idx := strings.Index(id, tmpEnding)
-	if idx == -1 {
-		return id
-	}
-
-	return id[:idx]
 }
 
 // nolint: funlen,gocognit,gocyclo
@@ -1145,7 +1154,7 @@ func createNewCredential(constraints *Constraints, src, limitedCred []byte,
 				modifiedByPredicate = f.Predicate.isRequired()
 			}
 
-			if f.Predicate == nil || *f.Predicate != Required {
+			if !f.Predicate.isRequired() {
 				val = gjson.GetBytes(src, path[1]).Value()
 			}
 
@@ -1374,11 +1383,10 @@ func getPath(keys []interface{}, set map[string]int) [2]string {
 
 func merge(
 	presentationFormat string,
-	setOfCredentials map[string][]*verifiable.Credential,
+	setOfCredentials map[string][]*credWrapper,
 	separatePresentations bool,
 ) ([]*verifiable.Credential, []*InputDescriptorMapping) { //nolint:lll
 	setOfCreds := make(map[string]int)
-	setOfDescriptors := make(map[string]struct{})
 
 	var (
 		result      []*verifiable.Credential
@@ -1395,11 +1403,13 @@ func merge(
 	for _, descriptorID := range keys {
 		credentials := setOfCredentials[descriptorID]
 
-		for _, credential := range credentials {
-			if _, ok := setOfCreds[credential.ID]; !ok {
-				credential.ID = trimTmpID(credential.ID)
+		for _, credWrap := range credentials {
+			credential := credWrap.vc
+
+			if _, ok := setOfCreds[credWrap.uniqueID]; !ok {
 				result = append(result, credential)
-				setOfCreds[credential.ID] = len(result) - 1
+
+				setOfCreds[credWrap.uniqueID] = len(result) - 1
 			}
 
 			vcFormat := FormatLDPVC
@@ -1407,26 +1417,24 @@ func merge(
 				vcFormat = FormatJWTVC
 			}
 
-			if _, ok := setOfDescriptors[fmt.Sprintf("%s-%s", credential.ID, credential.ID)]; !ok {
-				desc := &InputDescriptorMapping{
+			desc := &InputDescriptorMapping{
+				ID:     descriptorID,
+				Format: presentationFormat,
+				PathNested: &InputDescriptorMapping{
 					ID:     descriptorID,
-					Format: presentationFormat,
-					PathNested: &InputDescriptorMapping{
-						ID:     descriptorID,
-						Format: vcFormat,
-					},
-				}
-
-				if separatePresentations {
-					desc.Path = fmt.Sprintf("$[%d]", setOfCreds[credential.ID])
-					desc.PathNested.Path = "$.verifiableCredential[0]"
-				} else {
-					desc.Path = "$"
-					desc.PathNested.Path = fmt.Sprintf("$.verifiableCredential[%d]", setOfCreds[credential.ID])
-				}
-
-				descriptors = append(descriptors, desc)
+					Format: vcFormat,
+				},
 			}
+
+			if separatePresentations {
+				desc.Path = fmt.Sprintf("$[%d]", setOfCreds[credWrap.uniqueID])
+				desc.PathNested.Path = "$.verifiableCredential[0]"
+			} else {
+				desc.Path = "$"
+				desc.PathNested.Path = fmt.Sprintf("$.verifiableCredential[%d]", setOfCreds[credWrap.uniqueID])
+			}
+
+			descriptors = append(descriptors, desc)
 		}
 	}
 
