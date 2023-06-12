@@ -4,7 +4,7 @@
 
 module github.com/hyperledger/aries-framework-go/component/log
 
-go 1.19
+go 1.20
 
 require (
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20221025204933-b807371b6f1e

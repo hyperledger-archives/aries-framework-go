@@ -6,6 +6,8 @@ module github.com/hyperledger/aries-framework-go
 
 // TODO (#2815): Remove circular dependency between the main module and component/storage/edv
 
+go 1.20
+
 require (
 	github.com/IBM/mathlib v0.0.3-0.20230605104224-932ab92f2ce0
 	github.com/PaesslerAG/gval v1.1.0
@@ -21,7 +23,7 @@ require (
 	github.com/gorilla/mux v1.7.3
 	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230523135653-2f2e9595514f
 	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3
-	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230523152718-aa3f65b7ac13
+	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230612153955-e841db576f38
 	github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20221025204933-b807371b6f1e
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20230427134832-0c9969493bd3
 	github.com/hyperledger/aries-framework-go/component/vdr v0.0.0-20230523135653-2f2e9595514f
@@ -76,10 +78,6 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
-
-go 1.19
-
-replace github.com/hyperledger/aries-framework-go/components/models => ./components/models
 
 //replace github.com/square/go-jose/v3 => github.com/go-jose/go-jose/v3 v3.0.1-0.20221117193127-916db76e8214
 //

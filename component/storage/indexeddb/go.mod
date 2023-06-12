@@ -4,13 +4,13 @@
 
 module github.com/hyperledger/aries-framework-go/component/storage/indexeddb
 
-go 1.19
+go 1.20
 
 require (
 	github.com/google/uuid v1.3.0
 	github.com/hyperledger/aries-framework-go v0.1.9-0.20221025204933-b807371b6f1e
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20221021224215-368f53b380a4
-	github.com/hyperledger/aries-framework-go/test/component v0.0.0-20220322085443-50e8f9bd208b
+	github.com/hyperledger/aries-framework-go/test/component v0.0.0-20220428211718-66cc046674a1
 	github.com/stretchr/testify v1.8.1
 )
 

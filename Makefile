@@ -18,9 +18,9 @@ WEBHOOK_IMAGE_NAME ?= sample-webhook
 # Tool commands (overridable)
 DOCKER_CMD ?= docker
 GO_CMD     ?= go
-ALPINE_VER ?= 3.16
+ALPINE_VER ?= 3.18
 GO_TAGS    ?=
-GO_VER ?= 1.19.2
+GO_VER ?= 1.20.5
 PROJECT_ROOT = github.com/hyperledger/aries-framework-go
 GOBIN_PATH=$(abspath .)/build/bin
 MOCKGEN=$(GOBIN_PATH)/mockgen
@@ -197,7 +197,7 @@ endef
 depend:
 	@mkdir -p ./build/bin
 	GOBIN=$(GOBIN_PATH) go install github.com/golang/mock/mockgen@v1.5.0
-	GOBIN=$(GOBIN_PATH) go install github.com/agnivade/wasmbrowsertest@v0.3.5
+	GOBIN=$(GOBIN_PATH) go install github.com/agnivade/wasmbrowsertest@v0.7.0
 
 .PHONY: mocks
 mocks: depend clean-mocks

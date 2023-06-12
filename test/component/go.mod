@@ -4,7 +4,7 @@
 
 module github.com/hyperledger/aries-framework-go/test/component
 
-go 1.19
+go 1.20
 
 require (
 	github.com/google/uuid v1.1.2
