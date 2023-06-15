@@ -538,3 +538,98 @@ func createClaims() *CustomClaim {
 		PrivateClaim1: "private claim",
 	}
 }
+
+func Test_checkHeaders(t *testing.T) {
+	type args struct {
+		headers map[string]interface{}
+	}
+
+	tests := []struct {
+		name    string
+		args    args
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "OK",
+			args: args{
+				headers: map[string]interface{}{
+					jose.HeaderAlgorithm:   "EdDSA",
+					jose.HeaderType:        "JWT",
+					jose.HeaderContentType: "application/example;part=\"1/2\"",
+				},
+			},
+			wantErr: assert.NoError,
+		},
+		{
+			name: "OK Explicit type",
+			args: args{
+				headers: map[string]interface{}{
+					jose.HeaderAlgorithm:   "EdDSA",
+					jose.HeaderType:        "openid4vci-proof+jwt",
+					jose.HeaderContentType: "application/example;part=\"1/2\"",
+				},
+			},
+			wantErr: assert.NoError,
+		},
+		{
+			name: "alg missed",
+			args: args{
+				headers: map[string]interface{}{
+					jose.HeaderType:        "JWT",
+					jose.HeaderContentType: "application/example;part=\"1/2\"",
+				},
+			},
+			wantErr: assert.Error,
+		},
+		{
+			name: "invalid typ format",
+			args: args{
+				headers: map[string]interface{}{
+					jose.HeaderAlgorithm:   "EdDSA",
+					jose.HeaderType:        123,
+					jose.HeaderContentType: "application/example;part=\"1/2\"",
+				},
+			},
+			wantErr: assert.Error,
+		},
+		{
+			name: "Explicit type - invalid prefix",
+			args: args{
+				headers: map[string]interface{}{
+					jose.HeaderAlgorithm:   "EdDSA",
+					jose.HeaderType:        "jose+json",
+					jose.HeaderContentType: "application/example;part=\"1/2\"",
+				},
+			},
+			wantErr: assert.Error,
+		},
+		{
+			name: "invalid typ",
+			args: args{
+				headers: map[string]interface{}{
+					jose.HeaderAlgorithm:   "EdDSA",
+					jose.HeaderType:        "jwt",
+					jose.HeaderContentType: "application/example;part=\"1/2\"",
+				},
+			},
+			wantErr: assert.Error,
+		},
+		{
+			name: "invalid cty",
+			args: args{
+				headers: map[string]interface{}{
+					jose.HeaderAlgorithm:   "EdDSA",
+					jose.HeaderType:        "JWT",
+					jose.HeaderContentType: "JWT",
+				},
+			},
+			wantErr: assert.Error,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.wantErr(t, checkHeaders(tt.args.headers), fmt.Sprintf("checkHeaders(%v)", tt.args.headers))
+		})
+	}
+}

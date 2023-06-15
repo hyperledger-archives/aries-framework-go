@@ -270,13 +270,40 @@ func checkHeaders(headers map[string]interface{}) error {
 	}
 
 	typ, ok := headers[jose.HeaderType]
-	if ok && typ != TypeJWT {
-		return errors.New("typ is not JWT")
+	if ok {
+		if err := checkTypHeader(typ); err != nil {
+			return err
+		}
 	}
 
 	cty, ok := headers[jose.HeaderContentType]
 	if ok && cty == TypeJWT { // https://tools.ietf.org/html/rfc7519#section-5.2
 		return errors.New("nested JWT is not supported")
+	}
+
+	return nil
+}
+
+func checkTypHeader(typ interface{}) error {
+	typStr, ok := typ.(string)
+	if !ok {
+		return errors.New("invalid typ header format")
+	}
+
+	chunks := strings.Split(typStr, "+")
+	if len(chunks) > 1 {
+		// Explicit typing.
+		// https://www.rfc-editor.org/rfc/rfc8725.html#name-use-explicit-typing
+		if strings.ToUpper(chunks[1]) != TypeJWT {
+			return errors.New("invalid typ header")
+		}
+
+		return nil
+	}
+
+	if typStr != TypeJWT {
+		// https://www.rfc-editor.org/rfc/rfc7519#section-5.1
+		return errors.New("typ is not JWT")
 	}
 
 	return nil
