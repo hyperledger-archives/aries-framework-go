@@ -100,7 +100,7 @@ func TestVerifyDIDAndDomain(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(),
 			"Get \"https://non-existent-abc.com/.well-known/did-configuration.json\": dial tcp: "+
-				"lookup non-existent-abc.com: no such host")
+				"lookup non-existent-abc.com")
 	})
 
 	t.Run("error - http request error", func(t *testing.T) {

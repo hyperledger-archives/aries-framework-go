@@ -4,7 +4,7 @@
 
 module github.com/hyperledger/aries-framework-go/component/kmscrypto
 
-go 1.19
+go 1.20
 
 require (
 	github.com/IBM/mathlib v0.0.3-0.20230605104224-932ab92f2ce0

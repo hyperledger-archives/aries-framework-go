@@ -4,7 +4,7 @@
 
 module github.com/hyperledger/aries-framework-go/component/models
 
-go 1.19
+go 1.20
 
 require (
 	github.com/PaesslerAG/gval v1.1.0

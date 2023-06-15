@@ -4,7 +4,7 @@
 
 module github.com/hyperledger/aries-framework-go/component/storage/edv
 
-go 1.19
+go 1.20
 
 require (
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce

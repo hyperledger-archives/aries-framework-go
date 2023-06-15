@@ -4,7 +4,7 @@
 
 module github.com/hyperledger/aries-framework-go/component/storage/leveldb
 
-go 1.19
+go 1.20
 
 require (
 	github.com/google/uuid v1.3.0

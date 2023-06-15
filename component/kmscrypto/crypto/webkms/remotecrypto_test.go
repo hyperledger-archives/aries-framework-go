@@ -1595,9 +1595,11 @@ func matchPath(r *http.Request, uri string) bool {
 }
 
 func getCertsErrorSubText() string {
+	sharedPrefix := "tls: failed to verify certificate: "
+
 	if runtime.GOOS == "darwin" {
-		return "x509: “*.example.com” certificate is not trusted"
+		return sharedPrefix + "x509: “*.example.com” certificate is not trusted"
 	}
 
-	return "x509: certificate signed by unknown authority"
+	return sharedPrefix + "x509: certificate signed by unknown authority"
 }
