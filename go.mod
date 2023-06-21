@@ -79,6 +79,8 @@ require (
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
 
+replace github.com/hyperledger/aries-framework-go/component/kmscrypto => ./component/kmscrypto
+
 //replace github.com/square/go-jose/v3 => github.com/go-jose/go-jose/v3 v3.0.1-0.20221117193127-916db76e8214
 //
 //replace github.com/square/go-jose/v3/json => github.com/go-jose/go-jose/v3/json v1.0.1-0.20221117193127-916db76e8214

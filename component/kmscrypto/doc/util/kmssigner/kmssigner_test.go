@@ -12,8 +12,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	kmsapi "github.com/hyperledger/aries-framework-go/pkg/kms"
-	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
+	mockcrypto "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/crypto"
+	kmsapi "github.com/hyperledger/aries-framework-go/spi/kms"
 )
 
 func TestKMSSigner_Alg(t *testing.T) {
