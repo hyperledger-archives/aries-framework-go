@@ -3,7 +3,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package didconfig
+package verifier
 
 import (
 	"encoding/json"
@@ -14,15 +14,14 @@ import (
 
 	jsonld "github.com/piprate/json-gold/ld"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+	"github.com/hyperledger/aries-framework-go/component/log"
+	diddoc "github.com/hyperledger/aries-framework-go/component/models/did"
+	"github.com/hyperledger/aries-framework-go/component/models/jwt"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	"github.com/hyperledger/aries-framework-go/component/vdr"
+	"github.com/hyperledger/aries-framework-go/component/vdr/key"
+	vdrapi "github.com/hyperledger/aries-framework-go/spi/vdr"
 )
 
 var logger = log.New("aries-framework/doc/didconfig")
@@ -41,7 +40,7 @@ const (
 )
 
 type didResolver interface {
-	Resolve(did string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error)
+	Resolve(did string, opts ...vdrapi.DIDMethodOption) (*diddoc.DocResolution, error)
 }
 
 // didConfigOpts holds options for the DID Configuration decoding.

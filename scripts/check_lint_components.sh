@@ -34,6 +34,9 @@ echo "done linting component/models"
 echo "linting component/vdr.."
 ${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace/component/vdr ${GOLANGCI_LINT_IMAGE} golangci-lint run -c ../../.golangci.yml
 echo "done linting component/vdr"
+echo "linting component/didconfig.."
+${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace/component/didconfig ${GOLANGCI_LINT_IMAGE} golangci-lint run -c ../../.golangci.yml
+echo "done linting component/didconfig"
 echo "linting component/storage/edv.."
 ${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace/component/storage/edv ${GOLANGCI_LINT_IMAGE} golangci-lint run -c ../../../.golangci.yml
 echo "done linting component/storage/edv"

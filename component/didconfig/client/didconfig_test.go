@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package didconfig
+package client
 
 import (
 	"bytes"
@@ -17,12 +17,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
+	"github.com/hyperledger/aries-framework-go/component/models/did"
+	ldcontext "github.com/hyperledger/aries-framework-go/component/models/ld/context"
+	ldtestutil "github.com/hyperledger/aries-framework-go/component/models/ld/testutil"
+	"github.com/hyperledger/aries-framework-go/component/vdr"
+	"github.com/hyperledger/aries-framework-go/component/vdr/httpbinding"
+	"github.com/hyperledger/aries-framework-go/component/vdr/key"
 )
 
 const (
