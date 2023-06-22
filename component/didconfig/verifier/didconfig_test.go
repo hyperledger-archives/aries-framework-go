@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package didconfig
+package verifier
 
 import (
 	"crypto/ed25519"
@@ -15,21 +15,21 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
-	afgjwt "github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/ldtestutil"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/localkms"
+	mockkms "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/kms"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/noop"
+	afgjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
+	ldcontext "github.com/hyperledger/aries-framework-go/component/models/ld/context"
+	ldtestutil "github.com/hyperledger/aries-framework-go/component/models/ld/testutil"
+	sigutil "github.com/hyperledger/aries-framework-go/component/models/signature/util"
+	afgotime "github.com/hyperledger/aries-framework-go/component/models/util/time"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mock/storage"
+	"github.com/hyperledger/aries-framework-go/component/vdr"
+	"github.com/hyperledger/aries-framework-go/component/vdr/key"
+	"github.com/hyperledger/aries-framework-go/spi/kms"
 )
 
 const (
@@ -205,8 +205,8 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 
 	t.Run("success - credential created with AFG", func(t *testing.T) {
 		dlcJWT := &verifiable.Credential{
-			Issued:  util.NewTime(time.Now()),
-			Expired: util.NewTime(time.Now().Add(time.Hour)),
+			Issued:  afgotime.NewTime(time.Now()),
+			Expired: afgotime.NewTime(time.Now().Add(time.Hour)),
 			Context: []string{verifiable.ContextURI, ContextV1},
 			Types:   []string{verifiable.VCType, domainLinkageCredentialType},
 			Subject: []verifiable.Subject{{ID: testDID, CustomFields: map[string]interface{}{"origin": testJWTDomain}}},
@@ -246,8 +246,8 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 
 	t.Run("error - typ not JWT", func(t *testing.T) {
 		dlcJWT := &verifiable.Credential{
-			Issued:  util.NewTime(time.Now()),
-			Expired: util.NewTime(time.Now().Add(time.Hour)),
+			Issued:  afgotime.NewTime(time.Now()),
+			Expired: afgotime.NewTime(time.Now().Add(time.Hour)),
 			Context: []string{verifiable.ContextURI, ContextV1},
 			Types:   []string{verifiable.VCType, domainLinkageCredentialType},
 			Subject: []verifiable.Subject{{ID: testDID, CustomFields: map[string]interface{}{"origin": testJWTDomain}}},
@@ -290,8 +290,8 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 
 	t.Run("error - no alg in JWT header", func(t *testing.T) {
 		dlcJWT := &verifiable.Credential{
-			Issued:  util.NewTime(time.Now()),
-			Expired: util.NewTime(time.Now().Add(time.Hour)),
+			Issued:  afgotime.NewTime(time.Now()),
+			Expired: afgotime.NewTime(time.Now().Add(time.Hour)),
 			Context: []string{verifiable.ContextURI, ContextV1},
 			Types:   []string{verifiable.VCType, domainLinkageCredentialType},
 			Subject: []verifiable.Subject{{ID: testDID, CustomFields: map[string]interface{}{"origin": testJWTDomain}}},
@@ -334,8 +334,8 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 
 	t.Run("error - extra property in JWT Payload", func(t *testing.T) {
 		dlcJWT := &verifiable.Credential{
-			Issued:  util.NewTime(time.Now()),
-			Expired: util.NewTime(time.Now().Add(time.Hour)),
+			Issued:  afgotime.NewTime(time.Now()),
+			Expired: afgotime.NewTime(time.Now().Add(time.Hour)),
 			Context: []string{verifiable.ContextURI, ContextV1},
 			Types:   []string{verifiable.VCType, domainLinkageCredentialType},
 			Subject: []verifiable.Subject{{ID: testDID, CustomFields: map[string]interface{}{"origin": testJWTDomain}}},
@@ -370,8 +370,8 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 
 	t.Run("error - extra property in JWT Header", func(t *testing.T) {
 		dlcJWT := &verifiable.Credential{
-			Issued:  util.NewTime(time.Now()),
-			Expired: util.NewTime(time.Now().Add(time.Hour)),
+			Issued:  afgotime.NewTime(time.Now()),
+			Expired: afgotime.NewTime(time.Now().Add(time.Hour)),
 			Context: []string{verifiable.ContextURI, ContextV1},
 			Types:   []string{verifiable.VCType, domainLinkageCredentialType},
 			Subject: []verifiable.Subject{{ID: testDID, CustomFields: map[string]interface{}{"origin": testJWTDomain}}},
@@ -446,8 +446,8 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 
 	t.Run("error - sub must be equal to subject ID", func(t *testing.T) {
 		dlcJWT := &verifiable.Credential{
-			Issued:  util.NewTime(time.Now()),
-			Expired: util.NewTime(time.Now().Add(time.Hour)),
+			Issued:  afgotime.NewTime(time.Now()),
+			Expired: afgotime.NewTime(time.Now().Add(time.Hour)),
 			Context: []string{verifiable.ContextURI, ContextV1},
 			Types:   []string{verifiable.VCType, domainLinkageCredentialType},
 			Subject: []verifiable.Subject{{ID: "did:key:different", CustomFields: map[string]interface{}{"origin": testJWTDomain}}}, // nolint:lll
@@ -467,8 +467,8 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 
 	t.Run("error - create JWT Claims error", func(t *testing.T) {
 		dlcJWT := &verifiable.Credential{
-			Issued:  util.NewTime(time.Now()),
-			Expired: util.NewTime(time.Now().Add(time.Hour)),
+			Issued:  afgotime.NewTime(time.Now()),
+			Expired: afgotime.NewTime(time.Now().Add(time.Hour)),
 			Context: []string{verifiable.ContextURI, ContextV1},
 			Types:   []string{verifiable.VCType, domainLinkageCredentialType},
 			Subject: []verifiable.Subject{{ID: testDID, CustomFields: map[string]interface{}{"origin": testJWTDomain}}},
@@ -674,7 +674,7 @@ func createKMS() (*localkms.LocalKMS, error) {
 	return localkms.New("local-lock://custom/master/key/", p)
 }
 
-func newCryptoSigner(keyType kms.KeyType) (signature.Signer, error) {
+func newCryptoSigner(keyType kms.KeyType) (sigutil.Signer, error) {
 	localKMS, err := createKMS()
 	if err != nil {
 		return nil, err
@@ -685,7 +685,7 @@ func newCryptoSigner(keyType kms.KeyType) (signature.Signer, error) {
 		return nil, err
 	}
 
-	return signature.NewCryptoSigner(tinkCrypto, localKMS, keyType)
+	return sigutil.NewCryptoSigner(tinkCrypto, localKMS, keyType)
 }
 
 // nolint: lll,gochecknoglobals

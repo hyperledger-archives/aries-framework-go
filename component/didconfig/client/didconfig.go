@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package didconfig
+package client
 
 import (
 	"context"
@@ -16,10 +16,10 @@ import (
 
 	jsonld "github.com/piprate/json-gold/ld"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/didconfig"
-	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/component/didconfig/verifier"
+	"github.com/hyperledger/aries-framework-go/component/log"
+	"github.com/hyperledger/aries-framework-go/component/models/did"
+	vdrspi "github.com/hyperledger/aries-framework-go/spi/vdr"
 )
 
 var logger = log.New("aries-framework/client/did-config")
@@ -28,8 +28,8 @@ const defaultTimeout = time.Minute
 
 // Client is a JSON-LD SDK client.
 type Client struct {
-	httpClient    HTTPClient
-	didConfigOpts []didconfig.DIDConfigurationOpt
+	httpClient    httpClient
+	didConfigOpts []verifier.DIDConfigurationOpt
 }
 
 // New creates new did configuration client.
@@ -45,8 +45,8 @@ func New(opts ...Option) *Client {
 	return client
 }
 
-// HTTPClient represents an HTTP client.
-type HTTPClient interface {
+// httpClient represents an HTTP client.
+type httpClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
@@ -54,7 +54,7 @@ type HTTPClient interface {
 type Option func(opts *Client)
 
 // WithHTTPClient option is for custom http client.
-func WithHTTPClient(httpClient HTTPClient) Option {
+func WithHTTPClient(httpClient httpClient) Option {
 	return func(opts *Client) {
 		opts.httpClient = httpClient
 	}
@@ -63,18 +63,18 @@ func WithHTTPClient(httpClient HTTPClient) Option {
 // WithJSONLDDocumentLoader defines a JSON-LD document loader.
 func WithJSONLDDocumentLoader(documentLoader jsonld.DocumentLoader) Option {
 	return func(opts *Client) {
-		opts.didConfigOpts = append(opts.didConfigOpts, didconfig.WithJSONLDDocumentLoader(documentLoader))
+		opts.didConfigOpts = append(opts.didConfigOpts, verifier.WithJSONLDDocumentLoader(documentLoader))
 	}
 }
 
 type didResolver interface {
-	Resolve(did string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error)
+	Resolve(did string, opts ...vdrspi.DIDMethodOption) (*did.DocResolution, error)
 }
 
 // WithVDRegistry defines a vdr service.
 func WithVDRegistry(didResolver didResolver) Option {
 	return func(opts *Client) {
-		opts.didConfigOpts = append(opts.didConfigOpts, didconfig.WithVDRegistry(didResolver))
+		opts.didConfigOpts = append(opts.didConfigOpts, verifier.WithVDRegistry(didResolver))
 	}
 }
 
@@ -105,7 +105,7 @@ func (c *Client) VerifyDIDAndDomain(did, domain string) error {
 			endpoint, resp.StatusCode, responseBytes)
 	}
 
-	return didconfig.VerifyDIDAndDomain(responseBytes, did, domain, c.didConfigOpts...)
+	return verifier.VerifyDIDAndDomain(responseBytes, did, domain, c.didConfigOpts...)
 }
 
 func closeResponseBody(respBody io.Closer) {
