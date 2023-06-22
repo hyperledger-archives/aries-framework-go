@@ -21,7 +21,7 @@ require (
 	github.com/google/tink/go v1.7.0
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.7.3
-	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230523135653-2f2e9595514f
+	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230622082138-3ffab1691857
 	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3
 	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230612153955-e841db576f38
 	github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20221025204933-b807371b6f1e
@@ -79,7 +79,10 @@ require (
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
 
-replace github.com/hyperledger/aries-framework-go/component/kmscrypto => ./component/kmscrypto
+replace (
+	github.com/hyperledger/aries-framework-go/component/models => ./component/models
+	github.com/hyperledger/aries-framework-go/component/vdr => ./component/vdr
+)
 
 //replace github.com/square/go-jose/v3 => github.com/go-jose/go-jose/v3 v3.0.1-0.20221117193127-916db76e8214
 //

@@ -11,19 +11,17 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/util/jwkkid"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/util/vmparse"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/kmssigner"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/jwkkid"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/kmssigner"
+	"github.com/hyperledger/aries-framework-go/component/models/did"
+	"github.com/hyperledger/aries-framework-go/component/models/did/util/vmparse"
+	"github.com/hyperledger/aries-framework-go/component/models/jwt"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
+	"github.com/hyperledger/aries-framework-go/spi/vdr"
 )
 
 const (
-	ed25519VerificationKey2018 = "Ed25519VerificationKey2018"
-
 	// number of sections in verification method.
 	vmSectionCount = 2
 )

@@ -9,8 +9,8 @@ package vmparse
 import (
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/component/models/did"
+	"github.com/hyperledger/aries-framework-go/spi/kms"
 )
 
 const (

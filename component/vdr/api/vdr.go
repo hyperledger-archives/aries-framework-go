@@ -47,3 +47,14 @@ type VDR interface {
 	Deactivate(did string, opts ...spivdr.DIDMethodOption) error
 	Close() error
 }
+
+// DIDMethodOpts did method opts.
+type DIDMethodOpts = spivdr.DIDMethodOpts
+
+// DIDMethodOption is a did method option.
+type DIDMethodOption = spivdr.DIDMethodOption
+
+// WithOption add option for did method.
+func WithOption(name string, value interface{}) DIDMethodOption {
+	return spivdr.WithOption(name, value)
+}

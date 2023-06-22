@@ -13,22 +13,24 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/localkms"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/noop"
+	"github.com/hyperledger/aries-framework-go/component/models/did"
+	mockstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mock/storage"
+	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"
+	"github.com/hyperledger/aries-framework-go/component/vdr/key"
+	mockvdr "github.com/hyperledger/aries-framework-go/component/vdr/mock"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/test/makemockdoc"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
-	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
-	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
+	kmsapi "github.com/hyperledger/aries-framework-go/spi/kms"
+	"github.com/hyperledger/aries-framework-go/spi/secretlock"
 )
 
 const (
-	defaultKID = "#key-1"
-	defaultDID = "did:test:foo"
+	defaultKID                 = "#key-1"
+	defaultDID                 = "did:test:foo"
+	ed25519VerificationKey2018 = "Ed25519VerificationKey2018"
 )
 
 func TestSignVerify(t *testing.T) {
@@ -39,7 +41,7 @@ func TestSignVerify(t *testing.T) {
 
 	staticDIDDocs := map[string]*did.Doc{}
 
-	defaultVDR := &mockvdr.MockVDRegistry{
+	defaultVDR := &mockvdr.VDRegistry{
 		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 			if strings.HasPrefix(didID, "did:key:") {
 				k := key.New()
@@ -58,7 +60,7 @@ func TestSignVerify(t *testing.T) {
 		},
 	}
 
-	doc := makemockdoc.MakeMockDoc(t, keyManager, defaultDID, kms.ECDSAP256TypeIEEEP1363)
+	doc := makemockdoc.MakeMockDoc(t, keyManager, defaultDID, kmsapi.ECDSAP256TypeIEEEP1363)
 	staticDIDDocs[defaultDID] = doc
 
 	testClaims := map[string]interface{}{
@@ -68,6 +70,11 @@ func TestSignVerify(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		t.Run("use specified key", func(t *testing.T) {
+			signingVM, fullKID, err := ResolveSigningVM(defaultDID+defaultKID, defaultVDR)
+			require.NoError(t, err)
+			require.NotNil(t, signingVM)
+			require.Equal(t, defaultDID+defaultKID, fullKID)
+
 			result, err := SignJWT(nil, testClaims, defaultDID+defaultKID, UseDefaultSigner(keyManager, cr), defaultVDR)
 			require.NoError(t, err)
 			require.NotEmpty(t, result)
@@ -84,9 +91,9 @@ func TestSignVerify(t *testing.T) {
 		})
 
 		t.Run("use EdDSA", func(t *testing.T) {
-			mockDoc := makemockdoc.MakeMockDoc(t, keyManager, defaultDID, kms.ED25519Type)
+			mockDoc := makemockdoc.MakeMockDoc(t, keyManager, defaultDID, kmsapi.ED25519Type)
 
-			customVDR := &mockvdr.MockVDRegistry{
+			customVDR := &mockvdr.VDRegistry{
 				ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 					return &did.DocResolution{DIDDocument: mockDoc}, nil
 				},
@@ -128,7 +135,7 @@ func TestSignVerify(t *testing.T) {
 			}
 
 			_, e = SignJWT(nil, testClaims, brokenDID+"#"+brokenVMID, UseDefaultSigner(keyManager, cr),
-				&mockvdr.MockVDRegistry{
+				&mockvdr.VDRegistry{
 					ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 						return &did.DocResolution{DIDDocument: mockDoc}, nil
 					},
@@ -150,7 +157,7 @@ func TestSignVerify(t *testing.T) {
 			}
 
 			_, e = SignJWT(nil, testClaims, defaultDID+defaultKID, UseDefaultSigner(keyManager, cr),
-				&mockvdr.MockVDRegistry{
+				&mockvdr.VDRegistry{
 					ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 						return &did.DocResolution{DIDDocument: mockDoc}, nil
 					},
@@ -163,11 +170,11 @@ func TestSignVerify(t *testing.T) {
 			wrongKMS := createKMS(t)
 
 			// signing key is saved in the wrong kms
-			mockDoc := makemockdoc.MakeMockDoc(t, wrongKMS, defaultDID, kms.ECDSAP256TypeIEEEP1363)
+			mockDoc := makemockdoc.MakeMockDoc(t, wrongKMS, defaultDID, kmsapi.ECDSAP256TypeIEEEP1363)
 
 			// instead of the kms passed in here
 			_, e = SignJWT(nil, testClaims, defaultDID, UseDefaultSigner(keyManager, cr),
-				&mockvdr.MockVDRegistry{
+				&mockvdr.VDRegistry{
 					ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 						return &did.DocResolution{DIDDocument: mockDoc}, nil
 					},
@@ -183,10 +190,10 @@ func TestSignVerify(t *testing.T) {
 				"foo": new(chan int), // can't marshal
 			}
 
-			mockDoc := makemockdoc.MakeMockDoc(t, kmgr, defaultDID, kms.ECDSAP256TypeIEEEP1363)
+			mockDoc := makemockdoc.MakeMockDoc(t, kmgr, defaultDID, kmsapi.ECDSAP256TypeIEEEP1363)
 
 			_, e = SignJWT(nil, badPayload, defaultDID+defaultKID, UseDefaultSigner(kmgr, cr),
-				&mockvdr.MockVDRegistry{
+				&mockvdr.VDRegistry{
 					ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 						return &did.DocResolution{DIDDocument: mockDoc}, nil
 					},
@@ -200,14 +207,14 @@ func TestSignVerify(t *testing.T) {
 			require.NoError(t, err)
 			require.NotEmpty(t, result)
 
-			err = VerifyJWT(result, &mockvdr.MockVDRegistry{})
+			err = VerifyJWT(result, &mockvdr.VDRegistry{})
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "jwt verification failed")
 		})
 	})
 }
 
-func createKMS(t *testing.T) kms.KeyManager {
+func createKMS(t *testing.T) kmsapi.KeyManager {
 	kmsStore, err := kms.NewAriesProviderWrapper(mockstorage.NewMockStoreProvider())
 	require.NoError(t, err)
 
@@ -221,11 +228,11 @@ func createKMS(t *testing.T) kms.KeyManager {
 }
 
 type kmsProvider struct {
-	kmsStore          kms.Store
+	kmsStore          kmsapi.Store
 	secretLockService secretlock.Service
 }
 
-func (k *kmsProvider) StorageProvider() kms.Store {
+func (k *kmsProvider) StorageProvider() kmsapi.Store {
 	return k.kmsStore
 }
 

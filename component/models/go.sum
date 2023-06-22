@@ -58,8 +58,8 @@ github.com/google/tink/go v1.7.0/go.mod h1:GAUOd+QE3pgj9q8VKIGTCP33c/B7eb4NhxLcg
 github.com/google/uuid v1.3.0 h1:t6JiXgmwXMjEs8VusXIJk2BXHsn+wx8BZdTaoZ5fu7I=
 github.com/google/uuid v1.3.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
-github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230523135653-2f2e9595514f h1:oR0B9TdQ8ZLNq/XyYeJL/DZFtTPiZimQN0rc7yHd/M8=
-github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230523135653-2f2e9595514f/go.mod h1:UNGeS/ssGkx12NCQssoigDfsiAl2rprMxmsif6TOqEk=
+github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230622082138-3ffab1691857 h1:x7Lt4FAPmMNyKQCUhnUOYeDpskaHnRNrtZj4rKfSKfU=
+github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230622082138-3ffab1691857/go.mod h1:xgNlHAVQjqwoknzHbXkeHkAJgUxRWKfHXPT3nhVhH3Q=
 github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230417184158-344a7f82c4c2 h1:fKaNw6yi5PIXRDmEiOPNIErS6Mv92m03JcAE7wxj/Bk=
 github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230417184158-344a7f82c4c2/go.mod h1:CvYs4l8X2NrrF93weLOu5RTOIJeVdoZITtjEflyuTyM=
 github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20230427134832-0c9969493bd3 h1:JGYA9l5zTlvsvfnXT9hYPpCokAjmVKX0/r7njba7OX4=
