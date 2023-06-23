@@ -73,6 +73,8 @@ github.com/gorilla/mux v1.7.3/go.mod h1:1lud6UwP+6orDFRuTfBEV8e9/aOM/c4fVVCaMa2z
 github.com/gorilla/websocket v1.4.1 h1:q7AeDBpnBk8AogcD4DSag/Ukw/KV+YhzLj2bP5HvKCM=
 github.com/gorilla/websocket v1.4.1/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
+github.com/hyperledger/aries-framework-go/component/didconfig v0.0.0-20230622211121-852ce35730b4 h1:6pkyx5TMJEZpau/HsDNSndZy+MrX9hJmWAtGM1UaGuI=
+github.com/hyperledger/aries-framework-go/component/didconfig v0.0.0-20230622211121-852ce35730b4/go.mod h1:SCS+CWl/U4qRgy540BAKvSlLHAUXrw29pmuhp3nMzbY=
 github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230622082138-3ffab1691857 h1:x7Lt4FAPmMNyKQCUhnUOYeDpskaHnRNrtZj4rKfSKfU=
 github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230622082138-3ffab1691857/go.mod h1:xgNlHAVQjqwoknzHbXkeHkAJgUxRWKfHXPT3nhVhH3Q=
 github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3 h1:x5qFQraTX86z9GCwF28IxfnPm6QH5YgHaX+4x97Jwvw=

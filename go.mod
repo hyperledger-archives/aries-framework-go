@@ -21,7 +21,7 @@ require (
 	github.com/google/tink/go v1.7.0
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.7.3
-	github.com/hyperledger/aries-framework-go/component/didconfig v0.0.0-00010101000000-000000000000
+	github.com/hyperledger/aries-framework-go/component/didconfig v0.0.0-20230622211121-852ce35730b4
 	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230622082138-3ffab1691857
 	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3
 	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230622171716-43af8054a539
@@ -79,13 +79,3 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
-
-replace github.com/hyperledger/aries-framework-go/component/didconfig => ./component/didconfig
-
-//replace github.com/square/go-jose/v3 => github.com/go-jose/go-jose/v3 v3.0.1-0.20221117193127-916db76e8214
-//
-//replace github.com/square/go-jose/v3/json => github.com/go-jose/go-jose/v3/json v1.0.1-0.20221117193127-916db76e8214
-//
-//replace github.com/square/go-jose/v3/jwt => github.com/go-jose/go-jose/v3/jwt v1.0.1-0.20221117193127-916db76e8214
-//
-//replace github.com/square/go-jose/v3/cipher => github.com/go-jose/go-jose/v3/cipher v1.0.1-0.20221117193127-916db76e8214
