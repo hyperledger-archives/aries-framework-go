@@ -858,16 +858,13 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential)
 
 		var applicable bool
 
-		// if credential.JWT is set, credential will marshal to a JSON string.
-		// temporarily clear credential.JWT to avoid this.
-
 		var err error
 
 		credJWT := credential.JWT
 
 		credentialWithFieldValues := credential
 
-		if credential.SDJWTHashAlg != "" {
+		if isSDJWTCredential(credential) {
 			credentialWithFieldValues, err = credential.CreateDisplayCredential(verifiable.DisplayAllDisclosures())
 			if err != nil {
 				continue
@@ -946,10 +943,15 @@ func limitDisclosure(filterResults []constraintsFilterResult,
 			}
 		}
 
+		if constraints.LimitDisclosure.isRequired() &&
+			!(predicate || supportsSelectiveDisclosure(credential) || subjectIsIssuer(credential)) {
+			continue
+		}
+
 		uniqueCredID := credential.ID
 
 		// Non-SDJWT case.
-		if (constraints.LimitDisclosure.isRequired() || predicate) && credential.SDJWTHashAlg == "" { //nolint:nestif
+		if (constraints.LimitDisclosure.isRequired() || predicate) && !isSDJWTCredential(credential) { //nolint:nestif
 			template := credentialSrc
 
 			if constraints.LimitDisclosure.isRequired() {
@@ -1008,7 +1010,7 @@ func limitDisclosure(filterResults []constraintsFilterResult,
 		}
 
 		// SDJWT case.
-		if constraints.LimitDisclosure.isRequired() && credential.SDJWTHashAlg != "" {
+		if constraints.LimitDisclosure.isRequired() && isSDJWTCredential(credential) {
 			limitedDisclosures, err := getLimitedDisclosures(constraints, credentialSrc, credential)
 			if err != nil {
 				return nil, err
@@ -1044,25 +1046,17 @@ func getLimitedDisclosures(constraints *Constraints, displaySrc []byte, credenti
 	var limitedDisclosures []*common.DisclosureClaim
 
 	for _, f := range constraints.Fields {
-		jPaths, err := getJSONPaths(f.Path, displaySrc)
+		jPaths, err := compactArrayPaths(f.Path, displaySrc)
 		if err != nil {
 			return nil, err
 		}
 
 		for _, path := range jPaths {
-			if strings.Contains(path[0], credentialSchema) {
+			if strings.Contains(path.newPath, credentialSchema) {
 				continue
 			}
 
-			parentPath := ""
-
-			key := path[1]
-
-			pathParts := strings.Split(path[1], ".")
-			if len(pathParts) > 1 {
-				parentPath = strings.Join(pathParts[:len(pathParts)-1], ".")
-				key = pathParts[len(pathParts)-1]
-			}
+			parentPath, key := splitLast(path.oldPath, ".")
 
 			parentObj, ok := gjson.GetBytes(credentialSrc, parentPath).Value().(map[string]interface{})
 			if !ok {
@@ -1122,8 +1116,6 @@ func toSubject(subject interface{}) interface{} {
 	return subject
 }
 
-// Note: tmpID is needed when one VC is selectively-disclosed for multiple requirements.
-// So, to remove tmpID, we need to handle those unique IDs in another way.
 func tmpID(id string) string {
 	return id + tmpEnding + uuid.New().String()
 }
@@ -1132,64 +1124,75 @@ func tmpID(id string) string {
 func createNewCredential(constraints *Constraints, src, limitedCred []byte,
 	credential *verifiable.Credential, opts ...verifiable.CredentialOpt) (*verifiable.Credential, error) {
 	var (
-		BBSSupport          = hasBBS(credential)
+		doBBS               = hasBBS(credential) && constraints.LimitDisclosure.isRequired()
 		modifiedByPredicate bool
 		explicitPaths       = make(map[string]bool)
 	)
 
 	for _, f := range constraints.Fields {
-		jPaths, err := getJSONPaths(f.Path, src)
+		jPaths, err := compactArrayPaths(f.Path, src)
 		if err != nil {
 			return nil, err
 		}
 
 		for _, path := range jPaths {
-			if strings.Contains(path[0], credentialSchema) {
+			if strings.Contains(path.newPath, credentialSchema) {
 				continue
 			}
 
 			var val interface{} = true
 
-			if !modifiedByPredicate {
-				modifiedByPredicate = f.Predicate.isRequired()
+			if f.Predicate.isRequired() {
+				modifiedByPredicate = true
+			} else {
+				val = gjson.GetBytes(src, path.oldPath).Value()
 			}
 
-			if !f.Predicate.isRequired() {
-				val = gjson.GetBytes(src, path[1]).Value()
-			}
-
-			if constraints.LimitDisclosure.isRequired() && BBSSupport {
-				chunks := strings.Split(path[0], ".")
-				explicitPath := strings.Join(chunks[:len(chunks)-1], ".")
+			if doBBS {
+				explicitPath, _ := splitLast(path.newPath, ".")
 				explicitPaths[explicitPath] = true
 			}
 
-			limitedCred, err = sjson.SetBytes(limitedCred, path[0], val)
+			limitedCred, err = sjson.SetBytes(limitedCred, path.newPath, val)
 			if err != nil {
 				return nil, err
 			}
 		}
 	}
 
-	if !constraints.LimitDisclosure.isRequired() || !BBSSupport || modifiedByPredicate {
+	if !doBBS || modifiedByPredicate {
 		opts = append(opts, verifiable.WithDisabledProofCheck())
 		return verifiable.ParseCredential(limitedCred, opts...)
 	}
 
-	limitedCred, err := enhanceRevealDoc(explicitPaths, limitedCred, src)
+	revealDoc, err := enhanceRevealDoc(explicitPaths, limitedCred, src)
 	if err != nil {
 		return nil, err
 	}
 
 	var doc map[string]interface{}
-	if err := json.Unmarshal(limitedCred, &doc); err != nil {
+	if err := json.Unmarshal(revealDoc, &doc); err != nil {
 		return nil, err
 	}
 
 	return credential.GenerateBBSSelectiveDisclosure(doc, []byte(uuid.New().String()), opts...)
 }
 
-func getJSONPaths(keys []string, src []byte) ([][2]string, error) {
+// splitLast finds the final occurrence of split in text, and returns (everything before, everything after).
+// If split is not found in text, then splitLast returns ("", text).
+func splitLast(text, split string) (string, string) {
+	lastIndex := strings.LastIndex(text, split)
+	if lastIndex < 0 {
+		return "", text
+	}
+
+	return text[:lastIndex], text[lastIndex+len(split):]
+}
+
+// compactArrayPaths adjusts array indices in the given JSON paths, as if the corresponding JSON object has all
+// unmentioned array elements removed. Input paths are in JSONPath syntax, while output paths are in dot-separated
+// syntax, eg, `foo.1.bar.3`.
+func compactArrayPaths(keys []string, src []byte) ([]*pathTransform, error) {
 	paths, err := jsonpathkeys.ParsePaths(keys...)
 	if err != nil {
 		return nil, err
@@ -1200,7 +1203,7 @@ func getJSONPaths(keys []string, src []byte) ([][2]string, error) {
 		return nil, err
 	}
 
-	var jPaths [][2]string
+	var jPaths []*pathTransform
 
 	set := map[string]int{}
 
@@ -1216,24 +1219,20 @@ func getJSONPaths(keys []string, src []byte) ([][2]string, error) {
 	return jPaths, nil
 }
 
-func enhanceRevealDoc(explicitPaths map[string]bool, limitedCred, vcBytes []byte) ([]byte, error) {
+func enhanceRevealDoc(explicitPaths map[string]bool, revealDoc, vcBytes []byte) ([]byte, error) {
 	var err error
 
-	limitedCred, err = sjson.SetBytes(limitedCred, "@explicit", true)
+	revealDoc, err = sjson.SetBytes(revealDoc, "@explicit", true)
 	if err != nil {
 		return nil, err
 	}
 
 	intermPaths := make(map[string]bool)
 
-	for path, fromConstraint := range explicitPaths {
-		limitedCred, err = enhanceRevealField(path, limitedCred, vcBytes)
+	for path := range explicitPaths {
+		revealDoc, err = enhanceRevealField(path, revealDoc, vcBytes)
 		if err != nil {
 			return nil, err
-		}
-
-		if !fromConstraint {
-			continue
 		}
 
 		pathParts := strings.Split(path, ".")
@@ -1253,19 +1252,19 @@ func enhanceRevealDoc(explicitPaths map[string]bool, limitedCred, vcBytes []byte
 	}
 
 	for path := range intermPaths {
-		limitedCred, err = enhanceRevealField(path, limitedCred, vcBytes)
+		revealDoc, err = enhanceRevealField(path, revealDoc, vcBytes)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return limitedCred, nil
+	return revealDoc, nil
 }
 
-func enhanceRevealField(path string, limitedCred, vcBytes []byte) ([]byte, error) {
+func enhanceRevealField(path string, revealDoc, vcBytes []byte) ([]byte, error) {
 	var err error
 
-	limitedCred, err = sjson.SetBytes(limitedCred, path+".@explicit", true)
+	revealDoc, err = sjson.SetBytes(revealDoc, path+".@explicit", true)
 	if err != nil {
 		return nil, err
 	}
@@ -1278,23 +1277,17 @@ func enhanceRevealField(path string, limitedCred, vcBytes []byte) ([]byte, error
 			continue
 		}
 
-		limitedCred, err = sjson.SetBytes(limitedCred, specialFieldPath, specialFieldValue.Value())
+		revealDoc, err = sjson.SetBytes(revealDoc, specialFieldPath, specialFieldValue.Value())
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return limitedCred, nil
+	return revealDoc, nil
 }
 
 func hasBBS(vc *verifiable.Credential) bool {
-	for _, proof := range vc.Proofs {
-		if proof["type"] == "BbsBlsSignature2020" {
-			return true
-		}
-	}
-
-	return false
+	return hasProofWithType(vc, "BbsBlsSignature2020")
 }
 
 func hasProofWithType(vc *verifiable.Credential, proofType string) bool {
@@ -1305,6 +1298,14 @@ func hasProofWithType(vc *verifiable.Credential, proofType string) bool {
 	}
 
 	return false
+}
+
+func isSDJWTCredential(credential *verifiable.Credential) bool {
+	return credential.SDJWTHashAlg != ""
+}
+
+func supportsSelectiveDisclosure(credential *verifiable.Credential) bool {
+	return isSDJWTCredential(credential) || hasBBS(credential)
 }
 
 func filterField(f *Field, credential map[string]interface{}) error {
@@ -1353,7 +1354,12 @@ func validatePatch(schema gojsonschema.JSONLoader, patch interface{}) error {
 	return nil
 }
 
-func getPath(keys []interface{}, set map[string]int) [2]string {
+type pathTransform struct {
+	newPath string
+	oldPath string
+}
+
+func getPath(keys []interface{}, set map[string]int) *pathTransform {
 	var (
 		newPath      []string
 		originalPath []string
@@ -1378,7 +1384,7 @@ func getPath(keys []interface{}, set map[string]int) [2]string {
 		}
 	}
 
-	return [...]string{strings.Join(newPath, "."), strings.Join(originalPath, ".")}
+	return &pathTransform{newPath: strings.Join(newPath, "."), oldPath: strings.Join(originalPath, ".")}
 }
 
 func merge(
