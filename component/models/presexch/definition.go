@@ -22,6 +22,8 @@ import (
 	"github.com/tidwall/sjson"
 	"github.com/xeipuuv/gojsonschema"
 
+	"github.com/hyperledger/aries-framework-go/component/models/presexch/internal/requirementlogic"
+
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
 	"github.com/hyperledger/aries-framework-go/component/log"
 	"github.com/hyperledger/aries-framework-go/component/models/jwt"
@@ -294,22 +296,69 @@ type requirement struct {
 	Nested           []*requirement
 }
 
-func (r *requirement) isLenApplicable(val int) bool {
-	if r.Count > 0 && val != r.Count {
-		return false
+func (r *requirement) toLogic() *requirementlogic.RequirementLogic {
+	rl := &requirementlogic.RequirementLogic{
+		InputDescriptorIDs: nil,
+		Nested:             nil,
+		Count:              r.Count,
+		Min:                r.Min,
+		Max:                r.Max,
 	}
 
-	if r.Min > 0 && r.Min > val {
-		return false
+	total := 0
+
+	if len(r.InputDescriptors) > 0 {
+		total = len(r.InputDescriptors)
+
+		for _, descriptor := range r.InputDescriptors {
+			rl.InputDescriptorIDs = append(rl.InputDescriptorIDs, descriptor.ID)
+		}
 	}
 
-	if r.Max > 0 && r.Max < val {
-		return false
+	if len(r.Nested) > 0 {
+		total = len(r.Nested)
+
+		for _, nestedReq := range r.Nested {
+			rl.Nested = append(rl.Nested, nestedReq.toLogic())
+		}
 	}
 
-	return true
+	if r.Count == 0 && r.Max == 0 {
+		rl.Max = total
+	}
+
+	return rl
 }
 
+func (r *requirement) getAllDescriptors() map[string]*InputDescriptor {
+	if len(r.InputDescriptors) > 0 {
+		return descriptorIDMap(r.InputDescriptors)
+	}
+
+	out := map[string]*InputDescriptor{}
+
+	for _, child := range r.Nested {
+		childResult := child.getAllDescriptors()
+
+		for s, descriptor := range childResult {
+			if _, ok := out[s]; !ok {
+				out[s] = descriptor
+			}
+		}
+	}
+
+	return out
+}
+
+func descriptorIDMap(descs []*InputDescriptor) map[string]*InputDescriptor {
+	out := map[string]*InputDescriptor{}
+
+	for _, desc := range descs {
+		out[desc.ID] = desc
+	}
+
+	return out
+}
 func contains(data []string, e string) bool {
 	for _, el := range data {
 		if el == e {
@@ -619,109 +668,104 @@ type credWrapper struct {
 	vc       *verifiable.Credential
 }
 
-func (pd *PresentationDefinition) applyRequirement(req *requirement, creds []*verifiable.Credential,
+func (pd *PresentationDefinition) applyRequirement( // nolint:funlen,gocyclo
+	req *requirement,
+	creds []*verifiable.Credential,
 	documentLoader ld.DocumentLoader,
-	opts ...verifiable.CredentialOpt) (string, map[string][]*credWrapper, error) {
-	if len(req.InputDescriptors) > 0 {
-		return pd.applyRequirementLeaf(req, creds, documentLoader, opts...)
+	opts ...verifiable.CredentialOpt,
+) (string, map[string][]*credWrapper, error) {
+	reqLogic := req.toLogic()
+
+	var descIDs []string
+
+	for _, descriptor := range pd.InputDescriptors {
+		descIDs = append(descIDs, descriptor.ID)
 	}
 
-	return pd.applyRequirementNested(req, creds, documentLoader, opts...)
-}
+	iterator := reqLogic.Iterator(descIDs)
 
-// nolint: gocyclo,funlen,gocognit
-func (pd *PresentationDefinition) applyRequirementLeaf(req *requirement, creds []*verifiable.Credential,
-	documentLoader ld.DocumentLoader,
-	opts ...verifiable.CredentialOpt) (string, map[string][]*credWrapper, error) {
-	result := make(map[string][]*credWrapper)
-	// assume LDPVP format if pd.Format is not set.
-	// Usually pd.Format will be set when creds include a non-empty Proofs field since they represent the designated
-	// format.
-	vpFormat := FormatLDPVP
+	descs := req.getAllDescriptors()
 
 	framedCreds, e := frameCreds(pd.Frame, creds, opts...)
 	if e != nil {
 		return "", nil, e
 	}
 
-	for _, descriptor := range req.InputDescriptors {
-		descFormat, filtered, err := pd.filterCredentialsThatMatchDescriptor(
-			framedCreds, descriptor, documentLoader)
-		if err != nil {
-			return "", nil, err
+	descriptorMatches := make(map[string]*descriptorMatch)
+
+	evaluated := requirementlogic.DescriptorIDSet{}
+
+	var excludeDescriptors []string
+
+	for sol := iterator.Next(excludeDescriptors); sol != nil; sol = iterator.Next(excludeDescriptors) {
+		solved := true
+		excludeDescriptors = nil
+
+		for _, descID := range sol {
+			if evaluated.Has(descID) {
+				if _, ok := descriptorMatches[descID]; !ok {
+					solved = false
+					break
+				}
+
+				continue
+			}
+
+			evaluated.Add(descID)
+
+			descriptor := descs[descID]
+
+			descFormat, filtered, err := pd.filterCredentialsThatMatchDescriptor(
+				framedCreds, descriptor, documentLoader)
+			if err != nil {
+				return "", nil, err
+			}
+
+			filteredCreds, err := limitDisclosure(filtered, opts...)
+			if err != nil {
+				return "", nil, err
+			}
+
+			if len(filteredCreds) != 0 {
+				descriptorMatches[descriptor.ID] = &descriptorMatch{
+					format: descFormat,
+					creds:  filteredCreds,
+				}
+			} else {
+				solved = false
+
+				excludeDescriptors = append(excludeDescriptors, descID)
+
+				break
+			}
 		}
 
-		if descFormat != "" {
-			vpFormat = descFormat
-		}
+		if solved {
+			result := make(map[string][]*credWrapper)
 
-		filteredCreds, err := limitDisclosure(filtered, opts...)
-		if err != nil {
-			return "", nil, err
-		}
+			// assume LDPVP format if pd.Format is not set.
+			// Usually pd.Format will be set when creds include a non-empty Proofs field since they represent the designated
+			// format.
+			vpFormat := FormatLDPVP
 
-		if len(filtered) != 0 {
-			result[descriptor.ID] = filteredCreds
-		}
-	}
+			for _, descID := range sol {
+				result[descID] = descriptorMatches[descID].creds
 
-	if req.isLenApplicable(len(result)) {
-		return vpFormat, result, nil
+				if format := descriptorMatches[descID].format; format != "" {
+					vpFormat = format
+				}
+			}
+
+			return vpFormat, result, nil
+		}
 	}
 
 	return "", nil, ErrNoCredentials
 }
 
-// nolint: gocyclo,funlen,gocognit
-func (pd *PresentationDefinition) applyRequirementNested(req *requirement, creds []*verifiable.Credential,
-	documentLoader ld.DocumentLoader,
-	opts ...verifiable.CredentialOpt) (string, map[string][]*credWrapper, error) {
-	// assume LDPVP format if pd.Format is not set.
-	// Usually pd.Format will be set when creds include a non-empty Proofs field since they represent the designated
-	// format.
-	vpFormat := FormatLDPVP
-
-	var nestedResult []map[string][]*credWrapper
-
-	satisfiedDescriptors := map[string]map[string]string{}
-
-	for _, r := range req.Nested {
-		vpFmt, res, err := pd.applyRequirement(r, creds, documentLoader, opts...)
-		if errors.Is(err, ErrNoCredentials) {
-			continue
-		}
-
-		if err != nil {
-			return "", nil, err
-		}
-
-		for desc, credentials := range res {
-			for _, cred := range credentials {
-				if _, ok := satisfiedDescriptors[cred.vc.ID]; !ok {
-					satisfiedDescriptors[cred.vc.ID] = map[string]string{}
-				}
-
-				satisfiedDescriptors[cred.vc.ID][desc] = cred.uniqueID
-			}
-		}
-
-		if len(res) != 0 {
-			nestedResult = append(nestedResult, res)
-			vpFormat = vpFmt
-		}
-	}
-
-	exclude := map[string]struct{}{}
-
-	for _, descriptors := range satisfiedDescriptors {
-		if !req.isLenApplicable(len(descriptors)) {
-			for descID, credUniqueID := range descriptors {
-				exclude[descID+credUniqueID] = struct{}{}
-			}
-		}
-	}
-
-	return vpFormat, mergeNestedResult(nestedResult, exclude), nil
+type descriptorMatch struct {
+	format string
+	creds  []*credWrapper
 }
 
 func (pd *PresentationDefinition) filterCredentialsThatMatchDescriptor(creds []*verifiable.Credential,
@@ -750,32 +794,6 @@ func (pd *PresentationDefinition) filterCredentialsThatMatchDescriptor(creds []*
 	}
 
 	return vpFormat, filteredByConstraints, nil
-}
-
-func mergeNestedResult(nr []map[string][]*credWrapper,
-	exclude map[string]struct{}) map[string][]*credWrapper {
-	result := make(map[string][]*credWrapper)
-
-	credAlreadyAdded := map[string]map[string]struct{}{}
-
-	for _, res := range nr {
-		for key, credentials := range res {
-			if _, ok := credAlreadyAdded[key]; !ok {
-				credAlreadyAdded[key] = map[string]struct{}{}
-			}
-
-			for _, credential := range credentials {
-				if _, ok := credAlreadyAdded[key][credential.uniqueID]; !ok {
-					if _, excludeThis := exclude[key+credential.uniqueID]; !excludeThis {
-						result[key] = append(result[key], credential)
-						credAlreadyAdded[key][credential.uniqueID] = struct{}{}
-					}
-				}
-			}
-		}
-	}
-
-	return result
 }
 
 func getSubjectIDs(subject interface{}) []string { // nolint: gocyclo
@@ -1320,6 +1338,8 @@ func filterField(f *Field, credential map[string]interface{}) error {
 	for _, path := range f.Path {
 		patch, err := jsonpath.Get(path, credential)
 		if err == nil {
+			// TODO: refactor this + selective disclosure so that the accepted path for a constraint field
+			//  is the only path revealed, instead of revealing all paths for the field.
 			err = validatePatch(schema, patch)
 			if err == nil {
 				return nil

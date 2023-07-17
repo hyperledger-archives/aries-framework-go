@@ -367,6 +367,84 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		require.Nil(t, vp)
 	})
 
+	t.Run("request two VCs using separate submission requirements", func(t *testing.T) {
+		requirements := []*SubmissionRequirement{
+			{
+				Rule: All,
+				From: "A",
+			},
+			{
+				Rule: All,
+				From: "B",
+			},
+		}
+
+		makeInputDescriptor := func(claim string, groups ...string) *InputDescriptor {
+			return &InputDescriptor{
+				ID:    "get_" + claim,
+				Group: groups,
+				Schema: []*Schema{{
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				}},
+				Constraints: &Constraints{
+					Fields: []*Field{{
+						Path: []string{"$." + claim},
+					}},
+				},
+			}
+		}
+
+		makeCredential := func(claims ...string) *verifiable.Credential {
+			selfIssuedID := uuid.NewString()
+
+			vc := &verifiable.Credential{
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
+				ID:      "https://example.com/credential/" + uuid.NewString(),
+				Subject: selfIssuedID,
+				Issued: &utiltime.TimeWrapper{
+					Time: time.Now(),
+				},
+				Issuer: verifiable.Issuer{
+					ID: selfIssuedID,
+				},
+				CustomFields: map[string]interface{}{},
+			}
+
+			for _, claim := range claims {
+				vc.CustomFields[claim] = "foo"
+			}
+
+			return vc
+		}
+
+		pd := &PresentationDefinition{
+			ID:                     uuid.NewString(),
+			SubmissionRequirements: requirements,
+			InputDescriptors: []*InputDescriptor{
+				makeInputDescriptor("A", "A"),
+				makeInputDescriptor("B", "B"),
+			},
+		}
+
+		credentials := []*verifiable.Credential{
+			makeCredential("A"),
+			makeCredential("B"),
+		}
+
+		vp, err := pd.CreateVP(credentials, lddl)
+		require.NoError(t, err)
+
+		// vpBytes, err := json.MarshalIndent(vp, "", "\t")
+		// require.NoError(t, err)
+
+		// fmt.Println(string(vpBytes))
+
+		require.Equal(t, 2, len(vp.Credentials()))
+		checkSubmission(t, vp, pd)
+		checkVP(t, vp)
+	})
+
 	t.Run("Predicate", func(t *testing.T) {
 		predicate := Required
 

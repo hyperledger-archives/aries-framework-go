@@ -907,16 +907,6 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 	//					"format": "ldp_vc",
 	//					"path": "$.verifiableCredential[2]"
 	//				}
-	//			},
-	//			{
-	//				"id": "passport_image_descriptor",
-	//				"format": "ldp_vp",
-	//				"path": "$",
-	//				"path_nested": {
-	//					"id": "passport_image_descriptor",
-	//					"format": "ldp_vc",
-	//					"path": "$.verifiableCredential[3]"
-	//				}
 	//			}
 	//		]
 	//	},
@@ -963,17 +953,6 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 	//			"issuer": "did:example:888",
 	//			"photo": "http://image.com/user777",
 	//			"type": "VerifiableCredential"
-	//		},
-	//		{
-	//			"@context": [
-	//				"https://www.w3.org/2018/credentials/v1"
-	//			],
-	//			"credentialSubject": "did:example:777",
-	//			"id": "http://example.edu/credentials/777",
-	//			"image": "http://image.com/user777",
-	//			"issuanceDate": "0001-01-01T00:00:00Z",
-	//			"issuer": "did:example:777",
-	//			"type": "VerifiableCredential"
 	//		}
 	//	]
 	// }
@@ -984,6 +963,9 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 		ID:      "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
 		Purpose: "To sell you a drink we need to know that you are an adult.",
 		SubmissionRequirements: []*SubmissionRequirement{
+			// {
+			// 	Rule: "all",
+			// 	FromNested: []*SubmissionRequirement{
 			{
 				Rule: "all",
 				From: "A",
@@ -1003,6 +985,8 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 					},
 				},
 			},
+			// 	},
+			// },
 		},
 		InputDescriptors: []*InputDescriptor{{
 			ID:      "age_descriptor",
@@ -1151,16 +1135,6 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 	//					"format": "ldp_vc",
 	//					"path": "$.verifiableCredential[1]"
 	//				}
-	//			},
-	//			{
-	//				"id": "passport_image_descriptor",
-	//				"format": "ldp_vp",
-	//				"path": "$",
-	//				"path_nested": {
-	//					"id": "passport_image_descriptor",
-	//					"format": "ldp_vc",
-	//					"path": "$.verifiableCredential[0]"
-	//				}
 	//			}
 	//		]
 	//	},
@@ -1196,6 +1170,408 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 	//			"last_name": "Pinkman",
 	//			"photo": "http://image.com/user777",
 	//			"type": "VerifiableCredential"
+	//		}
+	//	]
+	// }
+}
+
+func ExamplePresentationDefinition_CreateVP_submissionRequirements2() {
+	// TODO: this example demonstrates a bug, need to investigate
+	//  - create a unit test that simplifies this for investigation
+	//  - describe the issue for Rolson
+	pd := &PresentationDefinition{
+		ID:      "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
+		Purpose: "The following accreditations and clearances are required to proceed with your application.",
+		SubmissionRequirements: []*SubmissionRequirement{
+			{
+				Rule:    "pick",
+				Purpose: "We need a photo from government ID for your badge.",
+				Count:   1,
+				FromNested: []*SubmissionRequirement{
+					{
+						Rule: "all",
+						From: "drivers_license_image",
+					},
+					{
+						Rule: "all",
+						From: "passport_image",
+					},
+				},
+			},
+			{
+				Rule:    "all",
+				Purpose: "We need to validate your flight experience.",
+				FromNested: []*SubmissionRequirement{
+					{
+						Rule:  "pick",
+						Count: 1,
+						From:  "flight_training",
+					},
+					{
+						Rule: "pick",
+						Min:  1,
+						From: "pilot_employment",
+					},
+				},
+			},
+		},
+		InputDescriptors: []*InputDescriptor{
+			{
+				ID:      "drivers_license_image_descriptor",
+				Group:   []string{"drivers_license_image"},
+				Purpose: "We need your photo to identify you",
+				Schema: []*Schema{{
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				}},
+				Constraints: &Constraints{
+					Fields: []*Field{{
+						Path: []string{"$.photo"},
+						Filter: &Filter{
+							Type:   &strFilterType,
+							Format: "uri",
+						},
+					}},
+				},
+			},
+			{
+				ID:      "passport_image_descriptor",
+				Group:   []string{"passport_image"},
+				Purpose: "We need your photo to identify you",
+				Schema: []*Schema{{
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				}},
+				Constraints: &Constraints{
+					Fields: []*Field{{
+						Path: []string{"$.image"},
+						Filter: &Filter{
+							Type:   &strFilterType,
+							Format: "uri",
+						},
+					}},
+				},
+			},
+			{
+				ID:    "flight_training_1",
+				Group: []string{"flight_training"},
+				Schema: []*Schema{{
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				}},
+				Constraints: &Constraints{
+					Fields: []*Field{{
+						Path: []string{"$.credentialSubject.pilot_id"},
+						Filter: &Filter{
+							Type: &strFilterType,
+						},
+					}, {
+						Path: []string{"$.credentialSubject.expiry"},
+						Filter: &Filter{
+							Type: &strFilterType,
+						},
+					}},
+				},
+			},
+			{
+				ID:    "employment_private_1",
+				Group: []string{"pilot_employment"},
+				Schema: []*Schema{{
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				}},
+				Constraints: &Constraints{
+					Fields: []*Field{{
+						Path: []string{"$.credentialSubject.pilot_id"},
+						Filter: &Filter{
+							Type: &strFilterType,
+						},
+					}, {
+						Path: []string{"$.credentialSubject.employed_since"},
+						Filter: &Filter{
+							Type: &strFilterType,
+						},
+					}},
+				},
+			},
+			{
+				ID:    "employment_gov",
+				Group: []string{"pilot_employment"},
+				Schema: []*Schema{{
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				}},
+				Constraints: &Constraints{
+					Fields: []*Field{{
+						Path: []string{"$.credentialSubject.clearance_level"},
+						Filter: &Filter{
+							Type: &arrFilterType,
+						},
+					}, {
+						Path: []string{"$.credentialSubject.travel_authorization.subnational"},
+						Filter: &Filter{
+							Type:  &strFilterType,
+							Const: "Allow",
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	loader, err := ldtestutil.DocumentLoader()
+	if err != nil {
+		panic(err)
+	}
+
+	vp, err := pd.CreateVP([]*verifiable.Credential{
+		{
+			ID:      "http://example.dmv/credentials/777",
+			Context: []string{verifiable.ContextURI},
+			Types:   []string{verifiable.VCType},
+			Issuer: verifiable.Issuer{
+				ID: "did:example:777",
+			},
+			Issued: &utiltime.TimeWrapper{
+				Time: time.Time{},
+			},
+			Subject: "did:example:777",
+			CustomFields: map[string]interface{}{
+				"first_name": "Andrew",
+				"last_name":  "Hanks",
+				"photo":      "https://image.com/user777",
+				"DOB":        "5/18/86",
+			},
+		},
+		{
+			ID:      "https://example.gov/credentials/888",
+			Context: []string{"https://www.w3.org/2018/credentials/v1"},
+			Types:   []string{"VerifiableCredential", "GovSecureEmployeeCredential"},
+			Issuer: verifiable.Issuer{
+				ID: "did:example:888",
+			},
+			Issued: &utiltime.TimeWrapper{
+				Time: time.Time{},
+			},
+			Subject: &verifiable.Subject{
+				ID: "did:example:888",
+				CustomFields: map[string]interface{}{
+					"clearance_level": []string{"Public", "Low-Security", "Facility-Supervised"},
+					"employee_id":     "2956348576547",
+					"travel_authorization": map[string]interface{}{
+						"subnational":           "Allow",
+						"international_default": "S2-Signoff",
+					},
+				},
+			},
+		},
+		{
+			ID:      "https://example.faa/credentials/123",
+			Context: []string{"https://www.w3.org/2018/credentials/v1"},
+			Types:   []string{"VerifiableCredential", "FlightCertificationCredential"},
+			Issuer: verifiable.Issuer{
+				ID: "did:example:123",
+			},
+			Issued: &utiltime.TimeWrapper{
+				Time: time.Time{},
+			},
+			Subject: &verifiable.Subject{
+				ID: "did:example:123",
+				CustomFields: map[string]interface{}{
+					"pilot_id":                "4358793",
+					"accrediting_institution": "Nowheresville Community College",
+					"licensed_vehicles":       []string{"hang_glider", "kite", "Cessna 152"},
+					"expiry":                  "2027-12-30",
+				},
+			},
+		},
+		{
+			ID:      "https://example.business/credentials/employee/12345",
+			Context: []string{"https://www.w3.org/2018/credentials/v1"},
+			Types:   []string{"VerifiableCredential", "EmployeeCredential"},
+			Issuer: verifiable.Issuer{
+				ID: "did:example:12345",
+			},
+			Issued: &utiltime.TimeWrapper{
+				Time: time.Time{},
+			},
+			Subject: &verifiable.Subject{
+				ID: "did:example:12345",
+				CustomFields: map[string]interface{}{
+					"employed_since": "2021-07-06",
+					"employed_until": "2021-07-07",
+					"role":           "Management Consultant",
+					"reference":      "did:example:10101",
+					"pilot_id":       "4358793",
+				},
+			},
+		},
+		{
+			ID:      "https://example.co.website/credentials/employee/7",
+			Context: []string{"https://www.w3.org/2018/credentials/v1"},
+			Types:   []string{"VerifiableCredential", "EmployeeCredential"},
+			Issuer: verifiable.Issuer{
+				ID: "did:example:7",
+			},
+			Issued: &utiltime.TimeWrapper{
+				Time: time.Time{},
+			},
+			Subject: &verifiable.Subject{
+				ID: "did:example:7",
+				CustomFields: map[string]interface{}{
+					"employed_since": "2017-01-01",
+					"employed_until": "2021-08-09",
+					"role":           "Customer Relationships Manager",
+					"employer":       "Chucky Pilot's Bar & Grill",
+					"pilot_points":   172,
+					"pilot_id":       "Bravo-7",
+				},
+			},
+		},
+	}, loader, verifiable.WithJSONLDDocumentLoader(loader))
+	if err != nil {
+		panic(err)
+	}
+
+	vp.ID = dummy
+	vp.CustomFields["presentation_submission"].(*PresentationSubmission).ID = dummy
+
+	vpBytes, err := json.MarshalIndent(vp, "", "\t")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(string(vpBytes))
+	// Output:
+	// {
+	//	"@context": [
+	//		"https://www.w3.org/2018/credentials/v1",
+	//		"https://identity.foundation/presentation-exchange/submission/v1"
+	//	],
+	//	"id": "DUMMY",
+	//	"presentation_submission": {
+	//		"id": "DUMMY",
+	//		"definition_id": "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
+	//		"descriptor_map": [
+	//			{
+	//				"id": "drivers_license_image_descriptor",
+	//				"format": "ldp_vp",
+	//				"path": "$",
+	//				"path_nested": {
+	//					"id": "drivers_license_image_descriptor",
+	//					"format": "ldp_vc",
+	//					"path": "$.verifiableCredential[0]"
+	//				}
+	//			},
+	//			{
+	//				"id": "employment_private_1",
+	//				"format": "ldp_vp",
+	//				"path": "$",
+	//				"path_nested": {
+	//					"id": "employment_private_1",
+	//					"format": "ldp_vc",
+	//					"path": "$.verifiableCredential[1]"
+	//				}
+	//			},
+	//			{
+	//				"id": "employment_private_1",
+	//				"format": "ldp_vp",
+	//				"path": "$",
+	//				"path_nested": {
+	//					"id": "employment_private_1",
+	//					"format": "ldp_vc",
+	//					"path": "$.verifiableCredential[2]"
+	//				}
+	//			},
+	//			{
+	//				"id": "flight_training_1",
+	//				"format": "ldp_vp",
+	//				"path": "$",
+	//				"path_nested": {
+	//					"id": "flight_training_1",
+	//					"format": "ldp_vc",
+	//					"path": "$.verifiableCredential[3]"
+	//				}
+	//			}
+	//		]
+	//	},
+	//	"type": [
+	//		"VerifiablePresentation",
+	//		"PresentationSubmission"
+	//	],
+	//	"verifiableCredential": [
+	//		{
+	//			"@context": [
+	//				"https://www.w3.org/2018/credentials/v1"
+	//			],
+	//			"DOB": "5/18/86",
+	//			"credentialSubject": "did:example:777",
+	//			"first_name": "Andrew",
+	//			"id": "http://example.dmv/credentials/777",
+	//			"issuanceDate": "0001-01-01T00:00:00Z",
+	//			"issuer": "did:example:777",
+	//			"last_name": "Hanks",
+	//			"photo": "https://image.com/user777",
+	//			"type": "VerifiableCredential"
+	//		},
+	//		{
+	//			"@context": [
+	//				"https://www.w3.org/2018/credentials/v1"
+	//			],
+	//			"credentialSubject": {
+	//				"employed_since": "2021-07-06",
+	//				"employed_until": "2021-07-07",
+	//				"id": "did:example:12345",
+	//				"pilot_id": "4358793",
+	//				"reference": "did:example:10101",
+	//				"role": "Management Consultant"
+	//			},
+	//			"id": "https://example.business/credentials/employee/12345",
+	//			"issuanceDate": "0001-01-01T00:00:00Z",
+	//			"issuer": "did:example:12345",
+	//			"type": [
+	//				"VerifiableCredential",
+	//				"EmployeeCredential"
+	//			]
+	//		},
+	//		{
+	//			"@context": [
+	//				"https://www.w3.org/2018/credentials/v1"
+	//			],
+	//			"credentialSubject": {
+	//				"employed_since": "2017-01-01",
+	//				"employed_until": "2021-08-09",
+	//				"employer": "Chucky Pilot's Bar \u0026 Grill",
+	//				"id": "did:example:7",
+	//				"pilot_id": "Bravo-7",
+	//				"pilot_points": 172,
+	//				"role": "Customer Relationships Manager"
+	//			},
+	//			"id": "https://example.co.website/credentials/employee/7",
+	//			"issuanceDate": "0001-01-01T00:00:00Z",
+	//			"issuer": "did:example:7",
+	//			"type": [
+	//				"VerifiableCredential",
+	//				"EmployeeCredential"
+	//			]
+	//		},
+	//		{
+	//			"@context": [
+	//				"https://www.w3.org/2018/credentials/v1"
+	//			],
+	//			"credentialSubject": {
+	//				"accrediting_institution": "Nowheresville Community College",
+	//				"expiry": "2027-12-30",
+	//				"id": "did:example:123",
+	//				"licensed_vehicles": [
+	//					"hang_glider",
+	//					"kite",
+	//					"Cessna 152"
+	//				],
+	//				"pilot_id": "4358793"
+	//			},
+	//			"id": "https://example.faa/credentials/123",
+	//			"issuanceDate": "0001-01-01T00:00:00Z",
+	//			"issuer": "did:example:123",
+	//			"type": [
+	//				"VerifiableCredential",
+	//				"FlightCertificationCredential"
+	//			]
 	//		}
 	//	]
 	// }
