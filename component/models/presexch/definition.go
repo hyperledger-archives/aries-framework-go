@@ -1640,7 +1640,7 @@ func filterSchema(schemas []*Schema, credentials []*verifiable.Credential,
 }
 
 func typeFoundInContext(typ string, ctxObj *ld.Context) ([]string, error) {
-	var out []string
+	out := []string{typ}
 
 	td := ctxObj.GetTermDefinition(typ)
 	if td == nil {

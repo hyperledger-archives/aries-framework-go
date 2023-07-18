@@ -2092,6 +2092,33 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		require.Nil(t, vp)
 	})
 
+	t.Run("Validates schema that only has type", func(t *testing.T) {
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI:      verifiable.VCType,
+					Required: true,
+				}},
+			}},
+		}
+		vp, err := pd.CreateVP([]*verifiable.Credential{
+			{
+				Context: []string{verifiable.ContextURI},
+				Types:   []string{verifiable.VCType},
+				ID:      uuid.New().String(),
+			},
+		}, lddl)
+
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.Equal(t, 1, len(vp.Credentials()))
+
+		checkSubmission(t, vp, pd)
+		checkVP(t, vp)
+	})
+
 	t.Run("Ignores schema that is not required", func(t *testing.T) {
 		pd := &PresentationDefinition{
 			ID: uuid.New().String(),
