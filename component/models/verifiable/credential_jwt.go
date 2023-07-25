@@ -32,6 +32,49 @@ type JWTCredClaims struct {
 	VC map[string]interface{} `json:"vc,omitempty"`
 }
 
+// ToSDJWTCredentialPayload defines custom marshalling of JWTCredClaims.
+// Key difference with default marshaller is that returned object does not contain custom "vc" root claim.
+// Example:
+//
+//	https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-05.html#name-example-4b-w3c-verifiable-c.
+func (jcc *JWTCredClaims) ToSDJWTCredentialPayload() ([]byte, error) {
+	type Alias JWTCredClaims
+
+	alias := Alias(*jcc)
+
+	vcMap := alias.VC
+
+	alias.VC = nil
+
+	data, err := jsonutil.MarshalWithCustomFields(alias, vcMap)
+	if err != nil {
+		return nil, fmt.Errorf("marshal JWTW3CCredClaims: %w", err)
+	}
+
+	return data, nil
+}
+
+// UnmarshalJSON defines custom unmarshalling of JWTCredClaims from JSON.
+// For SD-JWT case, it supports both v2 and v5 formats.
+func (jcc *JWTCredClaims) UnmarshalJSON(data []byte) error {
+	type Alias JWTCredClaims
+
+	alias := (*Alias)(jcc)
+
+	customFields := make(CustomFields)
+
+	err := jsonutil.UnmarshalWithCustomFields(data, alias, customFields)
+	if err != nil {
+		return fmt.Errorf("unmarshal JWTCredClaims: %w", err)
+	}
+
+	if len(customFields) > 0 && len(alias.VC) == 0 {
+		alias.VC = customFields
+	}
+
+	return nil
+}
+
 // newJWTCredClaims creates JWT Claims of VC with an option to minimize certain fields of VC
 // which is put into "vc" claim.
 func newJWTCredClaims(vc *Credential, minimizeVC bool) (*JWTCredClaims, error) {

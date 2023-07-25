@@ -293,6 +293,10 @@ func GetSDAlg(claims map[string]interface{}) (string, error) {
 
 // GetKeyFromVC returns key value from VC.
 func GetKeyFromVC(key string, claims map[string]interface{}) (interface{}, bool) {
+	if obj, ok := claims[key]; ok {
+		return obj, true
+	}
+
 	vcObj, ok := claims["vc"]
 	if !ok {
 		return nil, false

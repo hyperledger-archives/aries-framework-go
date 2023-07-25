@@ -580,6 +580,50 @@ func TestNewFromVC(t *testing.T) {
 		r.Contains(err.Error(), "unknown key id")
 	})
 
+	t.Run("success - structured claims + holder binding + SD JWT credential format", func(t *testing.T) {
+		holderPublicKey, _, err := ed25519.GenerateKey(rand.Reader)
+		r.NoError(err)
+
+		holderPublicJWK, err := jwksupport.JWKFromKey(holderPublicKey)
+		require.NoError(t, err)
+
+		// create VC - we will use template here
+		var vc map[string]interface{}
+		err = json.Unmarshal([]byte(sampleSDJWTVCFull), &vc)
+		r.NoError(err)
+
+		token, err := NewFromVC(vc, nil, signer,
+			WithHolderPublicKey(holderPublicJWK),
+			WithStructuredClaims(true),
+			WithNonSelectivelyDisclosableClaims([]string{"id", "degree.type"}),
+			WithSDJWTCredentialFormat(true))
+		r.NoError(err)
+
+		vcCombinedFormatForIssuance, err := token.Serialize(false)
+		r.NoError(err)
+
+		fmt.Println(fmt.Sprintf("issuer SD-JWT: %s", vcCombinedFormatForIssuance))
+
+		var vcWithSelectedDisclosures map[string]interface{}
+		err = token.DecodeClaims(&vcWithSelectedDisclosures)
+		r.NoError(err)
+
+		printObject(t, "VC with selected disclosures", vcWithSelectedDisclosures)
+
+		id, err := jsonpath.Get("$.credentialSubject.id", vcWithSelectedDisclosures)
+		r.NoError(err)
+		r.Equal("did:example:ebfeb1f712ebc6f1c276e12ec21", id)
+
+		degreeType, err := jsonpath.Get("$.credentialSubject.degree.type", vcWithSelectedDisclosures)
+		r.NoError(err)
+		r.Equal("BachelorDegree", degreeType)
+
+		degreeID, err := jsonpath.Get("$.credentialSubject.degree.id", vcWithSelectedDisclosures)
+		r.Error(err)
+		r.Nil(degreeID)
+		r.Contains(err.Error(), "unknown key id")
+	})
+
 	t.Run("success - flat claims + holder binding", func(t *testing.T) {
 		holderPublicKey, _, err := ed25519.GenerateKey(rand.Reader)
 		r.NoError(err)
@@ -1013,4 +1057,33 @@ const sampleVCFull = `
 		"last_name": "Last name",
 		"type": "VerifiableCredential"
 	}
+}`
+
+const sampleSDJWTVCFull = `
+{
+	"iat": 1673987547,
+	"iss": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+	"jti": "http://example.edu/credentials/1872",
+	"nbf": 1673987547,
+	"sub": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+	"@context": [
+		"https://www.w3.org/2018/credentials/v1"
+	],
+	"credentialSubject": {
+		"degree": {
+			"degree": "MIT",
+			"type": "BachelorDegree",
+			"id": "some-id"
+		},
+		"name": "Jayden Doe",
+		"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+		"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+	},
+	"first_name": "First name",
+	"id": "http://example.edu/credentials/1872",
+	"info": "Info",
+	"issuanceDate": "2023-01-17T22:32:27.468109817+02:00",
+	"issuer": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+	"last_name": "Last name",
+	"type": "VerifiableCredential"
 }`
