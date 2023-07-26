@@ -59,7 +59,6 @@ import (
 	afgjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 	jsonutil "github.com/hyperledger/aries-framework-go/component/models/util/json"
-	utils "github.com/hyperledger/aries-framework-go/component/models/util/maphelpers"
 )
 
 const (
@@ -308,76 +307,9 @@ func NewFromVC(
 		o(finalOpt)
 	}
 
-	hasSubject := true
-	csObj, ok := common.GetKeyFromVC(credentialSubjectKey, vc)
-	if !ok { // todo
-		if finalOpt.version == common.SDJWTVersionV5 { // todo
-			csObj = vc
-			hasSubject = false
-		} else {
-			return nil, fmt.Errorf("credential subject not found")
-		}
-	}
+	sDJwtBuilder := getBuilderByVersion(finalOpt.version)
 
-	cs, ok := csObj.(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("credential subject must be an object")
-	}
-
-	token, err := New("", cs, nil, &unsecuredJWTSigner{}, opts...)
-	if err != nil {
-		return nil, err
-	}
-
-	selectiveCredentialSubject := utils.CopyMap(token.SignedJWT.Payload)
-	// move _sd_alg key from credential subject to vc as per example 4 in spec
-
-	vcDataObj, ok := common.GetKeyFromVC(vcKey, vc)
-	if !ok {
-		if finalOpt.version == common.SDJWTVersionV5 {
-			vcDataObj = vc
-		} else {
-			return nil, fmt.Errorf("vc not found")
-		}
-	}
-	vcData := vcDataObj.(map[string]interface{})
-
-	vcData[common.SDAlgorithmKey] = selectiveCredentialSubject[common.SDAlgorithmKey]
-	delete(selectiveCredentialSubject, common.SDAlgorithmKey)
-
-	// move cnf key from credential subject to vc as per example 4 in spec
-	cnfObj, ok := selectiveCredentialSubject[common.CNFKey]
-	if ok {
-		vcData[common.CNFKey] = cnfObj
-		delete(selectiveCredentialSubject, common.CNFKey)
-	}
-
-	// update VC with 'selective' credential subject
-	vcData[credentialSubjectKey] = selectiveCredentialSubject
-
-	if finalOpt.version == common.SDJWTVersionV5 { // switch structure
-		//delete(vc, vcKey)
-		//for k, v := range vcData {
-		//	vc[k] = v
-		//}
-
-		if !hasSubject {
-			delete(vcData, credentialSubjectKey)
-			for k, v := range selectiveCredentialSubject {
-				vc[k] = v
-			}
-		}
-	}
-
-	// sign VC with 'selective' credential subject
-	signedJWT, err := afgjwt.NewSigned(vc, headers, signer)
-	if err != nil {
-		return nil, err
-	}
-
-	sdJWT := &SelectiveDisclosureJWT{Disclosures: token.Disclosures, SignedJWT: signedJWT}
-
-	return sdJWT, nil
+	return sDJwtBuilder.NewFromVC(vc, headers, signer, opts...)
 }
 
 func createPayload(issuer string, nOpts *newOpts) *payload {

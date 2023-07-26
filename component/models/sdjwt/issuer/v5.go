@@ -5,10 +5,67 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+
+	afgjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
+	utils "github.com/hyperledger/aries-framework-go/component/models/util/maphelpers"
 )
 
 type SDJWTBuilderV5 struct {
+}
+
+func (s *SDJWTBuilderV5) keysToExclude() []string {
+	return []string{
+		"iss",
+		"iat",
+		"nbf",
+		"exp",
+		"cnf",
+		"type",
+		"status",
+		"sub",
+	}
+}
+func (s *SDJWTBuilderV5) NewFromVC(vc map[string]interface{}, headers jose.Headers, signer jose.Signer, opts ...NewOpt) (*SelectiveDisclosureJWT, error) {
+	claims := utils.CopyMap(vc)
+	for _, key := range s.keysToExclude() {
+		delete(claims, key)
+	}
+	token, err := New("", claims, nil, &unsecuredJWTSigner{}, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	selectiveCredentialSubject := utils.CopyMap(token.SignedJWT.Payload)
+	// move _sd_alg key from credential subject to vc as per example 4 in spec
+	vc[common.SDAlgorithmKey] = selectiveCredentialSubject[common.SDAlgorithmKey]
+	delete(selectiveCredentialSubject, common.SDAlgorithmKey)
+
+	// move cnf key from credential subject to vc as per example 4 in spec
+	cnfObj, ok := selectiveCredentialSubject[common.CNFKey]
+	if ok {
+		vc[common.CNFKey] = cnfObj
+		delete(selectiveCredentialSubject, common.CNFKey)
+	}
+
+	// update VC with 'selective' credential subject
+	for k := range claims {
+		delete(vc, k)
+	}
+	for k, v := range selectiveCredentialSubject {
+		vc[k] = v
+	}
+
+	// sign VC with 'selective' credential subject
+	signedJWT, err := afgjwt.NewSigned(vc, headers, signer)
+	if err != nil {
+		return nil, err
+	}
+
+	sdJWT := &SelectiveDisclosureJWT{Disclosures: token.Disclosures, SignedJWT: signedJWT}
+
+	return sdJWT, nil
 }
 
 func NewSDJWTBuilderV5() *SDJWTBuilderV5 {
@@ -20,17 +77,18 @@ func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests(
 	claims map[string]interface{},
 	opts *newOpts,
 ) ([]string, map[string]interface{}, error) {
-	var disclosures []string
+	digestsMap := map[string]interface{}{}
+	//var disclosures []string
+	//var rootLevelDisclosures []string
+	//var arrDisclosures []string
+	//digestsMap := make(map[string]interface{})
 
-	var rootLevelDisclosures []string
-
-	digestsMap := make(map[string]interface{})
-
-	decoyDisclosures, err := createDecoyDisclosures(opts)
+	finalSDDigest, err := createDecoyDisclosures(opts)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create decoy disclosures: %w", err)
 	}
 
+	var allDisclosures []string
 	for key, value := range claims {
 		curPath := key
 		if path != "" {
@@ -39,15 +97,16 @@ func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests(
 
 		kind := reflect.TypeOf(value).Kind()
 		if kind == reflect.Map && opts.structuredClaims {
-			nestedDisclosures, nestedDigestsMap, e := s.CreateDisclosuresAndDigests(curPath,
-				value.(map[string]interface{}), opts)
-			if e != nil {
-				return nil, nil, e
-			}
+			// todo
+			//nestedDisclosures, nestedDigestsMap, e := s.CreateDisclosuresAndDigests(curPath,
+			//	value.(map[string]interface{}), opts)
+			//if e != nil {
+			//	return nil, nil, e
+			//}
 
-			digestsMap[key] = nestedDigestsMap
+			//digestsMap[key] = nestedDigestsMap
 
-			disclosures = append(disclosures, nestedDisclosures...)
+			//disclosures = append(disclosures, nestedDisclosures...)
 		} else if kind == reflect.Array || kind == reflect.Slice {
 			valSl := reflect.ValueOf(value)
 			var digestArr []map[string]string
@@ -58,13 +117,23 @@ func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests(
 					return nil, nil, fmt.Errorf("create disclosure: %w", e)
 				}
 
-				rootLevelDisclosures = append(rootLevelDisclosures, digest)
 				digestArr = append(digestArr, map[string]string{"...": digest})
+				allDisclosures = append(allDisclosures, digest)
 			}
-			digestsMap[key] = digestArr
+			if opts.structuredClaims {
+				digestsMap[key] = digestArr
+			} else {
+				disclosure, e := s.createDisclosure(key, digestArr, opts)
+				if e != nil {
+					return nil, nil, fmt.Errorf("create disclosure: %w", e)
+				}
+
+				finalSDDigest = append(finalSDDigest, disclosure)
+				allDisclosures = append(allDisclosures, disclosure)
+			}
 		} else {
 			if _, ok := opts.nonSDClaimsMap[curPath]; ok {
-				digestsMap[key] = value
+				//digestsMap[key] = value
 
 				continue
 			}
@@ -74,20 +143,22 @@ func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests(
 				return nil, nil, fmt.Errorf("create disclosure: %w", e)
 			}
 
-			rootLevelDisclosures = append(rootLevelDisclosures, disclosure)
+			finalSDDigest = append(finalSDDigest, disclosure)
+			allDisclosures = append(allDisclosures, disclosure)
+			//rootLevelDisclosures = append(rootLevelDisclosures, disclosure)
 		}
 	}
 
-	disclosures = append(disclosures, rootLevelDisclosures...)
+	//disclosures = append(disclosures, rootLevelDisclosures...)
 
-	digests, err := createDigests(append(rootLevelDisclosures, decoyDisclosures...), opts)
+	digests, err := createDigests(finalSDDigest, opts)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	digestsMap[common.SDKey] = digests
 
-	return disclosures, digestsMap, nil
+	return allDisclosures, digestsMap, nil
 }
 
 func (s *SDJWTBuilderV5) createDisclosure(
