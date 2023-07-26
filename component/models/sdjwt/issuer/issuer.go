@@ -55,6 +55,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
+
 	afgjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 	jsonutil "github.com/hyperledger/aries-framework-go/component/models/util/json"
@@ -99,10 +100,18 @@ type newOpts struct {
 	structuredClaims bool
 
 	nonSDClaimsMap map[string]bool
+	version        common.SDJWTVersion
 }
 
 // NewOpt is the SD-JWT New option.
 type NewOpt func(opts *newOpts)
+
+// WithSDJWTWithVersion sets version for SD-JWT VC.
+func WithSDJWTWithVersion(version common.SDJWTVersion) NewOpt {
+	return func(opts *newOpts) {
+		opts.version = version
+	}
+}
 
 // WithJSONMarshaller is option is for marshalling disclosure.
 func WithJSONMarshaller(jsonMarshal func(v interface{}) ([]byte, error)) NewOpt {
@@ -258,7 +267,8 @@ func New(issuer string, claims interface{}, headers jose.Headers,
 		return nil, fmt.Errorf("key '%s' cannot be present in the claims", common.SDKey)
 	}
 
-	disclosures, digests, err := createDisclosuresAndDigests("", claimsMap, nOpts)
+	sdJWTBuilder := getBuilderByVersion(nOpts.version)
+	disclosures, digests, err := sdJWTBuilder.CreateDisclosuresAndDigests("", claimsMap, nOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -287,11 +297,26 @@ Algorithm:
   - create signed SD-JWT based on VC
   - return signed SD-JWT plus Disclosures
 */
-func NewFromVC(vc map[string]interface{}, headers jose.Headers,
-	signer jose.Signer, opts ...NewOpt) (*SelectiveDisclosureJWT, error) {
+func NewFromVC(
+	vc map[string]interface{},
+	headers jose.Headers,
+	signer jose.Signer,
+	opts ...NewOpt,
+) (*SelectiveDisclosureJWT, error) {
+	finalOpt := &newOpts{}
+	for _, o := range opts {
+		o(finalOpt)
+	}
+
+	hasSubject := true
 	csObj, ok := common.GetKeyFromVC(credentialSubjectKey, vc)
-	if !ok {
-		return nil, fmt.Errorf("credential subject not found")
+	if !ok { // todo
+		if finalOpt.version == common.SDJWTVersionV5 { // todo
+			csObj = vc
+			hasSubject = false
+		} else {
+			return nil, fmt.Errorf("credential subject not found")
+		}
 	}
 
 	cs, ok := csObj.(map[string]interface{})
@@ -306,18 +331,43 @@ func NewFromVC(vc map[string]interface{}, headers jose.Headers,
 
 	selectiveCredentialSubject := utils.CopyMap(token.SignedJWT.Payload)
 	// move _sd_alg key from credential subject to vc as per example 4 in spec
-	vc[vcKey].(map[string]interface{})[common.SDAlgorithmKey] = selectiveCredentialSubject[common.SDAlgorithmKey]
+
+	vcDataObj, ok := common.GetKeyFromVC(vcKey, vc)
+	if !ok {
+		if finalOpt.version == common.SDJWTVersionV5 {
+			vcDataObj = vc
+		} else {
+			return nil, fmt.Errorf("vc not found")
+		}
+	}
+	vcData := vcDataObj.(map[string]interface{})
+
+	vcData[common.SDAlgorithmKey] = selectiveCredentialSubject[common.SDAlgorithmKey]
 	delete(selectiveCredentialSubject, common.SDAlgorithmKey)
 
 	// move cnf key from credential subject to vc as per example 4 in spec
 	cnfObj, ok := selectiveCredentialSubject[common.CNFKey]
 	if ok {
-		vc[vcKey].(map[string]interface{})[common.CNFKey] = cnfObj
+		vcData[common.CNFKey] = cnfObj
 		delete(selectiveCredentialSubject, common.CNFKey)
 	}
 
 	// update VC with 'selective' credential subject
-	vc[vcKey].(map[string]interface{})[credentialSubjectKey] = selectiveCredentialSubject
+	vcData[credentialSubjectKey] = selectiveCredentialSubject
+
+	if finalOpt.version == common.SDJWTVersionV5 { // switch structure
+		//delete(vc, vcKey)
+		//for k, v := range vcData {
+		//	vc[k] = v
+		//}
+
+		if !hasSubject {
+			delete(vcData, credentialSubjectKey)
+			for k, v := range selectiveCredentialSubject {
+				vc[k] = v
+			}
+		}
+	}
 
 	// sign VC with 'selective' credential subject
 	signedJWT, err := afgjwt.NewSigned(vc, headers, signer)
@@ -426,77 +476,6 @@ func (j *SelectiveDisclosureJWT) Serialize(detached bool) (string, error) {
 	}
 
 	return cf.Serialize(), nil
-}
-
-func createDisclosuresAndDigests(path string, claims map[string]interface{}, opts *newOpts) ([]string, map[string]interface{}, error) { // nolint:lll
-	var disclosures []string
-
-	var levelDisclosures []string
-
-	digestsMap := make(map[string]interface{})
-
-	decoyDisclosures, err := createDecoyDisclosures(opts)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create decoy disclosures: %w", err)
-	}
-
-	for key, value := range claims {
-		curPath := key
-		if path != "" {
-			curPath = path + "." + key
-		}
-
-		if obj, ok := value.(map[string]interface{}); ok && opts.structuredClaims {
-			nestedDisclosures, nestedDigestsMap, e := createDisclosuresAndDigests(curPath, obj, opts)
-			if e != nil {
-				return nil, nil, e
-			}
-
-			digestsMap[key] = nestedDigestsMap
-
-			disclosures = append(disclosures, nestedDisclosures...)
-		} else {
-			if _, ok := opts.nonSDClaimsMap[curPath]; ok {
-				digestsMap[key] = value
-
-				continue
-			}
-
-			disclosure, e := createDisclosure(key, value, opts)
-			if e != nil {
-				return nil, nil, fmt.Errorf("create disclosure: %w", e)
-			}
-
-			levelDisclosures = append(levelDisclosures, disclosure)
-		}
-	}
-
-	disclosures = append(disclosures, levelDisclosures...)
-
-	digests, err := createDigests(append(levelDisclosures, decoyDisclosures...), opts)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	digestsMap[common.SDKey] = digests
-
-	return disclosures, digestsMap, nil
-}
-
-func createDisclosure(key string, value interface{}, opts *newOpts) (string, error) {
-	salt, err := opts.getSalt()
-	if err != nil {
-		return "", fmt.Errorf("generate salt: %w", err)
-	}
-
-	disclosure := []interface{}{salt, key, value}
-
-	disclosureBytes, err := opts.jsonMarshal(disclosure)
-	if err != nil {
-		return "", fmt.Errorf("marshal disclosure: %w", err)
-	}
-
-	return base64.RawURLEncoding.EncodeToString(disclosureBytes), nil
 }
 
 func generateSalt() (string, error) {

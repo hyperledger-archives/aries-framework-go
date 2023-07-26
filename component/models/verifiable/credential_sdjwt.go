@@ -12,6 +12,7 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/holder"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/issuer"
@@ -237,6 +238,7 @@ func filterDisclosures(
 
 type makeSDJWTOpts struct {
 	hashAlg crypto.Hash
+	version common.SDJWTVersion
 }
 
 // MakeSDJWTOption provides an option for creating an SD-JWT from a VC.
@@ -246,6 +248,13 @@ type MakeSDJWTOption func(opts *makeSDJWTOpts)
 func MakeSDJWTWithHash(hash crypto.Hash) MakeSDJWTOption {
 	return func(opts *makeSDJWTOpts) {
 		opts.hashAlg = hash
+	}
+}
+
+// MakeSDJWTWithVersion sets version for SD-JWT VC.
+func MakeSDJWTWithVersion(version common.SDJWTVersion) MakeSDJWTOption {
+	return func(opts *makeSDJWTOpts) {
+		opts.version = version
 	}
 }
 
@@ -293,10 +302,14 @@ func makeSDJWT(vc *Credential, signer jose.Signer, signingKeyID string, options 
 	headers := map[string]interface{}{
 		jose.HeaderKeyID: signingKeyID,
 	}
+	if opts.version == common.SDJWTVersionV5 {
+		headers[jose.HeaderType] = "vc+sd-jwt"
+	}
 
 	issuerOptions := []issuer.NewOpt{
 		issuer.WithStructuredClaims(true),
 		issuer.WithNonSelectivelyDisclosableClaims([]string{"id"}),
+		issuer.WithSDJWTWithVersion(opts.version),
 	}
 
 	if opts.hashAlg != 0 {

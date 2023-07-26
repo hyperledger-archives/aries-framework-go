@@ -32,6 +32,14 @@ const (
 	valueIndex      = 2
 )
 
+type SDJWTVersion int
+
+const (
+	SDJWTVersionDefault = SDJWTVersionV2
+	SDJWTVersionV2      = SDJWTVersion(2)
+	SDJWTVersionV5      = SDJWTVersion(5)
+)
+
 // CombinedFormatForIssuance holds SD-JWT and disclosures.
 type CombinedFormatForIssuance struct {
 	SDJWT       string
@@ -97,6 +105,7 @@ func GetDisclosureClaims(disclosures []string) ([]*DisclosureClaim, error) {
 
 func getDisclosureClaim(disclosure string) (*DisclosureClaim, error) {
 	decoded, err := base64.RawURLEncoding.DecodeString(disclosure)
+	fmt.Println(string(decoded))
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode disclosure: %w", err)
 	}

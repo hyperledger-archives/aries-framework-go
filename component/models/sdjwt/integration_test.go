@@ -20,7 +20,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk/jwksupport"
+
 	afjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
+	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/holder"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/issuer"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/verifier"
@@ -327,6 +329,100 @@ func TestSDJWTFlow(t *testing.T) {
 
 		r.Equal(len(vc), len(verifiedClaims))
 	})
+
+	t.Run("success - NewFromVC API v5", func(t *testing.T) {
+		holderPublicKey, holderPrivateKey, err := ed25519.GenerateKey(rand.Reader)
+		r.NoError(err)
+
+		holderPublicJWK, err := jwksupport.JWKFromKey(holderPublicKey)
+		require.NoError(t, err)
+
+		const vcLocal = `
+{
+"sub": "user_42",
+  "given_name": "John",
+  "family_name": "Doe",
+  "email": "johndoe@example.com",
+  "phone_number": "+1-202-555-0101",
+  "phone_number_verified": true,
+  "address": {
+    "street_address": "123 Main St",
+    "locality": "Anytown",
+    "region": "Anystate",
+    "country": "US"
+  },
+  "birthdate": "1940-01-01",
+  "updated_at": 1570000000,
+  "nationalities": [
+    "US",
+    "DE"
+  ]
+}`
+
+		// create VC - we will use template here
+		var vc map[string]interface{}
+		//err = json.Unmarshal([]byte(sampleVCFull), &vc)
+		err = json.Unmarshal([]byte(vcLocal), &vc)
+		r.NoError(err)
+
+		token, err := issuer.NewFromVC(vc, nil, signer,
+			issuer.WithHolderPublicKey(holderPublicJWK),
+			//issuer.WithStructuredClaims(true),
+			//issuer.WithNonSelectivelyDisclosableClaims([]string{"id", "degree.type"}),
+			issuer.WithSDJWTWithVersion(common.SDJWTVersionV5),
+		)
+		r.NoError(err)
+
+		var decoded map[string]interface{}
+
+		err = token.DecodeClaims(&decoded)
+		require.NoError(t, err)
+
+		printObject(t, "SD-JWT Payload", decoded)
+
+		vcCombinedFormatForIssuance, err := token.Serialize(false)
+		r.NoError(err)
+
+		fmt.Println(fmt.Sprintf("issuer SD-JWT: %s", vcCombinedFormatForIssuance))
+
+		claims, err := holder.Parse(vcCombinedFormatForIssuance, holder.WithSignatureVerifier(signatureVerifier))
+		r.NoError(err)
+
+		printObject(t, "Holder Claims", claims)
+
+		r.Equal(4, len(claims))
+
+		const testAudience = "https://test.com/verifier"
+		const testNonce = "nonce"
+
+		holderSigner := afjwt.NewEd25519Signer(holderPrivateKey)
+
+		selectedDisclosures := getDisclosuresFromClaimNames([]string{"degree", "id", "name"}, claims)
+
+		// Holder will disclose only sub-set of claims to verifier.
+		combinedFormatForPresentation, err := holder.CreatePresentation(vcCombinedFormatForIssuance, selectedDisclosures,
+			holder.WithHolderBinding(&holder.BindingInfo{
+				Payload: holder.BindingPayload{
+					Nonce:    testNonce,
+					Audience: testAudience,
+					IssuedAt: jwt.NewNumericDate(time.Now()),
+				},
+				Signer: holderSigner,
+			}))
+		r.NoError(err)
+
+		fmt.Println(fmt.Sprintf("holder SD-JWT: %s", combinedFormatForPresentation))
+
+		// Verifier will validate combined format for presentation and create verified claims.
+		// In this case it will be VC since VC was passed in.
+		verifiedClaims, err := verifier.Parse(combinedFormatForPresentation,
+			verifier.WithSignatureVerifier(signatureVerifier))
+		r.NoError(err)
+
+		printObject(t, "Verified Claims", verifiedClaims)
+
+		r.Equal(len(vc), len(verifiedClaims))
+	})
 }
 
 func createComplexClaims() map[string]interface{} {
@@ -411,6 +507,7 @@ const sampleVCFull = `
 				"type": "BachelorDegree",
 				"id": "some-id"
 			},
+			"arr" : ["a", "b"],
 			"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
 			"name": "Jayden Doe",
 			"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"

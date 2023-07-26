@@ -23,11 +23,12 @@ import (
 	"github.com/piprate/json-gold/ld"
 	"github.com/xeipuuv/gojsonschema"
 
+	kmsapi "github.com/hyperledger/aries-framework-go/spi/kms"
+	vdrapi "github.com/hyperledger/aries-framework-go/spi/vdr"
+
 	"github.com/hyperledger/aries-framework-go/component/models/did"
 	"github.com/hyperledger/aries-framework-go/component/models/signature/verifier"
 	jsonutil "github.com/hyperledger/aries-framework-go/component/models/util/json"
-	kmsapi "github.com/hyperledger/aries-framework-go/spi/kms"
-	vdrapi "github.com/hyperledger/aries-framework-go/spi/vdr"
 )
 
 // TODO https://github.com/square/go-jose/issues/263 support ES256K
