@@ -5,11 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
-
-	afgjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
-	utils "github.com/hyperledger/aries-framework-go/component/models/util/maphelpers"
 )
 
 type SDJWTBuilderV5 struct {
@@ -26,46 +22,6 @@ func (s *SDJWTBuilderV5) keysToExclude() []string {
 		"status",
 		"sub",
 	}
-}
-func (s *SDJWTBuilderV5) NewFromVC(vc map[string]interface{}, headers jose.Headers, signer jose.Signer, opts ...NewOpt) (*SelectiveDisclosureJWT, error) {
-	claims := utils.CopyMap(vc)
-	for _, key := range s.keysToExclude() {
-		delete(claims, key)
-	}
-	token, err := New("", claims, nil, &unsecuredJWTSigner{}, opts...)
-	if err != nil {
-		return nil, err
-	}
-
-	selectiveCredentialSubject := utils.CopyMap(token.SignedJWT.Payload)
-	// move _sd_alg key from credential subject to vc as per example 4 in spec
-	vc[common.SDAlgorithmKey] = selectiveCredentialSubject[common.SDAlgorithmKey]
-	delete(selectiveCredentialSubject, common.SDAlgorithmKey)
-
-	// move cnf key from credential subject to vc as per example 4 in spec
-	cnfObj, ok := selectiveCredentialSubject[common.CNFKey]
-	if ok {
-		vc[common.CNFKey] = cnfObj
-		delete(selectiveCredentialSubject, common.CNFKey)
-	}
-
-	// update VC with 'selective' credential subject
-	for k := range claims {
-		delete(vc, k)
-	}
-	for k, v := range selectiveCredentialSubject {
-		vc[k] = v
-	}
-
-	// sign VC with 'selective' credential subject
-	signedJWT, err := afgjwt.NewSigned(vc, headers, signer)
-	if err != nil {
-		return nil, err
-	}
-
-	sdJWT := &SelectiveDisclosureJWT{Disclosures: token.Disclosures, SignedJWT: signedJWT}
-
-	return sdJWT, nil
 }
 
 func NewSDJWTBuilderV5() *SDJWTBuilderV5 {

@@ -337,32 +337,40 @@ func TestSDJWTFlow(t *testing.T) {
 		holderPublicJWK, err := jwksupport.JWKFromKey(holderPublicKey)
 		require.NoError(t, err)
 
-		const vcLocal = `
+		localVc := `
 {
-"sub": "user_42",
-  "given_name": "John",
-  "family_name": "Doe",
-  "email": "johndoe@example.com",
-  "phone_number": "+1-202-555-0101",
-  "phone_number_verified": true,
-  "address": {
-    "street_address": "123 Main St",
-    "locality": "Anytown",
-    "region": "Anystate",
-    "country": "US"
-  },
-  "birthdate": "1940-01-01",
-  "updated_at": 1570000000,
-  "nationalities": [
-    "US",
-    "DE"
-  ]
+	"iat": 1673987547,
+	"iss": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+	"jti": "http://example.edu/credentials/1872",
+	"nbf": 1673987547,
+	"sub": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+	"vc": {
+		"@context": [
+			"https://www.w3.org/2018/credentials/v1"
+		],
+		"credentialSubject": {
+			"degree": {
+				"degree": "MIT",
+				"type": "BachelorDegree",
+				"id": "some-id"
+			},
+			"arr" : ["a", "b"],
+			"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+			"name": "Jayden Doe",
+			"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+		},
+		"first_name": "First name",
+		"id": "http://example.edu/credentials/1872",
+		"info": "Info",
+		"issuanceDate": "2023-01-17T22:32:27.468109817+02:00",
+		"issuer": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		"last_name": "Last name",
+		"type": "VerifiableCredential"
+	}
 }`
-
 		// create VC - we will use template here
 		var vc map[string]interface{}
-		//err = json.Unmarshal([]byte(sampleVCFull), &vc)
-		err = json.Unmarshal([]byte(vcLocal), &vc)
+		err = json.Unmarshal([]byte(localVc), &vc)
 		r.NoError(err)
 
 		token, err := issuer.NewFromVC(vc, nil, signer,

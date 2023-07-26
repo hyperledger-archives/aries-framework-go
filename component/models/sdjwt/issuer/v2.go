@@ -4,11 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
-
-	afgjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
-	utils "github.com/hyperledger/aries-framework-go/component/models/util/maphelpers"
 )
 
 type builder interface {
@@ -17,13 +13,6 @@ type builder interface {
 		claims map[string]interface{},
 		opts *newOpts,
 	) ([]string, map[string]interface{}, error)
-
-	NewFromVC(
-		vc map[string]interface{},
-		headers jose.Headers,
-		signer jose.Signer,
-		opts ...NewOpt,
-	) (*SelectiveDisclosureJWT, error)
 }
 
 func getBuilderByVersion(
@@ -38,53 +27,6 @@ func getBuilderByVersion(
 }
 
 type SDJWTBuilderV2 struct {
-}
-
-func (s *SDJWTBuilderV2) NewFromVC(
-	vc map[string]interface{},
-	headers jose.Headers,
-	signer jose.Signer,
-	opts ...NewOpt,
-) (*SelectiveDisclosureJWT, error) {
-	csObj, ok := common.GetKeyFromVC(credentialSubjectKey, vc)
-	if !ok {
-		return nil, fmt.Errorf("credential subject not found")
-	}
-
-	cs, ok := csObj.(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("credential subject must be an object")
-	}
-
-	token, err := New("", cs, nil, &unsecuredJWTSigner{}, opts...)
-	if err != nil {
-		return nil, err
-	}
-
-	selectiveCredentialSubject := utils.CopyMap(token.SignedJWT.Payload)
-	// move _sd_alg key from credential subject to vc as per example 4 in spec
-	vc[vcKey].(map[string]interface{})[common.SDAlgorithmKey] = selectiveCredentialSubject[common.SDAlgorithmKey]
-	delete(selectiveCredentialSubject, common.SDAlgorithmKey)
-
-	// move cnf key from credential subject to vc as per example 4 in spec
-	cnfObj, ok := selectiveCredentialSubject[common.CNFKey]
-	if ok {
-		vc[vcKey].(map[string]interface{})[common.CNFKey] = cnfObj
-		delete(selectiveCredentialSubject, common.CNFKey)
-	}
-
-	// update VC with 'selective' credential subject
-	vc[vcKey].(map[string]interface{})[credentialSubjectKey] = selectiveCredentialSubject
-
-	// sign VC with 'selective' credential subject
-	signedJWT, err := afgjwt.NewSigned(vc, headers, signer)
-	if err != nil {
-		return nil, err
-	}
-
-	sdJWT := &SelectiveDisclosureJWT{Disclosures: token.Disclosures, SignedJWT: signedJWT}
-
-	return sdJWT, nil
 }
 
 func NewSDJWTBuilderV2() *SDJWTBuilderV2 {
