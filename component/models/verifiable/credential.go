@@ -21,6 +21,7 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/hyperledger/aries-framework-go/component/log"
+
 	"github.com/hyperledger/aries-framework-go/component/models/jwt"
 	docjsonld "github.com/hyperledger/aries-framework-go/component/models/ld/validator"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
@@ -880,7 +881,7 @@ func validateDisclosures(vcBytes []byte, disclosures []string) error {
 		}
 	}
 
-	err = common.VerifyDisclosuresInSDJWT(disclosures, vcPayload)
+	err = common.VerifyDisclosuresInSDJWT(disclosures, vcPayload, common.SDJWTVersionV2)
 	if err != nil {
 		return fmt.Errorf("invalid SDJWT disclosures: %w", err)
 	}

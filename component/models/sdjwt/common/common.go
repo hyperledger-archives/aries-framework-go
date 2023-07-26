@@ -9,7 +9,6 @@ package common
 import (
 	"crypto"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -25,11 +24,6 @@ const (
 	SDAlgorithmKey = "_sd_alg"
 	SDKey          = "_sd"
 	CNFKey         = "cnf"
-
-	disclosureParts = 3
-	saltIndex       = 0
-	nameIndex       = 1
-	valueIndex      = 2
 )
 
 type SDJWTVersion int
@@ -79,61 +73,31 @@ func (cf *CombinedFormatForPresentation) Serialize() string {
 	return presentation
 }
 
+type DisclosureClaimType int
+
+const (
+	DisclosureClaimTypeUnknown      = DisclosureClaimType(0)
+	DisclosureClaimTypeArrayElement = DisclosureClaimType(1)
+	DisclosureClaimTypeArray        = DisclosureClaimType(2)
+)
+
 // DisclosureClaim defines claim.
 type DisclosureClaim struct {
 	Disclosure string
 	Salt       string
 	Name       string
 	Value      interface{}
+	Type       DisclosureClaimType
 }
 
 // GetDisclosureClaims de-codes disclosures.
-func GetDisclosureClaims(disclosures []string) ([]*DisclosureClaim, error) {
-	var claims []*DisclosureClaim
+func GetDisclosureClaims(
+	disclosures []string,
+	version SDJWTVersion,
+) ([]*DisclosureClaim, error) {
+	instance := newCommon(version)
 
-	for _, disclosure := range disclosures {
-		claim, err := getDisclosureClaim(disclosure)
-		if err != nil {
-			return nil, err
-		}
-
-		claims = append(claims, claim)
-	}
-
-	return claims, nil
-}
-
-func getDisclosureClaim(disclosure string) (*DisclosureClaim, error) {
-	decoded, err := base64.RawURLEncoding.DecodeString(disclosure)
-	fmt.Println(string(decoded))
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode disclosure: %w", err)
-	}
-
-	var disclosureArr []interface{}
-
-	err = json.Unmarshal(decoded, &disclosureArr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal disclosure array: %w", err)
-	}
-
-	if len(disclosureArr) != disclosureParts {
-		return nil, fmt.Errorf("disclosure array size[%d] must be %d", len(disclosureArr), disclosureParts)
-	}
-
-	salt, ok := disclosureArr[saltIndex].(string)
-	if !ok {
-		return nil, fmt.Errorf("disclosure salt type[%T] must be string", disclosureArr[saltIndex])
-	}
-
-	name, ok := disclosureArr[nameIndex].(string)
-	if !ok {
-		return nil, fmt.Errorf("disclosure name type[%T] must be string", disclosureArr[nameIndex])
-	}
-
-	claim := &DisclosureClaim{Disclosure: disclosure, Salt: salt, Name: name, Value: disclosureArr[valueIndex]}
-
-	return claim, nil
+	return instance.GetDisclosureClaims(disclosures)
 }
 
 // ParseCombinedFormatForIssuance parses combined format for issuance into CombinedFormatForIssuance parts.
@@ -187,33 +151,14 @@ func GetHash(hash crypto.Hash, value string) (string, error) {
 }
 
 // VerifyDisclosuresInSDJWT checks for disclosure inclusion in SD-JWT.
-func VerifyDisclosuresInSDJWT(disclosures []string, signedJWT *afgjwt.JSONWebToken) error {
-	claims := utils.CopyMap(signedJWT.Payload)
+func VerifyDisclosuresInSDJWT(
+	disclosures []string,
+	signedJWT *afgjwt.JSONWebToken,
+	version SDJWTVersion,
+) error {
+	parser := newCommon(version)
 
-	// check that the _sd_alg claim is present
-	// check that _sd_alg value is understood and the hash algorithm is deemed secure.
-	cryptoHash, err := GetCryptoHashFromClaims(claims)
-	if err != nil {
-		return err
-	}
-
-	for _, disclosure := range disclosures {
-		digest, err := GetHash(cryptoHash, disclosure)
-		if err != nil {
-			return err
-		}
-
-		found, err := isDigestInClaims(digest, claims)
-		if err != nil {
-			return err
-		}
-
-		if !found {
-			return fmt.Errorf("disclosure digest '%s' not found in SD-JWT disclosure digests", digest)
-		}
-	}
-
-	return nil
+	return parser.VerifyDisclosuresInSDJWT(disclosures, signedJWT)
 }
 
 func isDigestInClaims(digest string, claims map[string]interface{}) (bool, error) {

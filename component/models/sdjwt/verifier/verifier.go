@@ -20,6 +20,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
+
 	afgjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/component/models/signature/verifier"
@@ -164,7 +165,7 @@ func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]i
 	}
 
 	// Verify that all disclosures are present in SD-JWT.
-	err = common.VerifyDisclosuresInSDJWT(cfp.Disclosures, signedJWT)
+	err = common.VerifyDisclosuresInSDJWT(cfp.Disclosures, signedJWT, common.SDJWTVersionV2)
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +294,7 @@ func getSignatureVerifierFromCNF(cnf map[string]interface{}) (jose.SignatureVeri
 }
 
 func getDisclosedClaims(disclosures []string, signedJWT *afgjwt.JSONWebToken) (map[string]interface{}, error) {
-	disclosureClaims, err := common.GetDisclosureClaims(disclosures)
+	disclosureClaims, err := common.GetDisclosureClaims(disclosures, common.SDJWTVersionV2)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get verified payload: %w", err)
 	}

@@ -13,6 +13,7 @@ import (
 	"github.com/go-jose/go-jose/v3/jwt"
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+
 	afgjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 )
@@ -28,6 +29,7 @@ type Claim struct {
 type parseOpts struct {
 	detachedPayload []byte
 	sigVerifier     jose.SignatureVerifier
+	version         common.SDJWTVersion
 }
 
 // ParseOpt is the SD-JWT Parser option.
@@ -44,6 +46,13 @@ func WithJWTDetachedPayload(payload []byte) ParseOpt {
 func WithSignatureVerifier(signatureVerifier jose.SignatureVerifier) ParseOpt {
 	return func(opts *parseOpts) {
 		opts.sigVerifier = signatureVerifier
+	}
+}
+
+// WithSDJWTVersion option is for definition of JWT detached payload.
+func WithSDJWTVersion(version common.SDJWTVersion) ParseOpt {
+	return func(opts *parseOpts) {
+		opts.version = version
 	}
 }
 
@@ -74,7 +83,8 @@ func Parse(combinedFormatForIssuance string, opts ...ParseOpt) ([]*Claim, error)
 	var jwtOpts []afgjwt.ParseOpt
 	jwtOpts = append(jwtOpts,
 		afgjwt.WithSignatureVerifier(pOpts.sigVerifier),
-		afgjwt.WithJWTDetachedPayload(pOpts.detachedPayload))
+		afgjwt.WithJWTDetachedPayload(pOpts.detachedPayload),
+	)
 
 	cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
 
@@ -83,16 +93,19 @@ func Parse(combinedFormatForIssuance string, opts ...ParseOpt) ([]*Claim, error)
 		return nil, err
 	}
 
-	err = common.VerifyDisclosuresInSDJWT(cfi.Disclosures, signedJWT)
+	err = common.VerifyDisclosuresInSDJWT(cfi.Disclosures, signedJWT, pOpts.version)
 	if err != nil {
 		return nil, err
 	}
 
-	return getClaims(cfi.Disclosures)
+	return getClaims(cfi.Disclosures, pOpts.version)
 }
 
-func getClaims(disclosures []string) ([]*Claim, error) {
-	disclosureClaims, err := common.GetDisclosureClaims(disclosures)
+func getClaims(
+	disclosures []string,
+	version common.SDJWTVersion,
+) ([]*Claim, error) {
+	disclosureClaims, err := common.GetDisclosureClaims(disclosures, version)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get claims from disclosures: %w", err)
 	}

@@ -375,7 +375,7 @@ func TestSDJWTFlow(t *testing.T) {
 
 		token, err := issuer.NewFromVC(vc, nil, signer,
 			issuer.WithHolderPublicKey(holderPublicJWK),
-			//issuer.WithStructuredClaims(true),
+			issuer.WithStructuredClaims(true),
 			//issuer.WithNonSelectivelyDisclosableClaims([]string{"id", "degree.type"}),
 			issuer.WithSDJWTWithVersion(common.SDJWTVersionV5),
 		)
@@ -393,12 +393,15 @@ func TestSDJWTFlow(t *testing.T) {
 
 		fmt.Println(fmt.Sprintf("issuer SD-JWT: %s", vcCombinedFormatForIssuance))
 
-		claims, err := holder.Parse(vcCombinedFormatForIssuance, holder.WithSignatureVerifier(signatureVerifier))
+		claims, err := holder.Parse(vcCombinedFormatForIssuance,
+			holder.WithSignatureVerifier(signatureVerifier),
+			holder.WithSDJWTVersion(common.SDJWTVersionV5),
+		)
 		r.NoError(err)
 
 		printObject(t, "Holder Claims", claims)
 
-		r.Equal(4, len(claims))
+		r.Equal(5, len(claims))
 
 		const testAudience = "https://test.com/verifier"
 		const testNonce = "nonce"
