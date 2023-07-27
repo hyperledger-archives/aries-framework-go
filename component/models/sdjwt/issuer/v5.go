@@ -9,6 +9,7 @@ import (
 )
 
 type SDJWTBuilderV5 struct {
+	debugMode bool
 }
 
 func (s *SDJWTBuilderV5) keysToExclude() []string {
@@ -60,7 +61,7 @@ func (s *SDJWTBuilderV5) extractValueOptions(curPath string, opts *newOpts) valu
 		IsStructured:    opts.structuredClaims,
 		IsAlwaysInclude: s.isAlwaysInclude(curPath, opts),
 		IsIgnored:       s.isIgnored(curPath, opts),
-		IsRecursive:     s.isIgnored(curPath, opts),
+		IsRecursive:     s.isRecursive(curPath, opts),
 	}
 }
 
@@ -77,17 +78,12 @@ func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests(
 	opts *newOpts,
 ) ([]string, map[string]interface{}, error) {
 	digestsMap := map[string]interface{}{}
-	//var disclosures []string
-	//var rootLevelDisclosures []string
-	//var arrDisclosures []string
-	//digestsMap := make(map[string]interface{})
-
 	finalSDDigest, err := createDecoyDisclosures(opts)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create decoy disclosures: %w", err)
 	}
 
-	//var allDisclosures []string
+	var allDisclosures []string
 	for key, value := range claims {
 		curPath := key
 		if path != "" {
@@ -102,11 +98,45 @@ func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests(
 			if valOption.IsIgnored {
 				digestsMap[key] = value
 			} else if valOption.IsRecursive {
+				nestedDisclosures, nestedDigestsMap, mapErr := s.CreateDisclosuresAndDigests(
+					curPath,
+					value.(map[string]interface{}),
+					opts,
+				)
+				if mapErr != nil {
+					return nil, nil, mapErr
+				}
 
+				disclosure, disErr := s.createDisclosure(key, nestedDigestsMap, opts)
+				if disErr != nil {
+					return nil, nil, fmt.Errorf(
+						"create disclosure for recursive disclosure value with path [%v]: %w",
+						path, disErr)
+				}
+
+				finalSDDigest = append(finalSDDigest, disclosure)
+				allDisclosures = append(allDisclosures, nestedDisclosures...)
 			} else if valOption.IsAlwaysInclude || valOption.IsStructured {
+				nestedDisclosures, nestedDigestsMap, mapErr := s.CreateDisclosuresAndDigests(
+					curPath,
+					value.(map[string]interface{}),
+					opts,
+				)
+				if mapErr != nil {
+					return nil, nil, mapErr
+				}
 
+				digestsMap[key] = nestedDigestsMap
+
+				allDisclosures = append(allDisclosures, nestedDisclosures...)
 			} else { // plain
+				disclosure, disErr := s.createDisclosure(key, value, opts)
+				if disErr != nil {
+					return nil, nil, fmt.Errorf("create disclosure for map object [%v]: %w",
+						path, disErr)
+				}
 
+				finalSDDigest = append(finalSDDigest, disclosure)
 			}
 		case reflect.Array:
 			fallthrough
@@ -133,40 +163,17 @@ func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests(
 				finalSDDigest = append(finalSDDigest, disclosure)
 			}
 
-			finalSDDigest = append(finalSDDigest, elementsDisclosures...)
-		}
-		//if kind == reflect.Map && opts.structuredClaims {
-		//	// todo
-		//	//nestedDisclosures, nestedDigestsMap, e := s.CreateDisclosuresAndDigests(curPath,
-		//	//	value.(map[string]interface{}), opts)
-		//	//if e != nil {
-		//	//	return nil, nil, e
-		//	//}
-		//
-		//	//digestsMap[key] = nestedDigestsMap
-		//
-		//	//disclosures = append(disclosures, nestedDisclosures...)
-		//} else if kind == reflect.Array || kind == reflect.Slice {
-		//
-		//} else {
-		//	if _, ok := opts.nonSDClaimsMap[curPath]; ok {
-		//		//digestsMap[key] = value
-		//
-		//		continue
-		//	}
-		//
-		//	disclosure, e := s.createDisclosure(key, value, opts)
-		//	if e != nil {
-		//		return nil, nil, fmt.Errorf("create disclosure: %w", e)
-		//	}
-		//
-		//	finalSDDigest = append(finalSDDigest, disclosure)
-		//	allDisclosures = append(allDisclosures, disclosure)
-		//	//rootLevelDisclosures = append(rootLevelDisclosures, disclosure)
-		//}
-	}
+			allDisclosures = append(allDisclosures, elementsDisclosures...)
+		default:
+			disclosure, disErr := s.createDisclosure(key, value, opts)
+			if disErr != nil {
+				return nil, nil, fmt.Errorf("create disclosure for simple value with path [%v]: %w",
+					path, disErr)
+			}
 
-	//disclosures = append(disclosures, rootLevelDisclosures...)
+			finalSDDigest = append(finalSDDigest, disclosure)
+		}
+	}
 
 	digests, err := createDigests(finalSDDigest, opts)
 	if err != nil {
@@ -175,7 +182,7 @@ func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests(
 
 	digestsMap[common.SDKey] = digests
 
-	return finalSDDigest, digestsMap, nil
+	return append(finalSDDigest, allDisclosures...), digestsMap, nil
 }
 
 func (s *SDJWTBuilderV5) processArrayElements(
@@ -212,12 +219,15 @@ func (s *SDJWTBuilderV5) createDisclosure(
 	key string,
 	value interface{},
 	opts *newOpts,
-) (string, error) {
+) (*DisclosureEntity, error) {
 	salt, err := opts.getSalt()
 	if err != nil {
-		return "", fmt.Errorf("generate salt: %w", err)
+		return nil, fmt.Errorf("generate salt: %w", err)
 	}
 
+	finalDis := &DisclosureEntity{
+		Salt: salt,
+	}
 	disclosure := []interface{}{salt}
 	if key != "" {
 		disclosure = append(disclosure, key)
@@ -226,8 +236,26 @@ func (s *SDJWTBuilderV5) createDisclosure(
 
 	disclosureBytes, err := opts.jsonMarshal(disclosure)
 	if err != nil {
-		return "", fmt.Errorf("marshal disclosure: %w", err)
+		return nil, fmt.Errorf("marshal disclosure: %w", err)
 	}
 
-	return base64.RawURLEncoding.EncodeToString(disclosureBytes), nil
+	finalDis.Key = key
+	finalDis.Value = value
+	finalDis.Result = base64.RawURLEncoding.EncodeToString(disclosureBytes)
+
+	if s.debugMode {
+		finalDis.DebugArr = disclosure
+		finalDis.DebugStr = string(disclosureBytes)
+	}
+
+	return finalDis, nil
+}
+
+type DisclosureEntity struct {
+	Result   string
+	Salt     string
+	Key      string
+	Value    interface{}
+	DebugArr []interface{}
+	DebugStr string
 }
