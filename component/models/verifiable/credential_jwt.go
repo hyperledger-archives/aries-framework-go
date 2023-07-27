@@ -32,12 +32,12 @@ type JWTCredClaims struct {
 	VC map[string]interface{} `json:"vc,omitempty"`
 }
 
-// ToSDJWTCredentialPayload defines custom marshalling of JWTCredClaims.
+// ToSDJWTV5CredentialPayload defines custom marshalling of JWTCredClaims.
 // Key difference with default marshaller is that returned object does not contain custom "vc" root claim.
 // Example:
 //
 //	https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-05.html#name-example-4b-w3c-verifiable-c.
-func (jcc *JWTCredClaims) ToSDJWTCredentialPayload() ([]byte, error) {
+func (jcc *JWTCredClaims) ToSDJWTV5CredentialPayload() ([]byte, error) {
 	type Alias JWTCredClaims
 
 	alias := Alias(*jcc)

@@ -337,15 +337,6 @@ func MakeSDJWTWithHash(hash crypto.Hash) MakeSDJWTOption {
 	return verifiable.MakeSDJWTWithHash(hash)
 }
 
-// WithSDJWTCredentialPayloadFormat sets the payload format in SD-JWT VC.
-// Key difference with default format is that returned object does not contain custom "vc" root claim.
-// Example:
-//
-//	https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-05.html#name-example-4b-w3c-verifiable-c.
-func WithSDJWTCredentialPayloadFormat() MakeSDJWTOption {
-	return verifiable.WithSDJWTCredentialPayloadFormat()
-}
-
 // DisplayCredentialOption provides an option for Credential.CreateDisplayCredential.
 type DisplayCredentialOption = verifiable.DisplayCredentialOption
 
