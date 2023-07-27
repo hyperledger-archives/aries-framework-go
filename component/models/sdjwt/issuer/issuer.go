@@ -103,6 +103,7 @@ type newOpts struct {
 	version           common.SDJWTVersion
 	alwaysInclude     map[string]bool
 	recursiveClaimMap map[string]bool
+	sdjwtCredentialFormat bool
 }
 
 // NewOpt is the SD-JWT New option.
@@ -213,6 +214,17 @@ func WithStructuredClaims(flag bool) NewOpt {
 	}
 }
 
+// WithSDJWTCredentialFormat is an option that declares the SDJWT credential format.
+// Key difference with default format is that underlying object does not contain custom "vc" root claim.
+// Example:
+//
+//	https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-05.html#name-example-4b-w3c-verifiable-c.
+func WithSDJWTCredentialFormat(flag bool) NewOpt {
+	return func(opts *newOpts) {
+		opts.sdjwtCredentialFormat = flag
+	}
+}
+
 // WithNonSelectivelyDisclosableClaims is an option for provide claim names that should be ignored when creating
 // selectively disclosable claims.
 // For example if you would like to not selectively disclose id and degree type from the following claims:
@@ -299,12 +311,14 @@ Algorithm:
   - create signed SD-JWT based on VC
   - return signed SD-JWT plus Disclosures
 */
-func NewFromVC(
-	vc map[string]interface{},
-	headers jose.Headers,
-	signer jose.Signer,
-	opts ...NewOpt,
-) (*SelectiveDisclosureJWT, error) {
+func NewFromVC(vc map[string]interface{}, headers jose.Headers,
+	signer jose.Signer, opts ...NewOpt) (*SelectiveDisclosureJWT, error) {
+	nOpts := &newOpts{}
+
+	for _, opt := range opts {
+		opt(nOpts)
+	}
+
 	csObj, ok := common.GetKeyFromVC(credentialSubjectKey, vc)
 	if !ok {
 		return nil, fmt.Errorf("credential subject not found")
@@ -320,20 +334,30 @@ func NewFromVC(
 		return nil, err
 	}
 
+	var vcClaims = vc
+	if !nOpts.sdjwtCredentialFormat {
+		// Since it's not SD JWT credential format - need to consider "vc" underlying object
+		vcClaims, ok = vc[vcKey].(map[string]interface{})
+		if !ok {
+			return nil, errors.New("invalid vc claim")
+		}
+	}
+
 	selectiveCredentialSubject := utils.CopyMap(token.SignedJWT.Payload)
 	// move _sd_alg key from credential subject to vc as per example 4 in spec
-	vc[vcKey].(map[string]interface{})[common.SDAlgorithmKey] = selectiveCredentialSubject[common.SDAlgorithmKey]
+	vcClaims[common.SDAlgorithmKey] = selectiveCredentialSubject[common.SDAlgorithmKey]
 	delete(selectiveCredentialSubject, common.SDAlgorithmKey)
 
 	// move cnf key from credential subject to vc as per example 4 in spec
 	cnfObj, ok := selectiveCredentialSubject[common.CNFKey]
 	if ok {
-		vc[vcKey].(map[string]interface{})[common.CNFKey] = cnfObj
+		vcClaims[common.CNFKey] = cnfObj
+
 		delete(selectiveCredentialSubject, common.CNFKey)
 	}
 
 	// update VC with 'selective' credential subject
-	vc[vcKey].(map[string]interface{})[credentialSubjectKey] = selectiveCredentialSubject
+	vcClaims[credentialSubjectKey] = selectiveCredentialSubject
 
 	// sign VC with 'selective' credential subject
 	signedJWT, err := afgjwt.NewSigned(vc, headers, signer)

@@ -37,6 +37,15 @@ func TestParseSDJWT(t *testing.T) {
 		require.NotNil(t, newVC)
 	})
 
+	t.Run("success with SD JWT credential payload format", func(t *testing.T) {
+		sdJWTCredFormatString, issuerCredFormatID := createTestSDJWTCred(t, privKey, WithSDJWTCredentialPayloadFormat())
+
+		newVC, e := ParseCredential([]byte(sdJWTCredFormatString),
+			WithPublicKeyFetcher(createDIDKeyFetcher(t, pubKey, issuerCredFormatID)))
+		require.NoError(t, e)
+		require.NotNil(t, newVC)
+	})
+
 	t.Run("success with sd alg in subject", func(t *testing.T) {
 		vc, e := ParseCredential([]byte(sdJWTString), WithDisabledProofCheck())
 		require.NoError(t, e)
@@ -306,6 +315,15 @@ func TestMakeSDJWT(t *testing.T) {
 			require.NoError(t, err)
 		})
 
+		t.Run("with SD JWT credential payload format", func(t *testing.T) {
+			sdjwt, err := vc.MakeSDJWT(
+				afgojwt.NewEd25519Signer(privKey), "did:example:abc123#key-1", WithSDJWTCredentialPayloadFormat())
+			require.NoError(t, err)
+
+			_, err = ParseCredential([]byte(sdjwt), WithPublicKeyFetcher(holderPublicKeyFetcher(pubKey)))
+			require.NoError(t, err)
+		})
+
 		t.Run("with hash option", func(t *testing.T) {
 			sdjwt, err := vc.MakeSDJWT(afgojwt.NewEd25519Signer(privKey), "did:example:abc123#key-1",
 				MakeSDJWTWithHash(crypto.SHA512))
@@ -510,7 +528,8 @@ func (m *mockSigner) Headers() jose.Headers {
 	return jose.Headers{"alg": "foo"}
 }
 
-func createTestSDJWTCred(t *testing.T, privKey ed25519.PrivateKey) (sdJWTCred string, issuerID string) {
+func createTestSDJWTCred(
+	t *testing.T, privKey ed25519.PrivateKey, opts ...MakeSDJWTOption) (sdJWTCred string, issuerID string) {
 	t.Helper()
 
 	testCred := []byte(jwtTestCredential)
@@ -518,7 +537,7 @@ func createTestSDJWTCred(t *testing.T, privKey ed25519.PrivateKey) (sdJWTCred st
 	srcVC, err := parseTestCredential(t, testCred)
 	require.NoError(t, err)
 
-	sdjwt, err := srcVC.MakeSDJWT(afgojwt.NewEd25519Signer(privKey), srcVC.Issuer.ID+"#keys-1")
+	sdjwt, err := srcVC.MakeSDJWT(afgojwt.NewEd25519Signer(privKey), srcVC.Issuer.ID+"#keys-1", opts...)
 	require.NoError(t, err)
 
 	return sdjwt, srcVC.Issuer.ID

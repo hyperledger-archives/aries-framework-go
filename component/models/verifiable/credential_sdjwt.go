@@ -237,7 +237,8 @@ func filterDisclosures(
 }
 
 type makeSDJWTOpts struct {
-	hashAlg crypto.Hash
+	hashAlg                      crypto.Hash
+	sdjwtCredentialPayloadFormat bool
 	version common.SDJWTVersion
 }
 
@@ -248,6 +249,17 @@ type MakeSDJWTOption func(opts *makeSDJWTOpts)
 func MakeSDJWTWithHash(hash crypto.Hash) MakeSDJWTOption {
 	return func(opts *makeSDJWTOpts) {
 		opts.hashAlg = hash
+	}
+}
+
+// WithSDJWTCredentialPayloadFormat sets the payload format in SD-JWT VC.
+// Key difference with default format is that returned object does not contain custom "vc" root claim.
+// Example:
+//
+//	https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-05.html#name-example-4b-w3c-verifiable-c.
+func WithSDJWTCredentialPayloadFormat() MakeSDJWTOption {
+	return func(opts *makeSDJWTOpts) {
+		opts.sdjwtCredentialPayloadFormat = true
 	}
 }
 
@@ -287,7 +299,13 @@ func makeSDJWT(vc *Credential, signer jose.Signer, signingKeyID string, options 
 		return nil, fmt.Errorf("constructing VC JWT claims: %w", err)
 	}
 
-	claimBytes, err := json.Marshal(claims)
+	var claimBytes []byte
+	if opts.sdjwtCredentialPayloadFormat {
+		claimBytes, err = claims.ToSDJWTCredentialPayload()
+	} else {
+		claimBytes, err = json.Marshal(claims)
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -309,6 +327,7 @@ func makeSDJWT(vc *Credential, signer jose.Signer, signingKeyID string, options 
 	issuerOptions := []issuer.NewOpt{
 		issuer.WithStructuredClaims(true),
 		issuer.WithNonSelectivelyDisclosableClaims([]string{"id"}),
+		issuer.WithSDJWTCredentialFormat(opts.sdjwtCredentialPayloadFormat),
 		issuer.WithSDJWTWithVersion(opts.version),
 	}
 
