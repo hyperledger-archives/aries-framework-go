@@ -15,13 +15,13 @@ package verifiable
 
 import (
 	"crypto"
-	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 	"time"
 
 	jsonld "github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
 	"github.com/hyperledger/aries-framework-go/component/models/did"
+	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/holder"
 	"github.com/hyperledger/aries-framework-go/component/models/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
