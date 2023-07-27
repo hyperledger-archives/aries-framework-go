@@ -40,6 +40,8 @@ type parseOpts struct {
 	expectedNonceForHolderBinding    string
 
 	leewayForClaimsValidation time.Duration
+
+	version common.SDJWTVersion
 }
 
 // ParseOpt is the SD-JWT Parser option.
@@ -122,6 +124,7 @@ func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]i
 		issuerSigningAlgorithms:   defaultSigningAlgorithms,
 		holderSigningAlgorithms:   defaultSigningAlgorithms,
 		leewayForClaimsValidation: jwt.DefaultLeeway,
+		version:                   common.SDJWTVersionDefault,
 	}
 
 	for _, opt := range opts {
@@ -165,7 +168,7 @@ func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]i
 	}
 
 	// Verify that all disclosures are present in SD-JWT.
-	err = common.VerifyDisclosuresInSDJWT(cfp.Disclosures, signedJWT, common.SDJWTVersionV2)
+	err = common.VerifyDisclosuresInSDJWT(cfp.Disclosures, signedJWT, pOpts.version)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +178,7 @@ func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]i
 		return nil, fmt.Errorf("failed to verify holder binding: %w", err)
 	}
 
-	return getDisclosedClaims(cfp.Disclosures, signedJWT)
+	return getDisclosedClaims(cfp.Disclosures, signedJWT, pOpts.version)
 }
 
 func verifyHolderBinding(sdJWT *afgjwt.JSONWebToken, holderBinding string, pOpts *parseOpts) error {
@@ -293,8 +296,8 @@ func getSignatureVerifierFromCNF(cnf map[string]interface{}) (jose.SignatureVeri
 	return signatureVerifier, nil
 }
 
-func getDisclosedClaims(disclosures []string, signedJWT *afgjwt.JSONWebToken) (map[string]interface{}, error) {
-	disclosureClaims, err := common.GetDisclosureClaims(disclosures, common.SDJWTVersionV2)
+func getDisclosedClaims(disclosures []string, signedJWT *afgjwt.JSONWebToken, version common.SDJWTVersion) (map[string]interface{}, error) {
+	disclosureClaims, err := common.GetDisclosureClaims(disclosures, version)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get verified payload: %w", err)
 	}
