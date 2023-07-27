@@ -99,8 +99,10 @@ type newOpts struct {
 	addDecoyDigests  bool
 	structuredClaims bool
 
-	nonSDClaimsMap map[string]bool
-	version        common.SDJWTVersion
+	nonSDClaimsMap    map[string]bool
+	version           common.SDJWTVersion
+	alwaysInclude     map[string]bool
+	recursiveClaimMap map[string]bool
 }
 
 // NewOpt is the SD-JWT New option.

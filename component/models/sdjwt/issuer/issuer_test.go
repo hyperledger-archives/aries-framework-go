@@ -27,6 +27,7 @@ import (
 	afjose "github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk/jwksupport"
+
 	afjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 )
@@ -733,7 +734,7 @@ func TestJSONWebToken_createDisclosure(t *testing.T) {
 		expectedDisclosureWithSpaces := "WyIzanFjYjY3ejl3a3MwOHp3aUs3RXlRIiwgImdpdmVuX25hbWUiLCAiSm9obiJd"
 		expectedHashWithSpaces := expectedHashWithSpaces
 
-		disclosure, err := createDisclosure("given_name", "John", nOpts)
+		disclosure, err := NewSDJWTBuilderV2().createDisclosure("given_name", "John", nOpts)
 		require.NoError(t, err)
 		require.Equal(t, expectedDisclosureWithSpaces, disclosure)
 
@@ -753,7 +754,7 @@ func TestJSONWebToken_createDisclosure(t *testing.T) {
 				return "_26bc4LT-ac6q2KI6cBW5es", nil
 			}))
 
-		disclosure, err := createDisclosure("family_name", "Möbius", nOpts)
+		disclosure, err := NewSDJWTBuilderV2().createDisclosure("family_name", "Möbius", nOpts)
 		require.NoError(t, err)
 		require.Equal(t, expectedDisclosureWithoutSpaces, disclosure)
 
@@ -763,7 +764,7 @@ func TestJSONWebToken_createDisclosure(t *testing.T) {
 				return "_26bc4LT-ac6q2KI6cBW5es", nil
 			}))
 
-		disclosure, err = createDisclosure("family_name", "Möbius", nOpts)
+		disclosure, err = NewSDJWTBuilderV2().createDisclosure("family_name", "Möbius", nOpts)
 		require.NoError(t, err)
 		require.Equal(t, expectedDisclosureWithSpaces, disclosure)
 	})
