@@ -14,16 +14,18 @@ import (
 	josejwt "github.com/go-jose/go-jose/v3/jwt"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
 	"github.com/hyperledger/aries-framework-go/component/models/jwt"
 )
 
 func TestDecodeJWT(t *testing.T) {
-	vcBytes, err := decodeCredJWT("", func(string) (*JWTCredClaims, error) {
-		return nil, errors.New("cannot parse JWT claims")
+	joseHeaders, vcBytes, err := decodeCredJWT("", func(string) (jose.Headers, *JWTCredClaims, error) {
+		return nil, nil, errors.New("cannot parse JWT claims")
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "cannot parse JWT claims")
 	require.Nil(t, vcBytes)
+	require.Nil(t, joseHeaders)
 }
 
 func TestRefineVcFromJwtClaims(t *testing.T) {

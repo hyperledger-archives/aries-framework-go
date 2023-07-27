@@ -26,6 +26,8 @@ type marshalDisclosureOpts struct {
 	holderBinding         *holder.BindingInfo
 	signer                jose.Signer
 	signingKeyID          string
+
+	sdjwtVersion common.SDJWTVersion
 }
 
 // MarshalDisclosureOption provides an option for Credential.MarshalWithDisclosure.
@@ -82,10 +84,19 @@ func DisclosureSigner(signer jose.Signer, signingKeyID string) MarshalDisclosure
 	}
 }
 
+// MarshalWithSDJWTVersion sets version for SD-JWT VC.
+func MarshalWithSDJWTVersion(version common.SDJWTVersion) MarshalDisclosureOption {
+	return func(opts *marshalDisclosureOpts) {
+		opts.sdjwtVersion = version
+	}
+}
+
 // MarshalWithDisclosure marshals a SD-JWT credential in combined format for presentation, including precisely
 // the disclosures indicated by provided options, and optionally a holder binding if given the requisite option.
 func (vc *Credential) MarshalWithDisclosure(opts ...MarshalDisclosureOption) (string, error) {
-	options := &marshalDisclosureOpts{}
+	options := &marshalDisclosureOpts{
+		sdjwtVersion: vc.SDJWTVersion,
+	}
 
 	for _, opt := range opts {
 		opt(options)
@@ -134,7 +145,7 @@ func createSDJWTPresentation(vc *Credential, options *marshalDisclosureOpts) (st
 		return "", fmt.Errorf("creating SD-JWT from Credential: %w", err)
 	}
 
-	disclosureClaims, err := common.GetDisclosureClaims(issued.Disclosures)
+	disclosureClaims, err := common.GetDisclosureClaims(issued.Disclosures, options.sdjwtVersion)
 	if err != nil {
 		return "", fmt.Errorf("parsing disclosure claims from vc sdjwt: %w", err)
 	}
@@ -277,7 +288,7 @@ func (vc *Credential) MakeSDJWT(signer jose.Signer, signingKeyID string, options
 func makeSDJWT(vc *Credential, signer jose.Signer, signingKeyID string, options ...MakeSDJWTOption,
 ) (*issuer.SelectiveDisclosureJWT, error) {
 	opts := &makeSDJWTOpts{
-		version: common.SDJWTVersionDefault,
+		version: vc.SDJWTVersion, //Default SDJWT version is taken from vc, but can be changed via options.
 	}
 
 	for _, option := range options {
@@ -380,7 +391,7 @@ func (vc *Credential) CreateDisplayCredential( // nolint:funlen,gocyclo
 		return vc, nil
 	}
 
-	credClaims, err := unmarshalJWSClaims(vc.JWT, false, nil)
+	_, credClaims, err := unmarshalJWSClaims(vc.JWT, false, nil)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshal VC JWT claims: %w", err)
 	}
@@ -403,7 +414,7 @@ func (vc *Credential) CreateDisplayCredential( // nolint:funlen,gocyclo
 		return nil, fmt.Errorf("marshalling vc object to JSON: %w", err)
 	}
 
-	newVC, err := populateCredential(vcBytes, nil)
+	newVC, err := populateCredential(vcBytes, nil, vc.SDJWTVersion)
 	if err != nil {
 		return nil, fmt.Errorf("parsing new VC from JSON: %w", err)
 	}
@@ -440,7 +451,7 @@ func (vc *Credential) CreateDisplayCredentialMap( // nolint:funlen,gocyclo
 		return json2.ToMap(bytes)
 	}
 
-	credClaims, err := unmarshalJWSClaims(vc.JWT, false, nil)
+	_, credClaims, err := unmarshalJWSClaims(vc.JWT, false, nil)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshal VC JWT claims: %w", err)
 	}

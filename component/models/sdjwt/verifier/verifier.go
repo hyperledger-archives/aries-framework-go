@@ -149,7 +149,7 @@ func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]i
 		return nil, fmt.Errorf("failed to verify issuer signing algorithm: %w", err)
 	}
 
-	sdJWTVersion := extractSDJWTVersion(signedJWT.Headers)
+	sdJWTVersion := common.ExtractSDJWTVersion(true, signedJWT.Headers)
 
 	// TODO: Validate the Issuer of the SD-JWT and that the signing key belongs to this Issuer.
 
@@ -178,20 +178,6 @@ func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]i
 	}
 
 	return getDisclosedClaims(cfp.Disclosures, signedJWT, sdJWTVersion)
-}
-
-func extractSDJWTVersion(joseHeaders jose.Headers) common.SDJWTVersion {
-	typ, ok := joseHeaders.Type()
-	if !ok {
-		return common.SDJWTVersionDefault
-	}
-
-	switch typ {
-	case "vc+sd-jwt":
-		return common.SDJWTVersionV5
-	default:
-		return common.SDJWTVersionV2
-	}
 }
 
 func verifyHolderBinding(sdJWT *afgjwt.JSONWebToken, holderBinding string, pOpts *parseOpts) error {
