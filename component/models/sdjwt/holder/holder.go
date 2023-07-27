@@ -29,7 +29,6 @@ type Claim struct {
 type parseOpts struct {
 	detachedPayload []byte
 	sigVerifier     jose.SignatureVerifier
-	version         common.SDJWTVersion
 }
 
 // ParseOpt is the SD-JWT Parser option.
@@ -46,13 +45,6 @@ func WithJWTDetachedPayload(payload []byte) ParseOpt {
 func WithSignatureVerifier(signatureVerifier jose.SignatureVerifier) ParseOpt {
 	return func(opts *parseOpts) {
 		opts.sigVerifier = signatureVerifier
-	}
-}
-
-// WithSDJWTVersion option is for definition of JWT detached payload.
-func WithSDJWTVersion(version common.SDJWTVersion) ParseOpt {
-	return func(opts *parseOpts) {
-		opts.version = version
 	}
 }
 
@@ -93,12 +85,14 @@ func Parse(combinedFormatForIssuance string, opts ...ParseOpt) ([]*Claim, error)
 		return nil, err
 	}
 
-	err = common.VerifyDisclosuresInSDJWT(cfi.Disclosures, signedJWT, pOpts.version)
+	sdJWTVersion := common.ExtractSDJWTVersion(true, signedJWT.Headers)
+
+	err = common.VerifyDisclosuresInSDJWT(cfi.Disclosures, signedJWT, sdJWTVersion)
 	if err != nil {
 		return nil, err
 	}
 
-	return getClaims(cfi.Disclosures, pOpts.version)
+	return getClaims(cfi.Disclosures, sdJWTVersion)
 }
 
 func getClaims(
@@ -161,6 +155,10 @@ func WithHolderBinding(info *BindingInfo) Option {
 //   - Create the Combined Format for Presentation from selected Disclosures and Holder Binding JWT(if applicable).
 //   - Send the Presentation to the Verifier.
 func CreatePresentation(combinedFormatForIssuance string, claimsToDisclose []string, opts ...Option) (string, error) {
+	//TODO: split to v2 and v5 versions.
+	// spec:
+	// https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-02.html#name-processing-by-the-holder
+	// https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-05.html#name-processing-by-the-holder
 	hOpts := &options{}
 
 	for _, opt := range opts {

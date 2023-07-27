@@ -149,8 +149,6 @@ func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]i
 		return nil, fmt.Errorf("failed to verify issuer signing algorithm: %w", err)
 	}
 
-	sdJWTVersion := common.ExtractSDJWTVersion(true, signedJWT.Headers)
-
 	// TODO: Validate the Issuer of the SD-JWT and that the signing key belongs to this Issuer.
 
 	// Check that the SD-JWT is valid using nbf, iat, and exp claims,
@@ -165,6 +163,8 @@ func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]i
 	if err != nil {
 		return nil, fmt.Errorf("check disclosures: %w", err)
 	}
+
+	sdJWTVersion := common.ExtractSDJWTVersion(true, signedJWT.Headers)
 
 	// Verify that all disclosures are present in SD-JWT.
 	err = common.VerifyDisclosuresInSDJWT(cfp.Disclosures, signedJWT, sdJWTVersion)
