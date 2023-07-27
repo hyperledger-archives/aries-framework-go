@@ -54,7 +54,8 @@ func TestParse(t *testing.T) {
 	timeOpts = append(timeOpts,
 		issuer.WithNotBefore(jwt.NewNumericDate(now)),
 		issuer.WithIssuedAt(jwt.NewNumericDate(now)),
-		issuer.WithExpiry(jwt.NewNumericDate(now.Add(year))))
+		issuer.WithExpiry(jwt.NewNumericDate(now.Add(year))),
+		issuer.WithSDJWTVersion(common.SDJWTVersionV2))
 
 	token, e := issuer.New(testIssuer, selectiveClaims, nil, signer, timeOpts...)
 	r.NoError(e)
@@ -766,8 +767,17 @@ func TestGetVerifiedPayload(t *testing.T) {
 	token, e := issuer.New(testIssuer, selectiveClaims, nil, signer, timeOpts...)
 	r.NoError(e)
 
-	t.Run("success", func(t *testing.T) {
-		claims, err := getDisclosedClaims(token.Disclosures, token.SignedJWT)
+	t.Run("success V2", func(t *testing.T) {
+		claims, err := getDisclosedClaims(token.Disclosures, token.SignedJWT, common.SDJWTVersionV2)
+		r.NoError(err)
+		r.NotNil(claims)
+		r.Equal(5, len(claims))
+
+		printObject(t, "Disclosed Claims", claims)
+	})
+
+	t.Run("success V5", func(t *testing.T) {
+		claims, err := getDisclosedClaims(token.Disclosures, token.SignedJWT, common.SDJWTVersionV5)
 		r.NoError(err)
 		r.NotNil(claims)
 		r.Equal(5, len(claims))
@@ -776,7 +786,7 @@ func TestGetVerifiedPayload(t *testing.T) {
 	})
 
 	t.Run("error - invalid disclosure(not encoded)", func(t *testing.T) {
-		claims, err := getDisclosedClaims([]string{"xyz"}, token.SignedJWT)
+		claims, err := getDisclosedClaims([]string{"xyz"}, token.SignedJWT, common.SDJWTVersionDefault)
 		r.Error(err)
 		r.Nil(claims)
 		r.Contains(err.Error(),

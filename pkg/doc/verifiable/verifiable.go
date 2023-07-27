@@ -21,6 +21,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
 	"github.com/hyperledger/aries-framework-go/component/models/did"
+	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/holder"
 	"github.com/hyperledger/aries-framework-go/component/models/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
@@ -327,6 +328,11 @@ func DisclosureHolderBinding(binding *holder.BindingInfo) MarshalDisclosureOptio
 // if the given Credential wasn't already parsed from SD-JWT.
 func DisclosureSigner(signer jose.Signer, signingKeyID string) MarshalDisclosureOption {
 	return verifiable.DisclosureSigner(signer, signingKeyID)
+}
+
+// MarshalWithSDJWTVersion sets version for SD-JWT VC.
+func MarshalWithSDJWTVersion(version common.SDJWTVersion) MarshalDisclosureOption {
+	return verifiable.MarshalWithSDJWTVersion(version)
 }
 
 // MakeSDJWTOption provides an option for creating an SD-JWT from a VC.

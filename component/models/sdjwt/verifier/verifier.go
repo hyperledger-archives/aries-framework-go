@@ -149,6 +149,8 @@ func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]i
 		return nil, fmt.Errorf("failed to verify issuer signing algorithm: %w", err)
 	}
 
+	sdJWTVersion := common.ExtractSDJWTVersion(true, signedJWT.Headers)
+
 	// TODO: Validate the Issuer of the SD-JWT and that the signing key belongs to this Issuer.
 
 	// Check that the SD-JWT is valid using nbf, iat, and exp claims,
@@ -165,7 +167,7 @@ func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]i
 	}
 
 	// Verify that all disclosures are present in SD-JWT.
-	err = common.VerifyDisclosuresInSDJWT(cfp.Disclosures, signedJWT, common.SDJWTVersionV2)
+	err = common.VerifyDisclosuresInSDJWT(cfp.Disclosures, signedJWT, sdJWTVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +177,7 @@ func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]i
 		return nil, fmt.Errorf("failed to verify holder binding: %w", err)
 	}
 
-	return getDisclosedClaims(cfp.Disclosures, signedJWT)
+	return getDisclosedClaims(cfp.Disclosures, signedJWT, sdJWTVersion)
 }
 
 func verifyHolderBinding(sdJWT *afgjwt.JSONWebToken, holderBinding string, pOpts *parseOpts) error {
@@ -293,8 +295,8 @@ func getSignatureVerifierFromCNF(cnf map[string]interface{}) (jose.SignatureVeri
 	return signatureVerifier, nil
 }
 
-func getDisclosedClaims(disclosures []string, signedJWT *afgjwt.JSONWebToken) (map[string]interface{}, error) {
-	disclosureClaims, err := common.GetDisclosureClaims(disclosures, common.SDJWTVersionV2)
+func getDisclosedClaims(disclosures []string, signedJWT *afgjwt.JSONWebToken, version common.SDJWTVersion) (map[string]interface{}, error) {
+	disclosureClaims, err := common.GetDisclosureClaims(disclosures, version)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get verified payload: %w", err)
 	}

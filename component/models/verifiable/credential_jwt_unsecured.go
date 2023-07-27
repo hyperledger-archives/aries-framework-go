@@ -7,6 +7,8 @@ package verifiable
 
 import (
 	"fmt"
+
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
 )
 
 // MarshalUnsecuredJWT serialized JWT into unsecured JWT.
@@ -14,17 +16,19 @@ func (jcc *JWTCredClaims) MarshalUnsecuredJWT() (string, error) {
 	return marshalUnsecuredJWT(nil, jcc)
 }
 
-func unmarshalUnsecuredJWTClaims(rawJWT string) (*JWTCredClaims, error) {
+func unmarshalUnsecuredJWTClaims(rawJWT string) (jose.Headers, *JWTCredClaims, error) {
 	var claims JWTCredClaims
 
-	err := unmarshalUnsecuredJWT(rawJWT, &claims)
+	hoseHeaders, err := unmarshalUnsecuredJWT(rawJWT, &claims)
 	if err != nil {
-		return nil, fmt.Errorf("parse VC in JWT Unsecured form: %w", err)
+		return nil, nil, fmt.Errorf("parse VC in JWT Unsecured form: %w", err)
 	}
 
-	return &claims, nil
+	return hoseHeaders, &claims, nil
 }
 
 func decodeCredJWTUnsecured(rawJwt string) ([]byte, error) {
-	return decodeCredJWT(rawJwt, unmarshalUnsecuredJWTClaims)
+	_, vcBytes, err := decodeCredJWT(rawJwt, unmarshalUnsecuredJWTClaims)
+
+	return vcBytes, err
 }

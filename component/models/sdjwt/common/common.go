@@ -13,6 +13,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
 	afgjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
 	utils "github.com/hyperledger/aries-framework-go/component/models/util/maphelpers"
 )
@@ -449,4 +450,19 @@ func KeyExistsInMap(key string, m map[string]interface{}) bool {
 	}
 
 	return false
+}
+
+func ExtractSDJWTVersion(isSDJWT bool, joseHeaders jose.Headers) SDJWTVersion {
+	if !isSDJWT {
+		return 0
+	}
+
+	typ, _ := joseHeaders.Type()
+
+	switch typ {
+	case "vc+sd-jwt":
+		return SDJWTVersionV5
+	default:
+		return SDJWTVersionDefault
+	}
 }

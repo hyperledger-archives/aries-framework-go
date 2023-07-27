@@ -252,6 +252,7 @@ func New(issuer string, claims interface{}, headers jose.Headers,
 		getSalt:        generateSalt,
 		HashAlg:        defaultHash,
 		nonSDClaimsMap: make(map[string]bool),
+		version:        common.SDJWTVersionDefault,
 	}
 
 	for _, opt := range opts {
