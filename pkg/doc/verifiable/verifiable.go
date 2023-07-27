@@ -15,6 +15,7 @@ package verifiable
 
 import (
 	"crypto"
+	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 	"time"
 
 	jsonld "github.com/piprate/json-gold/ld"
@@ -123,6 +124,11 @@ func WithJSONLDValidation() CredentialOpt {
 // in the document. No extra fields are allowed (outside of credentialSubject).
 func WithBaseContextValidation() CredentialOpt {
 	return verifiable.WithBaseContextValidation()
+}
+
+// WithSDJWTVersion sets version for SD-JWT VC.
+func WithSDJWTVersion(version common.SDJWTVersion) CredentialOpt {
+	return verifiable.WithSDJWTVersion(version)
 }
 
 // WithBaseContextExtendedValidation validates that fields that are specified in base context are as specified.

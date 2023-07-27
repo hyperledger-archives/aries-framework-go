@@ -589,6 +589,8 @@ type credentialOpts struct {
 	defaultSchema         string
 	disableValidation     bool
 
+	sdjwtVersion common.SDJWTVersion
+
 	jsonldCredentialOpts
 }
 
@@ -652,6 +654,13 @@ func WithJSONLDValidation() CredentialOpt {
 func WithBaseContextValidation() CredentialOpt {
 	return func(opts *credentialOpts) {
 		opts.modelValidationMode = baseContextValidation
+	}
+}
+
+// WithSDJWTVersion sets version for SD-JWT VC.
+func WithSDJWTVersion(version common.SDJWTVersion) CredentialOpt {
+	return func(opts *credentialOpts) {
+		opts.sdjwtVersion = version
 	}
 }
 
@@ -830,7 +839,7 @@ func ParseCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) 
 			return nil, fmt.Errorf("decode new JWT credential: %w", err)
 		}
 
-		if err = validateDisclosures(vcDataDecoded, disclosures); err != nil {
+		if err = validateDisclosures(vcDataDecoded, disclosures, vcOpts.sdjwtVersion); err != nil {
 			return nil, err
 		}
 
@@ -862,7 +871,7 @@ func ParseCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) 
 	return vc, nil
 }
 
-func validateDisclosures(vcBytes []byte, disclosures []string) error {
+func validateDisclosures(vcBytes []byte, disclosures []string, sdjwtVersion common.SDJWTVersion) error {
 	if len(disclosures) == 0 {
 		return nil
 	}
@@ -881,7 +890,7 @@ func validateDisclosures(vcBytes []byte, disclosures []string) error {
 		}
 	}
 
-	err = common.VerifyDisclosuresInSDJWT(disclosures, vcPayload, common.SDJWTVersionV2)
+	err = common.VerifyDisclosuresInSDJWT(disclosures, vcPayload, sdjwtVersion)
 	if err != nil {
 		return fmt.Errorf("invalid SDJWT disclosures: %w", err)
 	}
@@ -1242,6 +1251,7 @@ func getEmbeddedProofCheckOpts(vcOpts *credentialOpts) *embeddedProofCheckOpts {
 func getCredentialOpts(opts []CredentialOpt) *credentialOpts {
 	crOpts := &credentialOpts{
 		modelValidationMode: combinedValidation,
+		sdjwtVersion:        common.SDJWTVersionDefault,
 	}
 
 	for _, opt := range opts {

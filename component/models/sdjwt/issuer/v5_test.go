@@ -32,7 +32,7 @@ func TestDisclosureV5Array(t *testing.T) {
 	assert.NoError(t, json.Unmarshal([]byte(input), &parsedInput))
 	bb := NewSDJWTBuilderV5()
 
-	resp1, resp2, err := bb.CreateDisclosuresAndDigests("", parsedInput, &newOpts{
+	disclosures, digests, err := bb.CreateDisclosuresAndDigests("", parsedInput, &newOpts{
 		getSalt:     generateSalt,
 		jsonMarshal: json.Marshal,
 		HashAlg:     defaultHash,
@@ -42,5 +42,5 @@ func TestDisclosureV5Array(t *testing.T) {
 	})
 
 	assert.NoError(t, err)
-	assert.NotNil(t, resp1, resp2)
+	assert.NotNil(t, disclosures, digests)
 }

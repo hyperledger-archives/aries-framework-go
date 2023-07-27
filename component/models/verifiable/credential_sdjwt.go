@@ -251,8 +251,8 @@ func MakeSDJWTWithHash(hash crypto.Hash) MakeSDJWTOption {
 	}
 }
 
-// WithSDJWTVersion sets version for SD-JWT VC.
-func WithSDJWTVersion(version common.SDJWTVersion) MakeSDJWTOption {
+// MakeSDJWTWithVersion sets version for SD-JWT VC.
+func MakeSDJWTWithVersion(version common.SDJWTVersion) MakeSDJWTOption {
 	return func(opts *makeSDJWTOpts) {
 		opts.version = version
 	}
