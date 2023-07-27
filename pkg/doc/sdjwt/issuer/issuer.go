@@ -128,15 +128,6 @@ func WithStructuredClaims(flag bool) NewOpt {
 	return issuer.WithStructuredClaims(flag)
 }
 
-// WithSDJWTCredentialFormat is an option that declares the credential format.
-// Key difference with default format is that underlying object does not contain custom "vc" root claim.
-// Example:
-//
-//	https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-05.html#name-example-4b-w3c-verifiable-c.
-func WithSDJWTCredentialFormat(flag bool) NewOpt {
-	return issuer.WithSDJWTCredentialFormat(flag)
-}
-
 // WithNonSelectivelyDisclosableClaims is an option for provide claim names that should be ignored when creating
 // selectively disclosable claims.
 // For example if you would like to not selectively disclose id and degree type from the following claims:

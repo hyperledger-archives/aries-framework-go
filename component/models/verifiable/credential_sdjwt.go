@@ -237,8 +237,7 @@ func filterDisclosures(
 }
 
 type makeSDJWTOpts struct {
-	hashAlg                      crypto.Hash
-	sdjwtCredentialPayloadFormat bool
+	hashAlg crypto.Hash
 	version common.SDJWTVersion
 }
 
@@ -252,19 +251,8 @@ func MakeSDJWTWithHash(hash crypto.Hash) MakeSDJWTOption {
 	}
 }
 
-// WithSDJWTCredentialPayloadFormat sets the payload format in SD-JWT VC.
-// Key difference with default format is that returned object does not contain custom "vc" root claim.
-// Example:
-//
-//	https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-05.html#name-example-4b-w3c-verifiable-c.
-func WithSDJWTCredentialPayloadFormat() MakeSDJWTOption {
-	return func(opts *makeSDJWTOpts) {
-		opts.sdjwtCredentialPayloadFormat = true
-	}
-}
-
-// MakeSDJWTWithVersion sets version for SD-JWT VC.
-func MakeSDJWTWithVersion(version common.SDJWTVersion) MakeSDJWTOption {
+// WithSDJWTVersion sets version for SD-JWT VC.
+func WithSDJWTVersion(version common.SDJWTVersion) MakeSDJWTOption {
 	return func(opts *makeSDJWTOpts) {
 		opts.version = version
 	}
@@ -288,7 +276,9 @@ func (vc *Credential) MakeSDJWT(signer jose.Signer, signingKeyID string, options
 
 func makeSDJWT(vc *Credential, signer jose.Signer, signingKeyID string, options ...MakeSDJWTOption,
 ) (*issuer.SelectiveDisclosureJWT, error) {
-	opts := &makeSDJWTOpts{}
+	opts := &makeSDJWTOpts{
+		version: common.SDJWTVersionDefault,
+	}
 
 	for _, option := range options {
 		option(opts)
@@ -300,8 +290,8 @@ func makeSDJWT(vc *Credential, signer jose.Signer, signingKeyID string, options 
 	}
 
 	var claimBytes []byte
-	if opts.sdjwtCredentialPayloadFormat {
-		claimBytes, err = claims.ToSDJWTCredentialPayload()
+	if opts.version == common.SDJWTVersionV5 {
+		claimBytes, err = claims.ToSDJWTV5CredentialPayload()
 	} else {
 		claimBytes, err = json.Marshal(claims)
 	}
@@ -327,8 +317,7 @@ func makeSDJWT(vc *Credential, signer jose.Signer, signingKeyID string, options 
 	issuerOptions := []issuer.NewOpt{
 		issuer.WithStructuredClaims(true),
 		issuer.WithNonSelectivelyDisclosableClaims([]string{"id"}),
-		issuer.WithSDJWTCredentialFormat(opts.sdjwtCredentialPayloadFormat),
-		issuer.WithSDJWTWithVersion(opts.version),
+		issuer.WithSDJWTVersion(opts.version),
 	}
 
 	if opts.hashAlg != 0 {

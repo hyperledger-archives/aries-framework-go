@@ -2,6 +2,7 @@ package issuer
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -230,4 +231,13 @@ func (s *SDJWTBuilderV5) createDisclosure(
 	}
 
 	return base64.RawURLEncoding.EncodeToString(disclosureBytes), nil
+}
+
+func (s *SDJWTBuilderV5) ExtractCredentialClaims(vcClaims map[string]interface{}) (map[string]interface{}, error) {
+	vc, ok := vcClaims[vcKey].(map[string]interface{})
+	if !ok {
+		return nil, errors.New("invalid vc claim")
+	}
+
+	return vc, nil
 }

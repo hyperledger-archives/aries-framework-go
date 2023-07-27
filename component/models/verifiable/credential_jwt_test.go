@@ -86,7 +86,7 @@ func TestJWTCredClaims_ToSDJWTCredentialPayload(t *testing.T) {
 		},
 	}
 
-	got, err := jcc.ToSDJWTCredentialPayload()
+	got, err := jcc.ToSDJWTV5CredentialPayload()
 	require.NoError(t, err)
 	require.NotContains(t, string(got), `"vc"`)
 
