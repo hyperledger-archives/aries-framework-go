@@ -22,9 +22,7 @@ import (
 )
 
 func parseV5(cfp *common.CombinedFormatForPresentation, signedJWT *afgjwt.JSONWebToken, pOpts *parseOpts) (map[string]interface{}, error) {
-	// Check that the typ of the SD JWT is vc+sd-jwt.
-	// Spec: https://vcstuff.github.io/draft-terbu-sd-jwt-vc/draft-terbu-oauth-sd-jwt-vc.html#name-header-parameters
-	err := common.VerifyTyp(signedJWT.Headers, "vc+sd-jwt")
+	err := common.VerifyTyp(signedJWT.Headers, pOpts.expectedTypHeader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify typ header: %w", err)
 	}

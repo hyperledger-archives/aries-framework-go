@@ -34,6 +34,8 @@ type parseOpts struct {
 	expectedNonceForHolderVerification    string
 
 	leewayForClaimsValidation time.Duration
+
+	expectedTypHeader string
 }
 
 // ParseOpt is the SD-JWT Parser option.
@@ -112,6 +114,15 @@ func WithExpectedNonceForHolderVerification(nonce string) ParseOpt {
 func WithLeewayForClaimsValidation(duration time.Duration) ParseOpt {
 	return func(opts *parseOpts) {
 		opts.leewayForClaimsValidation = duration
+	}
+}
+
+// WithExpectedTypHeader is an option for JWT typ header validation.
+// Might be relevant for SDJWT V5 VC validation.
+// Spec: https://vcstuff.github.io/draft-terbu-sd-jwt-vc/draft-terbu-oauth-sd-jwt-vc.html#name-header-parameters
+func WithExpectedTypHeader(typ string) ParseOpt {
+	return func(opts *parseOpts) {
+		opts.expectedTypHeader = typ
 	}
 }
 
