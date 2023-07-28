@@ -13,6 +13,7 @@ import (
 
 	josejwt "github.com/go-jose/go-jose/v3/jwt"
 
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
 	"github.com/hyperledger/aries-framework-go/component/models/jwt"
 	jsonutil "github.com/hyperledger/aries-framework-go/component/models/util/json"
 )
@@ -32,12 +33,12 @@ type JWTCredClaims struct {
 	VC map[string]interface{} `json:"vc,omitempty"`
 }
 
-// ToSDJWTCredentialPayload defines custom marshalling of JWTCredClaims.
+// ToSDJWTV5CredentialPayload defines custom marshalling of JWTCredClaims.
 // Key difference with default marshaller is that returned object does not contain custom "vc" root claim.
 // Example:
 //
 //	https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-05.html#name-example-4b-w3c-verifiable-c.
-func (jcc *JWTCredClaims) ToSDJWTCredentialPayload() ([]byte, error) {
+func (jcc *JWTCredClaims) ToSDJWTV5CredentialPayload() ([]byte, error) {
 	type Alias JWTCredClaims
 
 	alias := Alias(*jcc)
@@ -134,14 +135,14 @@ func newJWTCredClaims(vc *Credential, minimizeVC bool) (*JWTCredClaims, error) {
 }
 
 // JWTCredClaimsUnmarshaller unmarshals verifiable credential bytes into JWT claims with extra "vc" claim.
-type JWTCredClaimsUnmarshaller func(vcJWTBytes string) (*JWTCredClaims, error)
+type JWTCredClaimsUnmarshaller func(vcJWTBytes string) (jose.Headers, *JWTCredClaims, error)
 
 // decodeCredJWT parses JWT from the specified bytes array in compact format using unmarshaller.
-// It returns decoded Verifiable Credential refined by JWT Claims in raw byte array form, and the claims object itself.
-func decodeCredJWT(rawJWT string, unmarshaller JWTCredClaimsUnmarshaller) ([]byte, error) {
-	credClaims, err := unmarshaller(rawJWT)
+// It returns jwt.JSONWebToken and decoded Verifiable Credential refined by JWT Claims in raw byte array form.
+func decodeCredJWT(rawJWT string, unmarshaller JWTCredClaimsUnmarshaller) (jose.Headers, []byte, error) {
+	joseHeaders, credClaims, err := unmarshaller(rawJWT)
 	if err != nil {
-		return nil, fmt.Errorf("unmarshal VC JWT claims: %w", err)
+		return nil, nil, fmt.Errorf("unmarshal VC JWT claims: %w", err)
 	}
 
 	// Apply VC-related claims from JWT.
@@ -149,10 +150,10 @@ func decodeCredJWT(rawJWT string, unmarshaller JWTCredClaimsUnmarshaller) ([]byt
 
 	vcData, err := json.Marshal(credClaims.VC)
 	if err != nil {
-		return nil, errors.New("failed to marshal 'vc' claim of JWT")
+		return nil, nil, errors.New("failed to marshal 'vc' claim of JWT")
 	}
 
-	return vcData, nil
+	return joseHeaders, vcData, nil
 }
 
 func (jcc *JWTCredClaims) refineFromJWTClaims() {

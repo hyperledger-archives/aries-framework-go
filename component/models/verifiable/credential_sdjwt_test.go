@@ -37,8 +37,8 @@ func TestParseSDJWT(t *testing.T) {
 		require.NotNil(t, newVC)
 	})
 
-	t.Run("success with SD JWT credential payload format", func(t *testing.T) {
-		sdJWTCredFormatString, issuerCredFormatID := createTestSDJWTCred(t, privKey, WithSDJWTCredentialPayloadFormat())
+	t.Run("success with SD JWT Version 5", func(t *testing.T) {
+		sdJWTCredFormatString, issuerCredFormatID := createTestSDJWTCred(t, privKey, MakeSDJWTWithVersion(common.SDJWTVersionV5))
 
 		newVC, e := ParseCredential([]byte(sdJWTCredFormatString),
 			WithPublicKeyFetcher(createDIDKeyFetcher(t, pubKey, issuerCredFormatID)))
@@ -315,9 +315,9 @@ func TestMakeSDJWT(t *testing.T) {
 			require.NoError(t, err)
 		})
 
-		t.Run("with SD JWT credential payload format", func(t *testing.T) {
+		t.Run("with SD JWT V5", func(t *testing.T) {
 			sdjwt, err := vc.MakeSDJWT(
-				afgojwt.NewEd25519Signer(privKey), "did:example:abc123#key-1", WithSDJWTCredentialPayloadFormat())
+				afgojwt.NewEd25519Signer(privKey), "did:example:abc123#key-1", MakeSDJWTWithVersion(common.SDJWTVersionV5))
 			require.NoError(t, err)
 
 			_, err = ParseCredential([]byte(sdjwt), WithPublicKeyFetcher(holderPublicKeyFetcher(pubKey)))

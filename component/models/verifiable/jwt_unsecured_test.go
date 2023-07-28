@@ -22,10 +22,11 @@ func TestUnsecuredJWT(t *testing.T) {
 	require.NotEmpty(t, serializedJWT)
 
 	var claimsParsed map[string]interface{}
-	err = unmarshalUnsecuredJWT(serializedJWT, &claimsParsed)
+	joseHeaders, err := unmarshalUnsecuredJWT(serializedJWT, &claimsParsed)
 	require.NoError(t, err)
 
 	require.Equal(t, claims, claimsParsed)
+	require.Equal(t, joseHeaders, headers)
 
 	// marshal with invalid claims
 	invalidClaims := map[string]interface{}{"error": map[chan int]interface{}{make(chan int): 6}}
@@ -35,8 +36,9 @@ func TestUnsecuredJWT(t *testing.T) {
 	require.Empty(t, serializedJWT)
 
 	// unmarshal invalid JWT
-	err = unmarshalUnsecuredJWT("not a valid compact serialized JWT", &claimsParsed)
+	joseHeaders, err = unmarshalUnsecuredJWT("not a valid compact serialized JWT", &claimsParsed)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "marshal unsecured JWT")
 	require.Empty(t, serializedJWT)
+	require.Empty(t, joseHeaders)
 }

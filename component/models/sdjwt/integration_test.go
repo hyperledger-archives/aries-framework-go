@@ -377,7 +377,7 @@ func TestSDJWTFlow(t *testing.T) {
 			issuer.WithHolderPublicKey(holderPublicJWK),
 			issuer.WithStructuredClaims(true),
 			//issuer.WithNonSelectivelyDisclosableClaims([]string{"id", "degree.type"}),
-			issuer.WithSDJWTWithVersion(common.SDJWTVersionV5),
+			issuer.WithSDJWTVersion(common.SDJWTVersionV5),
 		)
 		r.NoError(err)
 

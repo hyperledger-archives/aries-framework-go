@@ -581,7 +581,7 @@ func TestNewFromVC(t *testing.T) {
 		r.Contains(err.Error(), "unknown key id")
 	})
 
-	t.Run("success - structured claims + holder binding + SD JWT credential format", func(t *testing.T) {
+	t.Run("success - structured claims + holder binding + SD JWT V5 format", func(t *testing.T) {
 		holderPublicKey, _, err := ed25519.GenerateKey(rand.Reader)
 		r.NoError(err)
 
@@ -597,7 +597,7 @@ func TestNewFromVC(t *testing.T) {
 			WithHolderPublicKey(holderPublicJWK),
 			WithStructuredClaims(true),
 			WithNonSelectivelyDisclosableClaims([]string{"id", "degree.type"}),
-			WithSDJWTCredentialFormat(true))
+			WithSDJWTVersion(common.SDJWTVersionV5))
 		r.NoError(err)
 
 		vcCombinedFormatForIssuance, err := token.Serialize(false)

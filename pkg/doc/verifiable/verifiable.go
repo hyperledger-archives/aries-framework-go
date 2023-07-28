@@ -21,6 +21,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
 	"github.com/hyperledger/aries-framework-go/component/models/did"
+	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/holder"
 	"github.com/hyperledger/aries-framework-go/component/models/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
@@ -329,21 +330,17 @@ func DisclosureSigner(signer jose.Signer, signingKeyID string) MarshalDisclosure
 	return verifiable.DisclosureSigner(signer, signingKeyID)
 }
 
+// MarshalWithSDJWTVersion sets version for SD-JWT VC.
+func MarshalWithSDJWTVersion(version common.SDJWTVersion) MarshalDisclosureOption {
+	return verifiable.MarshalWithSDJWTVersion(version)
+}
+
 // MakeSDJWTOption provides an option for creating an SD-JWT from a VC.
 type MakeSDJWTOption = verifiable.MakeSDJWTOption
 
 // MakeSDJWTWithHash sets the hash to use for an SD-JWT VC.
 func MakeSDJWTWithHash(hash crypto.Hash) MakeSDJWTOption {
 	return verifiable.MakeSDJWTWithHash(hash)
-}
-
-// WithSDJWTCredentialPayloadFormat sets the payload format in SD-JWT VC.
-// Key difference with default format is that returned object does not contain custom "vc" root claim.
-// Example:
-//
-//	https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-05.html#name-example-4b-w3c-verifiable-c.
-func WithSDJWTCredentialPayloadFormat() MakeSDJWTOption {
-	return verifiable.WithSDJWTCredentialPayloadFormat()
 }
 
 // DisplayCredentialOption provides an option for Credential.CreateDisplayCredential.

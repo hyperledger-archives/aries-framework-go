@@ -26,6 +26,8 @@ type marshalDisclosureOpts struct {
 	holderBinding         *holder.BindingInfo
 	signer                jose.Signer
 	signingKeyID          string
+
+	sdjwtVersion common.SDJWTVersion
 }
 
 // MarshalDisclosureOption provides an option for Credential.MarshalWithDisclosure.
@@ -82,10 +84,19 @@ func DisclosureSigner(signer jose.Signer, signingKeyID string) MarshalDisclosure
 	}
 }
 
+// MarshalWithSDJWTVersion sets version for SD-JWT VC.
+func MarshalWithSDJWTVersion(version common.SDJWTVersion) MarshalDisclosureOption {
+	return func(opts *marshalDisclosureOpts) {
+		opts.sdjwtVersion = version
+	}
+}
+
 // MarshalWithDisclosure marshals a SD-JWT credential in combined format for presentation, including precisely
 // the disclosures indicated by provided options, and optionally a holder binding if given the requisite option.
 func (vc *Credential) MarshalWithDisclosure(opts ...MarshalDisclosureOption) (string, error) {
-	options := &marshalDisclosureOpts{}
+	options := &marshalDisclosureOpts{
+		sdjwtVersion: vc.SDJWTVersion,
+	}
 
 	for _, opt := range opts {
 		opt(options)
@@ -134,7 +145,7 @@ func createSDJWTPresentation(vc *Credential, options *marshalDisclosureOpts) (st
 		return "", fmt.Errorf("creating SD-JWT from Credential: %w", err)
 	}
 
-	disclosureClaims, err := common.GetDisclosureClaims(issued.Disclosures)
+	disclosureClaims, err := common.GetDisclosureClaims(issued.Disclosures, options.sdjwtVersion)
 	if err != nil {
 		return "", fmt.Errorf("parsing disclosure claims from vc sdjwt: %w", err)
 	}
@@ -237,8 +248,7 @@ func filterDisclosures(
 }
 
 type makeSDJWTOpts struct {
-	hashAlg                      crypto.Hash
-	sdjwtCredentialPayloadFormat bool
+	hashAlg crypto.Hash
 	version common.SDJWTVersion
 }
 
@@ -249,17 +259,6 @@ type MakeSDJWTOption func(opts *makeSDJWTOpts)
 func MakeSDJWTWithHash(hash crypto.Hash) MakeSDJWTOption {
 	return func(opts *makeSDJWTOpts) {
 		opts.hashAlg = hash
-	}
-}
-
-// WithSDJWTCredentialPayloadFormat sets the payload format in SD-JWT VC.
-// Key difference with default format is that returned object does not contain custom "vc" root claim.
-// Example:
-//
-//	https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-05.html#name-example-4b-w3c-verifiable-c.
-func WithSDJWTCredentialPayloadFormat() MakeSDJWTOption {
-	return func(opts *makeSDJWTOpts) {
-		opts.sdjwtCredentialPayloadFormat = true
 	}
 }
 
@@ -288,7 +287,9 @@ func (vc *Credential) MakeSDJWT(signer jose.Signer, signingKeyID string, options
 
 func makeSDJWT(vc *Credential, signer jose.Signer, signingKeyID string, options ...MakeSDJWTOption,
 ) (*issuer.SelectiveDisclosureJWT, error) {
-	opts := &makeSDJWTOpts{}
+	opts := &makeSDJWTOpts{
+		version: vc.SDJWTVersion, //Default SDJWT version is taken from vc, but can be changed via options.
+	}
 
 	for _, option := range options {
 		option(opts)
@@ -300,8 +301,8 @@ func makeSDJWT(vc *Credential, signer jose.Signer, signingKeyID string, options 
 	}
 
 	var claimBytes []byte
-	if opts.sdjwtCredentialPayloadFormat {
-		claimBytes, err = claims.ToSDJWTCredentialPayload()
+	if opts.version == common.SDJWTVersionV5 {
+		claimBytes, err = claims.ToSDJWTV5CredentialPayload()
 	} else {
 		claimBytes, err = json.Marshal(claims)
 	}
@@ -327,8 +328,7 @@ func makeSDJWT(vc *Credential, signer jose.Signer, signingKeyID string, options 
 	issuerOptions := []issuer.NewOpt{
 		issuer.WithStructuredClaims(true),
 		issuer.WithNonSelectivelyDisclosableClaims([]string{"id"}),
-		issuer.WithSDJWTCredentialFormat(opts.sdjwtCredentialPayloadFormat),
-		issuer.WithSDJWTWithVersion(opts.version),
+		issuer.WithSDJWTVersion(opts.version),
 	}
 
 	if opts.hashAlg != 0 {
@@ -391,7 +391,7 @@ func (vc *Credential) CreateDisplayCredential( // nolint:funlen,gocyclo
 		return vc, nil
 	}
 
-	credClaims, err := unmarshalJWSClaims(vc.JWT, false, nil)
+	_, credClaims, err := unmarshalJWSClaims(vc.JWT, false, nil)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshal VC JWT claims: %w", err)
 	}
@@ -414,7 +414,7 @@ func (vc *Credential) CreateDisplayCredential( // nolint:funlen,gocyclo
 		return nil, fmt.Errorf("marshalling vc object to JSON: %w", err)
 	}
 
-	newVC, err := populateCredential(vcBytes, nil)
+	newVC, err := populateCredential(vcBytes, nil, vc.SDJWTVersion)
 	if err != nil {
 		return nil, fmt.Errorf("parsing new VC from JSON: %w", err)
 	}
@@ -451,7 +451,7 @@ func (vc *Credential) CreateDisplayCredentialMap( // nolint:funlen,gocyclo
 		return json2.ToMap(bytes)
 	}
 
-	credClaims, err := unmarshalJWSClaims(vc.JWT, false, nil)
+	_, credClaims, err := unmarshalJWSClaims(vc.JWT, false, nil)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshal VC JWT claims: %w", err)
 	}

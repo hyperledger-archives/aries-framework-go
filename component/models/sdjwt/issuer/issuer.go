@@ -103,14 +103,13 @@ type newOpts struct {
 	version               common.SDJWTVersion
 	alwaysInclude         map[string]bool
 	recursiveClaimMap     map[string]bool
-	sdjwtCredentialFormat bool
 }
 
 // NewOpt is the SD-JWT New option.
 type NewOpt func(opts *newOpts)
 
-// WithSDJWTWithVersion sets version for SD-JWT VC.
-func WithSDJWTWithVersion(version common.SDJWTVersion) NewOpt {
+// WithSDJWTVersion sets version for SD-JWT VC.
+func WithSDJWTVersion(version common.SDJWTVersion) NewOpt {
 	return func(opts *newOpts) {
 		opts.version = version
 	}
@@ -214,17 +213,6 @@ func WithStructuredClaims(flag bool) NewOpt {
 	}
 }
 
-// WithSDJWTCredentialFormat is an option that declares the SDJWT credential format.
-// Key difference with default format is that underlying object does not contain custom "vc" root claim.
-// Example:
-//
-//	https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-05.html#name-example-4b-w3c-verifiable-c.
-func WithSDJWTCredentialFormat(flag bool) NewOpt {
-	return func(opts *newOpts) {
-		opts.sdjwtCredentialFormat = flag
-	}
-}
-
 // WithNonSelectivelyDisclosableClaims is an option for provide claim names that should be ignored when creating
 // selectively disclosable claims.
 // For example if you would like to not selectively disclose id and degree type from the following claims:
@@ -264,6 +252,7 @@ func New(issuer string, claims interface{}, headers jose.Headers,
 		getSalt:        generateSalt,
 		HashAlg:        defaultHash,
 		nonSDClaimsMap: make(map[string]bool),
+		version:        common.SDJWTVersionDefault,
 	}
 
 	for _, opt := range opts {
@@ -306,7 +295,7 @@ func New(issuer string, claims interface{}, headers jose.Headers,
 }
 
 /*
-NewFromVC creates new signed Selective Disclosure JWT based on Verifiable Credential.
+NewFromVC creates new signed Selective Disclosure JWT based on Verifiable Credential in map representation.
 
 Algorithm:
   - extract credential subject map from verifiable credential
@@ -318,7 +307,9 @@ Algorithm:
 */
 func NewFromVC(vc map[string]interface{}, headers jose.Headers,
 	signer jose.Signer, opts ...NewOpt) (*SelectiveDisclosureJWT, error) {
-	nOpts := &newOpts{}
+	nOpts := &newOpts{
+		version: common.SDJWTVersionDefault,
+	}
 
 	for _, opt := range opts {
 		opt(nOpts)
@@ -339,13 +330,9 @@ func NewFromVC(vc map[string]interface{}, headers jose.Headers,
 		return nil, err
 	}
 
-	var vcClaims = vc
-	if !nOpts.sdjwtCredentialFormat {
-		// Since it's not SD JWT credential format - need to consider "vc" underlying object
-		vcClaims, ok = vc[vcKey].(map[string]interface{})
-		if !ok {
-			return nil, errors.New("invalid vc claim")
-		}
+	vcClaims, err := getBuilderByVersion(nOpts.version).ExtractCredentialClaims(vc)
+	if err != nil {
+		return nil, err
 	}
 
 	selectiveCredentialSubject := utils.CopyMap(token.SignedJWT.Payload)

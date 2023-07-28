@@ -13,6 +13,7 @@ type builder interface {
 		claims map[string]interface{},
 		opts *newOpts,
 	) ([]*DisclosureEntity, map[string]interface{}, error)
+	ExtractCredentialClaims(vcClaims map[string]interface{}) (map[string]interface{}, error)
 }
 
 func getBuilderByVersion(
@@ -112,4 +113,8 @@ func (s *SDJWTBuilderV2) createDisclosure(
 	return &DisclosureEntity{
 		Result: base64.RawURLEncoding.EncodeToString(disclosureBytes),
 	}, nil
+}
+
+func (s *SDJWTBuilderV2) ExtractCredentialClaims(vcClaims map[string]interface{}) (map[string]interface{}, error) {
+	return vcClaims, nil
 }
