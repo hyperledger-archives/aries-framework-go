@@ -12,6 +12,7 @@ package verifier
 
 import (
 	"fmt"
+
 	afgjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 )
@@ -32,7 +33,7 @@ import (
 //
 // The Verifier will not, however, learn any claim values not disclosed in the Disclosures.
 func parseV5(cfp *common.CombinedFormatForPresentation, signedJWT *afgjwt.JSONWebToken, opts ...common.ParseOpt) (map[string]interface{}, error) {
-	err := verifyHolderBinding(signedJWT, cfp.HolderBinding, opts...)
+	err := verifyKeyBinding(signedJWT, cfp.HolderBinding, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify holder binding: %w", err)
 	}
@@ -40,4 +41,10 @@ func parseV5(cfp *common.CombinedFormatForPresentation, signedJWT *afgjwt.JSONWe
 	// Process the Disclosures and embedded digests in the issuser-signed JWT.
 	// Section: https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-05.html#section-6.1-4.3.1
 	return getDisclosedClaims(cfp.Disclosures, signedJWT, common.SDJWTVersionV5)
+}
+
+func verifyKeyBinding(sdJWT *afgjwt.JSONWebToken, keyBinding string, opts ...common.ParseOpt) error {
+	// TODO: add key binding code
+	// spec: https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-05.html#section-6.3-3
+	return verifyHolderBinding(sdJWT, keyBinding, opts...)
 }
