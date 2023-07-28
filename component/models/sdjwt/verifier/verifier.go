@@ -15,12 +15,10 @@ import (
 	"time"
 
 	"github.com/go-jose/go-jose/v3/jwt"
-	"github.com/mitchellh/mapstructure"
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
 	afgjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
-	utils "github.com/hyperledger/aries-framework-go/component/models/util/maphelpers"
 )
 
 // parseOpts holds options for the SD-JWT parsing.
@@ -156,7 +154,6 @@ func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]i
 	sdJWTVersion := common.ExtractSDJWTVersion(true, signedJWT.Headers)
 
 	// Verify that all disclosures are present in SD-JWT.
-	// Check that the _sd_alg claim is present and its value is understood and the hash algorithm is deemed secure.
 	err = common.VerifyDisclosuresInSDJWT(cfp.Disclosures, signedJWT, sdJWTVersion)
 	if err != nil {
 		return nil, err
@@ -171,7 +168,7 @@ func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]i
 }
 
 func validateIssuerSignedSDJWT(sdjwt string, disclosures []string, pOpts *parseOpts) (*afgjwt.JSONWebToken, error) {
-	// Validate the signature over the SD-JWT
+	// Validate the signature over the SD-JWT.
 	signedJWT, _, err := afgjwt.Parse(sdjwt,
 		afgjwt.WithSignatureVerifier(pOpts.sigVerifier),
 		afgjwt.WithJWTDetachedPayload(pOpts.detachedPayload))
@@ -181,7 +178,7 @@ func validateIssuerSignedSDJWT(sdjwt string, disclosures []string, pOpts *parseO
 
 	// Ensure that a signing algorithm was used that was deemed secure for the application.
 	// The none algorithm MUST NOT be accepted.
-	err = verifySigningAlg(signedJWT.Headers, pOpts.issuerSigningAlgorithms)
+	err = common.VerifySigningAlg(signedJWT.Headers, pOpts.issuerSigningAlgorithms)
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify issuer signing algorithm: %w", err)
 	}
@@ -190,7 +187,7 @@ func validateIssuerSignedSDJWT(sdjwt string, disclosures []string, pOpts *parseO
 
 	// Check that the SD-JWT is valid using nbf, iat, and exp claims,
 	// if provided in the SD-JWT, and not selectively disclosed.
-	err = verifyJWT(signedJWT, pOpts.leewayForClaimsValidation)
+	err = common.VerifyJWT(signedJWT, pOpts.leewayForClaimsValidation)
 	if err != nil {
 		return nil, err
 	}
@@ -202,33 +199,6 @@ func validateIssuerSignedSDJWT(sdjwt string, disclosures []string, pOpts *parseO
 	}
 
 	return signedJWT, nil
-}
-
-func verifySigningAlg(joseHeaders jose.Headers, secureAlgs []string) error {
-	alg, ok := joseHeaders.Algorithm()
-	if !ok {
-		return fmt.Errorf("missing alg")
-	}
-
-	if alg == afgjwt.AlgorithmNone {
-		return fmt.Errorf("alg value cannot be 'none'")
-	}
-
-	if !contains(secureAlgs, alg) {
-		return fmt.Errorf("alg '%s' is not in the allowed list", alg)
-	}
-
-	return nil
-}
-
-func contains(values []string, val string) bool {
-	for _, v := range values {
-		if v == val {
-			return true
-		}
-	}
-
-	return false
 }
 
 func checkForDuplicates(values []string) error {
@@ -246,37 +216,6 @@ func checkForDuplicates(values []string) error {
 
 	if len(duplicates) > 0 {
 		return fmt.Errorf("duplicate values found %v", duplicates)
-	}
-
-	return nil
-}
-
-// verifyJWT checks that the JWT is valid using nbf, iat, and exp claims (if provided in the JWT).
-func verifyJWT(signedJWT *afgjwt.JSONWebToken, leeway time.Duration) error {
-	var claims jwt.Claims
-
-	d, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		Result:           &claims,
-		TagName:          "json",
-		Squash:           true,
-		WeaklyTypedInput: true,
-		DecodeHook:       utils.JSONNumberToJwtNumericDate(),
-	})
-	if err != nil {
-		return fmt.Errorf("mapstruct verifyJWT. error: %w", err)
-	}
-
-	if err = d.Decode(signedJWT.Payload); err != nil {
-		return fmt.Errorf("mapstruct verifyJWT decode. error: %w", err)
-	}
-
-	// Validate checks claims in a token against expected values.
-	// It is validated using the expected.Time, or time.Now if not provided
-	expected := jwt.Expected{}
-
-	err = claims.ValidateWithLeeway(expected, leeway)
-	if err != nil {
-		return fmt.Errorf("invalid JWT time values: %w", err)
 	}
 
 	return nil

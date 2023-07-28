@@ -25,19 +25,6 @@ import (
 	utils "github.com/hyperledger/aries-framework-go/component/models/util/maphelpers"
 )
 
-// parseV2 parses combined format for presentation and returns verified claims.
-// The Verifier has to verify that all disclosed claim values were part of the original, Issuer-signed SD-JWT.
-//
-// At a high level, the Verifier:
-//   - verifies the Holder Binding JWT, if Holder Binding is required by the Verifier's policy,
-//     using the public key included in the SD-JWT,
-//   - calculates the digests over the Holder-Selected Disclosures and verifies that each digest
-//     is contained in the SD-JWT.
-//
-// Detailed algorithm:
-// https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-02.html#name-verification-by-the-verifier
-//
-// The Verifier will not, however, learn any claim values not disclosed in the Disclosures.
 func parseV2(cfp *common.CombinedFormatForPresentation, signedJWT *afgjwt.JSONWebToken, pOpts *parseOpts) (map[string]interface{}, error) {
 	err := verifyHolderBinding(signedJWT, cfp.HolderVerification, pOpts)
 	if err != nil {
@@ -81,12 +68,12 @@ func verifyHolderBinding(sdJWT *afgjwt.JSONWebToken, holderBinding string, pOpts
 func verifyHolderBindingJWT(holderJWT *afgjwt.JSONWebToken, pOpts *parseOpts) error {
 	// Ensure that a signing algorithm was used that was deemed secure for the application.
 	// The none algorithm MUST NOT be accepted.
-	err := verifySigningAlg(holderJWT.Headers, pOpts.holderSigningAlgorithms)
+	err := common.VerifySigningAlg(holderJWT.Headers, pOpts.holderSigningAlgorithms)
 	if err != nil {
 		return fmt.Errorf("failed to verify holder signing algorithm: %w", err)
 	}
 
-	err = verifyJWT(holderJWT, pOpts.leewayForClaimsValidation)
+	err = common.VerifyJWT(holderJWT, pOpts.leewayForClaimsValidation)
 	if err != nil {
 		return err
 	}
