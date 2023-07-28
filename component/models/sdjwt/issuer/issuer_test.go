@@ -590,7 +590,7 @@ func TestNewFromVC(t *testing.T) {
 
 		// create VC - we will use template here
 		var vc map[string]interface{}
-		err = json.Unmarshal([]byte(sampleSDJWTVCFull), &vc)
+		err = json.Unmarshal([]byte(sampleSDJWTV5Full), &vc)
 		r.NoError(err)
 
 		token, err := NewFromVC(vc, nil, signer,
@@ -1060,7 +1060,7 @@ const sampleVCFull = `
 	}
 }`
 
-const sampleSDJWTVCFull = `
+const sampleSDJWTV5Full = `
 {
 	"iat": 1673987547,
 	"iss": "did:example:76e12ec712ebc6f1c221ebfeb1f",

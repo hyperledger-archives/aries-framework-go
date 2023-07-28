@@ -94,8 +94,15 @@ func MarshalWithSDJWTVersion(version common.SDJWTVersion) MarshalDisclosureOptio
 // MarshalWithDisclosure marshals a SD-JWT credential in combined format for presentation, including precisely
 // the disclosures indicated by provided options, and optionally a holder binding if given the requisite option.
 func (vc *Credential) MarshalWithDisclosure(opts ...MarshalDisclosureOption) (string, error) {
+	// Take default SD JWT version
+	sdJWTVersion := common.SDJWTVersionDefault
+	if vc.SDJWTVersion != 0 {
+		// If SD JWT version present in VC - use it as default.
+		sdJWTVersion = vc.SDJWTVersion
+	}
+
 	options := &marshalDisclosureOpts{
-		sdjwtVersion: vc.SDJWTVersion,
+		sdjwtVersion: sdJWTVersion,
 	}
 
 	for _, opt := range opts {
@@ -107,6 +114,7 @@ func (vc *Credential) MarshalWithDisclosure(opts ...MarshalDisclosureOption) (st
 	}
 
 	if vc.JWT != "" && vc.SDJWTHashAlg != "" {
+		// If VC already in SD JWT format.
 		return filterSDJWTVC(vc, options)
 	}
 
@@ -114,6 +122,7 @@ func (vc *Credential) MarshalWithDisclosure(opts ...MarshalDisclosureOption) (st
 		return "", fmt.Errorf("credential needs signer to create SD-JWT")
 	}
 
+	// If VC in not SD JWT.
 	return createSDJWTPresentation(vc, options)
 }
 
@@ -140,7 +149,7 @@ func filterSDJWTVC(vc *Credential, options *marshalDisclosureOpts) (string, erro
 }
 
 func createSDJWTPresentation(vc *Credential, options *marshalDisclosureOpts) (string, error) {
-	issued, err := makeSDJWT(vc, options.signer, options.signingKeyID)
+	issued, err := makeSDJWT(vc, options.signer, options.signingKeyID, MakeSDJWTWithVersion(options.sdjwtVersion))
 	if err != nil {
 		return "", fmt.Errorf("creating SD-JWT from Credential: %w", err)
 	}
