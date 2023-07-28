@@ -179,14 +179,14 @@ func applySDJWTV5Validation(signedJWT *afgjwt.JSONWebToken, disclosures []string
 	return nil
 }
 
-// BindingPayload represents holder binding payload.
+// BindingPayload represents holder verification payload.
 type BindingPayload struct {
 	Nonce    string           `json:"nonce,omitempty"`
 	Audience string           `json:"aud,omitempty"`
 	IssuedAt *jwt.NumericDate `json:"iat,omitempty"`
 }
 
-// BindingInfo defines holder binding payload and signer.
+// BindingInfo defines holder verification payload and signer.
 type BindingInfo struct {
 	Payload BindingPayload
 	Signer  jose.Signer
@@ -194,33 +194,37 @@ type BindingInfo struct {
 
 // options holds options for holder.
 type options struct {
-	holderBindingInfo *BindingInfo
+	holderVerificationInfo *BindingInfo
 }
 
 // Option is a holder option.
 type Option func(opts *options)
 
 // WithHolderBinding option to set optional holder binding.
+// Deprecated. Use WithHolderVerification instead.
 func WithHolderBinding(info *BindingInfo) Option {
 	return func(opts *options) {
-		opts.holderBindingInfo = info
+		opts.holderVerificationInfo = info
+	}
+}
+
+// WithHolderVerification option to set optional holder verification.
+func WithHolderVerification(info *BindingInfo) Option {
+	return func(opts *options) {
+		opts.holderVerificationInfo = info
 	}
 }
 
 // CreatePresentation is a convenience method to assemble combined format for presentation
-// using selected disclosures (claimsToDisclose) and optional holder binding.
+// using selected disclosures (claimsToDisclose) and optional holder verification.
 // This call assumes that combinedFormatForIssuance has already been parsed and verified using Parse() function.
 //
 // For presentation to a Verifier, the Holder MUST perform the following (or equivalent) steps:
 //   - Decide which Disclosures to release to the Verifier, obtaining proper End-User consent if necessary.
 //   - If Holder Binding is required, create a Holder Binding JWT.
-//   - Create the Combined Format for Presentation from selected Disclosures and Holder Binding JWT(if applicable).
+//   - Create the Combined Format for Presentation from selected Disclosures and Holder Verification JWT(if applicable).
 //   - Send the Presentation to the Verifier.
 func CreatePresentation(combinedFormatForIssuance string, claimsToDisclose []string, opts ...Option) (string, error) {
-	//TODO: split to v2 and v5 versions.
-	// spec:
-	// https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-02.html#name-processing-by-the-holder
-	// https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-05.html#name-processing-by-the-holder
 	hOpts := &options{}
 
 	for _, opt := range opts {
@@ -245,10 +249,10 @@ func CreatePresentation(combinedFormatForIssuance string, claimsToDisclose []str
 
 	var hbJWT string
 
-	if hOpts.holderBindingInfo != nil {
-		hbJWT, err = CreateHolderBinding(hOpts.holderBindingInfo)
+	if hOpts.holderVerificationInfo != nil {
+		hbJWT, err = CreateHolderVerification(hOpts.holderVerificationInfo)
 		if err != nil {
-			return "", fmt.Errorf("failed to create holder binding: %w", err)
+			return "", fmt.Errorf("failed to create holder verification: %w", err)
 		}
 	}
 
@@ -261,8 +265,8 @@ func CreatePresentation(combinedFormatForIssuance string, claimsToDisclose []str
 	return cf.Serialize(), nil
 }
 
-// CreateHolderBinding will create holder binding from binding info.
-func CreateHolderBinding(info *BindingInfo) (string, error) {
+// CreateHolderVerification will create holder verification from binding info.
+func CreateHolderVerification(info *BindingInfo) (string, error) {
 	hbJWT, err := afgjwt.NewSigned(info.Payload, nil, info.Signer)
 	if err != nil {
 		return "", err

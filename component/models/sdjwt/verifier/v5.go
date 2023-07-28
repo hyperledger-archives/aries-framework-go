@@ -113,6 +113,11 @@ func verifyKeyBindingJWT(holderJWT *afgjwt.JSONWebToken, pOpts *parseOpts) error
 			bindingPayload.Audience, pOpts.expectedAudienceForHolderVerification)
 	}
 
+	// Check that the creation time of the Key Binding JWT, as determined by the iat claim, is within an acceptable window.
+	if bindingPayload.IssuedAt == nil {
+		return fmt.Errorf("missing iat")
+	}
+
 	return nil
 }
 

@@ -139,7 +139,7 @@ func filterSDJWTVC(vc *Credential, options *marshalDisclosureOpts) (string, erro
 	}
 
 	if options.holderBinding != nil {
-		cf.HolderVerification, err = holder.CreateHolderBinding(options.holderBinding)
+		cf.HolderVerification, err = holder.CreateHolderVerification(options.holderBinding)
 		if err != nil {
 			return "", fmt.Errorf("failed to create holder binding: %w", err)
 		}
@@ -167,7 +167,7 @@ func createSDJWTPresentation(vc *Credential, options *marshalDisclosureOpts) (st
 	var presOpts []holder.Option
 
 	if options.holderBinding != nil {
-		presOpts = append(presOpts, holder.WithHolderBinding(options.holderBinding))
+		presOpts = append(presOpts, holder.WithHolderVerification(options.holderBinding))
 	}
 
 	issuedSerialized, err := issued.Serialize(false)

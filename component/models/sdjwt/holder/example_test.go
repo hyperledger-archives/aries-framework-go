@@ -122,7 +122,7 @@ func ExampleCreatePresentation() {
 
 	// Holder will disclose only sub-set of claims to verifier and create holder binding for the verifier.
 	combinedFormatForPresentation, err := CreatePresentation(combinedFormatForIssuance, selectedDisclosures,
-		WithHolderBinding(&BindingInfo{
+		WithHolderVerification(&BindingInfo{
 			Payload: BindingPayload{
 				Nonce:    "nonce",
 				Audience: "https://test.com/verifier",

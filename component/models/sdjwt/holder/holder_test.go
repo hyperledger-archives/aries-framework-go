@@ -158,7 +158,7 @@ func TestDiscloseClaims(t *testing.T) {
 		holderSigner := afjwt.NewEd25519Signer(holderPrivKey)
 
 		combinedFormatForPresentation, err := CreatePresentation(combinedFormatForIssuance, claimsToDisclose,
-			WithHolderBinding(&BindingInfo{
+			WithHolderVerification(&BindingInfo{
 				Payload: BindingPayload{
 					Audience: "https://example.com/verifier",
 					Nonce:    "nonce",
@@ -173,7 +173,7 @@ func TestDiscloseClaims(t *testing.T) {
 
 	t.Run("error - failed to create holder binding due to signing error", func(t *testing.T) {
 		combinedFormatForPresentation, err := CreatePresentation(combinedFormatForIssuance, claimsToDisclose,
-			WithHolderBinding(&BindingInfo{
+			WithHolderVerification(&BindingInfo{
 				Payload: BindingPayload{},
 				Signer:  &mockSigner{Err: fmt.Errorf("signing error")},
 			}))

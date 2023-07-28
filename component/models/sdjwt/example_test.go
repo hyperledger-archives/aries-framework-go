@@ -134,7 +134,7 @@ func ExampleComplexClaimsWithHolderBinding() { //nolint:govet
 
 	// Holder will disclose only sub-set of claims to verifier.
 	combinedFormatForPresentation, err := holder.CreatePresentation(combinedFormatForIssuance, selectedDisclosures,
-		holder.WithHolderBinding(&holder.BindingInfo{
+		holder.WithHolderVerification(&holder.BindingInfo{
 			Payload: holder.BindingPayload{
 				Nonce:    "nonce",
 				Audience: "https://test.com/verifier",
