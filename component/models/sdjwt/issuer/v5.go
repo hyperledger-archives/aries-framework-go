@@ -165,6 +165,10 @@ func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests(
 
 			allDisclosures = append(allDisclosures, elementsDisclosures...)
 		default:
+			if valOption.IsIgnored {
+				digestsMap[key] = value
+				continue
+			}
 			disclosure, disErr := s.createDisclosure(key, value, opts)
 			if disErr != nil {
 				return nil, nil, fmt.Errorf("create disclosure for simple value with path [%v]: %w",
