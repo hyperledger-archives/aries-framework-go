@@ -53,8 +53,11 @@ func (cf *CombinedFormatForIssuance) Serialize() string {
 
 // CombinedFormatForPresentation holds SD-JWT, disclosures and optional holder binding info.
 type CombinedFormatForPresentation struct {
-	SDJWT         string
-	Disclosures   []string
+	SDJWT       string
+	Disclosures []string
+
+	// Holder Binding JWT.
+	// For SD JWT V5 version, this field contains Key Binding JWT data.
 	HolderBinding string
 }
 

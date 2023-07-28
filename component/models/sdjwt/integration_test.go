@@ -395,7 +395,6 @@ func TestSDJWTFlow(t *testing.T) {
 
 		claims, err := holder.Parse(vcCombinedFormatForIssuance,
 			holder.WithSignatureVerifier(signatureVerifier),
-			holder.WithSDJWTVersion(common.SDJWTVersionV5),
 		)
 		r.NoError(err)
 

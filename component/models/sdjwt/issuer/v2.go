@@ -2,6 +2,7 @@ package issuer
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
@@ -116,5 +117,10 @@ func (s *SDJWTBuilderV2) createDisclosure(
 }
 
 func (s *SDJWTBuilderV2) ExtractCredentialClaims(vcClaims map[string]interface{}) (map[string]interface{}, error) {
-	return vcClaims, nil
+	vc, ok := vcClaims[vcKey].(map[string]interface{})
+	if !ok {
+		return nil, errors.New("invalid vc claim")
+	}
+
+	return vc, nil
 }
