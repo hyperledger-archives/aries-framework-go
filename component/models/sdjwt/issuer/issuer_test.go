@@ -782,7 +782,7 @@ func TestJSONWebToken_createDisclosure(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, expectedDisclosureWithSpaces, disclosure)
 
-		dh, err := common.GetHash(defaultHash, disclosure)
+		dh, err := common.GetHash(defaultHash, disclosure.Result)
 		require.NoError(t, err)
 		require.Equal(t, expectedHashWithSpaces, dh)
 	})

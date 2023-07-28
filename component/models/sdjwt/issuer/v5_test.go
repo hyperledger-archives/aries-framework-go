@@ -42,7 +42,7 @@ func TestDisclosureV5Map(t *testing.T) {
 			"region": "Sachsen-Anhalt",
 			"country": "DE",
 			"extraArrInclude" : ["UA", "PL"],
-			"extraArr" : ["UA", "PL"],
+			"extraArr" : ["Extra1", "Extra2"],
 			"extra" : {
 				"recursive" : {
 					"key1" : "value1"
@@ -55,12 +55,13 @@ func TestDisclosureV5Map(t *testing.T) {
 		bb := NewSDJWTBuilderV5()
 		bb.debugMode = true
 
-		resp1, resp2, err := bb.CreateDisclosuresAndDigests("", parsedInput, &newOpts{
+		disclosures, finalMap, err := bb.CreateDisclosuresAndDigests("", parsedInput, &newOpts{
 			getSalt:     generateSalt,
 			jsonMarshal: json.Marshal,
 			HashAlg:     defaultHash,
 			alwaysInclude: map[string]bool{
 				"address.extraArrInclude": true,
+				"address.extra":           true,
 			},
 			nonSDClaimsMap: map[string]bool{
 				"address.extraArrInclude[1]": true,
@@ -72,8 +73,9 @@ func TestDisclosureV5Map(t *testing.T) {
 			},
 		})
 
+		printObject(t, "final credentials", finalMap)
+		printObject(t, "disclosures", disclosures)
 		assert.NoError(t, err)
-		assert.NotNil(t, resp1, resp2)
 	})
 }
 func TestDisclosureV5Array(t *testing.T) {
@@ -100,6 +102,7 @@ func TestDisclosureV5Array(t *testing.T) {
 		var parsedInput map[string]interface{}
 		assert.NoError(t, json.Unmarshal([]byte(input), &parsedInput))
 		bb := NewSDJWTBuilderV5()
+		bb.debugMode = true
 
 		resp1, resp2, err := bb.CreateDisclosuresAndDigests("", parsedInput, &newOpts{
 			getSalt:     generateSalt,

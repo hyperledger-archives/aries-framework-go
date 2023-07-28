@@ -12,7 +12,7 @@ type builder interface {
 		path string,
 		claims map[string]interface{},
 		opts *newOpts,
-	) ([]string, map[string]interface{}, error)
+	) ([]*DisclosureEntity, map[string]interface{}, error)
 }
 
 func getBuilderByVersion(
@@ -37,10 +37,10 @@ func (s *SDJWTBuilderV2) CreateDisclosuresAndDigests(
 	path string,
 	claims map[string]interface{},
 	opts *newOpts,
-) ([]string, map[string]interface{}, error) { // nolint:lll
-	var disclosures []string
+) ([]*DisclosureEntity, map[string]interface{}, error) { // nolint:lll
+	var disclosures []*DisclosureEntity
 
-	var levelDisclosures []string
+	var levelDisclosures []*DisclosureEntity
 
 	digestsMap := make(map[string]interface{})
 
@@ -96,18 +96,20 @@ func (s *SDJWTBuilderV2) createDisclosure(
 	key string,
 	value interface{},
 	opts *newOpts,
-) (string, error) {
+) (*DisclosureEntity, error) {
 	salt, err := opts.getSalt()
 	if err != nil {
-		return "", fmt.Errorf("generate salt: %w", err)
+		return nil, fmt.Errorf("generate salt: %w", err)
 	}
 
 	disclosure := []interface{}{salt, key, value}
 
 	disclosureBytes, err := opts.jsonMarshal(disclosure)
 	if err != nil {
-		return "", fmt.Errorf("marshal disclosure: %w", err)
+		return nil, fmt.Errorf("marshal disclosure: %w", err)
 	}
 
-	return base64.RawURLEncoding.EncodeToString(disclosureBytes), nil
+	return &DisclosureEntity{
+		Result: base64.RawURLEncoding.EncodeToString(disclosureBytes),
+	}, nil
 }

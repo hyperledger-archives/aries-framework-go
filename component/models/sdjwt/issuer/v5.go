@@ -76,14 +76,14 @@ func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests(
 	path string,
 	claims map[string]interface{},
 	opts *newOpts,
-) ([]string, map[string]interface{}, error) {
+) ([]*DisclosureEntity, map[string]interface{}, error) {
 	digestsMap := map[string]interface{}{}
 	finalSDDigest, err := createDecoyDisclosures(opts)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create decoy disclosures: %w", err)
 	}
 
-	var allDisclosures []string
+	var allDisclosures []*DisclosureEntity
 	for key, value := range claims {
 		curPath := key
 		if path != "" {
@@ -189,10 +189,10 @@ func (s *SDJWTBuilderV5) processArrayElements(
 	value interface{},
 	path string,
 	opts *newOpts,
-) ([]interface{}, []string, error) {
+) ([]interface{}, []*DisclosureEntity, error) {
 	valSl := reflect.ValueOf(value)
 	var digestArr []interface{}
-	var elementsDisclosures []string
+	var elementsDisclosures []*DisclosureEntity
 	for i := 0; i < valSl.Len(); i++ {
 		elementPath := fmt.Sprintf("%v[%v]", path, i)
 		elementOptions := s.extractValueOptions(elementPath, opts)
@@ -203,12 +203,19 @@ func (s *SDJWTBuilderV5) processArrayElements(
 			continue
 		}
 
-		digest, err := s.createDisclosure("", elementValue, opts)
+		disclosure, err := s.createDisclosure("", elementValue, opts)
 		if err != nil {
 			return nil, nil,
 				fmt.Errorf("create element disclosure for path [%v]: %w", elementPath, err)
 		}
-		elementsDisclosures = append(elementsDisclosures, digest)
+
+		digest, err := createDigest(disclosure, opts)
+		if err != nil {
+			return nil, nil,
+				fmt.Errorf("can not create digest for array element [%v]: %w", elementPath, err)
+		}
+
+		elementsDisclosures = append(elementsDisclosures, disclosure)
 		digestArr = append(digestArr, map[string]string{"...": digest})
 	}
 
@@ -252,10 +259,11 @@ func (s *SDJWTBuilderV5) createDisclosure(
 }
 
 type DisclosureEntity struct {
-	Result   string
-	Salt     string
-	Key      string
-	Value    interface{}
-	DebugArr []interface{}
-	DebugStr string
+	Result      string
+	Salt        string
+	Key         string
+	Value       interface{}
+	DebugArr    []interface{}
+	DebugStr    string
+	DebugDigest string
 }
