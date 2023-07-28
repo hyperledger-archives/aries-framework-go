@@ -38,19 +38,19 @@ func WithHolderSigningAlgorithms(algorithms []string) common.ParseOpt {
 	return common.WithHolderSigningAlgorithms(algorithms)
 }
 
-// WithHolderBindingRequired option is for enforcing holder binding.
-func WithHolderBindingRequired(flag bool) common.ParseOpt {
-	return common.WithHolderBindingRequired(flag)
+// WithHolderVerificationRequired option is for enforcing holder verification.
+func WithHolderVerificationRequired(flag bool) common.ParseOpt {
+	return common.WithHolderVerificationRequired(flag)
 }
 
-// WithExpectedAudienceForHolderBinding option is to pass expected audience for holder binding.
-func WithExpectedAudienceForHolderBinding(audience string) common.ParseOpt {
-	return common.WithExpectedAudienceForHolderBinding(audience)
+// WithExpectedAudienceForHolderVerification option is to pass expected audience for holder binding.
+func WithExpectedAudienceForHolderVerification(audience string) common.ParseOpt {
+	return common.WithExpectedAudienceForHolderVerification(audience)
 }
 
-// WithExpectedNonceForHolderBinding option is to pass nonce value for holder binding.
-func WithExpectedNonceForHolderBinding(nonce string) common.ParseOpt {
-	return common.WithExpectedNonceForHolderBinding(nonce)
+// WithExpectedNonceForHolderVerification option is to pass nonce value for holder binding.
+func WithExpectedNonceForHolderVerification(nonce string) common.ParseOpt {
+	return common.WithExpectedNonceForHolderVerification(nonce)
 }
 
 // WithLeewayForClaimsValidation is an option for claims time(s) validation.

@@ -298,8 +298,8 @@ func TestHolderBinding(t *testing.T) {
 
 		verifiedClaims, err := Parse(combinedFormatForPresentation,
 			WithSignatureVerifier(signatureVerifier),
-			WithExpectedAudienceForHolderBinding(testAudience),
-			WithExpectedNonceForHolderBinding(testNonce),
+			WithExpectedAudienceForHolderVerification(testAudience),
+			WithExpectedNonceForHolderVerification(testNonce),
 			WithLeewayForClaimsValidation(time.Hour))
 		r.NoError(err)
 
@@ -321,7 +321,7 @@ func TestHolderBinding(t *testing.T) {
 
 		verifiedClaims, err := Parse(combinedFormatForPresentation,
 			WithSignatureVerifier(signatureVerifier),
-			WithHolderBindingRequired(true))
+			WithHolderVerificationRequired(true))
 		r.NoError(err)
 
 		// expected claims cnf, iss, given_name; last_name was not disclosed
@@ -343,9 +343,9 @@ func TestHolderBinding(t *testing.T) {
 		// Verifier will validate combined format for presentation and create verified claims.
 		verifiedClaims, err := Parse(combinedFormatForPresentation,
 			WithSignatureVerifier(signatureVerifier),
-			WithHolderBindingRequired(true),
-			WithExpectedAudienceForHolderBinding(testAudience),
-			WithExpectedNonceForHolderBinding(testNonce))
+			WithHolderVerificationRequired(true),
+			WithExpectedAudienceForHolderVerification(testAudience),
+			WithExpectedNonceForHolderVerification(testNonce))
 		r.NoError(err)
 
 		// expected claims cnf, iss, given_name; last_name was not disclosed
@@ -360,9 +360,9 @@ func TestHolderBinding(t *testing.T) {
 		// Verifier will validate combined format for presentation and create verified claims.
 		verifiedClaims, err := Parse(combinedFormatForPresentation,
 			WithSignatureVerifier(signatureVerifier),
-			WithHolderBindingRequired(true),
-			WithExpectedAudienceForHolderBinding(testAudience),
-			WithExpectedNonceForHolderBinding(testNonce))
+			WithHolderVerificationRequired(true),
+			WithExpectedAudienceForHolderVerification(testAudience),
+			WithExpectedNonceForHolderVerification(testNonce))
 		r.Error(err)
 		r.Nil(verifiedClaims)
 
@@ -383,8 +383,8 @@ func TestHolderBinding(t *testing.T) {
 
 		verifiedClaims, err := Parse(combinedFormatForPresentation,
 			WithSignatureVerifier(signatureVerifier),
-			WithExpectedAudienceForHolderBinding(testAudience),
-			WithExpectedNonceForHolderBinding(testNonce))
+			WithExpectedAudienceForHolderVerification(testAudience),
+			WithExpectedNonceForHolderVerification(testNonce))
 		r.Error(err)
 		r.Nil(verifiedClaims)
 
@@ -403,8 +403,8 @@ func TestHolderBinding(t *testing.T) {
 		// Verifier will validate combined format for presentation and create verified claims.
 		verifiedClaims, err := Parse(combinedFormatForPresentation,
 			WithSignatureVerifier(signatureVerifier),
-			WithExpectedAudienceForHolderBinding(testAudience),
-			WithExpectedNonceForHolderBinding(testNonce))
+			WithExpectedAudienceForHolderVerification(testAudience),
+			WithExpectedNonceForHolderVerification(testNonce))
 		r.Error(err)
 		r.Nil(verifiedClaims)
 
@@ -427,9 +427,9 @@ func TestHolderBinding(t *testing.T) {
 		// Verifier will validate combined format for presentation and create verified claims.
 		verifiedClaims, err := Parse(combinedFormatForPresentation,
 			WithSignatureVerifier(signatureVerifier),
-			WithHolderBindingRequired(true),
-			WithExpectedAudienceForHolderBinding(testAudience),
-			WithExpectedNonceForHolderBinding(testNonce),
+			WithHolderVerificationRequired(true),
+			WithExpectedAudienceForHolderVerification(testAudience),
+			WithExpectedNonceForHolderVerification(testNonce),
 			WithHolderSigningAlgorithms([]string{}))
 		r.Error(err)
 		r.Nil(verifiedClaims)
@@ -452,8 +452,8 @@ func TestHolderBinding(t *testing.T) {
 
 		verifiedClaims, err := Parse(combinedFormatForPresentation,
 			WithSignatureVerifier(signatureVerifier),
-			WithExpectedAudienceForHolderBinding(testAudience),
-			WithExpectedNonceForHolderBinding(testNonce))
+			WithExpectedAudienceForHolderVerification(testAudience),
+			WithExpectedNonceForHolderVerification(testNonce))
 		r.Error(err)
 		r.Nil(verifiedClaims)
 
@@ -475,8 +475,8 @@ func TestHolderBinding(t *testing.T) {
 
 		verifiedClaims, err := Parse(combinedFormatForPresentation,
 			WithSignatureVerifier(signatureVerifier),
-			WithExpectedAudienceForHolderBinding(testAudience),
-			WithExpectedNonceForHolderBinding(testNonce))
+			WithExpectedAudienceForHolderVerification(testAudience),
+			WithExpectedNonceForHolderVerification(testNonce))
 		r.Error(err)
 		r.Nil(verifiedClaims)
 
@@ -498,8 +498,8 @@ func TestHolderBinding(t *testing.T) {
 
 		verifiedClaims, err := Parse(combinedFormatForPresentation,
 			WithSignatureVerifier(signatureVerifier),
-			WithExpectedAudienceForHolderBinding(testAudience),
-			WithExpectedNonceForHolderBinding(testNonce))
+			WithExpectedAudienceForHolderVerification(testAudience),
+			WithExpectedNonceForHolderVerification(testNonce))
 		r.Error(err)
 		r.Nil(verifiedClaims)
 
@@ -532,8 +532,8 @@ func TestHolderBinding(t *testing.T) {
 
 		verifiedClaims, err := Parse(combinedFormatForPresentation,
 			WithSignatureVerifier(signatureVerifier),
-			WithExpectedAudienceForHolderBinding(testAudience),
-			WithExpectedNonceForHolderBinding(testNonce))
+			WithExpectedAudienceForHolderVerification(testAudience),
+			WithExpectedNonceForHolderVerification(testNonce))
 		r.Error(err)
 		r.Nil(verifiedClaims)
 
@@ -798,9 +798,9 @@ func TestWithJWTDetachedPayload(t *testing.T) {
 	detachedPayloadOpt := WithJWTDetachedPayload([]byte("payload"))
 	require.NotNil(t, detachedPayloadOpt)
 
-	opts := &parseOpts{}
+	opts := &common.ParseOpts{}
 	detachedPayloadOpt(opts)
-	require.Equal(t, []byte("payload"), opts.detachedPayload)
+	require.Equal(t, []byte("payload"), opts.DetachedPayload)
 }
 
 func buildJWS(signer afjose.Signer, claims interface{}) (string, error) {

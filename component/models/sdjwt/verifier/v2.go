@@ -62,7 +62,7 @@ func verifyHolderBinding(sdJWT *afgjwt.JSONWebToken, holderBinding string, opts 
 		opt(pOpts)
 	}
 
-	if pOpts.HolderBindingRequired && holderBinding == "" {
+	if pOpts.HolderVerificationRequired && holderBinding == "" {
 		return fmt.Errorf("holder binding is required")
 	}
 
@@ -82,7 +82,7 @@ func verifyHolderBinding(sdJWT *afgjwt.JSONWebToken, holderBinding string, opts 
 		return fmt.Errorf("failed to parse holder binding: %w", err)
 	}
 
-	err = verifyHolderJWT(holderJWT, pOpts)
+	err = verifyHolderBindingJWT(holderJWT, pOpts)
 	if err != nil {
 		return fmt.Errorf("failed to verify holder JWT: %w", err)
 	}
@@ -90,7 +90,7 @@ func verifyHolderBinding(sdJWT *afgjwt.JSONWebToken, holderBinding string, opts 
 	return nil
 }
 
-func verifyHolderJWT(holderJWT *afgjwt.JSONWebToken, pOpts *common.ParseOpts) error {
+func verifyHolderBindingJWT(holderJWT *afgjwt.JSONWebToken, pOpts *common.ParseOpts) error {
 	// Ensure that a signing algorithm was used that was deemed secure for the application.
 	// The none algorithm MUST NOT be accepted.
 	err := verifySigningAlg(holderJWT.Headers, pOpts.HolderSigningAlgorithms)
@@ -120,14 +120,14 @@ func verifyHolderJWT(holderJWT *afgjwt.JSONWebToken, pOpts *common.ParseOpts) er
 		return fmt.Errorf("mapstruct verifyHodlder decode. error: %w", err)
 	}
 
-	if pOpts.ExpectedNonceForHolderBinding != "" && pOpts.ExpectedNonceForHolderBinding != bindingPayload.Nonce {
+	if pOpts.ExpectedNonceForHolderVerification != "" && pOpts.ExpectedNonceForHolderVerification != bindingPayload.Nonce {
 		return fmt.Errorf("nonce value '%s' does not match expected nonce value '%s'",
-			bindingPayload.Nonce, pOpts.ExpectedNonceForHolderBinding)
+			bindingPayload.Nonce, pOpts.ExpectedNonceForHolderVerification)
 	}
 
-	if pOpts.ExpectedAudienceForHolderBinding != "" && pOpts.ExpectedAudienceForHolderBinding != bindingPayload.Audience {
+	if pOpts.ExpectedAudienceForHolderVerification != "" && pOpts.ExpectedAudienceForHolderVerification != bindingPayload.Audience {
 		return fmt.Errorf("audience value '%s' does not match expected audience value '%s'",
-			bindingPayload.Audience, pOpts.ExpectedAudienceForHolderBinding)
+			bindingPayload.Audience, pOpts.ExpectedAudienceForHolderVerification)
 	}
 
 	return nil
@@ -215,26 +215,6 @@ func contains(values []string, val string) bool {
 	}
 
 	return false
-}
-
-func checkForDuplicates(values []string) error {
-	var duplicates []string
-
-	valuesMap := make(map[string]bool)
-
-	for _, val := range values {
-		if _, ok := valuesMap[val]; !ok {
-			valuesMap[val] = true
-		} else {
-			duplicates = append(duplicates, val)
-		}
-	}
-
-	if len(duplicates) > 0 {
-		return fmt.Errorf("duplicate values found %v", duplicates)
-	}
-
-	return nil
 }
 
 // verifyJWT checks that the JWT is valid using nbf, iat, and exp claims (if provided in the JWT).

@@ -20,15 +20,15 @@ import (
 
 // ParseOpts holds options for the SD-JWT parsing.
 type ParseOpts struct {
-	detachedPayload []byte
+	DetachedPayload []byte
 	sigVerifier     jose.SignatureVerifier
 
 	issuerSigningAlgorithms []string
 	HolderSigningAlgorithms []string
 
-	HolderBindingRequired            bool
-	ExpectedAudienceForHolderBinding string
-	ExpectedNonceForHolderBinding    string
+	HolderVerificationRequired            bool
+	ExpectedAudienceForHolderVerification string
+	ExpectedNonceForHolderVerification    string
 
 	LeewayForClaimsValidation time.Duration
 }
@@ -39,7 +39,7 @@ type ParseOpt func(opts *ParseOpts)
 // WithJWTDetachedPayload option is for definition of JWT detached payload.
 func WithJWTDetachedPayload(payload []byte) ParseOpt {
 	return func(opts *ParseOpts) {
-		opts.detachedPayload = payload
+		opts.DetachedPayload = payload
 	}
 }
 
@@ -64,24 +64,26 @@ func WithHolderSigningAlgorithms(algorithms []string) ParseOpt {
 	}
 }
 
-// WithHolderBindingRequired option is for enforcing holder binding.
-func WithHolderBindingRequired(flag bool) ParseOpt {
+// WithHolderVerificationRequired option is for enforcing holder verification.
+// For SDJWT V2 - this option defines Holder Binding verification as required.
+// For SDJWT V5 - this option defines Key Binding verification as required.
+func WithHolderVerificationRequired(flag bool) ParseOpt {
 	return func(opts *ParseOpts) {
-		opts.HolderBindingRequired = flag
+		opts.HolderVerificationRequired = flag
 	}
 }
 
-// WithExpectedAudienceForHolderBinding option is to pass expected audience for holder binding.
-func WithExpectedAudienceForHolderBinding(audience string) ParseOpt {
+// WithExpectedAudienceForHolderVerification option is to pass expected audience for holder verification.
+func WithExpectedAudienceForHolderVerification(audience string) ParseOpt {
 	return func(opts *ParseOpts) {
-		opts.ExpectedAudienceForHolderBinding = audience
+		opts.ExpectedAudienceForHolderVerification = audience
 	}
 }
 
-// WithExpectedNonceForHolderBinding option is to pass nonce value for holder binding.
-func WithExpectedNonceForHolderBinding(nonce string) ParseOpt {
+// WithExpectedNonceForHolderVerification option is to pass nonce value for holder verification.
+func WithExpectedNonceForHolderVerification(nonce string) ParseOpt {
 	return func(opts *ParseOpts) {
-		opts.ExpectedNonceForHolderBinding = nonce
+		opts.ExpectedNonceForHolderVerification = nonce
 	}
 }
 
@@ -112,7 +114,7 @@ func ValidateIssuerSignedSDJWT(sdjwt string, disclosures []string, opts ...Parse
 	var jwtOpts []afgjwt.ParseOpt
 	jwtOpts = append(jwtOpts,
 		afgjwt.WithSignatureVerifier(pOpts.sigVerifier),
-		afgjwt.WithJWTDetachedPayload(pOpts.detachedPayload))
+		afgjwt.WithJWTDetachedPayload(pOpts.DetachedPayload))
 
 	// Validate the signature over the SD-JWT
 	signedJWT, _, err := afgjwt.Parse(sdjwt, jwtOpts...)
