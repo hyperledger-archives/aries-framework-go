@@ -207,13 +207,13 @@ func TestGetClaims(t *testing.T) {
 	r := require.New(t)
 
 	t.Run("success", func(t *testing.T) {
-		claims, err := getClaims([]string{additionalDisclosure})
+		claims, err := getClaims([]string{additionalDisclosure}, common.SDJWTVersionV5)
 		r.NoError(err)
 		r.Len(claims, 1)
 	})
 
 	t.Run("error - not base64 encoded ", func(t *testing.T) {
-		claims, err := getClaims([]string{"!!!"})
+		claims, err := getClaims([]string{"!!!"}, common.SDJWTVersionV5)
 		r.Error(err)
 		r.Nil(claims)
 		r.Contains(err.Error(), "failed to decode disclosure")

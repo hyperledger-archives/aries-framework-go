@@ -22,25 +22,17 @@ import (
 	utils "github.com/hyperledger/aries-framework-go/component/models/util/maphelpers"
 )
 
-// parseV5 parses combined format for presentation and returns verified claims.
-// The Verifier has to verify that all disclosed claim values were part of the original, Issuer-signed SD-JWT.
-//
-// At a high level, the Verifier:
-//   - receives the Combined Format for Presentation from the Holder and verifies the signature of the SD-JWT using the
-//     Issuer's public key,
-//   - verifies the Key Binding JWT, if Key Binding is required by the Verifier's policy,
-//     using the public key included in the SD-JWT,
-//   - calculates the digests over the Holder-Selected Disclosures and verifies that each digest
-//     is contained in the SD-JWT.
-//
-// Detailed algorithm:
-// https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-05.html#name-verification-by-the-verifie
-//
-// The Verifier will not, however, learn any claim values not disclosed in the Disclosures.
-func parseV5(cfp *common.CombinedFormatForPresentation, signedJWT *afgjwt.JSONWebToken, opts ...common.ParseOpt) (map[string]interface{}, error) {
-	err := verifyKeyBinding(signedJWT, cfp.HolderVerification, opts...)
+func parseV5(cfp *common.CombinedFormatForPresentation, signedJWT *afgjwt.JSONWebToken, pOpts *parseOpts) (map[string]interface{}, error) {
+	// Check that the typ of the SD JWT is vc+sd-jwt.
+	// Spec: https://vcstuff.github.io/draft-terbu-sd-jwt-vc/draft-terbu-oauth-sd-jwt-vc.html#name-header-parameters
+	err := verifyTyp(signedJWT.Headers, "vc+sd-jwt")
 	if err != nil {
-		return nil, fmt.Errorf("failed to verify holder binding: %w", err)
+		return nil, fmt.Errorf("failed to verify typ header: %w", err)
+	}
+
+	err = verifyKeyBinding(signedJWT, cfp.HolderVerification, pOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify key binding: %w", err)
 	}
 
 	// Process the Disclosures and embedded digests in the issuser-signed JWT.
@@ -48,19 +40,8 @@ func parseV5(cfp *common.CombinedFormatForPresentation, signedJWT *afgjwt.JSONWe
 	return getDisclosedClaims(cfp.Disclosures, signedJWT, common.SDJWTVersionV5)
 }
 
-func verifyKeyBinding(sdJWT *afgjwt.JSONWebToken, keyBinding string, opts ...common.ParseOpt) error {
-	// spec: https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-05.html#section-6.3-3
-	defaultSigningAlgorithms := []string{"EdDSA", "RS256"}
-	pOpts := &common.ParseOpts{
-		HolderSigningAlgorithms:   defaultSigningAlgorithms,
-		LeewayForClaimsValidation: jwt.DefaultLeeway,
-	}
-
-	for _, opt := range opts {
-		opt(pOpts)
-	}
-
-	if pOpts.HolderVerificationRequired && keyBinding == "" {
+func verifyKeyBinding(sdJWT *afgjwt.JSONWebToken, keyBinding string, pOpts *parseOpts) error {
+	if pOpts.holderVerificationRequired && keyBinding == "" {
 		return fmt.Errorf("key binding is required")
 	}
 
@@ -89,21 +70,21 @@ func verifyKeyBinding(sdJWT *afgjwt.JSONWebToken, keyBinding string, opts ...com
 	return nil
 }
 
-func verifyKeyBindingJWT(holderJWT *afgjwt.JSONWebToken, pOpts *common.ParseOpts) error {
+func verifyKeyBindingJWT(holderJWT *afgjwt.JSONWebToken, pOpts *parseOpts) error {
 	// Ensure that a signing algorithm was used that was deemed secure for the application.
 	// The none algorithm MUST NOT be accepted.
-	err := verifySigningAlg(holderJWT.Headers, pOpts.HolderSigningAlgorithms)
+	err := verifySigningAlg(holderJWT.Headers, pOpts.holderSigningAlgorithms)
 	if err != nil {
 		return fmt.Errorf("failed to verify holder signing algorithm: %w", err)
 	}
 
 	// Check that the typ of the Key Binding JWT is kb+jwt.
-	err = verifyTyp(holderJWT.Headers)
+	err = verifyTyp(holderJWT.Headers, "kb+jwt")
 	if err != nil {
 		return fmt.Errorf("failed to verify typ header: %w", err)
 	}
 
-	err = verifyJWT(holderJWT, pOpts.LeewayForClaimsValidation)
+	err = verifyJWT(holderJWT, pOpts.leewayForClaimsValidation)
 	if err != nil {
 		return err
 	}
@@ -125,26 +106,26 @@ func verifyKeyBindingJWT(holderJWT *afgjwt.JSONWebToken, pOpts *common.ParseOpts
 		return fmt.Errorf("mapstruct verifyHodlder decode. error: %w", err)
 	}
 
-	if pOpts.ExpectedNonceForHolderVerification != "" && pOpts.ExpectedNonceForHolderVerification != bindingPayload.Nonce {
+	if pOpts.expectedNonceForHolderVerification != "" && pOpts.expectedNonceForHolderVerification != bindingPayload.Nonce {
 		return fmt.Errorf("nonce value '%s' does not match expected nonce value '%s'",
-			bindingPayload.Nonce, pOpts.ExpectedNonceForHolderVerification)
+			bindingPayload.Nonce, pOpts.expectedNonceForHolderVerification)
 	}
 
-	if pOpts.ExpectedAudienceForHolderVerification != "" && pOpts.ExpectedAudienceForHolderVerification != bindingPayload.Audience {
+	if pOpts.expectedAudienceForHolderVerification != "" && pOpts.expectedAudienceForHolderVerification != bindingPayload.Audience {
 		return fmt.Errorf("audience value '%s' does not match expected audience value '%s'",
-			bindingPayload.Audience, pOpts.ExpectedAudienceForHolderVerification)
+			bindingPayload.Audience, pOpts.expectedAudienceForHolderVerification)
 	}
 
 	return nil
 }
 
-func verifyTyp(joseHeaders jose.Headers) error {
+func verifyTyp(joseHeaders jose.Headers, expectedTyp string) error {
 	typ, ok := joseHeaders.Type()
 	if !ok {
 		return fmt.Errorf("missing typ")
 	}
 
-	if typ != "kb+jwt" {
+	if typ != expectedTyp {
 		return fmt.Errorf("unexpected typ \"%s\"", typ)
 	}
 

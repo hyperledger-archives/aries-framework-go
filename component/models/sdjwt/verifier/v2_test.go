@@ -798,9 +798,9 @@ func TestWithJWTDetachedPayload(t *testing.T) {
 	detachedPayloadOpt := WithJWTDetachedPayload([]byte("payload"))
 	require.NotNil(t, detachedPayloadOpt)
 
-	opts := &common.ParseOpts{}
+	opts := &parseOpts{}
 	detachedPayloadOpt(opts)
-	require.Equal(t, []byte("payload"), opts.DetachedPayload)
+	require.Equal(t, []byte("payload"), opts.detachedPayload)
 }
 
 func buildJWS(signer afjose.Signer, claims interface{}) (string, error) {

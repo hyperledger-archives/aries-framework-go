@@ -14,66 +14,107 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-jose/go-jose/v3/jwt"
+	"github.com/mitchellh/mapstructure"
+
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+	afgjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
+	utils "github.com/hyperledger/aries-framework-go/component/models/util/maphelpers"
 )
 
+// parseOpts holds options for the SD-JWT parsing.
+type parseOpts struct {
+	detachedPayload []byte
+	sigVerifier     jose.SignatureVerifier
+
+	issuerSigningAlgorithms []string
+	holderSigningAlgorithms []string
+
+	holderVerificationRequired            bool
+	expectedAudienceForHolderVerification string
+	expectedNonceForHolderVerification    string
+
+	leewayForClaimsValidation time.Duration
+}
+
+// ParseOpt is the SD-JWT Parser option.
+type ParseOpt func(opts *parseOpts)
+
 // WithJWTDetachedPayload option is for definition of JWT detached payload.
-func WithJWTDetachedPayload(payload []byte) common.ParseOpt {
-	return common.WithJWTDetachedPayload(payload)
+func WithJWTDetachedPayload(payload []byte) ParseOpt {
+	return func(opts *parseOpts) {
+		opts.detachedPayload = payload
+	}
 }
 
 // WithSignatureVerifier option is for definition of signature verifier.
-func WithSignatureVerifier(signatureVerifier jose.SignatureVerifier) common.ParseOpt {
-	return common.WithSignatureVerifier(signatureVerifier)
+func WithSignatureVerifier(signatureVerifier jose.SignatureVerifier) ParseOpt {
+	return func(opts *parseOpts) {
+		opts.sigVerifier = signatureVerifier
+	}
 }
 
 // WithIssuerSigningAlgorithms option is for defining secure signing algorithms (for issuer).
-func WithIssuerSigningAlgorithms(algorithms []string) common.ParseOpt {
-	return common.WithIssuerSigningAlgorithms(algorithms)
+func WithIssuerSigningAlgorithms(algorithms []string) ParseOpt {
+	return func(opts *parseOpts) {
+		opts.issuerSigningAlgorithms = algorithms
+	}
 }
 
 // WithHolderSigningAlgorithms option is for defining secure signing algorithms (for holder).
-func WithHolderSigningAlgorithms(algorithms []string) common.ParseOpt {
-	return common.WithHolderSigningAlgorithms(algorithms)
+func WithHolderSigningAlgorithms(algorithms []string) ParseOpt {
+	return func(opts *parseOpts) {
+		opts.holderSigningAlgorithms = algorithms
+	}
 }
 
 // WithHolderBindingRequired option is for enforcing holder binding.
 // Deprecated: use WithHolderVerificationRequired instead.
-func WithHolderBindingRequired(flag bool) common.ParseOpt {
-	return common.WithHolderVerificationRequired(flag)
+func WithHolderBindingRequired(flag bool) ParseOpt {
+	return WithHolderVerificationRequired(flag)
 }
 
 // WithExpectedAudienceForHolderBinding option is to pass expected audience for holder binding.
 // Deprecated: use WithExpectedAudienceForHolderVerification instead.
-func WithExpectedAudienceForHolderBinding(audience string) common.ParseOpt {
-	return common.WithExpectedAudienceForHolderVerification(audience)
+func WithExpectedAudienceForHolderBinding(audience string) ParseOpt {
+	return WithExpectedAudienceForHolderVerification(audience)
 }
 
 // WithExpectedNonceForHolderBinding option is to pass nonce value for holder binding.
 // Deprecated: use WithExpectedNonceForHolderVerification instead.
-func WithExpectedNonceForHolderBinding(nonce string) common.ParseOpt {
-	return common.WithExpectedNonceForHolderVerification(nonce)
+func WithExpectedNonceForHolderBinding(nonce string) ParseOpt {
+	return WithExpectedNonceForHolderVerification(nonce)
 }
 
 // WithHolderVerificationRequired option is for enforcing holder verification.
-func WithHolderVerificationRequired(flag bool) common.ParseOpt {
-	return common.WithHolderVerificationRequired(flag)
+// For SDJWT V2 - this option defines Holder Binding verification as required.
+// For SDJWT V5 - this option defines Key Binding verification as required.
+func WithHolderVerificationRequired(flag bool) ParseOpt {
+	return func(opts *parseOpts) {
+		opts.holderVerificationRequired = flag
+	}
 }
 
-// WithExpectedAudienceForHolderVerification option is to pass expected audience for holder binding.
-func WithExpectedAudienceForHolderVerification(audience string) common.ParseOpt {
-	return common.WithExpectedAudienceForHolderVerification(audience)
+// WithExpectedAudienceForHolderVerification option is to pass expected audience for holder verification.
+func WithExpectedAudienceForHolderVerification(audience string) ParseOpt {
+	return func(opts *parseOpts) {
+		opts.expectedAudienceForHolderVerification = audience
+	}
 }
 
-// WithExpectedNonceForHolderVerification option is to pass nonce value for holder binding.
-func WithExpectedNonceForHolderVerification(nonce string) common.ParseOpt {
-	return common.WithExpectedNonceForHolderVerification(nonce)
+// WithExpectedNonceForHolderVerification option is to pass nonce value for holder verification.
+func WithExpectedNonceForHolderVerification(nonce string) ParseOpt {
+	return func(opts *parseOpts) {
+		opts.expectedNonceForHolderVerification = nonce
+	}
 }
 
 // WithLeewayForClaimsValidation is an option for claims time(s) validation.
-func WithLeewayForClaimsValidation(duration time.Duration) common.ParseOpt {
-	return common.WithLeewayForClaimsValidation(duration)
+func WithLeewayForClaimsValidation(duration time.Duration) ParseOpt {
+	return func(opts *parseOpts) {
+		opts.leewayForClaimsValidation = duration
+	}
 }
 
 // Parse parses combined format for presentation and returns verified claims.
@@ -92,21 +133,151 @@ func WithLeewayForClaimsValidation(duration time.Duration) common.ParseOpt {
 // SDJWT V5 https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-05.html#name-verification-by-the-verifie
 //
 // The Verifier will not, however, learn any claim values not disclosed in the Disclosures.
-func Parse(combinedFormatForPresentation string, opts ...common.ParseOpt) (map[string]interface{}, error) {
-	//// Separate the Presentation into the SD-JWT, the Disclosures (if any), and the Holder Binding JWT (if provided)
+func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]interface{}, error) {
+	defaultSigningAlgorithms := []string{"EdDSA", "RS256"}
+	pOpts := &parseOpts{
+		issuerSigningAlgorithms:   defaultSigningAlgorithms,
+		holderSigningAlgorithms:   defaultSigningAlgorithms,
+		leewayForClaimsValidation: jwt.DefaultLeeway,
+	}
+
+	for _, opt := range opts {
+		opt(pOpts)
+	}
+
+	// Separate the Presentation into the SD-JWT, the Disclosures (if any), and the Holder Verification JWT (if provided)
 	cfp := common.ParseCombinedFormatForPresentation(combinedFormatForPresentation)
 
-	signedJWT, err := common.ValidateIssuerSignedSDJWT(cfp.SDJWT, cfp.Disclosures, opts...)
+	signedJWT, err := validateIssuerSignedSDJWT(cfp.SDJWT, cfp.Disclosures, pOpts)
 	if err != nil {
 		return nil, fmt.Errorf("verifier ValidateIssuerSignedSDJWT: %w", err)
 	}
 
 	sdJWTVersion := common.ExtractSDJWTVersion(true, signedJWT.Headers)
 
+	// Verify that all disclosures are present in SD-JWT.
+	// Check that the _sd_alg claim is present and its value is understood and the hash algorithm is deemed secure.
+	err = common.VerifyDisclosuresInSDJWT(cfp.Disclosures, signedJWT, sdJWTVersion)
+	if err != nil {
+		return nil, err
+	}
+
 	switch sdJWTVersion {
 	case common.SDJWTVersionV5:
-		return parseV5(cfp, signedJWT, opts...)
+		return parseV5(cfp, signedJWT, pOpts)
 	default:
-		return parseV2(cfp, signedJWT, opts...)
+		return parseV2(cfp, signedJWT, pOpts)
 	}
+}
+
+func validateIssuerSignedSDJWT(sdjwt string, disclosures []string, pOpts *parseOpts) (*afgjwt.JSONWebToken, error) {
+	// Validate the signature over the SD-JWT
+	signedJWT, _, err := afgjwt.Parse(sdjwt,
+		afgjwt.WithSignatureVerifier(pOpts.sigVerifier),
+		afgjwt.WithJWTDetachedPayload(pOpts.detachedPayload))
+	if err != nil {
+		return nil, err
+	}
+
+	// Ensure that a signing algorithm was used that was deemed secure for the application.
+	// The none algorithm MUST NOT be accepted.
+	err = verifySigningAlg(signedJWT.Headers, pOpts.issuerSigningAlgorithms)
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify issuer signing algorithm: %w", err)
+	}
+
+	// TODO: Validate the Issuer of the SD-JWT and that the signing key belongs to this Issuer.
+
+	// Check that the SD-JWT is valid using nbf, iat, and exp claims,
+	// if provided in the SD-JWT, and not selectively disclosed.
+	err = verifyJWT(signedJWT, pOpts.leewayForClaimsValidation)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check that there are no duplicate disclosures
+	err = checkForDuplicates(disclosures)
+	if err != nil {
+		return nil, fmt.Errorf("check disclosures: %w", err)
+	}
+
+	return signedJWT, nil
+}
+
+func verifySigningAlg(joseHeaders jose.Headers, secureAlgs []string) error {
+	alg, ok := joseHeaders.Algorithm()
+	if !ok {
+		return fmt.Errorf("missing alg")
+	}
+
+	if alg == afgjwt.AlgorithmNone {
+		return fmt.Errorf("alg value cannot be 'none'")
+	}
+
+	if !contains(secureAlgs, alg) {
+		return fmt.Errorf("alg '%s' is not in the allowed list", alg)
+	}
+
+	return nil
+}
+
+func contains(values []string, val string) bool {
+	for _, v := range values {
+		if v == val {
+			return true
+		}
+	}
+
+	return false
+}
+
+func checkForDuplicates(values []string) error {
+	var duplicates []string
+
+	valuesMap := make(map[string]bool)
+
+	for _, val := range values {
+		if _, ok := valuesMap[val]; !ok {
+			valuesMap[val] = true
+		} else {
+			duplicates = append(duplicates, val)
+		}
+	}
+
+	if len(duplicates) > 0 {
+		return fmt.Errorf("duplicate values found %v", duplicates)
+	}
+
+	return nil
+}
+
+// verifyJWT checks that the JWT is valid using nbf, iat, and exp claims (if provided in the JWT).
+func verifyJWT(signedJWT *afgjwt.JSONWebToken, leeway time.Duration) error {
+	var claims jwt.Claims
+
+	d, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		Result:           &claims,
+		TagName:          "json",
+		Squash:           true,
+		WeaklyTypedInput: true,
+		DecodeHook:       utils.JSONNumberToJwtNumericDate(),
+	})
+	if err != nil {
+		return fmt.Errorf("mapstruct verifyJWT. error: %w", err)
+	}
+
+	if err = d.Decode(signedJWT.Payload); err != nil {
+		return fmt.Errorf("mapstruct verifyJWT decode. error: %w", err)
+	}
+
+	// Validate checks claims in a token against expected values.
+	// It is validated using the expected.Time, or time.Now if not provided
+	expected := jwt.Expected{}
+
+	err = claims.ValidateWithLeeway(expected, leeway)
+	if err != nil {
+		return fmt.Errorf("invalid JWT time values: %w", err)
+	}
+
+	return nil
 }
