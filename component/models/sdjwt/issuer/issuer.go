@@ -99,10 +99,10 @@ type newOpts struct {
 	addDecoyDigests  bool
 	structuredClaims bool
 
-	nonSDClaimsMap    map[string]bool
-	version           common.SDJWTVersion
-	alwaysInclude     map[string]bool
-	recursiveClaimMap map[string]bool
+	nonSDClaimsMap        map[string]bool
+	version               common.SDJWTVersion
+	alwaysInclude         map[string]bool
+	recursiveClaimMap     map[string]bool
 }
 
 // NewOpt is the SD-JWT New option.
@@ -286,7 +286,12 @@ func New(issuer string, claims interface{}, headers jose.Headers,
 		return nil, fmt.Errorf("failed to create SD-JWT from payload[%+v]: %w", payload, err)
 	}
 
-	return &SelectiveDisclosureJWT{Disclosures: disclosures, SignedJWT: signedJWT}, nil
+	var disArr []string
+	for _, d := range disclosures {
+		disArr = append(disArr, d.Result)
+	}
+
+	return &SelectiveDisclosureJWT{Disclosures: disArr, SignedJWT: signedJWT}, nil
 }
 
 /*
@@ -380,11 +385,11 @@ func createPayload(issuer string, nOpts *newOpts) *payload {
 	return payload
 }
 
-func createDigests(disclosures []string, nOpts *newOpts) ([]string, error) {
+func createDigests(disclosures []*DisclosureEntity, nOpts *newOpts) ([]string, error) {
 	var digests []string
 
 	for _, disclosure := range disclosures {
-		digest, inErr := common.GetHash(nOpts.HashAlg, disclosure)
+		digest, inErr := createDigest(disclosure, nOpts)
 		if inErr != nil {
 			return nil, fmt.Errorf("hash disclosure: %w", inErr)
 		}
@@ -399,14 +404,25 @@ func createDigests(disclosures []string, nOpts *newOpts) ([]string, error) {
 	return digests, nil
 }
 
-func createDecoyDisclosures(opts *newOpts) ([]string, error) {
+func createDigest(disclosure *DisclosureEntity, nOpts *newOpts) (string, error) {
+	digest, inErr := common.GetHash(nOpts.HashAlg, disclosure.Result)
+	if inErr != nil {
+		return "", fmt.Errorf("hash disclosure: %w", inErr)
+	}
+
+	disclosure.DebugDigest = digest
+
+	return digest, nil
+}
+
+func createDecoyDisclosures(opts *newOpts) ([]*DisclosureEntity, error) {
 	if !opts.addDecoyDigests {
 		return nil, nil
 	}
 
 	n := mr.Intn(decoyMaxElements-decoyMinElements+1) + decoyMinElements
 
-	var decoyDisclosures []string
+	var decoyDisclosures []*DisclosureEntity
 
 	for i := 0; i < n; i++ {
 		salt, err := opts.getSalt()
@@ -414,7 +430,10 @@ func createDecoyDisclosures(opts *newOpts) ([]string, error) {
 			return nil, err
 		}
 
-		decoyDisclosures = append(decoyDisclosures, salt)
+		decoyDisclosures = append(decoyDisclosures, &DisclosureEntity{
+			Salt:   salt,
+			Result: salt,
+		})
 	}
 
 	return decoyDisclosures, nil
