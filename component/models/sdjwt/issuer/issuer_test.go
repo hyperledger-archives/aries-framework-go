@@ -780,9 +780,9 @@ func TestJSONWebToken_createDisclosure(t *testing.T) {
 
 		disclosure, err := NewSDJWTBuilderV2().createDisclosure("given_name", "John", nOpts)
 		require.NoError(t, err)
-		require.Equal(t, expectedDisclosureWithSpaces, disclosure)
+		require.Equal(t, expectedDisclosureWithSpaces, disclosure.Result)
 
-		dh, err := common.GetHash(defaultHash, disclosure)
+		dh, err := common.GetHash(defaultHash, disclosure.Result)
 		require.NoError(t, err)
 		require.Equal(t, expectedHashWithSpaces, dh)
 	})
@@ -800,7 +800,7 @@ func TestJSONWebToken_createDisclosure(t *testing.T) {
 
 		disclosure, err := NewSDJWTBuilderV2().createDisclosure("family_name", "Möbius", nOpts)
 		require.NoError(t, err)
-		require.Equal(t, expectedDisclosureWithoutSpaces, disclosure)
+		require.Equal(t, expectedDisclosureWithoutSpaces, disclosure.Result)
 
 		nOpts = getOpts(
 			WithJSONMarshaller(jsonMarshalWithSpace),
@@ -810,7 +810,7 @@ func TestJSONWebToken_createDisclosure(t *testing.T) {
 
 		disclosure, err = NewSDJWTBuilderV2().createDisclosure("family_name", "Möbius", nOpts)
 		require.NoError(t, err)
-		require.Equal(t, expectedDisclosureWithSpaces, disclosure)
+		require.Equal(t, expectedDisclosureWithSpaces, disclosure.Result)
 	})
 }
 
