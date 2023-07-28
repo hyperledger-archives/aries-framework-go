@@ -191,9 +191,9 @@ func CreatePresentation(combinedFormatForIssuance string, claimsToDisclose []str
 	}
 
 	cf := common.CombinedFormatForPresentation{
-		SDJWT:         cfi.SDJWT,
-		Disclosures:   claimsToDisclose,
-		HolderBinding: hbJWT,
+		SDJWT:              cfi.SDJWT,
+		Disclosures:        claimsToDisclose,
+		HolderVerification: hbJWT,
 	}
 
 	return cf.Serialize(), nil

@@ -133,13 +133,13 @@ func filterSDJWTVC(vc *Credential, options *marshalDisclosureOpts) (string, erro
 	}
 
 	cf := common.CombinedFormatForPresentation{
-		SDJWT:         vc.JWT,
-		Disclosures:   disclosureCodes,
-		HolderBinding: vc.SDHolderBinding,
+		SDJWT:              vc.JWT,
+		Disclosures:        disclosureCodes,
+		HolderVerification: vc.SDHolderBinding,
 	}
 
 	if options.holderBinding != nil {
-		cf.HolderBinding, err = holder.CreateHolderBinding(options.holderBinding)
+		cf.HolderVerification, err = holder.CreateHolderBinding(options.holderBinding)
 		if err != nil {
 			return "", fmt.Errorf("failed to create holder binding: %w", err)
 		}

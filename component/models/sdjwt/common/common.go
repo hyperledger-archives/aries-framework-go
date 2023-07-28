@@ -56,9 +56,10 @@ type CombinedFormatForPresentation struct {
 	SDJWT       string
 	Disclosures []string
 
-	// Holder Binding JWT.
-	// For SD JWT V5 version, this field contains Key Binding JWT data.
-	HolderBinding string
+	// Holder Verification JWT.
+	// For SD JWT V2 field contains Holder Binding JWT data.
+	// For SD JWT V5 field contains Key Binding JWT data.
+	HolderVerification string
 }
 
 // Serialize will assemble combined format for presentation.
@@ -68,11 +69,11 @@ func (cf *CombinedFormatForPresentation) Serialize() string {
 		presentation += CombinedFormatSeparator + disclosure
 	}
 
-	if len(cf.Disclosures) > 0 || cf.HolderBinding != "" {
+	if len(cf.Disclosures) > 0 || cf.HolderVerification != "" {
 		presentation += CombinedFormatSeparator
 	}
 
-	presentation += cf.HolderBinding
+	presentation += cf.HolderVerification
 
 	return presentation
 }
@@ -134,7 +135,7 @@ func ParseCombinedFormatForPresentation(combinedFormatForPresentation string) *C
 
 	sdJWT := parts[0]
 
-	return &CombinedFormatForPresentation{SDJWT: sdJWT, Disclosures: disclosures, HolderBinding: holderBinding}
+	return &CombinedFormatForPresentation{SDJWT: sdJWT, Disclosures: disclosures, HolderVerification: holderBinding}
 }
 
 // GetHash calculates hash of data using hash function identified by hash.

@@ -82,7 +82,7 @@ func WithLeewayForClaimsValidation(duration time.Duration) common.ParseOpt {
 // At a high level, the Verifier:
 //   - receives the Combined Format for Presentation from the Holder and verifies the signature of the SD-JWT using the
 //     Issuer's public key,
-//   - verifies the Holder (Key) Binding JWT, if Holder (Key) Binding is required by the Verifier's policy,
+//   - verifies the Holder (Key) Binding JWT, if Holder Verification is required by the Verifier's policy,
 //     using the public key included in the SD-JWT,
 //   - calculates the digests over the Holder-Selected Disclosures and verifies that each digest
 //     is contained in the SD-JWT.

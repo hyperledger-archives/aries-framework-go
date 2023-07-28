@@ -38,7 +38,7 @@ import (
 //
 // The Verifier will not, however, learn any claim values not disclosed in the Disclosures.
 func parseV5(cfp *common.CombinedFormatForPresentation, signedJWT *afgjwt.JSONWebToken, opts ...common.ParseOpt) (map[string]interface{}, error) {
-	err := verifyKeyBinding(signedJWT, cfp.HolderBinding, opts...)
+	err := verifyKeyBinding(signedJWT, cfp.HolderVerification, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify holder binding: %w", err)
 	}

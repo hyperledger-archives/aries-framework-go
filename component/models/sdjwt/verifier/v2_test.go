@@ -562,7 +562,7 @@ func TestHolderBinding(t *testing.T) {
 		sdJWT, err := buildJWS(signer, claims)
 		r.NoError(err)
 
-		cfpWithInvalidCNF := sdJWT + common.CombinedFormatSeparator + cfp.HolderBinding
+		cfpWithInvalidCNF := sdJWT + common.CombinedFormatSeparator + cfp.HolderVerification
 
 		verifiedClaims, err := Parse(cfpWithInvalidCNF, WithSignatureVerifier(signatureVerifier))
 		r.Error(err)
@@ -596,7 +596,7 @@ func TestHolderBinding(t *testing.T) {
 		sdJWT, err := buildJWS(signer, claims)
 		r.NoError(err)
 
-		cfpWithInvalidCNF := sdJWT + common.CombinedFormatSeparator + cfp.HolderBinding
+		cfpWithInvalidCNF := sdJWT + common.CombinedFormatSeparator + cfp.HolderVerification
 
 		verifiedClaims, err := Parse(cfpWithInvalidCNF, WithSignatureVerifier(signatureVerifier))
 		r.Error(err)
@@ -630,7 +630,7 @@ func TestHolderBinding(t *testing.T) {
 		sdJWT, err := buildJWS(signer, claims)
 		r.NoError(err)
 
-		cfpWithInvalidCNF := sdJWT + common.CombinedFormatSeparator + cfp.HolderBinding
+		cfpWithInvalidCNF := sdJWT + common.CombinedFormatSeparator + cfp.HolderVerification
 
 		verifiedClaims, err := Parse(cfpWithInvalidCNF, WithSignatureVerifier(signatureVerifier))
 		r.Error(err)
@@ -664,7 +664,7 @@ func TestHolderBinding(t *testing.T) {
 		sdJWT, err := buildJWS(signer, claims)
 		r.NoError(err)
 
-		cfpWithInvalidCNF := sdJWT + common.CombinedFormatSeparator + cfp.HolderBinding
+		cfpWithInvalidCNF := sdJWT + common.CombinedFormatSeparator + cfp.HolderVerification
 
 		verifiedClaims, err := Parse(cfpWithInvalidCNF, WithSignatureVerifier(signatureVerifier))
 		r.Error(err)
@@ -702,7 +702,7 @@ func TestHolderBinding(t *testing.T) {
 		sdJWT, err := buildJWS(signer, claims)
 		r.NoError(err)
 
-		cfpWithInvalidCNF := sdJWT + common.CombinedFormatSeparator + cfp.HolderBinding
+		cfpWithInvalidCNF := sdJWT + common.CombinedFormatSeparator + cfp.HolderVerification
 
 		verifiedClaims, err := Parse(cfpWithInvalidCNF, WithSignatureVerifier(signatureVerifier))
 		r.Error(err)

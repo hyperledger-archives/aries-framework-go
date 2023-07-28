@@ -136,7 +136,7 @@ func ExampleCreatePresentation() {
 
 	cfp := common.ParseCombinedFormatForPresentation(combinedFormatForPresentation)
 
-	fmt.Println(cfp.HolderBinding != "")
+	fmt.Println(cfp.HolderVerification != "")
 
 	// Output: true
 }
