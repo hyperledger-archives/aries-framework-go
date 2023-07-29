@@ -159,7 +159,7 @@ func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]i
 
 	signedJWT, err := validateIssuerSignedSDJWT(cfp.SDJWT, cfp.Disclosures, pOpts)
 	if err != nil {
-		return nil, fmt.Errorf("verifier ValidateIssuerSignedSDJWT: %w", err)
+		return nil, err
 	}
 
 	sdJWTVersion := common.ExtractSDJWTVersion(true, signedJWT.Headers)

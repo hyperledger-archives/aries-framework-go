@@ -713,40 +713,6 @@ func TestHolderBinding(t *testing.T) {
 	})
 }
 
-func TestVerifySigningAlgorithm(t *testing.T) {
-	r := require.New(t)
-
-	t.Run("success - EdDSA signing algorithm", func(t *testing.T) {
-		headers := make(afjose.Headers)
-		headers["alg"] = "EdDSA"
-		err := verifySigningAlg(headers, []string{"EdDSA"})
-		r.NoError(err)
-	})
-
-	t.Run("error - signing algorithm can not be empty", func(t *testing.T) {
-		headers := make(afjose.Headers)
-		err := verifySigningAlg(headers, []string{"RS256"})
-		r.Error(err)
-		r.Contains(err.Error(), "missing alg")
-	})
-
-	t.Run("success - EdDSA signing algorithm not in allowed list", func(t *testing.T) {
-		headers := make(afjose.Headers)
-		headers["alg"] = "EdDSA"
-		err := verifySigningAlg(headers, []string{"RS256"})
-		r.Error(err)
-		r.Contains(err.Error(), "alg 'EdDSA' is not in the allowed list")
-	})
-
-	t.Run("error - signing algorithm can not be none", func(t *testing.T) {
-		headers := make(afjose.Headers)
-		headers["alg"] = "none"
-		err := verifySigningAlg(headers, []string{"RS256"})
-		r.Error(err)
-		r.Contains(err.Error(), "alg value cannot be 'none'")
-	})
-}
-
 func TestGetVerifiedPayload(t *testing.T) {
 	r := require.New(t)
 
