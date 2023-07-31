@@ -59,6 +59,7 @@ func (c *commonV2) GetDisclosureClaims(
 	disclosures []string,
 ) ([]*DisclosureClaim, error) {
 	var claims []*DisclosureClaim
+
 	for _, disclosure := range disclosures {
 		claim, err := c.getDisclosureClaim(disclosure)
 		if err != nil {

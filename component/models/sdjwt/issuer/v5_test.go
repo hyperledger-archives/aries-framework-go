@@ -1,3 +1,9 @@
+/*
+Copyright Avast Software. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package issuer
 
 import (
@@ -404,7 +410,7 @@ func TestFailCases(t *testing.T) {
 			jsonMarshal: json.Marshal,
 			HashAlg:     defaultHash,
 			getSalt: func() (string, error) {
-				i += 1
+				i++
 				if i == 1 {
 					return generateSalt(128)
 				}
@@ -433,7 +439,7 @@ func TestFailCases(t *testing.T) {
 			jsonMarshal: json.Marshal,
 			HashAlg:     defaultHash,
 			getSalt: func() (string, error) {
-				i += 1
+				i++
 				if i == 1 {
 					return generateSalt(128)
 				}

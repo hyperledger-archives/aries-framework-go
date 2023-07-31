@@ -1,3 +1,9 @@
+/*
+Copyright Avast Software. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package issuer
 
 import (
@@ -91,9 +97,10 @@ func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests(
 		kind := reflect.TypeOf(value).Kind()
 
 		valOption := s.extractValueOptions(curPath, opts)
+
 		switch kind {
 		case reflect.Map:
-			if valOption.IsIgnored {
+			if valOption.IsIgnored { // nolint:nestif
 				digestsMap[key] = value
 			} else if valOption.IsRecursive {
 				nestedDisclosures, nestedDigestsMap, mapErr := s.CreateDisclosuresAndDigests(
@@ -106,6 +113,7 @@ func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests(
 				}
 
 				disclosure, disErr := s.createDisclosure(key, nestedDigestsMap, opts)
+
 				if disErr != nil {
 					return nil, nil, fmt.Errorf(
 						"create disclosure for recursive disclosure value with path [%v]: %w",
@@ -178,6 +186,7 @@ func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests(
 	}
 
 	digests, err := createDigests(finalSDDigest, opts)
+
 	if err != nil {
 		return nil, nil, err
 	}
@@ -197,6 +206,7 @@ func (s *SDJWTBuilderV5) processArrayElements(
 	valSl := reflect.ValueOf(value)
 
 	var digestArr []interface{}
+
 	var elementsDisclosures []*DisclosureEntity
 
 	for i := 0; i < valSl.Len(); i++ {
@@ -237,6 +247,7 @@ func (s *SDJWTBuilderV5) createDisclosure(
 		return nil, errors.New("missing salt function")
 	}
 	salt, err := opts.getSalt()
+
 	if err != nil {
 		return nil, fmt.Errorf("generate salt: %w", err)
 	}
@@ -248,6 +259,7 @@ func (s *SDJWTBuilderV5) createDisclosure(
 	if key != "" {
 		disclosure = append(disclosure, key)
 	}
+
 	disclosure = append(disclosure, value)
 
 	disclosureBytes, err := opts.jsonMarshal(disclosure)

@@ -54,6 +54,7 @@ func (c *commonV5) VerifyDisclosuresInSDJWT(disclosures []string, signedJWT *afg
 			if parsed.Type == DisclosureClaimTypeArrayElement {
 				continue
 			}
+
 			return fmt.Errorf("disclosure digest '%s' not found in SD-JWT disclosure digests", digest)
 		}
 	}

@@ -817,6 +817,7 @@ func TestExtractSDJWTVersion(t *testing.T) {
 		isSDJWT     bool
 		joseHeaders jose.Headers
 	}
+
 	tests := []struct {
 		name string
 		args args
