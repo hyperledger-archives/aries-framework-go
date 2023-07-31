@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	sameV5TestData = `{
+	sampleV5TestData = `{
 			  "some_map": {
 				"a" : "b"
               },
@@ -26,6 +26,17 @@ const (
 				"US",
 				"DE"
 			  ]
+			}`
+	simpleV5TestData = `{
+			  "some_arr" : ["UA"]
+			}`
+	addressV5TestData = `{
+			  "address": {
+				"postal_code": "12345",
+				"locality": "Irgendwo",
+				"street_address": "Sonnenstrasse 23",
+				"country_code": "DE"
+			  }
 			}`
 )
 
@@ -303,7 +314,7 @@ func TestDisclosureV5Array(
 
 	t.Run("one array element ignored", func(t *testing.T) {
 		var parsedInput map[string]interface{}
-		assert.NoError(t, json.Unmarshal([]byte(sameV5TestData), &parsedInput))
+		assert.NoError(t, json.Unmarshal([]byte(sampleV5TestData), &parsedInput))
 		bb := NewSDJWTBuilderV5()
 
 		disclosures, cred, err := bb.CreateDisclosuresAndDigests("", parsedInput, &newOpts{
@@ -333,7 +344,7 @@ func TestDisclosureV5Array(
 func TestFailCases(t *testing.T) {
 	t.Run("map object", func(t *testing.T) {
 		var parsedInput map[string]interface{}
-		assert.NoError(t, json.Unmarshal([]byte(sameV5TestData), &parsedInput))
+		assert.NoError(t, json.Unmarshal([]byte(sampleV5TestData), &parsedInput))
 		bb := NewSDJWTBuilderV5()
 
 		disclosures, cred, err := bb.CreateDisclosuresAndDigests("", parsedInput, &newOpts{
@@ -349,7 +360,7 @@ func TestFailCases(t *testing.T) {
 
 	t.Run("map object", func(t *testing.T) {
 		var parsedInput map[string]interface{}
-		assert.NoError(t, json.Unmarshal([]byte(sameV5TestData), &parsedInput))
+		assert.NoError(t, json.Unmarshal([]byte(sampleV5TestData), &parsedInput))
 		bb := NewSDJWTBuilderV5()
 
 		disclosures, cred, err := bb.CreateDisclosuresAndDigests("", parsedInput, &newOpts{
@@ -412,11 +423,8 @@ func TestFailCases(t *testing.T) {
 	})
 
 	t.Run("disclosure for slice", func(t *testing.T) {
-		input := `{
-			  "some_arr" : ["UA"]
-			}`
 		var parsedInput map[string]interface{}
-		assert.NoError(t, json.Unmarshal([]byte(input), &parsedInput))
+		assert.NoError(t, json.Unmarshal([]byte(simpleV5TestData), &parsedInput))
 		bb := NewSDJWTBuilderV5()
 
 		i := 0
@@ -438,11 +446,8 @@ func TestFailCases(t *testing.T) {
 	})
 
 	t.Run("can not create decoy", func(t *testing.T) {
-		input := `{
-			  "some_arr" : ["UA"]
-			}`
 		var parsedInput map[string]interface{}
-		assert.NoError(t, json.Unmarshal([]byte(input), &parsedInput))
+		assert.NoError(t, json.Unmarshal([]byte(simpleV5TestData), &parsedInput))
 		bb := NewSDJWTBuilderV5()
 
 		disclosures, cred, err := bb.CreateDisclosuresAndDigests("", parsedInput, &newOpts{
@@ -458,11 +463,8 @@ func TestFailCases(t *testing.T) {
 	})
 
 	t.Run("can not create decoy", func(t *testing.T) {
-		input := `{
-			  "some_arr" : ["UA"]
-			}`
 		var parsedInput map[string]interface{}
-		assert.NoError(t, json.Unmarshal([]byte(input), &parsedInput))
+		assert.NoError(t, json.Unmarshal([]byte(simpleV5TestData), &parsedInput))
 		bb := NewSDJWTBuilderV5()
 
 		disclosures, cred, err := bb.CreateDisclosuresAndDigests("", parsedInput, &newOpts{
@@ -480,6 +482,45 @@ func TestFailCases(t *testing.T) {
 func TestExamplesV5(
 	t *testing.T,
 ) {
+	t.Run("always include", func(t *testing.T) {
+		var parsedInput map[string]interface{}
+		assert.NoError(t, json.Unmarshal([]byte(addressV5TestData), &parsedInput))
+		bb := NewSDJWTBuilderV5()
+
+		disclosures, cred, err := bb.CreateDisclosuresAndDigests("", parsedInput, &newOpts{
+			jsonMarshal: json.Marshal,
+			HashAlg:     defaultHash,
+			getSalt:     bb.GenerateSalt,
+			alwaysInclude: map[string]bool{
+				"address": true,
+			},
+		})
+		assert.NoError(t, err)
+
+		assert.Len(t, disclosures, 4)
+		assert.Len(t, cred["address"].(map[string]interface{})["_sd"].([]string), 4)
+		assert.Len(t, cred, 1)
+	})
+	t.Run("non sd claim", func(t *testing.T) {
+		var parsedInput map[string]interface{}
+		assert.NoError(t, json.Unmarshal([]byte(addressV5TestData), &parsedInput))
+		bb := NewSDJWTBuilderV5()
+
+		disclosures, cred, err := bb.CreateDisclosuresAndDigests("", parsedInput, &newOpts{
+			jsonMarshal: json.Marshal,
+			HashAlg:     defaultHash,
+			getSalt:     bb.GenerateSalt,
+			nonSDClaimsMap: map[string]bool{
+				"address": true,
+			},
+		})
+		assert.NoError(t, err)
+
+		assert.Len(t, disclosures, 0)
+		assert.Len(t, cred["address"].(map[string]interface{}), 4)
+		assert.Equal(t, cred["address"].(map[string]interface{})["postal_code"], "12345")
+		assert.Len(t, cred, 1)
+	})
 	t.Run("4a", func(t *testing.T) {
 		t.Run("recursive", func(t *testing.T) {
 			// https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-05.html#name-example-4a-sd-jwt-based-ver
