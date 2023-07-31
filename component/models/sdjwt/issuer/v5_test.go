@@ -17,6 +17,18 @@ import (
 	"golang.org/x/exp/slices"
 )
 
+const (
+	sameV5TestData = `{
+			  "some_map": {
+				"a" : "b"
+              },
+			  "nationalities": [
+				"US",
+				"DE"
+			  ]
+			}`
+)
+
 func TestDisclosureV5Map(
 	t *testing.T,
 ) {
@@ -64,7 +76,7 @@ func TestDisclosureV5Map(
 		assert.Equal(t, "street_address", disclosures[4].Key)
 		assert.Equal(t, "Schulstr. 12", disclosures[4].Value)
 
-		recursiveElements := disclosures[0].Value.(map[string]interface{})["_sd"].([]string)
+		recursiveElements := disclosures[0].Value.(map[string]interface{})["_sd"].([]string) // nolint:errcheck
 		assert.Len(t, recursiveElements, 4)
 
 		for _, expected := range []string{
@@ -76,7 +88,7 @@ func TestDisclosureV5Map(
 			assert.True(t, slices.Contains(recursiveElements, expected))
 		}
 		assert.Len(t, cred, 1)
-		sd := cred["_sd"].([]string)
+		sd := cred["_sd"].([]string) // nolint:errcheck
 		assert.Len(t, sd, 1)
 		assert.Equal(t, disclosures[0].DebugDigest, sd[0])
 	})
@@ -209,7 +221,7 @@ func TestDisclosureV5Array(
 			assert.True(t, found, "element %v not found", expectedArrayElements)
 		}
 
-		visibleMapData := cred["visible_map"].(map[string]interface{})["_sd"].([]string)
+		visibleMapData := cred["visible_map"].(map[string]interface{})["_sd"].([]string) // nolint:errcheck
 		assert.Len(t, visibleMapData, 1)
 
 		visibleDisclosure := disMap[visibleMapData[0]]
@@ -290,17 +302,8 @@ func TestDisclosureV5Array(
 	})
 
 	t.Run("one array element ignored", func(t *testing.T) {
-		input := `{
-			  "some_map": {
-				"a" : "b"
-              },
-			  "nationalities": [
-				"US",
-				"DE"
-			  ]
-			}`
 		var parsedInput map[string]interface{}
-		assert.NoError(t, json.Unmarshal([]byte(input), &parsedInput))
+		assert.NoError(t, json.Unmarshal([]byte(sameV5TestData), &parsedInput))
 		bb := NewSDJWTBuilderV5()
 
 		disclosures, cred, err := bb.CreateDisclosuresAndDigests("", parsedInput, &newOpts{
@@ -329,17 +332,8 @@ func TestDisclosureV5Array(
 
 func TestFailCases(t *testing.T) {
 	t.Run("map object", func(t *testing.T) {
-		input := `{
-			  "some_map": {
-				"a" : "b"
-              },
-			  "nationalities": [
-				"US",
-				"DE"
-			  ]
-			}`
 		var parsedInput map[string]interface{}
-		assert.NoError(t, json.Unmarshal([]byte(input), &parsedInput))
+		assert.NoError(t, json.Unmarshal([]byte(sameV5TestData), &parsedInput))
 		bb := NewSDJWTBuilderV5()
 
 		disclosures, cred, err := bb.CreateDisclosuresAndDigests("", parsedInput, &newOpts{
@@ -354,17 +348,8 @@ func TestFailCases(t *testing.T) {
 	})
 
 	t.Run("map object", func(t *testing.T) {
-		input := `{
-			  "some_map": {
-				"a" : "b"
-              },
-			  "nationalities": [
-				"US",
-				"DE"
-			  ]
-			}`
 		var parsedInput map[string]interface{}
-		assert.NoError(t, json.Unmarshal([]byte(input), &parsedInput))
+		assert.NoError(t, json.Unmarshal([]byte(sameV5TestData), &parsedInput))
 		bb := NewSDJWTBuilderV5()
 
 		disclosures, cred, err := bb.CreateDisclosuresAndDigests("", parsedInput, &newOpts{

@@ -35,20 +35,24 @@ func getBuilderByVersion(
 	}
 }
 
+// SDJWTBuilderV2 represents builder struct for SD-JWT v2 spec.
 type SDJWTBuilderV2 struct {
 	defaultSaltSize int
 }
 
+// GenerateSalt generates salt.
 func (s *SDJWTBuilderV2) GenerateSalt() (string, error) {
 	return generateSalt(s.defaultSaltSize)
 }
 
+// NewSDJWTBuilderV2 returns new instance of SDJWTBuilderV2.
 func NewSDJWTBuilderV2() *SDJWTBuilderV2 {
 	return &SDJWTBuilderV2{
 		defaultSaltSize: 128 / 8,
 	}
 }
 
+// CreateDisclosuresAndDigests creates disclosures and digests.
 func (s *SDJWTBuilderV2) CreateDisclosuresAndDigests(
 	path string,
 	claims map[string]interface{},
@@ -130,6 +134,7 @@ func (s *SDJWTBuilderV2) createDisclosure(
 	}, nil
 }
 
+// ExtractCredentialClaims extracts credential claims.
 func (s *SDJWTBuilderV2) ExtractCredentialClaims(vcClaims map[string]interface{}) (map[string]interface{}, error) {
 	vc, ok := vcClaims[vcKey].(map[string]interface{})
 	if !ok {

@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+
 	afgjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
 	utils "github.com/hyperledger/aries-framework-go/component/models/util/maphelpers"
 )
@@ -27,9 +28,11 @@ const (
 	CNFKey         = "cnf"
 )
 
+// SDJWTVersion represents version SD-JWT according to spec version.
 type SDJWTVersion int
 
 const (
+	// SDJWTVersionDefault default SD-JWT version for compatibility purposes.
 	SDJWTVersionDefault = SDJWTVersionV2
 	SDJWTVersionV2      = SDJWTVersion(2)
 	SDJWTVersionV5      = SDJWTVersion(5)
@@ -78,9 +81,11 @@ func (cf *CombinedFormatForPresentation) Serialize() string {
 	return presentation
 }
 
+// DisclosureClaimType disclosure claim type, used for sd-jwt v5+.
 type DisclosureClaimType int
 
 const (
+	// DisclosureClaimTypeUnknown default type for disclosure claim.
 	DisclosureClaimTypeUnknown      = DisclosureClaimType(0)
 	DisclosureClaimTypeArrayElement = DisclosureClaimType(1)
 	DisclosureClaimTypeArray        = DisclosureClaimType(2)
@@ -454,6 +459,7 @@ func KeyExistsInMap(key string, m map[string]interface{}) bool {
 	return false
 }
 
+// ExtractSDJWTVersion returns version of SD-JWT (SDJWTVersion).
 func ExtractSDJWTVersion(isSDJWT bool, joseHeaders jose.Headers) SDJWTVersion {
 	if !isSDJWT {
 		return 0
