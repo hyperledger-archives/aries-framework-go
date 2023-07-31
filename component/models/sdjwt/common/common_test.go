@@ -77,7 +77,7 @@ func TestParseCombinedFormatForPresentation(t *testing.T) {
 		cfp := ParseCombinedFormatForPresentation(testCombinedFormatForPresentation)
 		require.Equal(t, testSDJWT, cfp.SDJWT)
 		require.Equal(t, 1, len(cfp.Disclosures))
-		require.Empty(t, cfp.HolderBinding)
+		require.Empty(t, cfp.HolderVerification)
 
 		require.Equal(t, testCombinedFormatForPresentation, cfp.Serialize())
 	})
@@ -85,7 +85,7 @@ func TestParseCombinedFormatForPresentation(t *testing.T) {
 	t.Run("success - spec example", func(t *testing.T) {
 		cfp := ParseCombinedFormatForPresentation(specCombinedFormatForIssuance + CombinedFormatSeparator)
 		require.Equal(t, 7, len(cfp.Disclosures))
-		require.Empty(t, cfp.HolderBinding)
+		require.Empty(t, cfp.HolderVerification)
 
 		require.Equal(t, specCombinedFormatForIssuance+CombinedFormatSeparator, cfp.Serialize())
 	})
@@ -95,7 +95,7 @@ func TestParseCombinedFormatForPresentation(t *testing.T) {
 		cfp := ParseCombinedFormatForPresentation(testCFI)
 		require.Equal(t, testSDJWT, cfp.SDJWT)
 		require.Equal(t, 1, len(cfp.Disclosures))
-		require.Equal(t, testHolderBinding, cfp.HolderBinding)
+		require.Equal(t, testHolderBinding, cfp.HolderVerification)
 
 		require.Equal(t, testCFI, cfp.Serialize())
 	})
@@ -104,7 +104,7 @@ func TestParseCombinedFormatForPresentation(t *testing.T) {
 		cfp := ParseCombinedFormatForPresentation(testSDJWT)
 		require.Equal(t, testSDJWT, cfp.SDJWT)
 		require.Equal(t, 0, len(cfp.Disclosures))
-		require.Empty(t, cfp.HolderBinding)
+		require.Empty(t, cfp.HolderVerification)
 
 		require.Equal(t, testSDJWT, cfp.Serialize())
 	})
@@ -115,7 +115,7 @@ func TestParseCombinedFormatForPresentation(t *testing.T) {
 		cfp := ParseCombinedFormatForPresentation(testCFI)
 		require.Equal(t, testSDJWT, cfp.SDJWT)
 		require.Equal(t, 0, len(cfp.Disclosures))
-		require.Equal(t, testHolderBinding, cfp.HolderBinding)
+		require.Equal(t, testHolderBinding, cfp.HolderVerification)
 
 		require.Equal(t, testCFI, cfp.Serialize())
 	})
@@ -126,7 +126,7 @@ func TestParseCombinedFormatForPresentation(t *testing.T) {
 		cfp := ParseCombinedFormatForPresentation(specExample2bPresentation)
 		require.Equal(t, specExample2bJWT, cfp.SDJWT)
 		require.Equal(t, 6, len(cfp.Disclosures))
-		require.Empty(t, cfp.HolderBinding)
+		require.Empty(t, cfp.HolderVerification)
 
 		require.Equal(t, specExample2bPresentation, cfp.Serialize())
 	})

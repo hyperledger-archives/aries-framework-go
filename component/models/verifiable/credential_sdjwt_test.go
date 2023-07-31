@@ -131,7 +131,7 @@ func TestMarshalWithDisclosure(t *testing.T) {
 			})
 
 			require.Equal(t, src.Disclosures, res.Disclosures)
-			require.NotEmpty(t, res.HolderBinding)
+			require.NotEmpty(t, res.HolderVerification)
 		})
 
 		t.Run("disclose required and some if-available claims", func(t *testing.T) {
@@ -168,7 +168,7 @@ func TestMarshalWithDisclosure(t *testing.T) {
 
 			res := common.ParseCombinedFormatForPresentation(resultCred)
 			require.Len(t, res.Disclosures, 1)
-			require.NotEmpty(t, res.HolderBinding)
+			require.NotEmpty(t, res.HolderVerification)
 		})
 	})
 

@@ -58,8 +58,14 @@ type BindingInfo = holder.BindingInfo
 type Option = holder.Option
 
 // WithHolderBinding option to set optional holder binding.
+// Deprecated. Use WithHolderVerification instead.
 func WithHolderBinding(info *BindingInfo) Option {
-	return holder.WithHolderBinding(info)
+	return holder.WithHolderVerification(info)
+}
+
+// WithHolderVerification option to set optional holder binding.
+func WithHolderVerification(info *BindingInfo) Option {
+	return holder.WithHolderVerification(info)
 }
 
 // CreatePresentation is a convenience method to assemble combined format for presentation
@@ -77,7 +83,7 @@ func CreatePresentation(combinedFormatForIssuance string, claimsToDisclose []str
 
 // CreateHolderBinding will create holder binding from binding info.
 func CreateHolderBinding(info *BindingInfo) (string, error) {
-	return holder.CreateHolderBinding(info)
+	return holder.CreateHolderVerification(info)
 }
 
 // NoopSignatureVerifier is no-op signature verifier (signature will not get checked).

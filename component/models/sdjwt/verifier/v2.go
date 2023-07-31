@@ -13,8 +13,6 @@ package verifier
 import (
 	"encoding/json"
 	"fmt"
-	"time"
-
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/mitchellh/mapstructure"
 
@@ -27,21 +25,8 @@ import (
 	utils "github.com/hyperledger/aries-framework-go/component/models/util/maphelpers"
 )
 
-// parseV2 parses combined format for presentation and returns verified claims.
-// The Verifier has to verify that all disclosed claim values were part of the original, Issuer-signed SD-JWT.
-//
-// At a high level, the Verifier:
-//   - verifies the Holder Binding JWT, if Holder Binding is required by the Verifier's policy,
-//     using the public key included in the SD-JWT,
-//   - calculates the digests over the Holder-Selected Disclosures and verifies that each digest
-//     is contained in the SD-JWT.
-//
-// Detailed algorithm:
-// https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-02.html#name-verification-by-the-verifier
-//
-// The Verifier will not, however, learn any claim values not disclosed in the Disclosures.
-func parseV2(cfp *common.CombinedFormatForPresentation, signedJWT *afgjwt.JSONWebToken, opts ...common.ParseOpt) (map[string]interface{}, error) {
-	err := verifyHolderBinding(signedJWT, cfp.HolderBinding, opts...)
+func parseV2(cfp *common.CombinedFormatForPresentation, signedJWT *afgjwt.JSONWebToken, pOpts *parseOpts) (map[string]interface{}, error) {
+	err := verifyHolderBinding(signedJWT, cfp.HolderVerification, pOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify holder binding: %w", err)
 	}
@@ -51,18 +36,8 @@ func parseV2(cfp *common.CombinedFormatForPresentation, signedJWT *afgjwt.JSONWe
 	return getDisclosedClaims(cfp.Disclosures, signedJWT, common.SDJWTVersionV2)
 }
 
-func verifyHolderBinding(sdJWT *afgjwt.JSONWebToken, holderBinding string, opts ...common.ParseOpt) error {
-	defaultSigningAlgorithms := []string{"EdDSA", "RS256"}
-	pOpts := &common.ParseOpts{
-		HolderSigningAlgorithms:   defaultSigningAlgorithms,
-		LeewayForClaimsValidation: jwt.DefaultLeeway,
-	}
-
-	for _, opt := range opts {
-		opt(pOpts)
-	}
-
-	if pOpts.HolderBindingRequired && holderBinding == "" {
+func verifyHolderBinding(sdJWT *afgjwt.JSONWebToken, holderBinding string, pOpts *parseOpts) error {
+	if pOpts.holderVerificationRequired && holderBinding == "" {
 		return fmt.Errorf("holder binding is required")
 	}
 
@@ -82,7 +57,7 @@ func verifyHolderBinding(sdJWT *afgjwt.JSONWebToken, holderBinding string, opts 
 		return fmt.Errorf("failed to parse holder binding: %w", err)
 	}
 
-	err = verifyHolderJWT(holderJWT, pOpts)
+	err = verifyHolderBindingJWT(holderJWT, pOpts)
 	if err != nil {
 		return fmt.Errorf("failed to verify holder JWT: %w", err)
 	}
@@ -90,15 +65,15 @@ func verifyHolderBinding(sdJWT *afgjwt.JSONWebToken, holderBinding string, opts 
 	return nil
 }
 
-func verifyHolderJWT(holderJWT *afgjwt.JSONWebToken, pOpts *common.ParseOpts) error {
+func verifyHolderBindingJWT(holderJWT *afgjwt.JSONWebToken, pOpts *parseOpts) error {
 	// Ensure that a signing algorithm was used that was deemed secure for the application.
 	// The none algorithm MUST NOT be accepted.
-	err := verifySigningAlg(holderJWT.Headers, pOpts.HolderSigningAlgorithms)
+	err := common.VerifySigningAlg(holderJWT.Headers, pOpts.holderSigningAlgorithms)
 	if err != nil {
 		return fmt.Errorf("failed to verify holder signing algorithm: %w", err)
 	}
 
-	err = verifyJWT(holderJWT, pOpts.LeewayForClaimsValidation)
+	err = common.VerifyJWT(holderJWT, pOpts.leewayForClaimsValidation)
 	if err != nil {
 		return err
 	}
@@ -120,14 +95,14 @@ func verifyHolderJWT(holderJWT *afgjwt.JSONWebToken, pOpts *common.ParseOpts) er
 		return fmt.Errorf("mapstruct verifyHodlder decode. error: %w", err)
 	}
 
-	if pOpts.ExpectedNonceForHolderBinding != "" && pOpts.ExpectedNonceForHolderBinding != bindingPayload.Nonce {
+	if pOpts.expectedNonceForHolderVerification != "" && pOpts.expectedNonceForHolderVerification != bindingPayload.Nonce {
 		return fmt.Errorf("nonce value '%s' does not match expected nonce value '%s'",
-			bindingPayload.Nonce, pOpts.ExpectedNonceForHolderBinding)
+			bindingPayload.Nonce, pOpts.expectedNonceForHolderVerification)
 	}
 
-	if pOpts.ExpectedAudienceForHolderBinding != "" && pOpts.ExpectedAudienceForHolderBinding != bindingPayload.Audience {
+	if pOpts.expectedAudienceForHolderVerification != "" && pOpts.expectedAudienceForHolderVerification != bindingPayload.Audience {
 		return fmt.Errorf("audience value '%s' does not match expected audience value '%s'",
-			bindingPayload.Audience, pOpts.ExpectedAudienceForHolderBinding)
+			bindingPayload.Audience, pOpts.expectedAudienceForHolderVerification)
 	}
 
 	return nil
@@ -188,84 +163,6 @@ func getDisclosedClaims(disclosures []string, signedJWT *afgjwt.JSONWebToken, ve
 	}
 
 	return disclosedClaims, nil
-}
-
-func verifySigningAlg(joseHeaders jose.Headers, secureAlgs []string) error {
-	alg, ok := joseHeaders.Algorithm()
-	if !ok {
-		return fmt.Errorf("missing alg")
-	}
-
-	if alg == afgjwt.AlgorithmNone {
-		return fmt.Errorf("alg value cannot be 'none'")
-	}
-
-	if !contains(secureAlgs, alg) {
-		return fmt.Errorf("alg '%s' is not in the allowed list", alg)
-	}
-
-	return nil
-}
-
-func contains(values []string, val string) bool {
-	for _, v := range values {
-		if v == val {
-			return true
-		}
-	}
-
-	return false
-}
-
-func checkForDuplicates(values []string) error {
-	var duplicates []string
-
-	valuesMap := make(map[string]bool)
-
-	for _, val := range values {
-		if _, ok := valuesMap[val]; !ok {
-			valuesMap[val] = true
-		} else {
-			duplicates = append(duplicates, val)
-		}
-	}
-
-	if len(duplicates) > 0 {
-		return fmt.Errorf("duplicate values found %v", duplicates)
-	}
-
-	return nil
-}
-
-// verifyJWT checks that the JWT is valid using nbf, iat, and exp claims (if provided in the JWT).
-func verifyJWT(signedJWT *afgjwt.JSONWebToken, leeway time.Duration) error {
-	var claims jwt.Claims
-
-	d, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		Result:           &claims,
-		TagName:          "json",
-		Squash:           true,
-		WeaklyTypedInput: true,
-		DecodeHook:       utils.JSONNumberToJwtNumericDate(),
-	})
-	if err != nil {
-		return fmt.Errorf("mapstruct verifyJWT. error: %w", err)
-	}
-
-	if err = d.Decode(signedJWT.Payload); err != nil {
-		return fmt.Errorf("mapstruct verifyJWT decode. error: %w", err)
-	}
-
-	// Validate checks claims in a token against expected values.
-	// It is validated using the expected.Time, or time.Now if not provided
-	expected := jwt.Expected{}
-
-	err = claims.ValidateWithLeeway(expected, leeway)
-	if err != nil {
-		return fmt.Errorf("invalid JWT time values: %w", err)
-	}
-
-	return nil
 }
 
 // holderBindingPayload represents expected holder binding payload.

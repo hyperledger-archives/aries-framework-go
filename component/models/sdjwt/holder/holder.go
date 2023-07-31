@@ -9,11 +9,11 @@ package holder
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/go-jose/go-jose/v3/jwt"
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
-
 	afgjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 )
@@ -29,6 +29,10 @@ type Claim struct {
 type parseOpts struct {
 	detachedPayload []byte
 	sigVerifier     jose.SignatureVerifier
+
+	issuerSigningAlgorithms []string
+
+	leewayForClaimsValidation time.Duration
 }
 
 // ParseOpt is the SD-JWT Parser option.
@@ -45,6 +49,20 @@ func WithJWTDetachedPayload(payload []byte) ParseOpt {
 func WithSignatureVerifier(signatureVerifier jose.SignatureVerifier) ParseOpt {
 	return func(opts *parseOpts) {
 		opts.sigVerifier = signatureVerifier
+	}
+}
+
+// WithIssuerSigningAlgorithms option is for defining secure signing algorithms (for issuer).
+func WithIssuerSigningAlgorithms(algorithms []string) ParseOpt {
+	return func(opts *parseOpts) {
+		opts.issuerSigningAlgorithms = algorithms
+	}
+}
+
+// WithLeewayForClaimsValidation is an option for claims time(s) validation.
+func WithLeewayForClaimsValidation(duration time.Duration) ParseOpt {
+	return func(opts *parseOpts) {
+		opts.leewayForClaimsValidation = duration
 	}
 }
 
@@ -72,20 +90,25 @@ func Parse(combinedFormatForIssuance string, opts ...ParseOpt) ([]*Claim, error)
 		opt(pOpts)
 	}
 
-	var jwtOpts []afgjwt.ParseOpt
-	jwtOpts = append(jwtOpts,
-		afgjwt.WithSignatureVerifier(pOpts.sigVerifier),
-		afgjwt.WithJWTDetachedPayload(pOpts.detachedPayload),
-	)
-
 	cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
 
-	signedJWT, _, err := afgjwt.Parse(cfi.SDJWT, jwtOpts...)
+	// Validate the signature over the Issuer-signed JWT.
+	signedJWT, _, err := afgjwt.Parse(cfi.SDJWT,
+		afgjwt.WithSignatureVerifier(pOpts.sigVerifier),
+		afgjwt.WithJWTDetachedPayload(pOpts.detachedPayload))
 	if err != nil {
 		return nil, err
 	}
 
 	sdJWTVersion := common.ExtractSDJWTVersion(true, signedJWT.Headers)
+
+	switch sdJWTVersion {
+	case common.SDJWTVersionV5:
+		// Apply additional validation for V5.
+		if err = applySDJWTV5Validation(signedJWT, cfi.Disclosures, pOpts); err != nil {
+			return nil, err
+		}
+	}
 
 	err = common.VerifyDisclosuresInSDJWT(cfi.Disclosures, signedJWT, sdJWTVersion)
 	if err != nil {
@@ -117,14 +140,53 @@ func getClaims(
 	return claims, nil
 }
 
-// BindingPayload represents holder binding payload.
+// applySDJWTV5Validation applies additional validation to signedJWT that were introduces in V5 spec.
+// Doc: https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-05.html#section-6.1-3.
+func applySDJWTV5Validation(signedJWT *afgjwt.JSONWebToken, disclosures []string, pOpts *parseOpts) error {
+	// If a Key Binding JWT is received by a Holder, the SD-JWT SHOULD be rejected.
+	var possibleKeyBinding string
+	if l := len(disclosures); l > 0 {
+		possibleKeyBinding = disclosures[l-1]
+	}
+
+	if afgjwt.IsJWS(possibleKeyBinding) || afgjwt.IsJWTUnsecured(possibleKeyBinding) {
+		return fmt.Errorf("key binding JWT provided")
+	}
+
+	// Check that the typ of the SD JWT is vc+sd-jwt.
+	// Spec: https://vcstuff.github.io/draft-terbu-sd-jwt-vc/draft-terbu-oauth-sd-jwt-vc.html#name-header-parameters
+	err := common.VerifyTyp(signedJWT.Headers, "vc+sd-jwt")
+	if err != nil {
+		return fmt.Errorf("failed to verify typ header: %w", err)
+	}
+
+	// Ensure that a signing algorithm was used that was deemed secure for the application.
+	// The none algorithm MUST NOT be accepted.
+	err = common.VerifySigningAlg(signedJWT.Headers, pOpts.issuerSigningAlgorithms)
+	if err != nil {
+		return fmt.Errorf("failed to verify issuer signing algorithm: %w", err)
+	}
+
+	// TODO: Validate the Issuer of the SD-JWT and that the signing key belongs to this Issuer.
+
+	// Check that the SD-JWT is valid using nbf, iat, and exp claims,
+	// if provided in the SD-JWT, and not selectively disclosed.
+	err = common.VerifyJWT(signedJWT, pOpts.leewayForClaimsValidation)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// BindingPayload represents holder verification payload.
 type BindingPayload struct {
 	Nonce    string           `json:"nonce,omitempty"`
 	Audience string           `json:"aud,omitempty"`
 	IssuedAt *jwt.NumericDate `json:"iat,omitempty"`
 }
 
-// BindingInfo defines holder binding payload and signer.
+// BindingInfo defines holder verification payload and signer.
 type BindingInfo struct {
 	Payload BindingPayload
 	Signer  jose.Signer
@@ -132,33 +194,37 @@ type BindingInfo struct {
 
 // options holds options for holder.
 type options struct {
-	holderBindingInfo *BindingInfo
+	holderVerificationInfo *BindingInfo
 }
 
 // Option is a holder option.
 type Option func(opts *options)
 
 // WithHolderBinding option to set optional holder binding.
+// Deprecated. Use WithHolderVerification instead.
 func WithHolderBinding(info *BindingInfo) Option {
 	return func(opts *options) {
-		opts.holderBindingInfo = info
+		opts.holderVerificationInfo = info
+	}
+}
+
+// WithHolderVerification option to set optional holder verification.
+func WithHolderVerification(info *BindingInfo) Option {
+	return func(opts *options) {
+		opts.holderVerificationInfo = info
 	}
 }
 
 // CreatePresentation is a convenience method to assemble combined format for presentation
-// using selected disclosures (claimsToDisclose) and optional holder binding.
+// using selected disclosures (claimsToDisclose) and optional holder verification.
 // This call assumes that combinedFormatForIssuance has already been parsed and verified using Parse() function.
 //
 // For presentation to a Verifier, the Holder MUST perform the following (or equivalent) steps:
 //   - Decide which Disclosures to release to the Verifier, obtaining proper End-User consent if necessary.
 //   - If Holder Binding is required, create a Holder Binding JWT.
-//   - Create the Combined Format for Presentation from selected Disclosures and Holder Binding JWT(if applicable).
+//   - Create the Combined Format for Presentation from selected Disclosures and Holder Verification JWT(if applicable).
 //   - Send the Presentation to the Verifier.
 func CreatePresentation(combinedFormatForIssuance string, claimsToDisclose []string, opts ...Option) (string, error) {
-	//TODO: split to v2 and v5 versions.
-	// spec:
-	// https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-02.html#name-processing-by-the-holder
-	// https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-05.html#name-processing-by-the-holder
 	hOpts := &options{}
 
 	for _, opt := range opts {
@@ -183,24 +249,24 @@ func CreatePresentation(combinedFormatForIssuance string, claimsToDisclose []str
 
 	var hbJWT string
 
-	if hOpts.holderBindingInfo != nil {
-		hbJWT, err = CreateHolderBinding(hOpts.holderBindingInfo)
+	if hOpts.holderVerificationInfo != nil {
+		hbJWT, err = CreateHolderVerification(hOpts.holderVerificationInfo)
 		if err != nil {
-			return "", fmt.Errorf("failed to create holder binding: %w", err)
+			return "", fmt.Errorf("failed to create holder verification: %w", err)
 		}
 	}
 
 	cf := common.CombinedFormatForPresentation{
-		SDJWT:         cfi.SDJWT,
-		Disclosures:   claimsToDisclose,
-		HolderBinding: hbJWT,
+		SDJWT:              cfi.SDJWT,
+		Disclosures:        claimsToDisclose,
+		HolderVerification: hbJWT,
 	}
 
 	return cf.Serialize(), nil
 }
 
-// CreateHolderBinding will create holder binding from binding info.
-func CreateHolderBinding(info *BindingInfo) (string, error) {
+// CreateHolderVerification will create holder verification from binding info.
+func CreateHolderVerification(info *BindingInfo) (string, error) {
 	hbJWT, err := afgjwt.NewSigned(info.Payload, nil, info.Signer)
 	if err != nil {
 		return "", err
