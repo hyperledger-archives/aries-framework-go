@@ -80,7 +80,7 @@ type valueOption struct {
 }
 
 // CreateDisclosuresAndDigests creates disclosures and digests.
-func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests( // nolint:funlen
+func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests( // nolint:funlen,gocyclo
 	path string,
 	claims map[string]interface{},
 	opts *newOpts,
