@@ -1,3 +1,9 @@
+/*
+Copyright Avast Software. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package common
 
 import (
@@ -74,7 +80,7 @@ func (c *commonV2) GetDisclosureClaims(
 
 func (c *commonV2) getDisclosureClaim(disclosure string) (*DisclosureClaim, error) {
 	decoded, err := base64.RawURLEncoding.DecodeString(disclosure)
-	fmt.Println(string(decoded))
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode disclosure: %w", err)
 	}

@@ -14,7 +14,11 @@ func (jcc *JWTCredClaims) MarshalJWS(signatureAlg JWSAlgorithm, signer Signer, k
 	return marshalJWS(jcc, signatureAlg, signer, keyID)
 }
 
-func unmarshalJWSClaims(rawJwt string, checkProof bool, fetcher PublicKeyFetcher) (jose.Headers, *JWTCredClaims, error) {
+func unmarshalJWSClaims(
+	rawJwt string,
+	checkProof bool,
+	fetcher PublicKeyFetcher,
+) (jose.Headers, *JWTCredClaims, error) {
 	var claims JWTCredClaims
 
 	joseHeaders, err := unmarshalJWS(rawJwt, checkProof, fetcher, &claims)

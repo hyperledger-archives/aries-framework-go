@@ -100,12 +100,14 @@ func verifyHolderBindingJWT(holderJWT *afgjwt.JSONWebToken, pOpts *parseOpts) er
 		return fmt.Errorf("mapstruct verifyHodlder decode. error: %w", err)
 	}
 
-	if pOpts.expectedNonceForHolderVerification != "" && pOpts.expectedNonceForHolderVerification != bindingPayload.Nonce {
+	if pOpts.expectedNonceForHolderVerification != "" &&
+		pOpts.expectedNonceForHolderVerification != bindingPayload.Nonce {
 		return fmt.Errorf("nonce value '%s' does not match expected nonce value '%s'",
 			bindingPayload.Nonce, pOpts.expectedNonceForHolderVerification)
 	}
 
-	if pOpts.expectedAudienceForHolderVerification != "" && pOpts.expectedAudienceForHolderVerification != bindingPayload.Audience {
+	if pOpts.expectedAudienceForHolderVerification != "" &&
+		pOpts.expectedAudienceForHolderVerification != bindingPayload.Audience {
 		return fmt.Errorf("audience value '%s' does not match expected audience value '%s'",
 			bindingPayload.Audience, pOpts.expectedAudienceForHolderVerification)
 	}

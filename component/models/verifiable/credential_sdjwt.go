@@ -299,7 +299,7 @@ func makeSDJWT(
 	signer jose.Signer,
 	signingKeyID string,
 	options ...MakeSDJWTOption,
-) (*issuer.SelectiveDisclosureJWT, error) {
+) (*issuer.SelectiveDisclosureJWT, error) { //nolint:funlen
 	// Take default SD JWT version
 	sdJWTVersion := common.SDJWTVersionDefault
 	if vc.SDJWTVersion != 0 {
