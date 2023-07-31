@@ -46,7 +46,7 @@ func (c *commonV5) VerifyDisclosuresInSDJWT(disclosures []string, signedJWT *afg
 		}
 
 		if !found {
-			parsed, err := c.GetDisclosureClaim(disclosure)
+			parsed, err := c.getDisclosureClaim(disclosure)
 			if err != nil {
 				return err
 			}
@@ -61,7 +61,7 @@ func (c *commonV5) VerifyDisclosuresInSDJWT(disclosures []string, signedJWT *afg
 	return nil
 }
 
-func (c *commonV5) GetDisclosureClaim(disclosure string) (*DisclosureClaim, error) {
+func (c *commonV5) getDisclosureClaim(disclosure string) (*DisclosureClaim, error) {
 	decoded, err := base64.RawURLEncoding.DecodeString(disclosure)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode disclosure: %w", err)
@@ -116,7 +116,7 @@ func (c *commonV5) GetDisclosureClaims(
 	claimMap := map[string]*DisclosureClaim{}
 
 	for _, disclosure := range disclosures {
-		claim, err := c.GetDisclosureClaim(disclosure)
+		claim, err := c.getDisclosureClaim(disclosure)
 		if err != nil {
 			return nil, err
 		}

@@ -60,7 +60,7 @@ func (c *commonV2) GetDisclosureClaims(
 ) ([]*DisclosureClaim, error) {
 	var claims []*DisclosureClaim
 	for _, disclosure := range disclosures {
-		claim, err := c.GetDisclosureClaim(disclosure)
+		claim, err := c.getDisclosureClaim(disclosure)
 		if err != nil {
 			return nil, err
 		}
@@ -71,7 +71,7 @@ func (c *commonV2) GetDisclosureClaims(
 	return claims, nil
 }
 
-func (c *commonV2) GetDisclosureClaim(disclosure string) (*DisclosureClaim, error) {
+func (c *commonV2) getDisclosureClaim(disclosure string) (*DisclosureClaim, error) {
 	decoded, err := base64.RawURLEncoding.DecodeString(disclosure)
 	fmt.Println(string(decoded))
 	if err != nil {
