@@ -161,9 +161,7 @@ func VerifyDisclosuresInSDJWT(
 	signedJWT *afgjwt.JSONWebToken,
 	version SDJWTVersion,
 ) error {
-	parser := newCommon(version)
-
-	return parser.VerifyDisclosuresInSDJWT(disclosures, signedJWT)
+	return newCommon(version).VerifyDisclosuresInSDJWT(disclosures, signedJWT)
 }
 
 func isDigestInClaims(digest string, claims map[string]interface{}) (bool, error) {
