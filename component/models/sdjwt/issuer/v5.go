@@ -254,6 +254,7 @@ func (s *SDJWTBuilderV5) createDisclosure(
 	if opts.getSalt == nil {
 		return nil, errors.New("missing salt function")
 	}
+
 	salt, err := opts.getSalt()
 
 	if err != nil {

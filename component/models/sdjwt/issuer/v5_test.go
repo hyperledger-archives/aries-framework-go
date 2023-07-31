@@ -228,7 +228,7 @@ func TestDisclosureV5Array(
 		assert.Equal(t, "a", visibleDisclosure.Key)
 		assert.Equal(t, "b", visibleDisclosure.Value)
 
-		nationalities := cred["nationalities"].([]interface{})
+		nationalities := cred["nationalities"].([]interface{}) // nolint:errcheck
 		assert.Len(t, nationalities, 2)
 
 		for i, nat := range nationalities {
@@ -291,11 +291,11 @@ func TestDisclosureV5Array(
 		assert.Len(t, disclosures, 9)
 		assert.Len(t, cred["_sd"].([]string), 8)
 
-		nat := cred["nationalities"].([]interface{})
+		nat := cred["nationalities"].([]interface{}) // nolint:errcheck
 		assert.Len(t, nat, 2)
 
 		nat1Val := nat[0].(map[string]string)["..."]
-		nat2Val := nat[1].(string)
+		nat2Val := nat[1].(string) // nolint:errcheck
 
 		assert.Equal(t, "DE", nat2Val)
 		assert.Equal(t, "US", disMap[nat1Val].Value)

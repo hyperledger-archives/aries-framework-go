@@ -127,6 +127,7 @@ func (c *commonV5) GetDisclosureClaims(
 	}
 
 	var claims []*DisclosureClaim
+
 	for _, claim := range claimMap {
 		switch claim.Type {
 		case DisclosureClaimTypeArrayElement:
@@ -151,9 +152,12 @@ func (c *commonV5) GetDisclosureClaims(
 				if !ok {
 					return nil, fmt.Errorf("array element with key %v not found", key)
 				}
+
 				updatedElements = append(updatedElements, v.Value)
 			}
+
 			claim.Value = updatedElements
+
 			claims = append(claims, claim)
 		default:
 			claims = append(claims, claim)

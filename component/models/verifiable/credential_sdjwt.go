@@ -294,7 +294,11 @@ func (vc *Credential) MakeSDJWT(signer jose.Signer, signingKeyID string, options
 	return sdjwtSerialized, nil
 }
 
-func makeSDJWT(vc *Credential, signer jose.Signer, signingKeyID string, options ...MakeSDJWTOption,
+func makeSDJWT(
+	vc *Credential,
+	signer jose.Signer,
+	signingKeyID string,
+	options ...MakeSDJWTOption,
 ) (*issuer.SelectiveDisclosureJWT, error) {
 	// Take default SD JWT version
 	sdJWTVersion := common.SDJWTVersionDefault
@@ -302,6 +306,7 @@ func makeSDJWT(vc *Credential, signer jose.Signer, signingKeyID string, options 
 		// If SD JWT version present in VC - use it as default.
 		sdJWTVersion = vc.SDJWTVersion
 	}
+
 	opts := &makeSDJWTOpts{
 		version: sdJWTVersion,
 	}

@@ -34,8 +34,10 @@ type SDJWTVersion int
 const (
 	// SDJWTVersionDefault default SD-JWT version for compatibility purposes.
 	SDJWTVersionDefault = SDJWTVersionV2
-	SDJWTVersionV2      = SDJWTVersion(2)
-	SDJWTVersionV5      = SDJWTVersion(5)
+	// SDJWTVersionV2 SD-JWT v2 spec.
+	SDJWTVersionV2 = SDJWTVersion(2)
+	// SDJWTVersionV5 SD-JWT v5 spec.
+	SDJWTVersionV5 = SDJWTVersion(5)
 )
 
 // CombinedFormatForIssuance holds SD-JWT and disclosures.
@@ -86,9 +88,11 @@ type DisclosureClaimType int
 
 const (
 	// DisclosureClaimTypeUnknown default type for disclosure claim.
-	DisclosureClaimTypeUnknown      = DisclosureClaimType(0)
+	DisclosureClaimTypeUnknown = DisclosureClaimType(0)
+	// DisclosureClaimTypeArrayElement array element.
 	DisclosureClaimTypeArrayElement = DisclosureClaimType(1)
-	DisclosureClaimTypeArray        = DisclosureClaimType(2)
+	// DisclosureClaimTypeArray array.
+	DisclosureClaimTypeArray = DisclosureClaimType(2)
 )
 
 // DisclosureClaim defines claim.
