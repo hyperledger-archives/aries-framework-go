@@ -296,8 +296,14 @@ func (vc *Credential) MakeSDJWT(signer jose.Signer, signingKeyID string, options
 
 func makeSDJWT(vc *Credential, signer jose.Signer, signingKeyID string, options ...MakeSDJWTOption,
 ) (*issuer.SelectiveDisclosureJWT, error) {
+	// Take default SD JWT version
+	sdJWTVersion := common.SDJWTVersionDefault
+	if vc.SDJWTVersion != 0 {
+		// If SD JWT version present in VC - use it as default.
+		sdJWTVersion = vc.SDJWTVersion
+	}
 	opts := &makeSDJWTOpts{
-		version: vc.SDJWTVersion, //Default SDJWT version is taken from vc, but can be changed via options.
+		version: sdJWTVersion,
 	}
 
 	for _, option := range options {
@@ -330,6 +336,7 @@ func makeSDJWT(vc *Credential, signer jose.Signer, signingKeyID string, options 
 	headers := map[string]interface{}{
 		jose.HeaderKeyID: signingKeyID,
 	}
+
 	if opts.version == common.SDJWTVersionV5 {
 		headers[jose.HeaderType] = "vc+sd-jwt"
 	}
@@ -423,7 +430,7 @@ func (vc *Credential) CreateDisplayCredential( // nolint:funlen,gocyclo
 		return nil, fmt.Errorf("marshalling vc object to JSON: %w", err)
 	}
 
-	newVC, err := populateCredential(vcBytes, nil, vc.SDJWTVersion)
+	newVC, err := populateCredential(vcBytes, nil, 0)
 	if err != nil {
 		return nil, fmt.Errorf("parsing new VC from JSON: %w", err)
 	}

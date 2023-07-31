@@ -12,6 +12,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -728,7 +729,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
 		require.NoError(t, err)
 
-		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer)
+		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer, common.SDJWTVersionV2)
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{sdJwtVC},
 			lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
@@ -2308,7 +2309,7 @@ func getTestVC() *verifiable.Credential {
 	return getTestVCWithContext(nil)
 }
 
-func newSdJwtVC(t *testing.T, vc *verifiable.Credential, signer sigutil.Signer) *verifiable.Credential {
+func newSdJwtVC(t *testing.T, vc *verifiable.Credential, signer sigutil.Signer, version common.SDJWTVersion) *verifiable.Credential {
 	t.Helper()
 
 	pubKey := signer.PublicKeyBytes()
@@ -2323,7 +2324,8 @@ func newSdJwtVC(t *testing.T, vc *verifiable.Credential, signer sigutil.Signer) 
 	algName, err := jwsAlgo.Name()
 	require.NoError(t, err)
 
-	combinedFormatForIssuance, err := vc.MakeSDJWT(verifiable.GetJWTSigner(signer, algName), verMethod)
+	combinedFormatForIssuance, err := vc.MakeSDJWT(
+		verifiable.GetJWTSigner(signer, algName), verMethod, verifiable.MakeSDJWTWithVersion(version))
 	require.NoError(t, err)
 
 	parsed, err := verifiable.ParseCredential([]byte(combinedFormatForIssuance),
