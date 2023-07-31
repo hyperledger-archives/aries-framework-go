@@ -52,8 +52,8 @@ func GetHash(hash crypto.Hash, value string) (string, error) {
 }
 
 // VerifyDisclosuresInSDJWT checks for disclosure inclusion in SD-JWT.
-func VerifyDisclosuresInSDJWT(disclosures []string, signedJWT *afgjwt.JSONWebToken) error {
-	return common.VerifyDisclosuresInSDJWT(disclosures, signedJWT)
+func VerifyDisclosuresInSDJWT(disclosures []string, signedJWT *afgjwt.JSONWebToken, version common.SDJWTVersion) error {
+	return common.VerifyDisclosuresInSDJWT(disclosures, signedJWT, version)
 }
 
 // GetCryptoHashFromClaims returns crypto hash from claims.

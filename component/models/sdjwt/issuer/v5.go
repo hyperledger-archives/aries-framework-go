@@ -30,6 +30,7 @@ func (s *SDJWTBuilderV5) isAlwaysInclude(curPath string, opts *newOpts) bool {
 	}
 
 	_, ok := opts.alwaysInclude[curPath]
+
 	return ok
 }
 
@@ -39,6 +40,7 @@ func (s *SDJWTBuilderV5) isIgnored(curPath string, opts *newOpts) bool {
 	}
 
 	_, ok := opts.nonSDClaimsMap[curPath]
+
 	return ok
 }
 
@@ -48,6 +50,7 @@ func (s *SDJWTBuilderV5) isRecursive(curPath string, opts *newOpts) bool {
 	}
 
 	_, ok := opts.recursiveClaimMap[curPath]
+
 	return ok
 }
 
@@ -151,7 +154,7 @@ func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests(
 			} else { // plain
 				disclosure, disErr := s.createDisclosure(key, value, opts)
 				if disErr != nil {
-					return nil, nil, fmt.Errorf("create disclosure for whole err with path [%v]: %w",
+					return nil, nil, fmt.Errorf("create disclosure for whole array err with path [%v]: %w",
 						path, disErr)
 				}
 
@@ -192,8 +195,10 @@ func (s *SDJWTBuilderV5) processArrayElements(
 	opts *newOpts,
 ) ([]interface{}, []*DisclosureEntity, error) {
 	valSl := reflect.ValueOf(value)
+
 	var digestArr []interface{}
 	var elementsDisclosures []*DisclosureEntity
+
 	for i := 0; i < valSl.Len(); i++ {
 		elementPath := fmt.Sprintf("%v[%v]", path, i)
 		elementOptions := s.extractValueOptions(elementPath, opts)
