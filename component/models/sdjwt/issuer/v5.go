@@ -15,15 +15,18 @@ import (
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 )
 
+// SDJWTBuilderV5 represents builder struct for SD-JWT v5 spec.
 type SDJWTBuilderV5 struct {
 	debugMode bool
 	saltSize  int
 }
 
+// GenerateSalt generates salt.
 func (s *SDJWTBuilderV5) GenerateSalt() (string, error) {
 	return generateSalt(s.saltSize)
 }
 
+// NewSDJWTBuilderV5 returns new instance of SDJWTBuilderV5.
 func NewSDJWTBuilderV5() *SDJWTBuilderV5 {
 	return &SDJWTBuilderV5{
 		saltSize: 128 / 8,
@@ -76,6 +79,7 @@ type valueOption struct {
 	IsRecursive     bool
 }
 
+// CreateDisclosuresAndDigests creates disclosures and digests.
 func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests(
 	path string,
 	claims map[string]interface{},
@@ -83,11 +87,13 @@ func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests(
 ) ([]*DisclosureEntity, map[string]interface{}, error) {
 	digestsMap := map[string]interface{}{}
 	finalSDDigest, err := createDecoyDisclosures(opts)
+
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create decoy disclosures: %w", err)
 	}
 
 	var allDisclosures []*DisclosureEntity
+
 	for key, value := range claims {
 		curPath := key
 		if path != "" {
@@ -175,7 +181,9 @@ func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests(
 				digestsMap[key] = value
 				continue
 			}
+
 			disclosure, disErr := s.createDisclosure(key, value, opts)
+
 			if disErr != nil {
 				return nil, nil, fmt.Errorf("create disclosure for simple value with path [%v]: %w",
 					path, disErr)
@@ -256,6 +264,7 @@ func (s *SDJWTBuilderV5) createDisclosure(
 		Salt: salt,
 	}
 	disclosure := []interface{}{salt}
+
 	if key != "" {
 		disclosure = append(disclosure, key)
 	}
@@ -279,6 +288,7 @@ func (s *SDJWTBuilderV5) createDisclosure(
 	return finalDis, nil
 }
 
+// DisclosureEntity represents disclosure with extra information.
 type DisclosureEntity struct {
 	Result      string
 	Salt        string
@@ -289,6 +299,9 @@ type DisclosureEntity struct {
 	DebugDigest string
 }
 
-func (s *SDJWTBuilderV5) ExtractCredentialClaims(vcClaims map[string]interface{}) (map[string]interface{}, error) {
+// ExtractCredentialClaims extracts credential claims.
+func (s *SDJWTBuilderV5) ExtractCredentialClaims(
+	vcClaims map[string]interface{},
+) (map[string]interface{}, error) {
 	return vcClaims, nil
 }

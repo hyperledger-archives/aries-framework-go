@@ -86,6 +86,7 @@ func (c *commonV5) getDisclosureClaim(disclosure string) (*DisclosureClaim, erro
 	if !ok {
 		return nil, fmt.Errorf("disclosure salt type[%T] must be string", disclosureArr[c.saltIndex])
 	}
+
 	claim.Salt = salt
 
 	if len(disclosureArr) == 2 { // array
@@ -132,7 +133,9 @@ func (c *commonV5) GetDisclosureClaims(
 			continue
 		case DisclosureClaimTypeArray:
 			sValue := reflect.ValueOf(claim.Value)
+
 			var updatedElements []interface{}
+
 			for i := 0; i < sValue.Len(); i++ {
 				key, ok := sValue.Index(i).Interface().(map[string]interface{})
 				if !ok {
