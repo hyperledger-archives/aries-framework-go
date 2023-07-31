@@ -1,3 +1,9 @@
+/*
+Copyright Avast Software. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package issuer
 
 import (
@@ -9,15 +15,18 @@ import (
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 )
 
+// SDJWTBuilderV5 represents builder struct for SD-JWT v5 spec.
 type SDJWTBuilderV5 struct {
 	debugMode bool
 	saltSize  int
 }
 
+// GenerateSalt generates salt.
 func (s *SDJWTBuilderV5) GenerateSalt() (string, error) {
 	return generateSalt(s.saltSize)
 }
 
+// NewSDJWTBuilderV5 returns new instance of SDJWTBuilderV5.
 func NewSDJWTBuilderV5() *SDJWTBuilderV5 {
 	return &SDJWTBuilderV5{
 		saltSize: 128 / 8,
@@ -30,6 +39,7 @@ func (s *SDJWTBuilderV5) isAlwaysInclude(curPath string, opts *newOpts) bool {
 	}
 
 	_, ok := opts.alwaysInclude[curPath]
+
 	return ok
 }
 
@@ -39,6 +49,7 @@ func (s *SDJWTBuilderV5) isIgnored(curPath string, opts *newOpts) bool {
 	}
 
 	_, ok := opts.nonSDClaimsMap[curPath]
+
 	return ok
 }
 
@@ -48,6 +59,7 @@ func (s *SDJWTBuilderV5) isRecursive(curPath string, opts *newOpts) bool {
 	}
 
 	_, ok := opts.recursiveClaimMap[curPath]
+
 	return ok
 }
 
@@ -67,6 +79,7 @@ type valueOption struct {
 	IsRecursive     bool
 }
 
+// CreateDisclosuresAndDigests creates disclosures and digests.
 func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests(
 	path string,
 	claims map[string]interface{},
@@ -74,11 +87,13 @@ func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests(
 ) ([]*DisclosureEntity, map[string]interface{}, error) {
 	digestsMap := map[string]interface{}{}
 	finalSDDigest, err := createDecoyDisclosures(opts)
+
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create decoy disclosures: %w", err)
 	}
 
 	var allDisclosures []*DisclosureEntity
+
 	for key, value := range claims {
 		curPath := key
 		if path != "" {
@@ -88,9 +103,10 @@ func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests(
 		kind := reflect.TypeOf(value).Kind()
 
 		valOption := s.extractValueOptions(curPath, opts)
+
 		switch kind {
 		case reflect.Map:
-			if valOption.IsIgnored {
+			if valOption.IsIgnored { // nolint:nestif
 				digestsMap[key] = value
 			} else if valOption.IsRecursive {
 				nestedDisclosures, nestedDigestsMap, mapErr := s.CreateDisclosuresAndDigests(
@@ -103,6 +119,7 @@ func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests(
 				}
 
 				disclosure, disErr := s.createDisclosure(key, nestedDigestsMap, opts)
+
 				if disErr != nil {
 					return nil, nil, fmt.Errorf(
 						"create disclosure for recursive disclosure value with path [%v]: %w",
@@ -151,7 +168,7 @@ func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests(
 			} else { // plain
 				disclosure, disErr := s.createDisclosure(key, value, opts)
 				if disErr != nil {
-					return nil, nil, fmt.Errorf("create disclosure for whole err with path [%v]: %w",
+					return nil, nil, fmt.Errorf("create disclosure for whole array err with path [%v]: %w",
 						path, disErr)
 				}
 
@@ -164,7 +181,9 @@ func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests(
 				digestsMap[key] = value
 				continue
 			}
+
 			disclosure, disErr := s.createDisclosure(key, value, opts)
+
 			if disErr != nil {
 				return nil, nil, fmt.Errorf("create disclosure for simple value with path [%v]: %w",
 					path, disErr)
@@ -175,6 +194,7 @@ func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests(
 	}
 
 	digests, err := createDigests(finalSDDigest, opts)
+
 	if err != nil {
 		return nil, nil, err
 	}
@@ -192,8 +212,11 @@ func (s *SDJWTBuilderV5) processArrayElements(
 	opts *newOpts,
 ) ([]interface{}, []*DisclosureEntity, error) {
 	valSl := reflect.ValueOf(value)
+
 	var digestArr []interface{}
+
 	var elementsDisclosures []*DisclosureEntity
+
 	for i := 0; i < valSl.Len(); i++ {
 		elementPath := fmt.Sprintf("%v[%v]", path, i)
 		elementOptions := s.extractValueOptions(elementPath, opts)
@@ -231,7 +254,9 @@ func (s *SDJWTBuilderV5) createDisclosure(
 	if opts.getSalt == nil {
 		return nil, errors.New("missing salt function")
 	}
+
 	salt, err := opts.getSalt()
+
 	if err != nil {
 		return nil, fmt.Errorf("generate salt: %w", err)
 	}
@@ -240,9 +265,11 @@ func (s *SDJWTBuilderV5) createDisclosure(
 		Salt: salt,
 	}
 	disclosure := []interface{}{salt}
+
 	if key != "" {
 		disclosure = append(disclosure, key)
 	}
+
 	disclosure = append(disclosure, value)
 
 	disclosureBytes, err := opts.jsonMarshal(disclosure)
@@ -262,6 +289,7 @@ func (s *SDJWTBuilderV5) createDisclosure(
 	return finalDis, nil
 }
 
+// DisclosureEntity represents disclosure with extra information.
 type DisclosureEntity struct {
 	Result      string
 	Salt        string
@@ -272,6 +300,9 @@ type DisclosureEntity struct {
 	DebugDigest string
 }
 
-func (s *SDJWTBuilderV5) ExtractCredentialClaims(vcClaims map[string]interface{}) (map[string]interface{}, error) {
+// ExtractCredentialClaims extracts credential claims.
+func (s *SDJWTBuilderV5) ExtractCredentialClaims(
+	vcClaims map[string]interface{},
+) (map[string]interface{}, error) {
 	return vcClaims, nil
 }

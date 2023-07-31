@@ -54,6 +54,7 @@ func (c *commonV5) VerifyDisclosuresInSDJWT(disclosures []string, signedJWT *afg
 			if parsed.Type == DisclosureClaimTypeArrayElement {
 				continue
 			}
+
 			return fmt.Errorf("disclosure digest '%s' not found in SD-JWT disclosure digests", digest)
 		}
 	}
@@ -85,6 +86,7 @@ func (c *commonV5) getDisclosureClaim(disclosure string) (*DisclosureClaim, erro
 	if !ok {
 		return nil, fmt.Errorf("disclosure salt type[%T] must be string", disclosureArr[c.saltIndex])
 	}
+
 	claim.Salt = salt
 
 	if len(disclosureArr) == 2 { // array
@@ -125,13 +127,16 @@ func (c *commonV5) GetDisclosureClaims(
 	}
 
 	var claims []*DisclosureClaim
+
 	for _, claim := range claimMap {
 		switch claim.Type {
 		case DisclosureClaimTypeArrayElement:
 			continue
 		case DisclosureClaimTypeArray:
 			sValue := reflect.ValueOf(claim.Value)
+
 			var updatedElements []interface{}
+
 			for i := 0; i < sValue.Len(); i++ {
 				key, ok := sValue.Index(i).Interface().(map[string]interface{})
 				if !ok {
@@ -147,9 +152,12 @@ func (c *commonV5) GetDisclosureClaims(
 				if !ok {
 					return nil, fmt.Errorf("array element with key %v not found", key)
 				}
+
 				updatedElements = append(updatedElements, v.Value)
 			}
+
 			claim.Value = updatedElements
+
 			claims = append(claims, claim)
 		default:
 			claims = append(claims, claim)

@@ -1,12 +1,32 @@
+/*
+Copyright Avast Software. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package issuer
 
 import (
+	"crypto"
 	"encoding/json"
+	"errors"
 	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/slices"
+)
+
+const (
+	sameV5TestData = `{
+			  "some_map": {
+				"a" : "b"
+              },
+			  "nationalities": [
+				"US",
+				"DE"
+			  ]
+			}`
 )
 
 func TestDisclosureV5Map(
@@ -56,7 +76,7 @@ func TestDisclosureV5Map(
 		assert.Equal(t, "street_address", disclosures[4].Key)
 		assert.Equal(t, "Schulstr. 12", disclosures[4].Value)
 
-		recursiveElements := disclosures[0].Value.(map[string]interface{})["_sd"].([]string)
+		recursiveElements := disclosures[0].Value.(map[string]interface{})["_sd"].([]string) // nolint:errcheck
 		assert.Len(t, recursiveElements, 4)
 
 		for _, expected := range []string{
@@ -68,7 +88,7 @@ func TestDisclosureV5Map(
 			assert.True(t, slices.Contains(recursiveElements, expected))
 		}
 		assert.Len(t, cred, 1)
-		sd := cred["_sd"].([]string)
+		sd := cred["_sd"].([]string) // nolint:errcheck
 		assert.Len(t, sd, 1)
 		assert.Equal(t, disclosures[0].DebugDigest, sd[0])
 	})
@@ -111,10 +131,30 @@ func TestDisclosureV5Map(
 				"address.extra.recursive": true,
 			},
 		})
+		assert.NoError(t, err)
 
 		printObject(t, "final credentials", finalMap)
 		printObject(t, "disclosures", disclosures)
-		assert.NoError(t, err)
+
+		assert.Len(t, disclosures, 10)
+		assert.Len(t, finalMap, 1)
+
+		disMap := map[string]*DisclosureEntity{}
+		for _, d := range disclosures {
+			disMap[d.DebugDigest] = d
+		}
+
+		sdID := finalMap["_sd"].([]string)[0]
+		assert.NotEmpty(t, sdID)
+		val := disMap[sdID]
+		recursiveData := val.Value.(map[string]interface{})["extra"].(map[string]interface{})["_sd"].([]string)[0]
+		recursiveDis := disMap[recursiveData]
+
+		assert.Equal(t, "recursive", recursiveDis.Key)
+		itemData := recursiveDis.Value.(map[string]interface{})["_sd"].([]string)[0]
+		itemDis := disMap[itemData]
+		assert.Equal(t, "key1", itemDis.Key)
+		assert.Equal(t, "value1", itemDis.Value)
 	})
 }
 
@@ -181,14 +221,14 @@ func TestDisclosureV5Array(
 			assert.True(t, found, "element %v not found", expectedArrayElements)
 		}
 
-		visibleMapData := cred["visible_map"].(map[string]interface{})["_sd"].([]string)
+		visibleMapData := cred["visible_map"].(map[string]interface{})["_sd"].([]string) // nolint:errcheck
 		assert.Len(t, visibleMapData, 1)
 
 		visibleDisclosure := disMap[visibleMapData[0]]
 		assert.Equal(t, "a", visibleDisclosure.Key)
 		assert.Equal(t, "b", visibleDisclosure.Value)
 
-		nationalities := cred["nationalities"].([]interface{})
+		nationalities := cred["nationalities"].([]interface{}) // nolint:errcheck
 		assert.Len(t, nationalities, 2)
 
 		for i, nat := range nationalities {
@@ -251,28 +291,19 @@ func TestDisclosureV5Array(
 		assert.Len(t, disclosures, 9)
 		assert.Len(t, cred["_sd"].([]string), 8)
 
-		nat := cred["nationalities"].([]interface{})
+		nat := cred["nationalities"].([]interface{}) // nolint:errcheck
 		assert.Len(t, nat, 2)
 
 		nat1Val := nat[0].(map[string]string)["..."]
-		nat2Val := nat[1].(string)
+		nat2Val := nat[1].(string) // nolint:errcheck
 
 		assert.Equal(t, "DE", nat2Val)
 		assert.Equal(t, "US", disMap[nat1Val].Value)
 	})
 
 	t.Run("one array element ignored", func(t *testing.T) {
-		input := `{
-			  "some_map": {
-				"a" : "b"
-              },
-			  "nationalities": [
-				"US",
-				"DE"
-			  ]
-			}`
 		var parsedInput map[string]interface{}
-		assert.NoError(t, json.Unmarshal([]byte(input), &parsedInput))
+		assert.NoError(t, json.Unmarshal([]byte(sameV5TestData), &parsedInput))
 		bb := NewSDJWTBuilderV5()
 
 		disclosures, cred, err := bb.CreateDisclosuresAndDigests("", parsedInput, &newOpts{
@@ -301,17 +332,8 @@ func TestDisclosureV5Array(
 
 func TestFailCases(t *testing.T) {
 	t.Run("map object", func(t *testing.T) {
-		input := `{
-			  "some_map": {
-				"a" : "b"
-              },
-			  "nationalities": [
-				"US",
-				"DE"
-			  ]
-			}`
 		var parsedInput map[string]interface{}
-		assert.NoError(t, json.Unmarshal([]byte(input), &parsedInput))
+		assert.NoError(t, json.Unmarshal([]byte(sameV5TestData), &parsedInput))
 		bb := NewSDJWTBuilderV5()
 
 		disclosures, cred, err := bb.CreateDisclosuresAndDigests("", parsedInput, &newOpts{
@@ -322,6 +344,135 @@ func TestFailCases(t *testing.T) {
 			},
 		})
 		assert.ErrorContains(t, err, "create disclosure for map object []: missing salt function")
+		assert.Nil(t, disclosures, cred)
+	})
+
+	t.Run("map object", func(t *testing.T) {
+		var parsedInput map[string]interface{}
+		assert.NoError(t, json.Unmarshal([]byte(sameV5TestData), &parsedInput))
+		bb := NewSDJWTBuilderV5()
+
+		disclosures, cred, err := bb.CreateDisclosuresAndDigests("", parsedInput, &newOpts{
+			jsonMarshal: json.Marshal,
+			HashAlg:     defaultHash,
+			nonSDClaimsMap: map[string]bool{
+				"some_map": true,
+			},
+		})
+		assert.ErrorContains(t, err, "create element disclosure for path [nationalities[0]]: "+
+			"missing salt function")
+		assert.Nil(t, disclosures, cred)
+	})
+
+	t.Run("simple value", func(t *testing.T) {
+		input := `{
+			  "a" : "b"
+			}`
+		var parsedInput map[string]interface{}
+		assert.NoError(t, json.Unmarshal([]byte(input), &parsedInput))
+		bb := NewSDJWTBuilderV5()
+
+		disclosures, cred, err := bb.CreateDisclosuresAndDigests("", parsedInput, &newOpts{
+			jsonMarshal: json.Marshal,
+			HashAlg:     defaultHash,
+		})
+		assert.ErrorContains(t, err, "create disclosure for simple value with path []: missing salt function")
+		assert.Nil(t, disclosures, cred)
+	})
+
+	t.Run("map object recursive", func(t *testing.T) {
+		input := `{
+			  "some_map": {
+				"a" : "b"
+              }
+			}`
+		var parsedInput map[string]interface{}
+		assert.NoError(t, json.Unmarshal([]byte(input), &parsedInput))
+		bb := NewSDJWTBuilderV5()
+
+		i := 0
+		disclosures, cred, err := bb.CreateDisclosuresAndDigests("", parsedInput, &newOpts{
+			jsonMarshal: json.Marshal,
+			HashAlg:     defaultHash,
+			getSalt: func() (string, error) {
+				i++
+				if i == 1 {
+					return generateSalt(128)
+				}
+
+				return "", errors.New("can not create salt")
+			},
+			recursiveClaimMap: map[string]bool{
+				"some_map": true,
+			},
+		})
+		assert.ErrorContains(t, err, "create disclosure for recursive disclosure value with path []: "+
+			"generate salt: can not create salt")
+		assert.Nil(t, disclosures, cred)
+	})
+
+	t.Run("disclosure for slice", func(t *testing.T) {
+		input := `{
+			  "some_arr" : ["UA"]
+			}`
+		var parsedInput map[string]interface{}
+		assert.NoError(t, json.Unmarshal([]byte(input), &parsedInput))
+		bb := NewSDJWTBuilderV5()
+
+		i := 0
+		disclosures, cred, err := bb.CreateDisclosuresAndDigests("", parsedInput, &newOpts{
+			jsonMarshal: json.Marshal,
+			HashAlg:     defaultHash,
+			getSalt: func() (string, error) {
+				i++
+				if i == 1 {
+					return generateSalt(128)
+				}
+
+				return "", errors.New("can not create salt")
+			},
+		})
+		assert.ErrorContains(t, err, "create disclosure for whole array err with path []: generate salt: "+
+			"can not create salt")
+		assert.Nil(t, disclosures, cred)
+	})
+
+	t.Run("can not create decoy", func(t *testing.T) {
+		input := `{
+			  "some_arr" : ["UA"]
+			}`
+		var parsedInput map[string]interface{}
+		assert.NoError(t, json.Unmarshal([]byte(input), &parsedInput))
+		bb := NewSDJWTBuilderV5()
+
+		disclosures, cred, err := bb.CreateDisclosuresAndDigests("", parsedInput, &newOpts{
+			jsonMarshal:     json.Marshal,
+			HashAlg:         defaultHash,
+			addDecoyDigests: true,
+			getSalt: func() (string, error) {
+				return "", errors.New("can not create salt")
+			},
+		})
+		assert.ErrorContains(t, err, "failed to create decoy disclosures: can not create salt")
+		assert.Nil(t, disclosures, cred)
+	})
+
+	t.Run("can not create decoy", func(t *testing.T) {
+		input := `{
+			  "some_arr" : ["UA"]
+			}`
+		var parsedInput map[string]interface{}
+		assert.NoError(t, json.Unmarshal([]byte(input), &parsedInput))
+		bb := NewSDJWTBuilderV5()
+
+		disclosures, cred, err := bb.CreateDisclosuresAndDigests("", parsedInput, &newOpts{
+			jsonMarshal:     json.Marshal,
+			HashAlg:         crypto.MD5SHA1,
+			addDecoyDigests: true,
+			getSalt:         bb.GenerateSalt,
+		})
+		assert.ErrorContains(t, err, "can not create digest for array element [some_arr[0]]: "+
+			"hash disclosure: hash function not available")
 		assert.Nil(t, disclosures, cred)
 	})
 }

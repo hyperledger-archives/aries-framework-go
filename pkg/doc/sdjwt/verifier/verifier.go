@@ -20,7 +20,9 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
+
 	afgjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
+	common2 "github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/component/models/signature/verifier"
 	utils "github.com/hyperledger/aries-framework-go/component/models/util/maphelpers"
 
@@ -164,8 +166,9 @@ func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]i
 		return nil, fmt.Errorf("check disclosures: %w", err)
 	}
 
+	sdJWTVersion := common2.SDJWTVersionDefault // todo ???
 	// Verify that all disclosures are present in SD-JWT.
-	err = common.VerifyDisclosuresInSDJWT(cfp.Disclosures, signedJWT)
+	err = common.VerifyDisclosuresInSDJWT(cfp.Disclosures, signedJWT, sdJWTVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +178,7 @@ func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]i
 		return nil, fmt.Errorf("failed to verify holder binding: %w", err)
 	}
 
-	return getDisclosedClaims(cfp.Disclosures, signedJWT)
+	return getDisclosedClaims(cfp.Disclosures, signedJWT, sdJWTVersion)
 }
 
 func verifyHolderBinding(sdJWT *afgjwt.JSONWebToken, holderBinding string, pOpts *parseOpts) error {
@@ -293,8 +296,12 @@ func getSignatureVerifierFromCNF(cnf map[string]interface{}) (jose.SignatureVeri
 	return signatureVerifier, nil
 }
 
-func getDisclosedClaims(disclosures []string, signedJWT *afgjwt.JSONWebToken) (map[string]interface{}, error) {
-	disclosureClaims, err := common.GetDisclosureClaims(disclosures)
+func getDisclosedClaims(
+	disclosures []string,
+	signedJWT *afgjwt.JSONWebToken,
+	version common2.SDJWTVersion,
+) (map[string]interface{}, error) {
+	disclosureClaims, err := common.GetDisclosureClaims(disclosures, version)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get verified payload: %w", err)
 	}
