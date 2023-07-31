@@ -170,7 +170,7 @@ func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]i
 		return nil, err
 	}
 
-	err = verifyHolderBinding(signedJWT, cfp.HolderBinding, pOpts)
+	err = verifyHolderBinding(signedJWT, cfp.HolderVerification, pOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify holder binding: %w", err)
 	}

@@ -1189,7 +1189,7 @@ func isJWTVC(vcStr string) (bool, string, []string, string) {
 
 			disclosures = cffp.Disclosures
 			tmpVCStr = cffp.SDJWT
-			holderBinding = cffp.HolderBinding
+			holderBinding = cffp.HolderVerification
 		} else {
 			cffi := common.ParseCombinedFormatForIssuance(vcStr)
 			disclosures = cffi.Disclosures

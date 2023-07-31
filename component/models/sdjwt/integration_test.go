@@ -140,7 +140,7 @@ func TestSDJWTFlow(t *testing.T) {
 
 		// Holder will disclose only sub-set of claims to verifier and add holder binding.
 		combinedFormatForPresentation, err := holder.CreatePresentation(combinedFormatForIssuance, selectedDisclosures,
-			holder.WithHolderBinding(&holder.BindingInfo{
+			holder.WithHolderVerification(&holder.BindingInfo{
 				Payload: holder.BindingPayload{
 					Nonce:    testNonce,
 					Audience: testAudience,
@@ -155,9 +155,9 @@ func TestSDJWTFlow(t *testing.T) {
 		// Verifier will validate combined format for presentation and create verified claims.
 		verifiedClaims, err := verifier.Parse(combinedFormatForPresentation,
 			verifier.WithSignatureVerifier(signatureVerifier),
-			verifier.WithHolderBindingRequired(true),
-			verifier.WithExpectedAudienceForHolderBinding(testAudience),
-			verifier.WithExpectedNonceForHolderBinding(testNonce))
+			verifier.WithHolderVerificationRequired(true),
+			verifier.WithExpectedAudienceForHolderVerification(testAudience),
+			verifier.WithExpectedNonceForHolderVerification(testNonce))
 		r.NoError(err)
 
 		printObject(t, "Verified Claims", verifiedClaims)
@@ -307,7 +307,7 @@ func TestSDJWTFlow(t *testing.T) {
 
 		// Holder will disclose only sub-set of claims to verifier.
 		combinedFormatForPresentation, err := holder.CreatePresentation(vcCombinedFormatForIssuance, selectedDisclosures,
-			holder.WithHolderBinding(&holder.BindingInfo{
+			holder.WithHolderVerification(&holder.BindingInfo{
 				Payload: holder.BindingPayload{
 					Nonce:    testNonce,
 					Audience: testAudience,
@@ -411,7 +411,7 @@ func TestSDJWTFlow(t *testing.T) {
 
 		// Holder will disclose only sub-set of claims to verifier.
 		combinedFormatForPresentation, err := holder.CreatePresentation(vcCombinedFormatForIssuance, selectedDisclosures,
-			holder.WithHolderBinding(&holder.BindingInfo{
+			holder.WithHolderVerification(&holder.BindingInfo{
 				Payload: holder.BindingPayload{
 					Nonce:    testNonce,
 					Audience: testAudience,
