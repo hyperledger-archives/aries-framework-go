@@ -15,6 +15,7 @@ type builder interface {
 		opts *newOpts,
 	) ([]*DisclosureEntity, map[string]interface{}, error)
 	ExtractCredentialClaims(vcClaims map[string]interface{}) (map[string]interface{}, error)
+	GenerateSalt() (string, error)
 }
 
 func getBuilderByVersion(
@@ -29,10 +30,17 @@ func getBuilderByVersion(
 }
 
 type SDJWTBuilderV2 struct {
+	defaultSaltSize int
+}
+
+func (s *SDJWTBuilderV2) GenerateSalt() (string, error) {
+	return generateSalt(s.defaultSaltSize)
 }
 
 func NewSDJWTBuilderV2() *SDJWTBuilderV2 {
-	return &SDJWTBuilderV2{}
+	return &SDJWTBuilderV2{
+		defaultSaltSize: 128 / 8,
+	}
 }
 
 func (s *SDJWTBuilderV2) CreateDisclosuresAndDigests(

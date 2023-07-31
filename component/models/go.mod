@@ -30,6 +30,7 @@ require (
 	github.com/tidwall/sjson v1.1.4
 	github.com/xeipuuv/gojsonschema v1.2.0
 	golang.org/x/crypto v0.1.0
+	golang.org/x/exp v0.0.0-20230728194245-b0cb94b80691
 )
 
 require (
