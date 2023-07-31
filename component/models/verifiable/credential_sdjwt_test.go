@@ -18,10 +18,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+	"github.com/hyperledger/aries-framework-go/spi/kms"
+
 	afgojwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/holder"
-	"github.com/hyperledger/aries-framework-go/spi/kms"
 )
 
 func TestParseSDJWT(t *testing.T) {
@@ -38,7 +39,8 @@ func TestParseSDJWT(t *testing.T) {
 	})
 
 	t.Run("success with SD JWT Version 5", func(t *testing.T) {
-		sdJWTCredFormatString, issuerCredFormatID := createTestSDJWTCred(t, privKey, MakeSDJWTWithVersion(common.SDJWTVersionV5))
+		sdJWTCredFormatString, issuerCredFormatID := createTestSDJWTCred(t, privKey,
+			MakeSDJWTWithVersion(common.SDJWTVersionV5))
 
 		newVC, e := ParseCredential([]byte(sdJWTCredFormatString),
 			WithPublicKeyFetcher(createDIDKeyFetcher(t, pubKey, issuerCredFormatID)))
@@ -317,7 +319,8 @@ func TestMakeSDJWT(t *testing.T) {
 
 		t.Run("with SD JWT V5", func(t *testing.T) {
 			sdjwt, err := vc.MakeSDJWT(
-				afgojwt.NewEd25519Signer(privKey), "did:example:abc123#key-1", MakeSDJWTWithVersion(common.SDJWTVersionV5))
+				afgojwt.NewEd25519Signer(privKey), "did:example:abc123#key-1",
+				MakeSDJWTWithVersion(common.SDJWTVersionV5))
 			require.NoError(t, err)
 
 			_, err = ParseCredential([]byte(sdjwt), WithPublicKeyFetcher(holderPublicKeyFetcher(pubKey)))
