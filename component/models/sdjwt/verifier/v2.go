@@ -13,6 +13,7 @@ package verifier
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/mitchellh/mapstructure"
 
@@ -25,7 +26,11 @@ import (
 	utils "github.com/hyperledger/aries-framework-go/component/models/util/maphelpers"
 )
 
-func parseV2(cfp *common.CombinedFormatForPresentation, signedJWT *afgjwt.JSONWebToken, pOpts *parseOpts) (map[string]interface{}, error) {
+func parseV2(
+	cfp *common.CombinedFormatForPresentation,
+	signedJWT *afgjwt.JSONWebToken,
+	pOpts *parseOpts,
+) (map[string]interface{}, error) {
 	err := verifyHolderBinding(signedJWT, cfp.HolderVerification, pOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify holder binding: %w", err)
@@ -151,7 +156,11 @@ func getSignatureVerifierFromCNF(cnf map[string]interface{}) (jose.SignatureVeri
 	return signatureVerifier, nil
 }
 
-func getDisclosedClaims(disclosures []string, signedJWT *afgjwt.JSONWebToken, version common.SDJWTVersion) (map[string]interface{}, error) {
+func getDisclosedClaims(
+	disclosures []string,
+	signedJWT *afgjwt.JSONWebToken,
+	version common.SDJWTVersion,
+) (map[string]interface{}, error) {
 	disclosureClaims, err := common.GetDisclosureClaims(disclosures, version)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get verified payload: %w", err)

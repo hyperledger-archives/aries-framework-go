@@ -21,7 +21,11 @@ import (
 	utils "github.com/hyperledger/aries-framework-go/component/models/util/maphelpers"
 )
 
-func parseV5(cfp *common.CombinedFormatForPresentation, signedJWT *afgjwt.JSONWebToken, pOpts *parseOpts) (map[string]interface{}, error) {
+func parseV5(
+	cfp *common.CombinedFormatForPresentation,
+	signedJWT *afgjwt.JSONWebToken,
+	pOpts *parseOpts,
+) (map[string]interface{}, error) {
 	err := common.VerifyTyp(signedJWT.Headers, pOpts.expectedTypHeader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify typ header: %w", err)
@@ -106,7 +110,8 @@ func verifyKeyBindingJWT(holderJWT *afgjwt.JSONWebToken, pOpts *parseOpts) error
 			bindingPayload.Nonce, pOpts.expectedNonceForHolderVerification)
 	}
 
-	if pOpts.expectedAudienceForHolderVerification != "" && pOpts.expectedAudienceForHolderVerification != bindingPayload.Audience {
+	if pOpts.expectedAudienceForHolderVerification != "" &&
+		pOpts.expectedAudienceForHolderVerification != bindingPayload.Audience {
 		return fmt.Errorf("audience value '%s' does not match expected audience value '%s'",
 			bindingPayload.Audience, pOpts.expectedAudienceForHolderVerification)
 	}
