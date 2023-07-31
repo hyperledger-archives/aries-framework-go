@@ -2,6 +2,7 @@ package issuer
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -10,23 +11,17 @@ import (
 
 type SDJWTBuilderV5 struct {
 	debugMode bool
+	saltSize  int
 }
 
-func (s *SDJWTBuilderV5) keysToExclude() []string {
-	return []string{
-		"iss",
-		"iat",
-		"nbf",
-		"exp",
-		"cnf",
-		"type",
-		"status",
-		"sub",
-	}
+func (s *SDJWTBuilderV5) GenerateSalt() (string, error) {
+	return generateSalt(s.saltSize)
 }
 
 func NewSDJWTBuilderV5() *SDJWTBuilderV5 {
-	return &SDJWTBuilderV5{}
+	return &SDJWTBuilderV5{
+		saltSize: 128 / 8,
+	}
 }
 
 func (s *SDJWTBuilderV5) isAlwaysInclude(curPath string, opts *newOpts) bool {
@@ -184,7 +179,9 @@ func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests(
 		return nil, nil, err
 	}
 
-	digestsMap[common.SDKey] = digests
+	if len(digests) > 0 {
+		digestsMap[common.SDKey] = digests
+	}
 
 	return append(finalSDDigest, allDisclosures...), digestsMap, nil
 }
@@ -231,6 +228,9 @@ func (s *SDJWTBuilderV5) createDisclosure(
 	value interface{},
 	opts *newOpts,
 ) (*DisclosureEntity, error) {
+	if opts.getSalt == nil {
+		return nil, errors.New("missing salt function")
+	}
 	salt, err := opts.getSalt()
 	if err != nil {
 		return nil, fmt.Errorf("generate salt: %w", err)

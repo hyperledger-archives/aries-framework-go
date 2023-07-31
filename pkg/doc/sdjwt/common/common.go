@@ -32,8 +32,8 @@ type CombinedFormatForPresentation = common.CombinedFormatForPresentation
 type DisclosureClaim = common.DisclosureClaim
 
 // GetDisclosureClaims de-codes disclosures.
-func GetDisclosureClaims(disclosures []string) ([]*DisclosureClaim, error) {
-	return common.GetDisclosureClaims(disclosures)
+func GetDisclosureClaims(disclosures []string, version common.SDJWTVersion) ([]*DisclosureClaim, error) {
+	return common.GetDisclosureClaims(disclosures, version)
 }
 
 // ParseCombinedFormatForIssuance parses combined format for issuance into CombinedFormatForIssuance parts.

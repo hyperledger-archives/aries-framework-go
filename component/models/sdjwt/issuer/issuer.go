@@ -63,8 +63,7 @@ import (
 )
 
 const (
-	defaultHash     = crypto.SHA256
-	defaultSaltSize = 128 / 8
+	defaultHash = crypto.SHA256
 
 	decoyMinElements = 1
 	decoyMaxElements = 4
@@ -249,7 +248,6 @@ func New(issuer string, claims interface{}, headers jose.Headers,
 	signer jose.Signer, opts ...NewOpt) (*SelectiveDisclosureJWT, error) {
 	nOpts := &newOpts{
 		jsonMarshal:    json.Marshal,
-		getSalt:        generateSalt,
 		HashAlg:        defaultHash,
 		nonSDClaimsMap: make(map[string]bool),
 		version:        common.SDJWTVersionDefault,
@@ -271,6 +269,10 @@ func New(issuer string, claims interface{}, headers jose.Headers,
 	}
 
 	sdJWTBuilder := getBuilderByVersion(nOpts.version)
+	if nOpts.getSalt == nil {
+		nOpts.getSalt = sdJWTBuilder.GenerateSalt
+	}
+
 	disclosures, digests, err := sdJWTBuilder.CreateDisclosuresAndDigests("", claimsMap, nOpts)
 	if err != nil {
 		return nil, err
@@ -474,8 +476,8 @@ func (j *SelectiveDisclosureJWT) Serialize(detached bool) (string, error) {
 	return cf.Serialize(), nil
 }
 
-func generateSalt() (string, error) {
-	salt := make([]byte, defaultSaltSize)
+func generateSalt(sizeBytes int) (string, error) {
+	salt := make([]byte, sizeBytes)
 
 	_, err := rand.Read(salt)
 	if err != nil {

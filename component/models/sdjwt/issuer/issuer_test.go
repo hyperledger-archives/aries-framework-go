@@ -160,7 +160,9 @@ func TestNew(t *testing.T) {
 			WithID("id"),
 			WithSubject("subject"),
 			WithAudience("audience"),
-			WithSaltFnc(generateSalt),
+			WithSaltFnc(func() (string, error) {
+				return generateSalt(128 / 8)
+			}),
 			WithJSONMarshaller(json.Marshal),
 			WithHashAlgorithm(crypto.SHA256),
 		)
@@ -817,7 +819,6 @@ func TestJSONWebToken_createDisclosure(t *testing.T) {
 func getOpts(opts ...NewOpt) *newOpts {
 	nOpts := &newOpts{
 		jsonMarshal: json.Marshal,
-		getSalt:     generateSalt,
 		HashAlg:     defaultHash,
 	}
 
