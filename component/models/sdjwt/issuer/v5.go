@@ -166,7 +166,7 @@ func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests( // nolint:funlen,gocyclo
 			if valOption.IsAlwaysInclude || valOption.IsStructured {
 				digestsMap[key] = elementsDigest
 			} else { // plain
-				disclosure, disErr := s.createDisclosure(key, value, opts)
+				disclosure, disErr := s.createDisclosure(key, elementsDigest, opts)
 				if disErr != nil {
 					return nil, nil, fmt.Errorf("create disclosure for whole array err with path [%v]: %w",
 						path, disErr)

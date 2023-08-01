@@ -30,6 +30,9 @@ const (
 	simpleV5TestData = `{
 			  "some_arr" : ["UA"]
 			}`
+	arrayTwoElementsV5TestData = `{
+			  "some_arr" : ["UA", "PL"]
+			}`
 	addressV5TestData = `{
 			  "address": {
 				"postal_code": "12345",
@@ -482,6 +485,67 @@ func TestFailCases(t *testing.T) {
 func TestExamplesV5(
 	t *testing.T,
 ) {
+	t.Run("test array disclosures", func(t *testing.T) {
+		var parsedInput map[string]interface{}
+		assert.NoError(t, json.Unmarshal([]byte(arrayTwoElementsV5TestData), &parsedInput))
+		bb := NewSDJWTBuilderV5()
+
+		disclosures, cred, err := bb.CreateDisclosuresAndDigests("", parsedInput, &newOpts{
+			jsonMarshal: json.Marshal,
+			HashAlg:     defaultHash,
+			getSalt:     bb.GenerateSalt,
+		})
+		assert.NoError(t, err)
+
+		disMap := map[string]*DisclosureEntity{}
+		for _, d := range disclosures {
+			disMap[d.DebugDigest] = d
+		}
+
+		assert.Len(t, disclosures, 3)
+		assert.Equal(t, "some_arr", disclosures[0].Key)
+
+		addressArr := disclosures[0].Value.([]interface{})
+		assert.Len(t, addressArr, 2)
+
+		assert.Equal(t, "UA", disMap[addressArr[0].(map[string]string)["..."]].Value)
+		assert.Equal(t, "PL", disMap[addressArr[1].(map[string]string)["..."]].Value)
+
+		assert.Len(t, cred, 1)
+		assert.Len(t, cred["_sd"].([]string), 1)
+	})
+	t.Run("test array disclosures with one ignored", func(t *testing.T) {
+		var parsedInput map[string]interface{}
+		assert.NoError(t, json.Unmarshal([]byte(arrayTwoElementsV5TestData), &parsedInput))
+		bb := NewSDJWTBuilderV5()
+
+		disclosures, cred, err := bb.CreateDisclosuresAndDigests("", parsedInput, &newOpts{
+			jsonMarshal: json.Marshal,
+			HashAlg:     defaultHash,
+			getSalt:     bb.GenerateSalt,
+			nonSDClaimsMap: map[string]bool{
+				"some_arr[0]": true,
+			},
+		})
+		assert.NoError(t, err)
+
+		disMap := map[string]*DisclosureEntity{}
+		for _, d := range disclosures {
+			disMap[d.DebugDigest] = d
+		}
+
+		assert.Len(t, disclosures, 2)
+		assert.Equal(t, "some_arr", disclosures[0].Key)
+
+		addressArr := disclosures[0].Value.([]interface{})
+		assert.Len(t, addressArr, 2)
+
+		assert.Equal(t, "UA", addressArr[0])
+		assert.Equal(t, "PL", disMap[addressArr[1].(map[string]string)["..."]].Value)
+
+		assert.Len(t, cred, 1)
+		assert.Len(t, cred["_sd"].([]string), 1)
+	})
 	t.Run("always include", func(t *testing.T) {
 		var parsedInput map[string]interface{}
 		assert.NoError(t, json.Unmarshal([]byte(addressV5TestData), &parsedInput))
