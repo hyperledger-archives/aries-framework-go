@@ -18,6 +18,31 @@ import (
 )
 
 const (
+	sampleV5ComplexData = `{
+		  "address": {
+			"street_address": "Schulstr. 12",
+			"locality": "Schulpforta",
+			"region": "Sachsen-Anhalt",
+			"country": "DE",
+			"extraArrInclude" : ["UA", "PL"],
+			"extraArr" : ["Extra1", "Extra2"],
+			"extra" : {
+				"recursive" : {
+					"key1" : "value1"
+				}
+			}
+		  }
+	}`
+	sampleV5AddressMapTestData = `{
+  "address": {
+    "street_address": "Schulstr. 12",
+    "locality": "Schulpforta",
+    "region": "Sachsen-Anhalt",
+    "country": {
+      "code" : "DE"
+    }
+  }
+}`
 	sampleV5TestData = `{
 			  "some_map": {
 				"a" : "b"
@@ -108,23 +133,8 @@ func TestDisclosureV5Map(
 	})
 
 	t.Run("recursive with array and and include always", func(t *testing.T) {
-		input := `{
-		  "address": {
-			"street_address": "Schulstr. 12",
-			"locality": "Schulpforta",
-			"region": "Sachsen-Anhalt",
-			"country": "DE",
-			"extraArrInclude" : ["UA", "PL"],
-			"extraArr" : ["Extra1", "Extra2"],
-			"extra" : {
-				"recursive" : {
-					"key1" : "value1"
-				}
-			}
-		  }
-}`
 		var parsedInput map[string]interface{}
-		assert.NoError(t, json.Unmarshal([]byte(input), &parsedInput))
+		assert.NoError(t, json.Unmarshal([]byte(sampleV5ComplexData), &parsedInput))
 		bb := NewSDJWTBuilderV5()
 		bb.debugMode = true
 
@@ -505,7 +515,7 @@ func TestExamplesV5(
 		assert.Len(t, disclosures, 3)
 		assert.Equal(t, "some_arr", disclosures[0].Key)
 
-		addressArr := disclosures[0].Value.([]interface{})
+		addressArr := disclosures[0].Value.([]interface{}) // nolint:errcheck
 		assert.Len(t, addressArr, 2)
 
 		assert.Equal(t, "UA", disMap[addressArr[0].(map[string]string)["..."]].Value)
@@ -518,7 +528,7 @@ func TestExamplesV5(
 		var parsedInput map[string]interface{}
 		assert.NoError(t, json.Unmarshal([]byte(arrayTwoElementsV5TestData), &parsedInput))
 		bb := NewSDJWTBuilderV5()
-
+		bb.debugMode = true
 		disclosures, cred, err := bb.CreateDisclosuresAndDigests("", parsedInput, &newOpts{
 			jsonMarshal: json.Marshal,
 			HashAlg:     defaultHash,
@@ -537,7 +547,7 @@ func TestExamplesV5(
 		assert.Len(t, disclosures, 2)
 		assert.Equal(t, "some_arr", disclosures[0].Key)
 
-		addressArr := disclosures[0].Value.([]interface{})
+		addressArr := disclosures[0].Value.([]interface{}) // nolint:errcheck
 		assert.Len(t, addressArr, 2)
 
 		assert.Equal(t, "UA", addressArr[0])
@@ -584,6 +594,48 @@ func TestExamplesV5(
 		assert.Len(t, cred["address"].(map[string]interface{}), 4)
 		assert.Equal(t, cred["address"].(map[string]interface{})["postal_code"], "12345")
 		assert.Len(t, cred, 1)
+	})
+	t.Run("map address", func(t *testing.T) {
+		var parsedInput map[string]interface{}
+		assert.NoError(t, json.Unmarshal([]byte(sampleV5AddressMapTestData), &parsedInput))
+		bb := NewSDJWTBuilderV5()
+		bb.debugMode = true
+
+		disclosures, cred, err := bb.CreateDisclosuresAndDigests("", parsedInput, &newOpts{
+			jsonMarshal: json.Marshal,
+			HashAlg:     defaultHash,
+			getSalt:     bb.GenerateSalt,
+			alwaysInclude: map[string]bool{
+				"address.country": true,
+			},
+			recursiveClaimMap: map[string]bool{
+				"address.country": true,
+			},
+		})
+		assert.NoError(t, err)
+
+		disMap := map[string]*DisclosureEntity{}
+		for _, d := range disclosures {
+			disMap[d.DebugDigest] = d
+		}
+
+		assert.NotNil(t, disclosures, cred)
+		assert.Len(t, disclosures, 2)
+		assert.Len(t, cred, 1)
+
+		address := disMap[cred["_sd"].([]string)[0]]
+		assert.Len(t, address.Value, 4)
+		assert.Equal(t, "Schulstr. 12", address.Value.(map[string]interface{})["street_address"].(string))
+		assert.Equal(t, "Schulpforta", address.Value.(map[string]interface{})["locality"].(string))
+		assert.Equal(t, "Sachsen-Anhalt", address.Value.(map[string]interface{})["region"].(string))
+
+		country := address.Value.(map[string]interface{})["country"].(map[string]interface{})
+		disCountry := disMap[country["_sd"].([]string)[0]]
+		assert.Equal(t, "code", disCountry.Key)
+		assert.Equal(t, "DE", disCountry.Value)
+
+		printObject(t, "final credentials", cred)
+		printObject(t, "disclosures", disclosures)
 	})
 	t.Run("4a", func(t *testing.T) {
 		t.Run("recursive", func(t *testing.T) {

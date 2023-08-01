@@ -85,6 +85,15 @@ func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests( // nolint:funlen,gocyclo
 	claims map[string]interface{},
 	opts *newOpts,
 ) ([]*DisclosureEntity, map[string]interface{}, error) {
+	return s.createDisclosuresAndDigestsInternal(path, claims, opts, false)
+}
+
+func (s *SDJWTBuilderV5) createDisclosuresAndDigestsInternal(
+	path string,
+	claims map[string]interface{},
+	opts *newOpts,
+	ignorePrimitives bool,
+) ([]*DisclosureEntity, map[string]interface{}, error) {
 	digestsMap := map[string]interface{}{}
 	finalSDDigest, err := createDecoyDisclosures(opts)
 
@@ -109,10 +118,11 @@ func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests( // nolint:funlen,gocyclo
 			if valOption.IsIgnored { // nolint:nestif
 				digestsMap[key] = value
 			} else if valOption.IsRecursive {
-				nestedDisclosures, nestedDigestsMap, mapErr := s.CreateDisclosuresAndDigests(
+				nestedDisclosures, nestedDigestsMap, mapErr := s.createDisclosuresAndDigestsInternal(
 					curPath,
 					value.(map[string]interface{}),
 					opts,
+					false,
 				)
 				if mapErr != nil {
 					return nil, nil, mapErr
@@ -126,13 +136,19 @@ func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests( // nolint:funlen,gocyclo
 						path, disErr)
 				}
 
-				finalSDDigest = append(finalSDDigest, disclosure)
+				if valOption.IsAlwaysInclude {
+					digestsMap[key] = nestedDigestsMap
+				} else {
+					finalSDDigest = append(finalSDDigest, disclosure)
+				}
+
 				allDisclosures = append(allDisclosures, nestedDisclosures...)
 			} else if valOption.IsAlwaysInclude || valOption.IsStructured {
-				nestedDisclosures, nestedDigestsMap, mapErr := s.CreateDisclosuresAndDigests(
+				nestedDisclosures, nestedDigestsMap, mapErr := s.createDisclosuresAndDigestsInternal(
 					curPath,
 					value.(map[string]interface{}),
 					opts,
+					false,
 				)
 				if mapErr != nil {
 					return nil, nil, mapErr
@@ -142,13 +158,24 @@ func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests( // nolint:funlen,gocyclo
 
 				allDisclosures = append(allDisclosures, nestedDisclosures...)
 			} else { // plain
-				disclosure, disErr := s.createDisclosure(key, value, opts)
+				nestedDisclosures, nestedDigestsMap, mapErr := s.createDisclosuresAndDigestsInternal(
+					curPath,
+					value.(map[string]interface{}),
+					opts,
+					true,
+				)
+				if mapErr != nil {
+					return nil, nil, mapErr
+				}
+
+				disclosure, disErr := s.createDisclosure(key, nestedDigestsMap, opts)
 				if disErr != nil {
 					return nil, nil, fmt.Errorf("create disclosure for map object [%v]: %w",
 						path, disErr)
 				}
 
 				finalSDDigest = append(finalSDDigest, disclosure)
+				allDisclosures = append(allDisclosures, nestedDisclosures...)
 			}
 		case reflect.Array:
 			fallthrough
@@ -177,7 +204,7 @@ func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests( // nolint:funlen,gocyclo
 
 			allDisclosures = append(allDisclosures, elementsDisclosures...)
 		default:
-			if valOption.IsIgnored {
+			if valOption.IsIgnored || ignorePrimitives {
 				digestsMap[key] = value
 				continue
 			}
@@ -295,7 +322,7 @@ type DisclosureEntity struct {
 	Salt        string
 	Key         string
 	Value       interface{}
-	DebugArr    []interface{}
+	DebugArr    []interface{} `json:"-"`
 	DebugStr    string
 	DebugDigest string
 }
