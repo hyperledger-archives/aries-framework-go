@@ -7,9 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package common
 
 import (
+	"crypto"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"reflect"
 
@@ -57,7 +57,7 @@ func (c *commonV5) VerifyDisclosuresInSDJWT(disclosures []string, signedJWT *afg
 				return err
 			}
 
-			if parsed.Type == DisclosureClaimTypeArrayElement {
+			if parsed.Claim.Type == DisclosureClaimTypeArrayElement {
 				continue
 			}
 
@@ -68,7 +68,7 @@ func (c *commonV5) VerifyDisclosuresInSDJWT(disclosures []string, signedJWT *afg
 	return nil
 }
 
-func (c *commonV5) getDisclosureClaim(disclosure string) (*DisclosureClaim, error) {
+func (c *commonV5) getDisclosureClaim(disclosure string) (*wrappedClaim, error) {
 	decoded, err := base64.RawURLEncoding.DecodeString(disclosure)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode disclosure: %w", err)
@@ -115,13 +115,102 @@ func (c *commonV5) getDisclosureClaim(disclosure string) (*DisclosureClaim, erro
 		}
 	}
 
-	return claim, nil
+	digest, err := GetHash(crypto.SHA256, disclosure)
+	if err != nil {
+		return nil, err
+	}
+
+	return &wrappedClaim{
+		Claim:         claim,
+		IsValueParsed: false,
+		Digest:        digest,
+	}, nil
+}
+
+func (c *commonV5) processClaimValue(
+	claimMap map[string]*wrappedClaim,
+	claim *wrappedClaim,
+) {
+	if claim.IsValueParsed {
+		return
+	}
+
+	claim.Claim.Value = c.processObj(claim.Claim.Value, claimMap)
+	claim.IsValueParsed = true
+}
+
+func (c *commonV5) processObj(
+	inputObj interface{},
+	claimMap map[string]*wrappedClaim,
+) interface{} {
+	switch obj := inputObj.(type) {
+	case []interface{}:
+		var newValues []interface{}
+		for _, element := range obj {
+			parsedMap, ok := element.(map[string]interface{})
+			if !ok {
+				newValues = append(newValues, element)
+				continue
+			}
+
+			elementDigest, ok := parsedMap["..."]
+			if !ok {
+				panic("invalid array struct")
+			}
+
+			elementVal, ok := elementDigest.(string)
+			if !ok {
+				panic("invalid element type")
+			}
+
+			cl, ok := claimMap[elementVal]
+			if !ok {
+				panic("digest not found")
+			}
+
+			c.processClaimValue(claimMap, cl)
+
+			newValues = append(newValues, cl.Claim.Value)
+		}
+
+		return newValues
+	case map[string]interface{}:
+		for k, v := range obj {
+			if k == "_sd" {
+				continue
+			}
+
+			obj[k] = c.processObj(v, claimMap)
+		}
+		if sd, sdOk := obj["_sd"]; sdOk {
+			sdArr, sdArrOk := sd.([]interface{}) // todo
+			if !sdArrOk {
+				panic("todo")
+			}
+			for _, sdElement := range sdArr {
+				cl, clOk := claimMap[fmt.Sprint(sdElement)]
+				if !clOk {
+					panic("digest not found")
+				}
+
+				c.processClaimValue(claimMap, cl)
+				obj[cl.Claim.Name] = cl.Claim.Value
+			}
+			delete(obj, "_sd")
+		}
+
+		return obj
+	default:
+		return inputObj
+	}
+
+	return nil
 }
 
 func (c *commonV5) GetDisclosureClaims(
 	disclosures []string,
 ) ([]*DisclosureClaim, error) {
-	claimMap := map[string]*DisclosureClaim{}
+	claimMap := map[string]*wrappedClaim{}
 
 	for _, disclosure := range disclosures {
 		claim, err := c.getDisclosureClaim(disclosure)
@@ -129,46 +218,19 @@ func (c *commonV5) GetDisclosureClaims(
 			return nil, err
 		}
 
-		claimMap[claim.Disclosure] = claim
+		claimMap[claim.Digest] = claim
 	}
 
-	var claims []*DisclosureClaim
-
-	for _, claim := range claimMap {
-		switch claim.Type {
-		case DisclosureClaimTypeArrayElement:
+	var finalClaims []*DisclosureClaim
+	for _, v := range claimMap {
+		if v.Claim.Type == DisclosureClaimTypeArrayElement {
 			continue
-		case DisclosureClaimTypeArray:
-			sValue := reflect.ValueOf(claim.Value)
-
-			var updatedElements []interface{}
-
-			for i := 0; i < sValue.Len(); i++ {
-				key, ok := sValue.Index(i).Interface().(map[string]interface{})
-				if !ok {
-					return nil, errors.New("cast err for array element")
-				}
-
-				disVal, ok := key["..."]
-				if !ok {
-					return nil, errors.New("... not found in map")
-				}
-
-				v, ok := claimMap[fmt.Sprint(disVal)]
-				if !ok {
-					return nil, fmt.Errorf("array element with key %v not found", key)
-				}
-
-				updatedElements = append(updatedElements, v.Value)
-			}
-
-			claim.Value = updatedElements
-
-			claims = append(claims, claim)
-		default:
-			claims = append(claims, claim)
 		}
+
+		c.processClaimValue(claimMap, v)
+
+		finalClaims = append(finalClaims, v.Claim)
 	}
 
-	return claims, nil
+	return finalClaims, nil
 }

@@ -104,6 +104,12 @@ type DisclosureClaim struct {
 	Type       DisclosureClaimType
 }
 
+type wrappedClaim struct {
+	Claim         *DisclosureClaim
+	IsValueParsed bool
+	Digest        string
+}
+
 // GetDisclosureClaims de-codes disclosures.
 func GetDisclosureClaims(
 	disclosures []string,
