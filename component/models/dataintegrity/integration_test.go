@@ -1,0 +1,197 @@
+/*
+Copyright Gen Digital Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+package dataintegrity
+
+import (
+	_ "embed"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/jwkkid"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/localkms"
+	mockkms "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/kms"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/noop"
+	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity/models"
+	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity/suite/ecdsa2019"
+	"github.com/hyperledger/aries-framework-go/component/models/did"
+	"github.com/hyperledger/aries-framework-go/component/models/ld/documentloader"
+	mockldstore "github.com/hyperledger/aries-framework-go/component/models/ld/mock"
+	"github.com/hyperledger/aries-framework-go/component/models/ld/store"
+	mockstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mock/storage"
+	kmsapi "github.com/hyperledger/aries-framework-go/spi/kms"
+)
+
+var (
+	//go:embed suite/ecdsa2019/testdata/valid_credential.jsonld
+	validCredential []byte
+)
+
+const (
+	mockVMID2 = "#key-2"
+	mockKID2  = mockDID + mockVMID2
+)
+
+func TestIntegration(t *testing.T) {
+	signerOpts := suiteOptions(t)
+
+	signerInit := ecdsa2019.NewSigner(signerOpts)
+
+	verifierInit := ecdsa2019.NewVerifier(suiteOptions(t))
+
+	_, p256Bytes, err := signerOpts.KMS.CreateAndExportPubKeyBytes(kmsapi.ECDSAP256IEEEP1363)
+	require.NoError(t, err)
+
+	p256JWK, err := jwkkid.BuildJWK(p256Bytes, kmsapi.ECDSAP256IEEEP1363)
+	require.NoError(t, err)
+
+	_, p384Bytes, err := signerOpts.KMS.CreateAndExportPubKeyBytes(kmsapi.ECDSAP384IEEEP1363)
+	require.NoError(t, err)
+
+	p384JWK, err := jwkkid.BuildJWK(p384Bytes, kmsapi.ECDSAP384IEEEP1363)
+	require.NoError(t, err)
+
+	p256VM, err := did.NewVerificationMethodFromJWK(mockVMID, "JsonWebKey2020", mockDID, p256JWK)
+	require.NoError(t, err)
+
+	p384VM, err := did.NewVerificationMethodFromJWK(mockVMID2, "JsonWebKey2020", mockDID, p384JWK)
+	require.NoError(t, err)
+
+	resolver := resolveFunc(func(id string) (*did.DocResolution, error) {
+		switch id {
+		case mockKID:
+			return makeMockDIDResolution(id, p256VM, did.AssertionMethod), nil
+		case mockKID2:
+			return makeMockDIDResolution(id, p384VM, did.AssertionMethod), nil
+		}
+
+		return nil, ErrVMResolution
+	})
+
+	signer, err := NewSigner(&Options{DIDResolver: resolver}, signerInit)
+	require.NoError(t, err)
+
+	verifier, err := NewVerifier(&Options{DIDResolver: resolver}, verifierInit)
+	require.NoError(t, err)
+
+	t.Run("success", func(t *testing.T) {
+		t.Run("P-256 key", func(t *testing.T) {
+			proofOpts := &models.ProofOptions{
+				VerificationMethod:       p256VM,
+				VerificationMethodID:     p256VM.ID,
+				SuiteType:                ecdsa2019.SuiteType,
+				Purpose:                  "assertionMethod",
+				VerificationRelationship: "assertionMethod",
+				ProofType:                models.DataIntegrityProof,
+				Created:                  time.Now(),
+				MaxAge:                   100,
+			}
+
+			signedCred, err := signer.AddProof(validCredential, proofOpts)
+			require.NoError(t, err)
+
+			err = verifier.VerifyProof(signedCred, proofOpts)
+			require.NoError(t, err)
+		})
+
+		t.Run("P-384 key", func(t *testing.T) {
+			proofOpts := &models.ProofOptions{
+				VerificationMethod:       p384VM,
+				VerificationMethodID:     p384VM.ID,
+				SuiteType:                ecdsa2019.SuiteType,
+				Purpose:                  "assertionMethod",
+				VerificationRelationship: "assertionMethod",
+				ProofType:                models.DataIntegrityProof,
+				Created:                  time.Now(),
+				MaxAge:                   100,
+			}
+
+			signedCred, err := signer.AddProof(validCredential, proofOpts)
+			require.NoError(t, err)
+
+			err = verifier.VerifyProof(signedCred, proofOpts)
+			require.NoError(t, err)
+		})
+	})
+
+	t.Run("failure", func(t *testing.T) {
+		t.Run("wrong key", func(t *testing.T) {
+			signOpts := &models.ProofOptions{
+				VerificationMethod:       p256VM,
+				VerificationMethodID:     p256VM.ID,
+				SuiteType:                ecdsa2019.SuiteType,
+				Purpose:                  "assertionMethod",
+				VerificationRelationship: "assertionMethod",
+				ProofType:                models.DataIntegrityProof,
+				Created:                  time.Now(),
+			}
+
+			verifyOpts := &models.ProofOptions{
+				VerificationMethod:       p384VM,
+				VerificationMethodID:     p384VM.ID,
+				SuiteType:                ecdsa2019.SuiteType,
+				Purpose:                  "assertionMethod",
+				VerificationRelationship: "assertionMethod",
+				ProofType:                models.DataIntegrityProof,
+				MaxAge:                   100,
+			}
+
+			signedCred, err := signer.AddProof(validCredential, signOpts)
+			require.NoError(t, err)
+
+			err = verifier.VerifyProof(signedCred, verifyOpts)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "failed to verify ecdsa-2019 DI proof")
+		})
+	})
+}
+
+func suiteOptions(t *testing.T) *ecdsa2019.Options {
+	t.Helper()
+
+	docLoader, err := documentloader.NewDocumentLoader(createMockProvider())
+	require.NoError(t, err)
+
+	storeProv := mockstorage.NewMockStoreProvider()
+
+	kmsProv, err := mockkms.NewProviderForKMS(storeProv, &noop.NoLock{})
+	require.NoError(t, err)
+
+	kms, err := localkms.New("local-lock://custom/master/key/", kmsProv)
+	require.NoError(t, err)
+
+	cr, err := tinkcrypto.New()
+	require.NoError(t, err)
+
+	return &ecdsa2019.Options{
+		LDDocumentLoader: docLoader,
+		Crypto:           cr,
+		KMS:              kms,
+	}
+}
+
+type provider struct {
+	ContextStore        store.ContextStore
+	RemoteProviderStore store.RemoteProviderStore
+}
+
+func (p *provider) JSONLDContextStore() store.ContextStore {
+	return p.ContextStore
+}
+
+func (p *provider) JSONLDRemoteProviderStore() store.RemoteProviderStore {
+	return p.RemoteProviderStore
+}
+
+func createMockProvider() *provider {
+	return &provider{
+		ContextStore:        mockldstore.NewMockContextStore(),
+		RemoteProviderStore: mockldstore.NewMockRemoteProviderStore(),
+	}
+}

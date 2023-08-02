@@ -173,17 +173,35 @@ func VerifyJWT(compactJWT string,
 //   - a verification method suitable for signing.
 //   - the full DID#KID identifier of the returned verification method.
 func ResolveSigningVM(kid string, didResolver didResolver) (*did.VerificationMethod, string, error) {
+	vm, vmID, _, err := ResolveSigningVMWithRelationship(kid, didResolver)
+
+	return vm, vmID, err
+}
+
+// ResolveSigningVMWithRelationship resolves a DID KeyID using the given did resolver, and returns either:
+//
+//   - the Verification Method identified by the given key ID, or
+//   - the first Assertion Method in the DID doc, if the DID provided has no fragment component.
+//
+// Returns:
+//   - a verification method suitable for signing.
+//   - the full DID#KID identifier of the returned verification method.
+//   - the name of the signing-supporting verification relationship found for this verification method.
+func ResolveSigningVMWithRelationship(
+	kid string,
+	didResolver didResolver,
+) (*did.VerificationMethod, string, string, error) {
 	vmSplit := strings.Split(kid, "#")
 
 	if len(vmSplit) > vmSectionCount {
-		return nil, "", errors.New("invalid verification method format")
+		return nil, "", "", errors.New("invalid verification method format")
 	}
 
 	signingDID := vmSplit[0]
 
 	docRes, err := didResolver.Resolve(signingDID)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to resolve signing DID: %w", err)
+		return nil, "", "", fmt.Errorf("failed to resolve signing DID: %w", err)
 	}
 
 	if len(vmSplit) == 1 {
@@ -193,10 +211,10 @@ func ResolveSigningVM(kid string, didResolver didResolver) (*did.VerificationMet
 		if len(verificationMethods[did.AssertionMethod]) > 0 {
 			vm := verificationMethods[did.AssertionMethod][0].VerificationMethod
 
-			return &vm, fullVMID(signingDID, vm.ID), nil
+			return &vm, fullVMID(signingDID, vm.ID), "assertionMethod", nil
 		}
 
-		return nil, "", fmt.Errorf("DID provided has no assertion method to use as a default signing key")
+		return nil, "", "", fmt.Errorf("DID provided has no assertion method to use as a default signing key")
 	}
 
 	vmID := vmSplit[vmSectionCount-1]
@@ -205,12 +223,13 @@ func ResolveSigningVM(kid string, didResolver didResolver) (*did.VerificationMet
 		for _, verification := range verifications {
 			if isSigningKey(verification.Relationship) && vmIDFragmentOnly(verification.VerificationMethod.ID) == vmID {
 				vm := verification.VerificationMethod
-				return &vm, kid, nil
+
+				return &vm, kid, verificationRelationshipName(verification.Relationship), nil
 			}
 		}
 	}
 
-	return nil, "", fmt.Errorf("did document has no verification method with given ID")
+	return nil, "", "", fmt.Errorf("did document has no verification method with given ID")
 }
 
 func fullVMID(did, vmID string) string {
@@ -223,6 +242,19 @@ func fullVMID(did, vmID string) string {
 	}
 
 	return vmID
+}
+
+func verificationRelationshipName(rel did.VerificationRelationship) string {
+	switch rel {
+	case did.VerificationRelationshipGeneral:
+		return ""
+	case did.AssertionMethod:
+		return "assertionMethod"
+	case did.Authentication:
+		return "authentication"
+	}
+
+	return ""
 }
 
 func vmIDFragmentOnly(vmID string) string {

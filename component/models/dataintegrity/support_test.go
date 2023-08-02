@@ -11,8 +11,11 @@ import (
 
 	"github.com/tidwall/gjson"
 
+	vdrspi "github.com/hyperledger/aries-framework-go/spi/vdr"
+
 	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity/models"
 	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity/suite"
+	"github.com/hyperledger/aries-framework-go/component/models/did"
 )
 
 var errExpected = errors.New("expected error")
@@ -134,4 +137,50 @@ func (m *mockSuiteInitializer) Verifier() (suite.Verifier, error) {
 
 func (m *mockSuiteInitializer) Type() string {
 	return m.typeStr
+}
+
+type resolveFunc func(id string) (*did.DocResolution, error)
+
+func (f resolveFunc) Resolve(id string, opts ...vdrspi.DIDMethodOption) (*did.DocResolution, error) {
+	return f(id)
+}
+
+type mockResolver struct {
+	vm  *did.VerificationMethod
+	vr  did.VerificationRelationship
+	err error
+}
+
+var _ didResolver = mockResolver{}
+
+func (m mockResolver) Resolve(id string, opts ...vdrspi.DIDMethodOption) (*did.DocResolution, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+
+	return makeMockDIDResolution(id, m.vm, m.vr), nil
+}
+
+func makeMockDIDResolution(id string, vm *did.VerificationMethod, vr did.VerificationRelationship) *did.DocResolution {
+	ver := []did.Verification{{
+		VerificationMethod: *vm,
+		Relationship:       vr,
+	}}
+
+	doc := &did.Doc{
+		ID: id,
+	}
+
+	switch vr {
+	case did.VerificationRelationshipGeneral:
+		doc.VerificationMethod = []did.VerificationMethod{*vm}
+	case did.Authentication:
+		doc.Authentication = ver
+	case did.AssertionMethod:
+		doc.AssertionMethod = ver
+	}
+
+	return &did.DocResolution{
+		DIDDocument: doc,
+	}
 }

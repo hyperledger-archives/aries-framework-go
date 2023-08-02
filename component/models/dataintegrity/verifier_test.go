@@ -14,21 +14,31 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/sjson"
 
+	"github.com/hyperledger/aries-framework-go/component/models/did"
+
 	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity/models"
+)
+
+const (
+	mockVMID = "#key-1"
+	mockDID  = "did:foo:bar"
+	mockKID  = mockDID + mockVMID
 )
 
 func TestNewVerifier(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		v, err := NewVerifier(&mockSuiteInitializer{
-			mockSuite: &mockSuite{},
-			typeStr:   mockSuiteType,
-		}, &mockSuiteInitializer{
-			mockSuite: &mockSuite{},
-			typeStr:   mockSuiteType + "-but-different",
-		}, &mockSuiteInitializer{
-			mockSuite: &mockSuite{},
-			typeStr:   mockSuiteType,
-		})
+		v, err := NewVerifier(
+			&Options{},
+			&mockSuiteInitializer{
+				mockSuite: &mockSuite{},
+				typeStr:   mockSuiteType,
+			}, &mockSuiteInitializer{
+				mockSuite: &mockSuite{},
+				typeStr:   mockSuiteType + "-but-different",
+			}, &mockSuiteInitializer{
+				mockSuite: &mockSuite{},
+				typeStr:   mockSuiteType,
+			})
 
 		require.NoError(t, err)
 		require.NotNil(t, v)
@@ -36,11 +46,13 @@ func TestNewVerifier(t *testing.T) {
 	})
 
 	t.Run("initializer error", func(t *testing.T) {
-		v, err := NewVerifier(&mockSuiteInitializer{
-			mockSuite: &mockSuite{},
-			initErr:   errExpected,
-			typeStr:   mockSuiteType,
-		})
+		v, err := NewVerifier(
+			&Options{},
+			&mockSuiteInitializer{
+				mockSuite: &mockSuite{},
+				initErr:   errExpected,
+				typeStr:   mockSuiteType,
+			})
 
 		require.Nil(t, v)
 		require.ErrorIs(t, err, errExpected)
@@ -53,18 +65,28 @@ func TestVerifier_VerifyProof(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		createdTime := time.Now().Format(models.DateTimeFormat)
 
-		v, err := NewVerifier(&mockSuiteInitializer{
-			mockSuite: &mockSuite{
-				ReqCreatedVal: true,
+		v, err := NewVerifier(
+			&Options{
+				DIDResolver: &mockResolver{
+					vm: &did.VerificationMethod{
+						ID: mockVMID,
+					},
+					vr: did.AssertionMethod,
+				},
 			},
-			typeStr: mockSuiteType,
-		})
+			&mockSuiteInitializer{
+				mockSuite: &mockSuite{
+					ReqCreatedVal: true,
+				},
+				typeStr: mockSuiteType,
+			})
 
 		require.NoError(t, err)
 
 		mockProof := &models.Proof{
-			Type:               mockSuiteType,
-			VerificationMethod: "mock-vm",
+			Type:               models.DataIntegrityProof,
+			CryptoSuite:        mockSuiteType,
+			VerificationMethod: mockKID,
 			ProofPurpose:       "mock-purpose",
 			Created:            createdTime,
 			Domain:             "mock-domain",
@@ -85,10 +107,12 @@ func TestVerifier_VerifyProof(t *testing.T) {
 
 	t.Run("failure", func(t *testing.T) {
 		t.Run("missing proof", func(t *testing.T) {
-			v, err := NewVerifier(&mockSuiteInitializer{
-				mockSuite: &mockSuite{},
-				typeStr:   mockSuiteType,
-			})
+			v, err := NewVerifier(
+				&Options{},
+				&mockSuiteInitializer{
+					mockSuite: &mockSuite{},
+					typeStr:   mockSuiteType,
+				})
 
 			require.NoError(t, err)
 
@@ -99,10 +123,12 @@ func TestVerifier_VerifyProof(t *testing.T) {
 		})
 
 		t.Run("proof json is invalid", func(t *testing.T) {
-			v, err := NewVerifier(&mockSuiteInitializer{
-				mockSuite: &mockSuite{},
-				typeStr:   mockSuiteType,
-			})
+			v, err := NewVerifier(
+				&Options{},
+				&mockSuiteInitializer{
+					mockSuite: &mockSuite{},
+					typeStr:   mockSuiteType,
+				})
 
 			require.NoError(t, err)
 
@@ -116,12 +142,14 @@ func TestVerifier_VerifyProof(t *testing.T) {
 		})
 
 		t.Run("missing required field", func(t *testing.T) {
-			v, err := NewVerifier(&mockSuiteInitializer{
-				mockSuite: &mockSuite{
-					ReqCreatedVal: true,
-				},
-				typeStr: mockSuiteType,
-			})
+			v, err := NewVerifier(
+				&Options{},
+				&mockSuiteInitializer{
+					mockSuite: &mockSuite{
+						ReqCreatedVal: true,
+					},
+					typeStr: mockSuiteType,
+				})
 
 			require.NoError(t, err)
 
@@ -142,7 +170,7 @@ func TestVerifier_VerifyProof(t *testing.T) {
 
 			t.Run("verificationMethod", func(t *testing.T) {
 				mockProof := &models.Proof{
-					Type:         mockSuiteType,
+					Type:         models.DataIntegrityProof,
 					ProofPurpose: "mock-purpose",
 				}
 
@@ -157,7 +185,7 @@ func TestVerifier_VerifyProof(t *testing.T) {
 
 			t.Run("proofPurpose", func(t *testing.T) {
 				mockProof := &models.Proof{
-					Type:               mockSuiteType,
+					Type:               models.DataIntegrityProof,
 					VerificationMethod: "mock-vm",
 				}
 
@@ -172,7 +200,8 @@ func TestVerifier_VerifyProof(t *testing.T) {
 
 			t.Run("created, with suite that requires it", func(t *testing.T) {
 				mockProof := &models.Proof{
-					Type:               mockSuiteType,
+					Type:               models.DataIntegrityProof,
+					CryptoSuite:        mockSuiteType,
 					VerificationMethod: "mock-vm",
 					ProofPurpose:       "mock-purpose",
 				}
@@ -187,16 +216,45 @@ func TestVerifier_VerifyProof(t *testing.T) {
 			})
 		})
 
-		t.Run("unsupported suite", func(t *testing.T) {
-			v, err := NewVerifier(&mockSuiteInitializer{
-				mockSuite: &mockSuite{},
-				typeStr:   mockSuiteType,
-			})
+		t.Run("not data integrity proof", func(t *testing.T) {
+			v, err := NewVerifier(
+				&Options{},
+				&mockSuiteInitializer{
+					mockSuite: &mockSuite{},
+					typeStr:   mockSuiteType,
+				},
+			)
 
 			require.NoError(t, err)
 
 			mockProof := &models.Proof{
-				Type:               "unknown-suite",
+				Type:               "unknown proof type",
+				VerificationMethod: "mock-vm",
+				ProofPurpose:       "mock-purpose",
+			}
+
+			signedDoc, err := mockAddProof(mockDoc, mockProof)
+			require.NoError(t, err)
+
+			err = v.VerifyProof(signedDoc, &models.ProofOptions{
+				Purpose: "mock-purpose",
+			})
+			require.ErrorIs(t, err, ErrWrongProofType)
+		})
+
+		t.Run("unsupported suite", func(t *testing.T) {
+			v, err := NewVerifier(
+				&Options{},
+				&mockSuiteInitializer{
+					mockSuite: &mockSuite{},
+					typeStr:   mockSuiteType,
+				})
+
+			require.NoError(t, err)
+
+			mockProof := &models.Proof{
+				Type:               models.DataIntegrityProof,
+				CryptoSuite:        "unknown-suite",
 				VerificationMethod: "mock-vm",
 				ProofPurpose:       "mock-purpose",
 			}
@@ -211,15 +269,18 @@ func TestVerifier_VerifyProof(t *testing.T) {
 		})
 
 		t.Run("mismatched purpose", func(t *testing.T) {
-			v, err := NewVerifier(&mockSuiteInitializer{
-				mockSuite: &mockSuite{},
-				typeStr:   mockSuiteType,
-			})
+			v, err := NewVerifier(
+				&Options{},
+				&mockSuiteInitializer{
+					mockSuite: &mockSuite{},
+					typeStr:   mockSuiteType,
+				})
 
 			require.NoError(t, err)
 
 			mockProof := &models.Proof{
-				Type:               mockSuiteType,
+				Type:               models.DataIntegrityProof,
+				CryptoSuite:        mockSuiteType,
 				VerificationMethod: "mock-vm",
 				ProofPurpose:       "mock-purpose",
 			}
@@ -233,19 +294,90 @@ func TestVerifier_VerifyProof(t *testing.T) {
 			require.ErrorIs(t, err, ErrMismatchedPurpose)
 		})
 
-		t.Run("suite verification", func(t *testing.T) {
-			v, err := NewVerifier(&mockSuiteInitializer{
-				mockSuite: &mockSuite{
-					VerifyProofErr: errExpected,
-				},
-				typeStr: mockSuiteType,
-			})
+		t.Run("no resolver", func(t *testing.T) {
+			v, err := NewVerifier(
+				&Options{},
+				&mockSuiteInitializer{
+					mockSuite: &mockSuite{},
+					typeStr:   mockSuiteType,
+				})
 
 			require.NoError(t, err)
 
 			mockProof := &models.Proof{
-				Type:               mockSuiteType,
-				VerificationMethod: "mock-vm",
+				Type:               models.DataIntegrityProof,
+				CryptoSuite:        mockSuiteType,
+				VerificationMethod: mockKID,
+				ProofPurpose:       "mock-purpose",
+			}
+
+			signedDoc, err := mockAddProof(mockDoc, mockProof)
+			require.NoError(t, err)
+
+			err = v.VerifyProof(signedDoc, &models.ProofOptions{
+				Purpose: "mock-purpose",
+				MaxAge:  1000,
+			})
+			require.Error(t, err)
+			require.ErrorIs(t, err, ErrNoResolver)
+		})
+
+		t.Run("resolve error", func(t *testing.T) {
+			v, err := NewVerifier(
+				&Options{
+					DIDResolver: &mockResolver{
+						err: errExpected,
+					},
+				},
+				&mockSuiteInitializer{
+					mockSuite: &mockSuite{},
+					typeStr:   mockSuiteType,
+				})
+
+			require.NoError(t, err)
+
+			mockProof := &models.Proof{
+				Type:               models.DataIntegrityProof,
+				CryptoSuite:        mockSuiteType,
+				VerificationMethod: mockKID,
+				ProofPurpose:       "mock-purpose",
+			}
+
+			signedDoc, err := mockAddProof(mockDoc, mockProof)
+			require.NoError(t, err)
+
+			err = v.VerifyProof(signedDoc, &models.ProofOptions{
+				Purpose: "mock-purpose",
+				MaxAge:  1000,
+			})
+			require.Error(t, err)
+			require.ErrorIs(t, err, errExpected)
+			require.ErrorIs(t, err, ErrVMResolution)
+		})
+
+		t.Run("suite verification", func(t *testing.T) {
+			v, err := NewVerifier(
+				&Options{
+					DIDResolver: &mockResolver{
+						vm: &did.VerificationMethod{
+							ID: mockVMID,
+						},
+						vr: did.AssertionMethod,
+					},
+				},
+				&mockSuiteInitializer{
+					mockSuite: &mockSuite{
+						VerifyProofErr: errExpected,
+					},
+					typeStr: mockSuiteType,
+				})
+
+			require.NoError(t, err)
+
+			mockProof := &models.Proof{
+				Type:               models.DataIntegrityProof,
+				CryptoSuite:        mockSuiteType,
+				VerificationMethod: mockKID,
 				ProofPurpose:       "mock-purpose",
 			}
 
@@ -259,16 +391,26 @@ func TestVerifier_VerifyProof(t *testing.T) {
 		})
 
 		t.Run("created time in wrong format", func(t *testing.T) {
-			v, err := NewVerifier(&mockSuiteInitializer{
-				mockSuite: &mockSuite{},
-				typeStr:   mockSuiteType,
-			})
+			v, err := NewVerifier(
+				&Options{
+					DIDResolver: &mockResolver{
+						vm: &did.VerificationMethod{
+							ID: mockVMID,
+						},
+						vr: did.AssertionMethod,
+					},
+				},
+				&mockSuiteInitializer{
+					mockSuite: &mockSuite{},
+					typeStr:   mockSuiteType,
+				})
 
 			require.NoError(t, err)
 
 			mockProof := &models.Proof{
-				Type:               mockSuiteType,
-				VerificationMethod: "mock-vm",
+				Type:               models.DataIntegrityProof,
+				CryptoSuite:        mockSuiteType,
+				VerificationMethod: mockKID,
 				ProofPurpose:       "mock-purpose",
 				Created:            "Id. Mar. DCCX AUC",
 			}
@@ -283,18 +425,28 @@ func TestVerifier_VerifyProof(t *testing.T) {
 		})
 
 		t.Run("out of date", func(t *testing.T) {
-			v, err := NewVerifier(&mockSuiteInitializer{
-				mockSuite: &mockSuite{},
-				typeStr:   mockSuiteType,
-			})
+			v, err := NewVerifier(
+				&Options{
+					DIDResolver: &mockResolver{
+						vm: &did.VerificationMethod{
+							ID: mockVMID,
+						},
+						vr: did.AssertionMethod,
+					},
+				},
+				&mockSuiteInitializer{
+					mockSuite: &mockSuite{},
+					typeStr:   mockSuiteType,
+				})
 
 			createdTime := time.Now().Add(time.Duration(-50) * time.Second).Format(models.DateTimeFormat)
 
 			require.NoError(t, err)
 
 			mockProof := &models.Proof{
-				Type:               mockSuiteType,
-				VerificationMethod: "mock-vm",
+				Type:               models.DataIntegrityProof,
+				CryptoSuite:        mockSuiteType,
+				VerificationMethod: mockKID,
 				ProofPurpose:       "mock-purpose",
 				Created:            createdTime,
 			}
@@ -310,16 +462,26 @@ func TestVerifier_VerifyProof(t *testing.T) {
 		})
 
 		t.Run("proof has wrong domain", func(t *testing.T) {
-			v, err := NewVerifier(&mockSuiteInitializer{
-				mockSuite: &mockSuite{},
-				typeStr:   mockSuiteType,
-			})
+			v, err := NewVerifier(
+				&Options{
+					DIDResolver: &mockResolver{
+						vm: &did.VerificationMethod{
+							ID: mockVMID,
+						},
+						vr: did.AssertionMethod,
+					},
+				},
+				&mockSuiteInitializer{
+					mockSuite: &mockSuite{},
+					typeStr:   mockSuiteType,
+				})
 
 			require.NoError(t, err)
 
 			mockProof := &models.Proof{
-				Type:               mockSuiteType,
-				VerificationMethod: "mock-vm",
+				Type:               models.DataIntegrityProof,
+				CryptoSuite:        mockSuiteType,
+				VerificationMethod: mockKID,
 				ProofPurpose:       "mock-purpose",
 				Domain:             "wrong-domain",
 			}
@@ -335,16 +497,26 @@ func TestVerifier_VerifyProof(t *testing.T) {
 		})
 
 		t.Run("proof has wrong challenge", func(t *testing.T) {
-			v, err := NewVerifier(&mockSuiteInitializer{
-				mockSuite: &mockSuite{},
-				typeStr:   mockSuiteType,
-			})
+			v, err := NewVerifier(
+				&Options{
+					DIDResolver: &mockResolver{
+						vm: &did.VerificationMethod{
+							ID: mockVMID,
+						},
+						vr: did.AssertionMethod,
+					},
+				},
+				&mockSuiteInitializer{
+					mockSuite: &mockSuite{},
+					typeStr:   mockSuiteType,
+				})
 
 			require.NoError(t, err)
 
 			mockProof := &models.Proof{
-				Type:               mockSuiteType,
-				VerificationMethod: "mock-vm",
+				Type:               models.DataIntegrityProof,
+				CryptoSuite:        mockSuiteType,
+				VerificationMethod: mockKID,
 				ProofPurpose:       "mock-purpose",
 				Challenge:          "wrong-challenge",
 			}

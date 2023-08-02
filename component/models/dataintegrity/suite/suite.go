@@ -72,4 +72,7 @@ var (
 	// ErrInvalidProof is returned by Verifier.VerifyProof when the given proof is
 	// invalid.
 	ErrInvalidProof = errors.New("data integrity proof invalid")
+	// ErrProofTransformation is returned by Signer.CreateProof and
+	// Verifier.VerifyProof when proof transformation fails.
+	ErrProofTransformation = errors.New("error in data integrity proof transformation")
 )
