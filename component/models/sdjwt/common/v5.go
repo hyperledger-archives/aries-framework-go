@@ -190,7 +190,8 @@ func (c *commonV5) processObj(
 			for _, sdElement := range sdArr {
 				cl, clOk := claimMap[fmt.Sprint(sdElement)]
 				if !clOk {
-					panic("digest not found")
+					continue
+					//panic("digest not found")
 				}
 
 				c.processClaimValue(claimMap, cl)
