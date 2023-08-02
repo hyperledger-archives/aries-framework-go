@@ -157,6 +157,12 @@ func TestDisclosureV5Map(
 		})
 		assert.NoError(t, err)
 
+		var disString []string
+		for _, d := range disclosures {
+			disString = append(disString, d.Result)
+		}
+		printObject(t, "raw dis", disString)
+
 		printObject(t, "final credentials", finalMap)
 		printObject(t, "disclosures", disclosures)
 
