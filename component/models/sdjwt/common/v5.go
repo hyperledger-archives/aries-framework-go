@@ -10,6 +10,7 @@ import (
 	"crypto"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -130,19 +131,26 @@ func (c *commonV5) getDisclosureClaim(disclosure string) (*wrappedClaim, error) 
 func (c *commonV5) processClaimValue(
 	claimMap map[string]*wrappedClaim,
 	claim *wrappedClaim,
-) {
+) error {
 	if claim.IsValueParsed {
-		return
+		return nil
 	}
 
-	claim.Claim.Value = c.processObj(claim.Claim.Value, claimMap)
+	v, err := c.processObj(claim.Claim.Value, claimMap)
+	if err != nil {
+		return err
+	}
+
+	claim.Claim.Value = v
 	claim.IsValueParsed = true
+
+	return nil
 }
 
 func (c *commonV5) processObj(
 	inputObj interface{},
 	claimMap map[string]*wrappedClaim,
-) interface{} {
+) (interface{}, error) {
 	switch obj := inputObj.(type) {
 	case []interface{}:
 		var newValues []interface{}
@@ -155,57 +163,66 @@ func (c *commonV5) processObj(
 
 			elementDigest, ok := parsedMap["..."]
 			if !ok {
-				panic("invalid array struct")
+				return nil, errors.New("invalid array struct")
 			}
 
-			elementVal, ok := elementDigest.(string)
+			cl, ok := claimMap[fmt.Sprint(elementDigest)]
 			if !ok {
-				panic("invalid element type")
+				newValues = append(newValues, element)
+				continue
 			}
 
-			cl, ok := claimMap[elementVal]
-			if !ok {
-				panic("digest not found")
+			if err := c.processClaimValue(claimMap, cl); err != nil {
+				return nil, err
 			}
-
-			c.processClaimValue(claimMap, cl)
 
 			newValues = append(newValues, cl.Claim.Value)
 		}
 
-		return newValues
+		return newValues, nil
 	case map[string]interface{}:
 		for k, v := range obj {
-			if k == "_sd" {
+			if k == SDKey {
 				continue
 			}
 
-			obj[k] = c.processObj(v, claimMap)
-		}
-		if sd, sdOk := obj["_sd"]; sdOk {
-			sdArr, sdArrOk := sd.([]interface{}) // todo
-			if !sdArrOk {
-				panic("todo")
+			res, resErr := c.processObj(v, claimMap)
+			if resErr != nil {
+				return nil, resErr
 			}
+			obj[k] = res
+		}
+		if sd, sdOk := obj[SDKey]; sdOk {
+			sdArr, sdErr := stringArray(sd)
+			if sdErr != nil {
+				return nil, sdErr
+			}
+
+			var missingSDs []interface{}
 			for _, sdElement := range sdArr {
 				cl, clOk := claimMap[fmt.Sprint(sdElement)]
 				if !clOk {
+					missingSDs = append(missingSDs, sdElement)
 					continue
-					//panic("digest not found")
 				}
 
-				c.processClaimValue(claimMap, cl)
+				if err := c.processClaimValue(claimMap, cl); err != nil {
+					return nil, err
+				}
+
 				obj[cl.Claim.Name] = cl.Claim.Value
 			}
-			delete(obj, "_sd")
+
+			delete(obj, SDKey)
+			if len(missingSDs) > 0 {
+				obj[SDKey] = missingSDs
+			}
 		}
 
-		return obj
+		return obj, nil
 	default:
-		return inputObj
+		return inputObj, nil
 	}
-
-	return nil
 }
 
 func (c *commonV5) GetDisclosureClaims(
@@ -228,7 +245,9 @@ func (c *commonV5) GetDisclosureClaims(
 			continue
 		}
 
-		c.processClaimValue(claimMap, v)
+		if err := c.processClaimValue(claimMap, v); err != nil {
+			return nil, err
+		}
 
 		finalClaims = append(finalClaims, v.Claim)
 	}
