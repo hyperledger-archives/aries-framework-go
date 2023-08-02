@@ -12,6 +12,8 @@ import (
 
 	"github.com/tidwall/sjson"
 
+	"github.com/hyperledger/aries-framework-go/component/models/jwt/didsignjwt"
+
 	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity/models"
 	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity/suite"
 )
@@ -19,14 +21,20 @@ import (
 // Signer implements the Add Proof algorithm of the verifiable credential data
 // integrity specification, using a set of provided cryptographic suites.
 type Signer struct {
-	suites map[string]suite.Signer
+	suites   map[string]suite.Signer
+	resolver didResolver
 }
 
 // NewSigner initializes a Signer that supports using the provided cryptographic
 // suites to perform data integrity signing.
-func NewSigner(suites ...suite.SignerInitializer) (*Signer, error) {
+func NewSigner(opts *Options, suites ...suite.SignerInitializer) (*Signer, error) {
+	if opts == nil {
+		opts = &Options{}
+	}
+
 	signer := &Signer{
-		suites: map[string]suite.Signer{},
+		suites:   map[string]suite.Signer{},
+		resolver: opts.DIDResolver,
 	}
 
 	for _, initializer := range suites {
@@ -67,6 +75,11 @@ func (s *Signer) AddProof(doc []byte, opts *models.ProofOptions) ([]byte, error)
 		return nil, ErrUnsupportedSuite
 	}
 
+	err := resolveVM(opts, s.resolver)
+	if err != nil {
+		return nil, err
+	}
+
 	proof, err := signerSuite.CreateProof(doc, opts)
 	if err != nil {
 		return nil, ErrProofGeneration
@@ -99,4 +112,24 @@ func (s *Signer) AddProof(doc []byte, opts *models.ProofOptions) ([]byte, error)
 	}
 
 	return out, nil
+}
+
+func resolveVM(opts *models.ProofOptions, resolver didResolver) error {
+	if opts.VerificationMethod == nil || opts.VerificationRelationship == "" {
+		if resolver == nil {
+			return ErrNoResolver
+		}
+
+		vm, vmID, rel, err := didsignjwt.ResolveSigningVMWithRelationship(opts.VerificationMethodID, resolver)
+		if err != nil {
+			// TODO update linter to use go 1.20: https://github.com/hyperledger/aries-framework-go/issues/3613
+			return errors.Join(ErrVMResolution, err) // nolint:typecheck
+		}
+
+		opts.VerificationMethodID = vmID
+		opts.VerificationMethod = vm
+		opts.VerificationRelationship = rel
+	}
+
+	return nil
 }

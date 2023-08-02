@@ -25,14 +25,20 @@ const (
 // Verifier implements the Verify Proof algorithm of the verifiable credential
 // data integrity specification, using a set of provided cryptographic suites.
 type Verifier struct {
-	suites map[string]suite.Verifier
+	suites   map[string]suite.Verifier
+	resolver didResolver
 }
 
 // NewVerifier initializes a Verifier that supports using the provided
 // cryptographic suites to perform data integrity verification.
-func NewVerifier(suites ...suite.VerifierInitializer) (*Verifier, error) {
+func NewVerifier(opts *Options, suites ...suite.VerifierInitializer) (*Verifier, error) {
+	if opts == nil {
+		opts = &Options{}
+	}
+
 	verifier := &Verifier{
-		suites: map[string]suite.Verifier{},
+		suites:   map[string]suite.Verifier{},
+		resolver: opts.DIDResolver,
 	}
 
 	for _, initializer := range suites {
@@ -61,6 +67,9 @@ var (
 	// with a proof that isn't a JSON object or is missing necessary standard
 	// fields.
 	ErrMalformedProof = errors.New("malformed data integrity proof")
+	// ErrWrongProofType is returned when Verifier.VerifyProof() is given a document
+	// with a proof that isn't a Data Integrity proof.
+	ErrWrongProofType = errors.New("proof provided is not a data integrity proof")
 	// ErrMismatchedPurpose is returned when Verifier.VerifyProof() is given a
 	// document with a proof whose Purpose does not match the expected purpose
 	// provided in the proof options.
@@ -97,7 +106,11 @@ func (v *Verifier) VerifyProof(doc []byte, opts *models.ProofOptions) error { //
 		return ErrMalformedProof
 	}
 
-	verifierSuite, ok := v.suites[proof.Type]
+	if proof.Type != models.DataIntegrityProof {
+		return ErrWrongProofType
+	}
+
+	verifierSuite, ok := v.suites[proof.CryptoSuite]
 	if !ok {
 		return ErrUnsupportedSuite
 	}
@@ -115,6 +128,11 @@ func (v *Verifier) VerifyProof(doc []byte, opts *models.ProofOptions) error { //
 		return ErrMalformedProof
 	}
 
+	err = resolveVM(opts, v.resolver)
+	if err != nil {
+		return err
+	}
+
 	verifyResult := verifierSuite.VerifyProof(unsecuredDoc, proof, opts)
 
 	if proof.Created != "" {
@@ -126,8 +144,6 @@ func (v *Verifier) VerifyProof(doc []byte, opts *models.ProofOptions) error { //
 		now := time.Now()
 
 		diff := now.Sub(createdTime)
-
-		// TODO: what should we do if clock skew means the verifier thinks the proof is from the future
 
 		if diff > time.Second*time.Duration(opts.MaxAge) {
 			return ErrOutOfDate

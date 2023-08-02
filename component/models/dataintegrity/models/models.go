@@ -6,25 +6,28 @@ SPDX-License-Identifier: Apache-2.0
 
 package models
 
-import "time"
+import (
+	"time"
 
-// TODO integrate VerificationMethod model with the did doc VM model
-//  (can we just use did.VerificationMethod directly)?
+	"github.com/hyperledger/aries-framework-go/component/models/did"
+)
+
+const (
+	// DataIntegrityProof is the type property on proofs created using data
+	// integrity cryptographic suites.
+	DataIntegrityProof = "DataIntegrityProof"
+)
 
 // VerificationMethod implements the data integrity verification method model:
 // https://www.w3.org/TR/vc-data-integrity/#verification-methods
-type VerificationMethod struct {
-	ID         string `json:"id"`
-	Type       string `json:"type"`
-	Controller string `json:"controller"`
-	Fields     map[string]interface{}
-}
+type VerificationMethod = did.VerificationMethod
 
 // Proof implements the data integrity proof model:
 // https://www.w3.org/TR/vc-data-integrity/#proofs
 type Proof struct {
 	ID                 string `json:"id,omitempty"`
 	Type               string `json:"type"`
+	CryptoSuite        string `json:"cryptosuite,omitempty"`
 	ProofPurpose       string `json:"proofPurpose"`
 	VerificationMethod string `json:"verificationMethod"`
 	Created            string `json:"created,omitempty"`
@@ -36,13 +39,17 @@ type Proof struct {
 
 // ProofOptions provides options for signing or verifying a data integrity proof.
 type ProofOptions struct {
-	Purpose            string
-	VerificationMethod *VerificationMethod
-	SuiteType          string
-	Domain             string
-	Challenge          string
-	MaxAge             int64
-	CustomFields       map[string]interface{}
+	Purpose                  string
+	VerificationMethodID     string
+	VerificationMethod       *VerificationMethod
+	VerificationRelationship string
+	ProofType                string
+	SuiteType                string
+	Domain                   string
+	Challenge                string
+	Created                  time.Time
+	MaxAge                   int64
+	CustomFields             map[string]interface{}
 }
 
 // DateTimeFormat is the date-time format used by the data integrity

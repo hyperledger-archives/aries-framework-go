@@ -15,21 +15,25 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 
+	"github.com/hyperledger/aries-framework-go/component/models/did"
+
 	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity/models"
 )
 
 func TestNewSigner(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		s, err := NewSigner(&mockSuiteInitializer{
-			mockSuite: &mockSuite{},
-			typeStr:   mockSuiteType,
-		}, &mockSuiteInitializer{
-			mockSuite: &mockSuite{},
-			typeStr:   mockSuiteType + "-but-different",
-		}, &mockSuiteInitializer{
-			mockSuite: &mockSuite{},
-			typeStr:   mockSuiteType,
-		})
+		s, err := NewSigner(
+			&Options{},
+			&mockSuiteInitializer{
+				mockSuite: &mockSuite{},
+				typeStr:   mockSuiteType,
+			}, &mockSuiteInitializer{
+				mockSuite: &mockSuite{},
+				typeStr:   mockSuiteType + "-but-different",
+			}, &mockSuiteInitializer{
+				mockSuite: &mockSuite{},
+				typeStr:   mockSuiteType,
+			})
 
 		require.NoError(t, err)
 		require.NotNil(t, s)
@@ -37,11 +41,13 @@ func TestNewSigner(t *testing.T) {
 	})
 
 	t.Run("initializer error", func(t *testing.T) {
-		s, err := NewSigner(&mockSuiteInitializer{
-			mockSuite: &mockSuite{},
-			initErr:   errExpected,
-			typeStr:   mockSuiteType,
-		})
+		s, err := NewSigner(
+			&Options{},
+			&mockSuiteInitializer{
+				mockSuite: &mockSuite{},
+				initErr:   errExpected,
+				typeStr:   mockSuiteType,
+			})
 
 		require.Nil(t, s)
 		require.ErrorIs(t, err, errExpected)
@@ -54,31 +60,39 @@ func TestSigner_AddProof(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		createdTime := time.Now().Format(models.DateTimeFormat)
 
-		s, err := NewSigner(&mockSuiteInitializer{
-			mockSuite: &mockSuite{
-				CreateProofVal: &models.Proof{
-					Type:               mockSuiteType,
-					ProofPurpose:       "mock-purpose",
-					VerificationMethod: "mock-vm",
-					Domain:             "mock-domain",
-					Challenge:          "mock-challenge",
-					Created:            createdTime,
+		s, err := NewSigner(
+			&Options{
+				DIDResolver: &mockResolver{
+					vm: &did.VerificationMethod{
+						ID: "#key-1",
+					},
+					vr: did.AssertionMethod,
 				},
 			},
-			typeStr: mockSuiteType,
-		})
+			&mockSuiteInitializer{
+				mockSuite: &mockSuite{
+					CreateProofVal: &models.Proof{
+						Type:               mockSuiteType,
+						ProofPurpose:       "mock-purpose",
+						VerificationMethod: "mock-vm",
+						Domain:             "mock-domain",
+						Challenge:          "mock-challenge",
+						Created:            createdTime,
+					},
+				},
+				typeStr: mockSuiteType,
+			})
 
 		require.NoError(t, err)
 
 		signedDoc, err := s.AddProof(mockDoc, &models.ProofOptions{
-			SuiteType: mockSuiteType,
-			Domain:    "mock-domain",
-			Challenge: "mock-challenge",
-			MaxAge:    1000,
+			SuiteType:            mockSuiteType,
+			VerificationMethodID: "did:foo:bar#key-1",
+			Domain:               "mock-domain",
+			Challenge:            "mock-challenge",
+			MaxAge:               1000,
 		})
 		require.NoError(t, err)
-
-		fmt.Println(string(signedDoc))
 
 		expectProof := []byte(fmt.Sprintf(`{
 			"type": "mock-suite-2023",
@@ -98,16 +112,18 @@ func TestSigner_AddProof(t *testing.T) {
 
 	t.Run("failure", func(t *testing.T) {
 		t.Run("unsupported suite", func(t *testing.T) {
-			s, err := NewSigner(&mockSuiteInitializer{
-				mockSuite: &mockSuite{
-					CreateProofVal: &models.Proof{
-						Type:               mockSuiteType,
-						ProofPurpose:       "mock-purpose",
-						VerificationMethod: "mock-vm",
+			s, err := NewSigner(
+				&Options{},
+				&mockSuiteInitializer{
+					mockSuite: &mockSuite{
+						CreateProofVal: &models.Proof{
+							Type:               mockSuiteType,
+							ProofPurpose:       "mock-purpose",
+							VerificationMethod: "mock-vm",
+						},
 					},
-				},
-				typeStr: mockSuiteType,
-			})
+					typeStr: mockSuiteType,
+				})
 
 			require.NoError(t, err)
 
@@ -116,143 +132,248 @@ func TestSigner_AddProof(t *testing.T) {
 			require.Nil(t, signedDoc)
 		})
 
-		t.Run("suite create proof", func(t *testing.T) {
-			s, err := NewSigner(&mockSuiteInitializer{
-				mockSuite: &mockSuite{
-					CreateProofErr: errExpected,
-				},
-				typeStr: mockSuiteType,
-			})
+		t.Run("no resolver", func(t *testing.T) {
+			createdTime := time.Now().Format(models.DateTimeFormat)
+
+			s, err := NewSigner(
+				&Options{},
+				&mockSuiteInitializer{
+					mockSuite: &mockSuite{
+						CreateProofVal: &models.Proof{
+							Type:               mockSuiteType,
+							ProofPurpose:       "mock-purpose",
+							VerificationMethod: "mock-vm",
+							Domain:             "mock-domain",
+							Challenge:          "mock-challenge",
+							Created:            createdTime,
+						},
+					},
+					typeStr: mockSuiteType,
+				})
 
 			require.NoError(t, err)
 
-			signedDoc, err := s.AddProof(mockDoc, &models.ProofOptions{SuiteType: mockSuiteType})
+			_, err = s.AddProof(mockDoc, &models.ProofOptions{
+				SuiteType:                mockSuiteType,
+				VerificationRelationship: "assertionMethod",
+				Domain:                   "mock-domain",
+				Challenge:                "mock-challenge",
+				MaxAge:                   1000,
+			})
+			require.ErrorIs(t, err, ErrNoResolver)
+		})
+
+		t.Run("resolver error", func(t *testing.T) {
+			createdTime := time.Now().Format(models.DateTimeFormat)
+
+			s, err := NewSigner(
+				&Options{
+					DIDResolver: &mockResolver{
+						err: errExpected,
+					},
+				},
+				&mockSuiteInitializer{
+					mockSuite: &mockSuite{
+						CreateProofVal: &models.Proof{
+							Type:               mockSuiteType,
+							ProofPurpose:       "mock-purpose",
+							VerificationMethod: "mock-vm",
+							Domain:             "mock-domain",
+							Challenge:          "mock-challenge",
+							Created:            createdTime,
+						},
+					},
+					typeStr: mockSuiteType,
+				})
+
+			require.NoError(t, err)
+
+			_, err = s.AddProof(mockDoc, &models.ProofOptions{
+				SuiteType:                mockSuiteType,
+				VerificationRelationship: "assertionMethod",
+				Domain:                   "mock-domain",
+				Challenge:                "mock-challenge",
+				MaxAge:                   1000,
+			})
+			require.ErrorIs(t, err, errExpected)
+			require.ErrorIs(t, err, ErrVMResolution)
+		})
+
+		t.Run("suite create proof", func(t *testing.T) {
+			s, err := NewSigner(
+				&Options{},
+				&mockSuiteInitializer{
+					mockSuite: &mockSuite{
+						CreateProofErr: errExpected,
+					},
+					typeStr: mockSuiteType,
+				})
+
+			require.NoError(t, err)
+
+			signedDoc, err := s.AddProof(mockDoc, &models.ProofOptions{
+				VerificationMethod:       &did.VerificationMethod{},
+				VerificationRelationship: "assertionMethod",
+				SuiteType:                mockSuiteType,
+			})
 			require.ErrorIs(t, err, ErrProofGeneration)
 			require.Nil(t, signedDoc)
 		})
 
 		t.Run("missing required field", func(t *testing.T) {
 			t.Run("type", func(t *testing.T) {
-				s, err := NewSigner(&mockSuiteInitializer{
-					mockSuite: &mockSuite{
-						CreateProofVal: &models.Proof{
-							// Type:               mockSuiteType,
-							ProofPurpose:       "mock-purpose",
-							VerificationMethod: "mock-vm",
+				s, err := NewSigner(
+					&Options{},
+					&mockSuiteInitializer{
+						mockSuite: &mockSuite{
+							CreateProofVal: &models.Proof{
+								// Type:               mockSuiteType,
+								ProofPurpose:       "mock-purpose",
+								VerificationMethod: "mock-vm",
+							},
 						},
-					},
-					typeStr: mockSuiteType,
-				})
+						typeStr: mockSuiteType,
+					})
 
 				require.NoError(t, err)
 
-				signedDoc, err := s.AddProof(mockDoc, &models.ProofOptions{SuiteType: mockSuiteType})
+				signedDoc, err := s.AddProof(mockDoc, &models.ProofOptions{
+					SuiteType:                mockSuiteType,
+					VerificationMethod:       &did.VerificationMethod{},
+					VerificationRelationship: "assertionMethod",
+				})
 				require.ErrorIs(t, err, ErrProofGeneration)
 				require.Nil(t, signedDoc)
 			})
 
 			t.Run("proofPurpose", func(t *testing.T) {
-				s, err := NewSigner(&mockSuiteInitializer{
-					mockSuite: &mockSuite{
-						CreateProofVal: &models.Proof{
-							Type: mockSuiteType,
-							// ProofPurpose:       "mock-purpose",
-							VerificationMethod: "mock-vm",
+				s, err := NewSigner(
+					&Options{},
+					&mockSuiteInitializer{
+						mockSuite: &mockSuite{
+							CreateProofVal: &models.Proof{
+								Type: mockSuiteType,
+								// ProofPurpose:       "mock-purpose",
+								VerificationMethod: "mock-vm",
+							},
 						},
-					},
-					typeStr: mockSuiteType,
-				})
+						typeStr: mockSuiteType,
+					})
 
 				require.NoError(t, err)
 
-				signedDoc, err := s.AddProof(mockDoc, &models.ProofOptions{SuiteType: mockSuiteType})
+				signedDoc, err := s.AddProof(mockDoc, &models.ProofOptions{
+					SuiteType:                mockSuiteType,
+					VerificationMethod:       &did.VerificationMethod{},
+					VerificationRelationship: "assertionMethod",
+				})
 				require.ErrorIs(t, err, ErrProofGeneration)
 				require.Nil(t, signedDoc)
 			})
 
 			t.Run("verificationMethod", func(t *testing.T) {
-				s, err := NewSigner(&mockSuiteInitializer{
-					mockSuite: &mockSuite{
-						CreateProofVal: &models.Proof{
-							Type:         mockSuiteType,
-							ProofPurpose: "mock-purpose",
-							// VerificationMethod: "mock-vm",
+				s, err := NewSigner(
+					&Options{},
+					&mockSuiteInitializer{
+						mockSuite: &mockSuite{
+							CreateProofVal: &models.Proof{
+								Type:         mockSuiteType,
+								ProofPurpose: "mock-purpose",
+								// VerificationMethod: "mock-vm",
+							},
 						},
-					},
-					typeStr: mockSuiteType,
-				})
+						typeStr: mockSuiteType,
+					})
 
 				require.NoError(t, err)
 
-				signedDoc, err := s.AddProof(mockDoc, &models.ProofOptions{SuiteType: mockSuiteType})
+				signedDoc, err := s.AddProof(mockDoc, &models.ProofOptions{
+					SuiteType:                mockSuiteType,
+					VerificationMethod:       &did.VerificationMethod{},
+					VerificationRelationship: "assertionMethod",
+				})
 				require.ErrorIs(t, err, ErrProofGeneration)
 				require.Nil(t, signedDoc)
 			})
 
 			t.Run("created, required by suite", func(t *testing.T) {
-				s, err := NewSigner(&mockSuiteInitializer{
-					mockSuite: &mockSuite{
-						CreateProofVal: &models.Proof{
-							Type:               mockSuiteType,
-							ProofPurpose:       "mock-purpose",
-							VerificationMethod: "mock-vm",
+				s, err := NewSigner(
+					&Options{},
+					&mockSuiteInitializer{
+						mockSuite: &mockSuite{
+							CreateProofVal: &models.Proof{
+								Type:               mockSuiteType,
+								ProofPurpose:       "mock-purpose",
+								VerificationMethod: "mock-vm",
+							},
+							ReqCreatedVal: true,
 						},
-						ReqCreatedVal: true,
-					},
-					typeStr: mockSuiteType,
-				})
+						typeStr: mockSuiteType,
+					})
 
 				require.NoError(t, err)
 
-				signedDoc, err := s.AddProof(mockDoc, &models.ProofOptions{SuiteType: mockSuiteType})
+				signedDoc, err := s.AddProof(mockDoc, &models.ProofOptions{
+					SuiteType:                mockSuiteType,
+					VerificationMethod:       &did.VerificationMethod{},
+					VerificationRelationship: "assertionMethod",
+				})
 				require.ErrorIs(t, err, ErrProofGeneration)
 				require.Nil(t, signedDoc)
 			})
 		})
 
 		t.Run("incorrect domain", func(t *testing.T) {
-			s, err := NewSigner(&mockSuiteInitializer{
-				mockSuite: &mockSuite{
-					CreateProofVal: &models.Proof{
-						Type:               mockSuiteType,
-						ProofPurpose:       "mock-purpose",
-						VerificationMethod: "mock-vm",
-						Domain:             "wrong-domain",
+			s, err := NewSigner(
+				&Options{},
+				&mockSuiteInitializer{
+					mockSuite: &mockSuite{
+						CreateProofVal: &models.Proof{
+							Type:               mockSuiteType,
+							ProofPurpose:       "mock-purpose",
+							VerificationMethod: "mock-vm",
+							Domain:             "wrong-domain",
+						},
 					},
-				},
-				typeStr: mockSuiteType,
-			})
+					typeStr: mockSuiteType,
+				})
 
 			require.NoError(t, err)
 
 			signedDoc, err := s.AddProof(mockDoc, &models.ProofOptions{
-				SuiteType: mockSuiteType,
-				Domain:    "expected-domain",
+				VerificationMethod:       &did.VerificationMethod{},
+				VerificationRelationship: "assertionMethod",
+				SuiteType:                mockSuiteType,
+				Domain:                   "expected-domain",
 			})
 			require.ErrorIs(t, err, ErrProofGeneration)
 			require.Nil(t, signedDoc)
 		})
 
 		t.Run("incorrect challenge", func(t *testing.T) {
-			s, err := NewSigner(&mockSuiteInitializer{
-				mockSuite: &mockSuite{
-					CreateProofVal: &models.Proof{
-						Type:               mockSuiteType,
-						ProofPurpose:       "mock-purpose",
-						VerificationMethod: "mock-vm",
-						Domain:             "expected-domain",
-						Challenge:          "wrong-challenge",
+			s, err := NewSigner(
+				&Options{},
+				&mockSuiteInitializer{
+					mockSuite: &mockSuite{
+						CreateProofVal: &models.Proof{
+							Type:               mockSuiteType,
+							ProofPurpose:       "mock-purpose",
+							VerificationMethod: "mock-vm",
+							Domain:             "expected-domain",
+							Challenge:          "wrong-challenge",
+						},
 					},
-				},
-				typeStr: mockSuiteType,
-			})
+					typeStr: mockSuiteType,
+				})
 
 			require.NoError(t, err)
 
 			signedDoc, err := s.AddProof(mockDoc, &models.ProofOptions{
-				SuiteType: mockSuiteType,
-				Domain:    "expected-domain",
-				Challenge: "expected-challenge",
+				SuiteType:                mockSuiteType,
+				Domain:                   "expected-domain",
+				Challenge:                "expected-challenge",
+				VerificationMethod:       &did.VerificationMethod{},
+				VerificationRelationship: "assertionMethod",
 			})
 			require.ErrorIs(t, err, ErrProofGeneration)
 			require.Nil(t, signedDoc)
