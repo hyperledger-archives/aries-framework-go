@@ -99,18 +99,14 @@ const (
 
 // DisclosureClaim defines claim.
 type DisclosureClaim struct {
-	Disclosure string
-	Salt       string
-	Name       string
-	Value      interface{}
-	Type       DisclosureClaimType
-	Version    SDJWTVersion
-}
-
-type wrappedClaim struct {
-	Disclosure       *DisclosureClaim
-	IsValueParsed    bool
-	DisclosureDigest string
+	Digest        string
+	Disclosure    string
+	Salt          string
+	Type          DisclosureClaimType
+	Version       SDJWTVersion
+	Name          string
+	Value         interface{}
+	IsValueParsed bool
 }
 
 // GetDisclosureClaims de-codes disclosures.
@@ -125,12 +121,12 @@ func GetDisclosureClaims(
 
 	var final []*DisclosureClaim
 
-	for _, cl := range recData.wrappedClaims {
-		if cl.Disclosure.Type == DisclosureClaimTypeArrayElement {
+	for _, disclosureClaim := range recData.disclosures {
+		if disclosureClaim.Type == DisclosureClaimTypeArrayElement {
 			continue
 		}
 
-		final = append(final, cl.Disclosure)
+		final = append(final, disclosureClaim)
 	}
 
 	return final, nil

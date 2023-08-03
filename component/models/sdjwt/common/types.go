@@ -7,6 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package common
 
 type recursiveData struct {
-	wrappedClaims map[string]*wrappedClaim
-	foundSDs      []string
+	disclosures map[string]*DisclosureClaim
+	nestedSD    []string
 }

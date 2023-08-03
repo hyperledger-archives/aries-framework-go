@@ -122,8 +122,8 @@ func VerifyDisclosuresInSDJWT(
 		return err
 	}
 
-	for _, claim := range recData.wrappedClaims {
-		if !slices.Contains(recData.foundSDs, claim.DisclosureDigest) {
+	for _, claim := range recData.disclosures {
+		if !slices.Contains(recData.nestedSD, claim.DisclosureDigest) {
 			return fmt.Errorf("disclosure digest '%s' not found in SD-JWT disclosure digests", claim.DisclosureDigest)
 		}
 	}
@@ -131,7 +131,7 @@ func VerifyDisclosuresInSDJWT(
 	return nil
 }
 
-func getDisclosureClaim(disclosure string) (*DisclosureClaim, error) {
+func getDisclosureClaim(disclosure string, hash crypto.Hash) (*DisclosureClaim, error) {
 	decoded, err := base64.RawURLEncoding.DecodeString(disclosure)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode disclosure: %w", err)
@@ -154,10 +154,17 @@ func getDisclosureClaim(disclosure string) (*DisclosureClaim, error) {
 		return nil, fmt.Errorf("disclosure salt type[%T] must be string", disclosureArr[1])
 	}
 
+	digest, err := GetHash(hash, disclosure)
+	if err != nil {
+		return nil, fmt.Errorf("get disclosure hash: %w", err)
+	}
+
 	claim := &DisclosureClaim{
-		Disclosure: disclosure,
-		Salt:       salt,
-		Version:    SDJWTVersionV2,
+		Digest:        digest,
+		Disclosure:    disclosure,
+		Salt:          salt,
+		Version:       SDJWTVersionV2,
+		IsValueParsed: false,
 	}
 
 	if len(disclosureArr) == 2 { // array
@@ -187,18 +194,18 @@ func getDisclosureClaim(disclosure string) (*DisclosureClaim, error) {
 	return claim, nil
 }
 
-func processWrappedClaim(recData *recursiveData, wrappedClaim *wrappedClaim) error {
-	if wrappedClaim.IsValueParsed {
+func setDisclosureClaimValue(recData *recursiveData, disclosureClaim *DisclosureClaim) error {
+	if disclosureClaim.IsValueParsed {
 		return nil
 	}
 
-	newValue, err := parseDisclosureValue(wrappedClaim.Disclosure.Value, recData)
+	newValue, err := parseDisclosureValue(disclosureClaim.Value, recData)
 	if err != nil {
 		return err
 	}
 
-	wrappedClaim.Disclosure.Value = newValue
-	wrappedClaim.IsValueParsed = true
+	disclosureClaim.Value = newValue
+	disclosureClaim.IsValueParsed = true
 
 	return nil
 }
@@ -223,11 +230,11 @@ func parseDisclosureValue(dv interface{}, recData *recursiveData) (interface{}, 
 			}
 
 			arrayElementDigest := fmt.Sprint(arrayElementDigestIface)
-			if !slices.Contains(recData.foundSDs, arrayElementDigest) {
-				recData.foundSDs = append(recData.foundSDs, arrayElementDigest)
+			if !slices.Contains(recData.nestedSD, arrayElementDigest) {
+				recData.nestedSD = append(recData.nestedSD, arrayElementDigest)
 			}
 
-			disclosureDigestWrapper, ok := recData.wrappedClaims[arrayElementDigest]
+			disclosureDigestWrapper, ok := recData.disclosures[arrayElementDigest]
 			if !ok {
 				// If there is no disclosure provided for given array element digest - use map as it is.
 				newValues = append(newValues, value)
@@ -235,17 +242,52 @@ func parseDisclosureValue(dv interface{}, recData *recursiveData) (interface{}, 
 			}
 
 			// If disclosure is provided - parse the value.
-			if err := processWrappedClaim(recData, disclosureDigestWrapper); err != nil {
+			if err := setDisclosureClaimValue(recData, disclosureDigestWrapper); err != nil {
 				return nil, err
 			}
 
 			// Use parsed disclosure value from prev strep.
-			newValues = append(newValues, disclosureDigestWrapper.Disclosure.Value)
+			newValues = append(newValues, disclosureDigestWrapper.Value)
 		}
 
 		return newValues, nil
 	case map[string]interface{}:
+		newValues := make(map[string]interface{}, len(disclosureValue))
+
+		// If there is nested digests.
+		if nestedSDListIface, ok := disclosureValue[SDKey]; ok {
+			nestedSDList, err := stringArray(nestedSDListIface)
+			if err != nil {
+				return nil, fmt.Errorf("get nested disclosure digests: %w", err)
+			}
+
+			var missingSDs []interface{}
+
+			for _, digest := range nestedSDList {
+				if !slices.Contains(recData.nestedSD, digest) {
+					recData.nestedSD = append(recData.nestedSD, digest)
+				}
+
+				wrappedDisclosureClaim, ok := recData.disclosures[digest]
+				if !ok {
+					missingSDs = append(missingSDs, digest)
+					continue
+				}
+
+				if err = setDisclosureClaimValue(recData, wrappedDisclosureClaim); err != nil {
+					return nil, err
+				}
+
+				newValues[wrappedDisclosureClaim.Name] = wrappedDisclosureClaim.Value
+			}
+
+			if len(missingSDs) > 0 {
+				newValues[SDKey] = missingSDs
+			}
+		}
+
 		for k, disclosureNestedClaim := range disclosureValue {
+			// This case was processed above.
 			if k == SDKey {
 				continue
 			}
@@ -255,47 +297,10 @@ func parseDisclosureValue(dv interface{}, recData *recursiveData) (interface{}, 
 				return nil, fmt.Errorf("parse nested disclosure value")
 			}
 
-			if recData.modifyValues {
-				disclosureValue[k] = newValue
-			}
-		}
-		if nestedSDListIface, ok := disclosureValue[SDKey]; ok {
-			nestedSDList, err := stringArray(nestedSDListIface)
-			if err != nil {
-				return nil, fmt.Errorf("get disclosure digests: %w", err)
-			}
-
-			var missingSDs []interface{}
-			for _, digest := range nestedSDList {
-				if !slices.Contains(recData.foundSDs, digest) {
-					recData.foundSDs = append(recData.foundSDs, digest)
-				}
-
-				wrappedDisclosureClaim, ok := recData.wrappedClaims[digest]
-				if !ok {
-					missingSDs = append(missingSDs, digest)
-					continue
-				}
-
-				if err := processWrappedClaim(recData, wrappedDisclosureClaim); err != nil {
-					return nil, err
-				}
-
-				if recData.modifyValues {
-					disclosureValue[wrappedDisclosureClaim.Disclosure.Name] = wrappedDisclosureClaim.Disclosure.Value
-				}
-			}
-
-			if recData.modifyValues {
-				delete(disclosureValue, SDKey)
-
-				if len(missingSDs) > 0 {
-					disclosureValue[SDKey] = missingSDs
-				}
-			}
+			newValues[k] = newValue
 		}
 
-		return disclosureValue, nil
+		return newValues, nil
 	default:
 		return dv, nil
 	}
@@ -306,32 +311,23 @@ func getDisclosureClaimsInternal(
 	hash crypto.Hash,
 	modifyValues bool,
 ) (*recursiveData, error) {
-	wrappedClaims := make(map[string]*wrappedClaim, len(disclosures))
+	wrappedClaims := make(map[string]*DisclosureClaim, len(disclosures))
 
 	for _, disclosure := range disclosures {
-		claim, err := getDisclosureClaim(disclosure)
+		claim, err := getDisclosureClaim(disclosure, hash)
 		if err != nil {
 			return nil, err
 		}
 
-		digest, err := GetHash(hash, disclosure)
-		if err != nil {
-			return nil, fmt.Errorf("get disclosure hash: %w", err)
-		}
-
-		wrappedClaims[digest] = &wrappedClaim{
-			Disclosure:       claim,
-			IsValueParsed:    false,
-			DisclosureDigest: digest,
-		}
+		wrappedClaims[claim.Digest] = claim
 	}
 
 	recData := &recursiveData{
-		wrappedClaims: wrappedClaims,
+		disclosures: wrappedClaims,
 	}
 
 	for _, wrappedDisclosureClaim := range wrappedClaims {
-		if err := processWrappedClaim(recData, wrappedDisclosureClaim); err != nil {
+		if err := setDisclosureClaimValue(recData, wrappedDisclosureClaim); err != nil {
 			return nil, err
 		}
 	}
