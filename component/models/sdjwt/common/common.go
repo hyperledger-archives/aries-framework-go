@@ -91,8 +91,10 @@ const (
 	DisclosureClaimTypeUnknown = DisclosureClaimType(0)
 	// DisclosureClaimTypeArrayElement array element.
 	DisclosureClaimTypeArrayElement = DisclosureClaimType(1)
-	// DisclosureClaimTypeArray array.
+	// DisclosureClaimTypeObject object.
 	DisclosureClaimTypeObject = DisclosureClaimType(2)
+	// DisclosureClaimTypePlainText object.
+	DisclosureClaimTypePlainText = DisclosureClaimType(3)
 )
 
 // DisclosureClaim defines claim.

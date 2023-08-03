@@ -104,6 +104,25 @@ func VerifyDisclosuresInSDJWT(
 	return nil
 }
 
+func isDigestInDisclosures(disclosuresClaims []*DisclosureClaim, digest string) bool {
+	for _, parsedDisclosure := range disclosuresClaims {
+		if parsedDisclosure.Type != DisclosureClaimTypeObject {
+			continue
+		}
+
+		found, err := isDigestInClaims(digest, parsedDisclosure.Value.(map[string]interface{}))
+		if err != nil {
+			return false
+		}
+
+		if found {
+			return true
+		}
+	}
+
+	return false
+}
+
 func getDisclosureClaim(disclosure string, hash crypto.Hash) (*wrappedClaim, error) {
 	decoded, err := base64.RawURLEncoding.DecodeString(disclosure)
 	if err != nil {
@@ -142,6 +161,13 @@ func getDisclosureClaim(disclosure string, hash crypto.Hash) (*wrappedClaim, err
 
 		claim.Name = name
 		claim.Value = disclosureArr[2]
+
+		switch disclosureArr[2].(type) {
+		case map[string]interface{}:
+			claim.Type = DisclosureClaimTypeObject
+		default:
+			claim.Type = DisclosureClaimTypePlainText
+		}
 	}
 
 	digest, err := GetHash(hash, disclosure)
