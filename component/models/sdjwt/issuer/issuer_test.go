@@ -949,6 +949,24 @@ func createComplexClaims() map[string]interface{} {
 	return claims
 }
 
+func createComplexClaimsWithSlice() map[string]interface{} {
+	claims := map[string]interface{}{
+		"address": map[string]interface{}{
+			"locality":     "Schulpforta",
+			"region":       "Sachsen-Anhalt",
+			"countryCodes": []string{"UA", "PL"},
+			"cities":       []string{"Albuquerque", "El Paso"},
+			"extra": map[string]interface{}{
+				"recursive": map[string]interface{}{
+					"key1": "value1",
+				},
+			},
+		},
+	}
+
+	return claims
+}
+
 func verifyEd25519(jws string, pubKey ed25519.PublicKey) error {
 	v, err := afjwt.NewEd25519Verifier(pubKey)
 	if err != nil {

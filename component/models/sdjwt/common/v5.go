@@ -16,13 +16,6 @@ import (
 	utils "github.com/hyperledger/aries-framework-go/component/models/util/maphelpers"
 )
 
-type commonV5 struct {
-}
-
-func newCommonV5() *commonV5 {
-	return &commonV5{}
-}
-
 // VerifyDisclosuresInSDJWT checks for disclosure inclusion in SD-JWT.
 func (c *commonV5) VerifyDisclosuresInSDJWT(disclosures []string, signedJWT *afgjwt.JSONWebToken) error {
 	claims := utils.CopyMap(signedJWT.Payload)

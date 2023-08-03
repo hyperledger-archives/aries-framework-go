@@ -13,11 +13,3 @@ import (
 type commonWrapper interface {
 	VerifyDisclosuresInSDJWT(disclosures []string, signedJWT *afgjwt.JSONWebToken) error
 }
-
-func newCommon(version SDJWTVersion) commonWrapper {
-	if version == SDJWTVersionV5 {
-		return newCommonV5()
-	}
-
-	return newCommonV2()
-}
