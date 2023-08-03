@@ -116,13 +116,11 @@ func VerifyDisclosuresInSDJWT(
 	if err != nil {
 		return err
 	}
-	//
-	//v, err := processDisclosureValue(claims, recData)
-	//if err != nil {
-	//	return err
-	//}
 
-	//fmt.Println(v)
+	_, err = parseDisclosureValue(claims, recData)
+	if err != nil {
+		return err
+	}
 
 	for _, claim := range recData.wrappedClaims {
 		if !slices.Contains(recData.foundSDs, claim.DisclosureDigest) {
@@ -189,15 +187,12 @@ func getDisclosureClaim(disclosure string) (*DisclosureClaim, error) {
 	return claim, nil
 }
 
-func processWrappedClaim(
-	recData *recursiveData,
-	wrappedClaim *wrappedClaim,
-) error {
+func processWrappedClaim(recData *recursiveData, wrappedClaim *wrappedClaim) error {
 	if wrappedClaim.IsValueParsed {
 		return nil
 	}
 
-	newValue, err := processDisclosureValue(wrappedClaim.Disclosure.Value, recData)
+	newValue, err := parseDisclosureValue(wrappedClaim.Disclosure.Value, recData)
 	if err != nil {
 		return err
 	}
@@ -208,59 +203,63 @@ func processWrappedClaim(
 	return nil
 }
 
-func processDisclosureValue(
-	disclosureValue interface{},
-	recData *recursiveData,
-) (interface{}, error) {
-	switch disclosureValueObject := disclosureValue.(type) {
+// parseDisclosureValue returns new value of disclosure, resolving dependencies on other disclosures.
+func parseDisclosureValue(dv interface{}, recData *recursiveData) (interface{}, error) {
+	switch disclosureValue := dv.(type) {
 	case []interface{}:
 		var newValues []interface{}
-		for _, element := range disclosureValueObject {
-			parsedMap, ok := element.(map[string]interface{})
+
+		for _, value := range disclosureValue {
+			parsedMap, ok := getMap(value)
 			if !ok {
-				newValues = append(newValues, element)
+				// If it's not a map - use value as it is.
+				newValues = append(newValues, value)
 				continue
 			}
 
-			elementDigestIface, ok := parsedMap[ArrayElementDigestKey]
+			arrayElementDigestIface, ok := parsedMap[ArrayElementDigestKey]
 			if !ok {
 				return nil, errors.New("invalid array struct")
 			}
 
-			arrayElementDigest := fmt.Sprint(elementDigestIface)
+			arrayElementDigest := fmt.Sprint(arrayElementDigestIface)
 			if !slices.Contains(recData.foundSDs, arrayElementDigest) {
 				recData.foundSDs = append(recData.foundSDs, arrayElementDigest)
 			}
 
 			disclosureDigestWrapper, ok := recData.wrappedClaims[arrayElementDigest]
 			if !ok {
-				newValues = append(newValues, element)
+				// If there is no disclosure provided for given array element digest - use map as it is.
+				newValues = append(newValues, value)
 				continue
 			}
 
+			// If disclosure is provided - parse the value.
 			if err := processWrappedClaim(recData, disclosureDigestWrapper); err != nil {
 				return nil, err
 			}
 
+			// Use parsed disclosure value from prev strep.
 			newValues = append(newValues, disclosureDigestWrapper.Disclosure.Value)
 		}
 
 		return newValues, nil
 	case map[string]interface{}:
-		for k, disclosureNestedClaim := range disclosureValueObject {
+		for k, disclosureNestedClaim := range disclosureValue {
 			if k == SDKey {
 				continue
 			}
 
-			newValue, resErr := processDisclosureValue(disclosureNestedClaim, recData)
-			if resErr != nil {
-				return nil, resErr
+			newValue, err := parseDisclosureValue(disclosureNestedClaim, recData)
+			if err != nil {
+				return nil, fmt.Errorf("parse nested disclosure value")
 			}
+
 			if recData.modifyValues {
-				disclosureValueObject[k] = newValue
+				disclosureValue[k] = newValue
 			}
 		}
-		if nestedSDListIface, ok := disclosureValueObject[SDKey]; ok {
+		if nestedSDListIface, ok := disclosureValue[SDKey]; ok {
 			nestedSDList, err := stringArray(nestedSDListIface)
 			if err != nil {
 				return nil, fmt.Errorf("get disclosure digests: %w", err)
@@ -283,22 +282,22 @@ func processDisclosureValue(
 				}
 
 				if recData.modifyValues {
-					disclosureValueObject[wrappedDisclosureClaim.Disclosure.Name] = wrappedDisclosureClaim.Disclosure.Value
+					disclosureValue[wrappedDisclosureClaim.Disclosure.Name] = wrappedDisclosureClaim.Disclosure.Value
 				}
 			}
 
 			if recData.modifyValues {
-				delete(disclosureValueObject, SDKey)
+				delete(disclosureValue, SDKey)
 
 				if len(missingSDs) > 0 {
-					disclosureValueObject[SDKey] = missingSDs
+					disclosureValue[SDKey] = missingSDs
 				}
 			}
 		}
 
-		return disclosureValueObject, nil
-	default:
 		return disclosureValue, nil
+	default:
+		return dv, nil
 	}
 }
 
@@ -329,7 +328,6 @@ func getDisclosureClaimsInternal(
 
 	recData := &recursiveData{
 		wrappedClaims: wrappedClaims,
-		modifyValues:  modifyValues,
 	}
 
 	for _, wrappedDisclosureClaim := range wrappedClaims {
