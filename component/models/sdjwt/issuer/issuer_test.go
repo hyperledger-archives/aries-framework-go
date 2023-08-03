@@ -385,6 +385,43 @@ func TestNew(t *testing.T) {
 		}
 	})
 
+	t.Run("Create SD-JWS V5 with structured claims, recursive SD and SD array elements", func(t *testing.T) {
+		r := require.New(t)
+
+		complexClaims := createComplexClaimsWithSlice()
+
+		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+		r.NoError(err)
+
+		verifier, e := afjwt.NewEd25519Verifier(pubKey)
+		r.NoError(e)
+
+		token, err := New(issuer, complexClaims, nil, afjwt.NewEd25519Signer(privKey),
+			WithSDJWTVersion(common.SDJWTVersionV5),
+			WithStructuredClaims(true),
+			WithAlwaysIncludeObjects([]string{"address.countryCodes", "address.extra"}),
+			WithNonSelectivelyDisclosableClaims([]string{"address.cities[1]", "address.region"}),
+			WithRecursiveClaimsObjects([]string{"address.extra.recursive"}),
+		)
+		r.NoError(err)
+		combinedFormatForIssuance, err := token.Serialize(false)
+		r.NoError(err)
+
+		cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
+		r.Equal(6, len(cfi.Disclosures))
+
+		afjwtToken, _, err := afjwt.Parse(cfi.SDJWT, afjwt.WithSignatureVerifier(verifier))
+		r.NoError(err)
+
+		var parsedClaims map[string]interface{}
+		err = afjwtToken.DecodeClaims(&parsedClaims)
+		r.NoError(err)
+
+		digests, err := common.GetDisclosureDigests(parsedClaims)
+		require.NoError(t, err)
+		require.Nil(t, digests)
+	})
+
 	t.Run("Create JWS with holder public key", func(t *testing.T) {
 		r := require.New(t)
 
