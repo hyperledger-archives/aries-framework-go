@@ -40,6 +40,16 @@ const (
 	SDJWTVersionV5 = SDJWTVersion(5)
 )
 
+const (
+	disclosureElementsAmountForArrayDigest = 2
+	disclosureElementsAmountForSDDigest    = 3
+
+	saltPosition             = 0
+	arrayDigestValuePosition = 1
+	sdDigestNamePosition     = 1
+	sdDigestValuePosition    = 2
+)
+
 // CombinedFormatForIssuance holds SD-JWT and disclosures.
 type CombinedFormatForIssuance struct {
 	SDJWT       string
@@ -90,9 +100,9 @@ const (
 	// DisclosureClaimTypeUnknown default type for disclosure claim.
 	DisclosureClaimTypeUnknown = DisclosureClaimType(0)
 	// DisclosureClaimTypeArrayElement array element.
-	DisclosureClaimTypeArrayElement = DisclosureClaimType(1)
+	DisclosureClaimTypeArrayElement = DisclosureClaimType(2)
 	// DisclosureClaimTypeObject object.
-	DisclosureClaimTypeObject = DisclosureClaimType(2)
+	DisclosureClaimTypeObject = DisclosureClaimType(3)
 	// DisclosureClaimTypePlainText object.
 	DisclosureClaimTypePlainText = DisclosureClaimType(3)
 )
@@ -102,6 +112,7 @@ type DisclosureClaim struct {
 	Digest        string
 	Disclosure    string
 	Salt          string
+	Elements      int
 	Type          DisclosureClaimType
 	Version       SDJWTVersion
 	Name          string

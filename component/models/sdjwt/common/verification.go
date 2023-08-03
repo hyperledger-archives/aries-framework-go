@@ -122,6 +122,13 @@ func VerifyDisclosuresInSDJWT(
 		return err
 	}
 
+	// If the digest cannot be found in the SD-JWT payload, the Verifier MUST reject the Presentation.
+	for _, disclosure := range parsedDisclosureClaims {
+		if !disclosure.IsValueParsed {
+			return fmt.Errorf("disclosure %s is not used", disclosure.Disclosure)
+		}
+	}
+
 	return nil
 }
 
@@ -202,7 +209,7 @@ func discloseClaimValue(claim interface{}, recData *recursiveData) (interface{},
 
 			// If the digest was found in an array element:
 			//   If the respective Disclosure is not a JSON-encoded array of two elements, the SD-JWT MUST be rejected.
-			if disclosureClaim.Type != DisclosureClaimTypeArrayElement {
+			if disclosureClaim.Elements != disclosureElementsAmountForArrayDigest {
 				return nil, fmt.Errorf("invald disclosure associated with digest %s", arrayElementDigest)
 			}
 
@@ -242,7 +249,7 @@ func discloseClaimValue(claim interface{}, recData *recursiveData) (interface{},
 					continue
 				}
 
-				if disclosureClaim.Type != DisclosureClaimTypeObject {
+				if disclosureClaim.Elements != disclosureElementsAmountForSDDigest {
 					// If the digest was found in an object's _sd key:
 					//  If the respective Disclosure is not a JSON-encoded array of three elements, the SD-JWT MUST be rejected.
 					return nil, fmt.Errorf("invald disclosure associated with digest %s", digest)
@@ -315,12 +322,12 @@ func getDisclosureClaim(disclosure string, hash crypto.Hash) (*DisclosureClaim, 
 		return nil, fmt.Errorf("failed to unmarshal disclosure array: %w", err)
 	}
 
-	if len(disclosureArr) < 2 {
+	if len(disclosureArr) < disclosureElementsAmountForArrayDigest {
 		return nil, fmt.Errorf("disclosure array size[%d] must be greater %d", len(disclosureArr),
 			2)
 	}
 
-	salt, ok := disclosureArr[0].(string)
+	salt, ok := disclosureArr[saltPosition].(string)
 	if !ok {
 		return nil, fmt.Errorf("disclosure salt type[%T] must be string", disclosureArr[1])
 	}
@@ -336,22 +343,24 @@ func getDisclosureClaim(disclosure string, hash crypto.Hash) (*DisclosureClaim, 
 		Salt:          salt,
 		Version:       SDJWTVersionV2,
 		IsValueParsed: false,
+		Elements:      len(disclosureArr),
 	}
 
-	if len(disclosureArr) == 2 { // array
-		claim.Value = disclosureArr[1]
+	switch len(disclosureArr) {
+	case disclosureElementsAmountForArrayDigest: //array element
+		claim.Value = disclosureArr[arrayDigestValuePosition]
 		claim.Type = DisclosureClaimTypeArrayElement
 		claim.Version = SDJWTVersionV5
-	} else {
-		name, ok := disclosureArr[1].(string)
+	case disclosureElementsAmountForSDDigest:
+		name, ok := disclosureArr[sdDigestNamePosition].(string)
 		if !ok {
 			return nil, fmt.Errorf("disclosure name type[%T] must be string", disclosureArr[1])
 		}
 
 		claim.Name = name
-		claim.Value = disclosureArr[2]
+		claim.Value = disclosureArr[sdDigestValuePosition]
 
-		switch t := disclosureArr[2].(type) {
+		switch t := disclosureArr[sdDigestValuePosition].(type) {
 		case map[string]interface{}:
 			claim.Type = DisclosureClaimTypeObject
 			if KeyExistsInMap(SDKey, t) {
