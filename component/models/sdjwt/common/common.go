@@ -117,7 +117,22 @@ func GetDisclosureClaims(
 	disclosures []string,
 	hash crypto.Hash,
 ) ([]*DisclosureClaim, error) {
-	return getDisclosureClaims(disclosures, hash)
+	recData, err := getDisclosureClaimsInternal(disclosures, hash, true)
+	if err != nil {
+		return nil, err
+	}
+
+	var final []*DisclosureClaim
+
+	for _, cl := range recData.claimMap {
+		if cl.Claim.Type == DisclosureClaimTypeArrayElement {
+			continue
+		}
+
+		final = append(final, cl.Claim)
+	}
+
+	return final, nil
 }
 
 // ParseCombinedFormatForIssuance parses combined format for issuance into CombinedFormatForIssuance parts.
@@ -168,32 +183,6 @@ func GetHash(hash crypto.Hash, value string) (string, error) {
 	result := h.Sum(nil)
 
 	return base64.RawURLEncoding.EncodeToString(result), nil
-}
-
-func isDigestInClaims(digest string, claims map[string]interface{}) (bool, error) {
-	var found bool
-
-	digests, err := GetDisclosureDigests(claims)
-	if err != nil {
-		return false, err
-	}
-
-	for _, value := range claims {
-		if obj, ok := value.(map[string]interface{}); ok {
-			found, err = isDigestInClaims(digest, obj)
-			if err != nil {
-				return false, err
-			}
-
-			if found {
-				return found, nil
-			}
-		}
-	}
-
-	_, ok := digests[digest]
-
-	return ok, nil
 }
 
 // GetCryptoHashFromClaims returns crypto hash from claims.
