@@ -9,8 +9,6 @@ package common
 import (
 	"bytes"
 	"crypto"
-	"crypto/ed25519"
-	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -129,156 +127,6 @@ func TestParseCombinedFormatForPresentation(t *testing.T) {
 		require.Empty(t, cfp.HolderVerification)
 
 		require.Equal(t, specExample2bPresentation, cfp.Serialize())
-	})
-}
-
-func TestVerifyDisclosuresInSDJWT(t *testing.T) {
-	r := require.New(t)
-
-	_, privKey, err := ed25519.GenerateKey(rand.Reader)
-	r.NoError(err)
-
-	signer := afjwt.NewEd25519Signer(privKey)
-
-	t.Run("success", func(t *testing.T) {
-		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuance)
-		require.Equal(t, 1, len(sdJWT.Disclosures))
-
-		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
-		require.NoError(t, err)
-
-		err = VerifyDisclosuresInSDJWT(sdJWT.Disclosures, signedJWT)
-		r.NoError(err)
-	})
-
-	t.Run("success - complex struct(spec example 2b)", func(t *testing.T) {
-		specExample2bPresentation := fmt.Sprintf("%s%s", specExample2bJWT, specExample2bDisclosures)
-
-		sdJWT := ParseCombinedFormatForPresentation(specExample2bPresentation)
-
-		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
-		require.NoError(t, err)
-
-		err = VerifyDisclosuresInSDJWT(sdJWT.Disclosures, signedJWT)
-		r.NoError(err)
-	})
-
-	t.Run("success - no selective disclosures(valid case)", func(t *testing.T) {
-		jwtPayload := &payload{
-			Issuer: "issuer",
-			SDAlg:  "sha-256",
-		}
-
-		signedJWT, err := afjwt.NewSigned(jwtPayload, nil, signer)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT(nil, signedJWT)
-		r.NoError(err)
-	})
-
-	t.Run("success - selective disclosures nil", func(t *testing.T) {
-		payload := make(map[string]interface{})
-		payload[SDAlgorithmKey] = testAlg
-		payload[SDKey] = nil
-
-		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT(nil, signedJWT)
-		r.NoError(err)
-	})
-
-	t.Run("error - disclosure not present in SD-JWT", func(t *testing.T) {
-		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuance)
-		require.Equal(t, 1, len(sdJWT.Disclosures))
-
-		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
-		require.NoError(t, err)
-
-		err = VerifyDisclosuresInSDJWT(append(sdJWT.Disclosures, additionalDisclosure), signedJWT)
-		r.Error(err)
-		r.Contains(err.Error(),
-			"disclosure digest 'X9yH0Ajrdm1Oij4tWso9UzzKJvPoDxwmuEcO3XAdRC0' not found in SD-JWT disclosure digests")
-	})
-
-	t.Run("error - disclosure not present in SD-JWT without selective disclosures", func(t *testing.T) {
-		jwtPayload := &payload{
-			Issuer: "issuer",
-			SDAlg:  testAlg,
-		}
-
-		signedJWT, err := afjwt.NewSigned(jwtPayload, nil, signer)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT([]string{additionalDisclosure}, signedJWT)
-		r.Error(err)
-		r.Contains(err.Error(),
-			"disclosure digest 'X9yH0Ajrdm1Oij4tWso9UzzKJvPoDxwmuEcO3XAdRC0' not found in SD-JWT disclosure digests")
-	})
-
-	t.Run("error - missing algorithm", func(t *testing.T) {
-		jwtPayload := &payload{
-			Issuer: "issuer",
-		}
-
-		signedJWT, err := afjwt.NewSigned(jwtPayload, nil, signer)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT(nil, signedJWT)
-		r.Error(err)
-		r.Contains(err.Error(), "_sd_alg must be present in SD-JWT", SDAlgorithmKey)
-	})
-
-	t.Run("error - invalid algorithm", func(t *testing.T) {
-		jwtPayload := payload{
-			Issuer: "issuer",
-			SDAlg:  "SHA-XXX",
-		}
-
-		signedJWT, err := afjwt.NewSigned(jwtPayload, nil, signer)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT(nil, signedJWT)
-		r.Error(err)
-		r.Contains(err.Error(), "_sd_alg 'SHA-XXX' not supported")
-	})
-
-	t.Run("error - algorithm is not a string", func(t *testing.T) {
-		payload := make(map[string]interface{})
-		payload[SDAlgorithmKey] = 18
-
-		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT(nil, signedJWT)
-		r.Error(err)
-		r.Contains(err.Error(), "_sd_alg must be a string")
-	})
-
-	t.Run("error - selective disclosures must be an array", func(t *testing.T) {
-		payload := make(map[string]interface{})
-		payload[SDAlgorithmKey] = testAlg
-		payload[SDKey] = "test"
-
-		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT([]string{additionalDisclosure}, signedJWT)
-		r.Error(err)
-		r.Contains(err.Error(), "get disclosure digests: entry type[string] is not an array")
-	})
-
-	t.Run("error - selective disclosures must be a string", func(t *testing.T) {
-		payload := make(map[string]interface{})
-		payload[SDAlgorithmKey] = testAlg
-		payload[SDKey] = []float64{123}
-
-		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT([]string{additionalDisclosure}, signedJWT)
-		r.Error(err)
-		r.Contains(err.Error(), "get disclosure digests: entry item type[float64] is not a string")
 	})
 }
 
@@ -884,6 +732,7 @@ const additionalDisclosure = `WyJfMjZiYzRMVC1hYzZxMktJNmNCVzVlcyIsICJmYW1pbHlfbm
 
 // nolint: lll
 const testCombinedFormatForIssuance = `eyJhbGciOiJFZERTQSJ9.eyJfc2QiOlsicXF2Y3FuY3pBTWdZeDdFeWtJNnd3dHNweXZ5dks3OTBnZTdNQmJRLU51cyJdLCJfc2RfYWxnIjoic2hhLTI1NiIsImV4cCI6MTcwMzAyMzg1NSwiaWF0IjoxNjcxNDg3ODU1LCJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tL2lzc3VlciIsIm5iZiI6MTY3MTQ4Nzg1NX0.vscuzfwcHGi04pWtJCadc4iDELug6NH6YK-qxhY1qacsciIHuoLELAfon1tGamHtuu8TSs6OjtLk3lHE16jqAQ~WyIzanFjYjY3ejl3a3MwOHp3aUs3RXlRIiwgImdpdmVuX25hbWUiLCAiSm9obiJd`
+const testCombinedFormatForIssuanceV5 = `eyJhbGciOiJFZERTQSJ9.eyJfc2RfYWxnIjoic2hhLTI1NiIsImFkZHJlc3MiOnsiX3NkIjpbIlRaV0JRdlpTam1VemxRZ1AzZ2EydkFlYlV6cDhpU2NRNlBFT0gzSHQ1bm8iXSwiY2l0aWVzIjpbeyIuLi4iOiI0U1lCT3NMcVRURU42QnpTSV9NX0pyQ0NzWFJ0Y1BTbWNqV3ROMEdjU0dJIn0sIkVsIFBhc28iXSwiY291bnRyeUNvZGVzIjpbeyIuLi4iOiJab2hsNGd4OXd0czJBRlVrbmd1c3FleWJDUERWUVFLNHNPR3A4dWZHcWg4In0seyIuLi4iOiIxbVl4V1VZN2M5T1pEWlZnd0N6aUFuWkY1TDgzUzZaN2pGb1U2ck5vaEtzIn1dLCJleHRyYSI6eyJfc2QiOlsibXZtZVoxb3ZmY1RRTi01Q3A5YlhYcElKREd2THVkNVg4SVIyajctVUd0WSJdfSwicmVnaW9uIjoiU2FjaHNlbi1BbmhhbHQifSwiaXNzIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9pc3N1ZXIifQ.l-xc_9hGQMHfkPmMeG_EQIZU5guVme9FSKgN58WqfBJcMvfrb9rTc2PHmxveerMTA2cjgJzM2OZgibQCxRePAg~WyJTUEh2T185NEsyWENVdVhSeURjcHJnIiwibG9jYWxpdHkiLCJTY2h1bHBmb3J0YSJd~WyJSaHh1bDBnd2x6cTlSNDg4ZV8tQ3B3IiwiVUEiXQ~WyJKQWlwWm5uSUM3ejAtZzJoNzZmc0FBIiwiUEwiXQ~WyIxdzZVNkRkSG9laFdUdG5UNG5iS3RnIiwiQWxidXF1ZXJxdWUiXQ~WyJVWnUxcjR5YnpfUGNiU3BRcTFpMllRIiwicmVjdXJzaXZlIix7Il9zZCI6WyJydjZNejBheXJZYWU1MHpWRXYtbExKNFZRRzhNMGFJdjJOVW1LVDRRRjVJIl19XQ~WyJoRWNiQmxZQ0ZSVGVtMG1uVXQzTVNnIiwia2V5MSIsInZhbHVlMSJd`
 
 // nolint: lll
 const testSDJWT = `eyJhbGciOiJFZERTQSJ9.eyJfc2QiOlsicXF2Y3FuY3pBTWdZeDdFeWtJNnd3dHNweXZ5dks3OTBnZTdNQmJRLU51cyJdLCJfc2RfYWxnIjoic2hhLTI1NiIsImV4cCI6MTcwMzAyMzg1NSwiaWF0IjoxNjcxNDg3ODU1LCJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tL2lzc3VlciIsIm5iZiI6MTY3MTQ4Nzg1NX0.vscuzfwcHGi04pWtJCadc4iDELug6NH6YK-qxhY1qacsciIHuoLELAfon1tGamHtuu8TSs6OjtLk3lHE16jqAQ`

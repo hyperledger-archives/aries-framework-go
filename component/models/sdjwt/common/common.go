@@ -104,12 +104,13 @@ type DisclosureClaim struct {
 	Name       string
 	Value      interface{}
 	Type       DisclosureClaimType
+	Version    SDJWTVersion
 }
 
 type wrappedClaim struct {
-	Claim         *DisclosureClaim
-	IsValueParsed bool
-	Digest        string
+	Disclosure       *DisclosureClaim
+	IsValueParsed    bool
+	DisclosureDigest string
 }
 
 // GetDisclosureClaims de-codes disclosures.
@@ -124,12 +125,12 @@ func GetDisclosureClaims(
 
 	var final []*DisclosureClaim
 
-	for _, cl := range recData.claimMap {
-		if cl.Claim.Type == DisclosureClaimTypeArrayElement {
+	for _, cl := range recData.wrappedClaims {
+		if cl.Disclosure.Type == DisclosureClaimTypeArrayElement {
 			continue
 		}
 
-		final = append(final, cl.Claim)
+		final = append(final, cl.Disclosure)
 	}
 
 	return final, nil
@@ -360,20 +361,20 @@ func processDisclosedClaims(disclosureClaims []*DisclosureClaim, claims map[stri
 	}
 
 	for _, dc := range disclosureClaims {
-		digest, err := GetHash(hash, dc.Disclosure)
+		disclosureDigest, err := GetHash(hash, dc.Disclosure)
 		if err != nil {
 			return err
 		}
 
-		if _, ok := digests[digest]; !ok {
+		if _, ok := digests[disclosureDigest]; !ok {
 			continue
 		}
 
-		_, digestAlreadyIncluded := includedDigests[digest]
+		_, digestAlreadyIncluded := includedDigests[disclosureDigest]
 		if digestAlreadyIncluded {
 			// If there is more than one place where the digest is included,
 			// the Verifier MUST reject the Presentation.
-			return fmt.Errorf("digest '%s' has been included in more than one place", digest)
+			return fmt.Errorf("digest '%s' has been included in more than one place", disclosureDigest)
 		}
 
 		err = validateClaim(dc, claims)
@@ -383,7 +384,7 @@ func processDisclosedClaims(disclosureClaims []*DisclosureClaim, claims map[stri
 
 		claims[dc.Name] = dc.Value
 
-		includedDigests[digest] = true
+		includedDigests[disclosureDigest] = true
 	}
 
 	delete(claims, SDKey)
