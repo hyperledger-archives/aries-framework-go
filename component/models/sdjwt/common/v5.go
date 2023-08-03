@@ -12,48 +12,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
+	"golang.org/x/exp/slices"
+
 	afgjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
 	utils "github.com/hyperledger/aries-framework-go/component/models/util/maphelpers"
 )
-
-// VerifyDisclosuresInSDJWT checks for disclosure inclusion in SD-JWT.
-func (c *commonV5) VerifyDisclosuresInSDJWT(disclosures []string, signedJWT *afgjwt.JSONWebToken) error {
-	claims := utils.CopyMap(signedJWT.Payload)
-
-	// check that the _sd_alg claim is present
-	// check that _sd_alg value is understood and the hash algorithm is deemed secure.
-	cryptoHash, err := GetCryptoHashFromClaims(claims)
-	if err != nil {
-		return err
-	}
-
-	for _, disclosure := range disclosures {
-		digest, err := GetHash(cryptoHash, disclosure)
-		if err != nil {
-			return err
-		}
-
-		found, err := isDigestInClaims(digest, claims)
-		if err != nil {
-			return err
-		}
-
-		if !found {
-			parsed, err := getDisclosureClaim(disclosure, cryptoHash)
-			if err != nil {
-				return err
-			}
-
-			if parsed.Claim.Type == DisclosureClaimTypeArrayElement {
-				continue
-			}
-
-			return fmt.Errorf("disclosure digest '%s' not found in SD-JWT disclosure digests", digest)
-		}
-	}
-
-	return nil
-}
 
 // VerifyDisclosuresInSDJWT checks for disclosure inclusion in SD-JWT.
 func VerifyDisclosuresInSDJWT(
@@ -61,66 +25,32 @@ func VerifyDisclosuresInSDJWT(
 	signedJWT *afgjwt.JSONWebToken,
 ) error {
 	claims := utils.CopyMap(signedJWT.Payload)
-
-	// check that the _sd_alg claim is present
-	// check that _sd_alg value is understood and the hash algorithm is deemed secure.
 	cryptoHash, err := GetCryptoHashFromClaims(claims)
 	if err != nil {
 		return err
 	}
 
-	var disclosuresClaims []*DisclosureClaim
+	recData, err := getDisclosureClaimsInternal(
+		disclosures,
+		cryptoHash,
+		false,
+	) // we don`t need to change values for now.
+	if err != nil {
+		return err
+	}
 
-	for _, disclosure := range disclosures {
-		digest, err := GetHash(cryptoHash, disclosure)
-		if err != nil {
-			return err
+	_, err = processObj(claims, recData) // now lets extract _sd and arrays from claims.
+	if err != nil {
+		return err
+	}
+
+	for _, claim := range recData.claimMap {
+		if !slices.Contains(recData.foundSDs, claim.Digest) {
+			return fmt.Errorf("disclosure digest '%s' not found in SD-JWT disclosure digests", claim.Digest)
 		}
-
-		found, err := isDigestInClaims(digest, claims)
-		if err != nil {
-			return err
-		}
-
-		if found {
-			continue
-		}
-
-		if disclosuresClaims == nil {
-			disclosuresClaims, err = GetDisclosureClaims(disclosures, cryptoHash)
-			if err != nil {
-				return fmt.Errorf("getDisclosureClaims: %w", err)
-			}
-		}
-
-		// Check if given digest contains in nested disclosures
-		if found = isDigestInDisclosures(disclosuresClaims, digest); found {
-			continue
-		}
-
-		return fmt.Errorf("disclosure digest '%s' not found in SD-JWT disclosure digests", digest)
 	}
 
 	return nil
-}
-
-func isDigestInDisclosures(disclosuresClaims []*DisclosureClaim, digest string) bool {
-	for _, parsedDisclosure := range disclosuresClaims {
-		if parsedDisclosure.Type != DisclosureClaimTypeObject {
-			continue
-		}
-
-		found, err := isDigestInClaims(digest, parsedDisclosure.Value.(map[string]interface{}))
-		if err != nil {
-			return false
-		}
-
-		if found {
-			return true
-		}
-	}
-
-	return false
 }
 
 func getDisclosureClaim(disclosure string, hash crypto.Hash) (*wrappedClaim, error) {
@@ -183,14 +113,14 @@ func getDisclosureClaim(disclosure string, hash crypto.Hash) (*wrappedClaim, err
 }
 
 func processClaimValue(
-	claimMap map[string]*wrappedClaim,
+	recData *recursiveData,
 	claim *wrappedClaim,
 ) error {
 	if claim.IsValueParsed {
 		return nil
 	}
 
-	v, err := processObj(claim.Claim.Value, claimMap)
+	v, err := processObj(claim.Claim.Value, recData)
 	if err != nil {
 		return err
 	}
@@ -203,7 +133,7 @@ func processClaimValue(
 
 func processObj(
 	inputObj interface{},
-	claimMap map[string]*wrappedClaim,
+	recData *recursiveData,
 ) (interface{}, error) {
 	switch obj := inputObj.(type) {
 	case []interface{}:
@@ -220,13 +150,17 @@ func processObj(
 				return nil, errors.New("invalid array struct")
 			}
 
-			cl, ok := claimMap[fmt.Sprint(elementDigest)]
+			elementStr := fmt.Sprint(elementDigest)
+			if !slices.Contains(recData.foundSDs, elementStr) {
+				recData.foundSDs = append(recData.foundSDs, elementStr)
+			}
+			cl, ok := recData.claimMap[elementStr]
 			if !ok {
 				newValues = append(newValues, element)
 				continue
 			}
 
-			if err := processClaimValue(claimMap, cl); err != nil {
+			if err := processClaimValue(recData, cl); err != nil {
 				return nil, err
 			}
 
@@ -240,36 +174,47 @@ func processObj(
 				continue
 			}
 
-			res, resErr := processObj(v, claimMap)
+			res, resErr := processObj(v, recData)
 			if resErr != nil {
 				return nil, resErr
 			}
-			obj[k] = res
+			if recData.modifyValues {
+				obj[k] = res
+			}
 		}
 		if sd, sdOk := obj[SDKey]; sdOk {
 			sdArr, sdErr := stringArray(sd)
 			if sdErr != nil {
-				return nil, sdErr
+				return nil, fmt.Errorf("get disclosure digests: %w", sdErr)
 			}
 
 			var missingSDs []interface{}
 			for _, sdElement := range sdArr {
-				cl, clOk := claimMap[fmt.Sprint(sdElement)]
+				elementStr := fmt.Sprint(sdElement)
+				if !slices.Contains(recData.foundSDs, elementStr) {
+					recData.foundSDs = append(recData.foundSDs, elementStr)
+				}
+
+				cl, clOk := recData.claimMap[elementStr]
 				if !clOk {
 					missingSDs = append(missingSDs, sdElement)
 					continue
 				}
 
-				if err := processClaimValue(claimMap, cl); err != nil {
+				if err := processClaimValue(recData, cl); err != nil {
 					return nil, err
 				}
 
-				obj[cl.Claim.Name] = cl.Claim.Value
+				if recData.modifyValues {
+					obj[cl.Claim.Name] = cl.Claim.Value
+				}
 			}
 
-			delete(obj, SDKey)
-			if len(missingSDs) > 0 {
-				obj[SDKey] = missingSDs
+			if recData.modifyValues {
+				delete(obj, SDKey)
+				if len(missingSDs) > 0 {
+					obj[SDKey] = missingSDs
+				}
 			}
 		}
 
@@ -279,10 +224,11 @@ func processObj(
 	}
 }
 
-func getDisclosureClaims(
+func getDisclosureClaimsInternal(
 	disclosures []string,
 	hash crypto.Hash,
-) ([]*DisclosureClaim, error) {
+	modifyValues bool,
+) (*recursiveData, error) {
 	claimMap := map[string]*wrappedClaim{}
 
 	for _, disclosure := range disclosures {
@@ -294,18 +240,16 @@ func getDisclosureClaims(
 		claimMap[claim.Digest] = claim
 	}
 
-	var finalClaims []*DisclosureClaim
-	for _, v := range claimMap {
-		if v.Claim.Type == DisclosureClaimTypeArrayElement {
-			continue
-		}
-
-		if err := processClaimValue(claimMap, v); err != nil {
-			return nil, err
-		}
-
-		finalClaims = append(finalClaims, v.Claim)
+	recData := &recursiveData{
+		claimMap:     claimMap,
+		modifyValues: modifyValues,
 	}
 
-	return finalClaims, nil
+	for _, v := range claimMap {
+		if err := processClaimValue(recData, v); err != nil {
+			return nil, err
+		}
+	}
+
+	return recData, nil
 }

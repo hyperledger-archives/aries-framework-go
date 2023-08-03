@@ -147,7 +147,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
 		require.NoError(t, err)
 
-		err = VerifyDisclosuresInSDJWT(sdJWT.Disclosures, signedJWT, SDJWTVersionV2)
+		err = VerifyDisclosuresInSDJWT(sdJWT.Disclosures, signedJWT)
 		r.NoError(err)
 	})
 
@@ -159,7 +159,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
 		require.NoError(t, err)
 
-		err = VerifyDisclosuresInSDJWT(sdJWT.Disclosures, signedJWT, SDJWTVersionV2)
+		err = VerifyDisclosuresInSDJWT(sdJWT.Disclosures, signedJWT)
 		r.NoError(err)
 	})
 
@@ -172,7 +172,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		signedJWT, err := afjwt.NewSigned(jwtPayload, nil, signer)
 		r.NoError(err)
 
-		err = VerifyDisclosuresInSDJWT(nil, signedJWT, SDJWTVersionV2)
+		err = VerifyDisclosuresInSDJWT(nil, signedJWT)
 		r.NoError(err)
 	})
 
@@ -184,7 +184,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
 		r.NoError(err)
 
-		err = VerifyDisclosuresInSDJWT(nil, signedJWT, SDJWTVersionV2)
+		err = VerifyDisclosuresInSDJWT(nil, signedJWT)
 		r.NoError(err)
 	})
 
@@ -195,7 +195,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
 		require.NoError(t, err)
 
-		err = VerifyDisclosuresInSDJWT(append(sdJWT.Disclosures, additionalDisclosure), signedJWT, SDJWTVersionV2)
+		err = VerifyDisclosuresInSDJWT(append(sdJWT.Disclosures, additionalDisclosure), signedJWT)
 		r.Error(err)
 		r.Contains(err.Error(),
 			"disclosure digest 'X9yH0Ajrdm1Oij4tWso9UzzKJvPoDxwmuEcO3XAdRC0' not found in SD-JWT disclosure digests")
@@ -210,7 +210,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		signedJWT, err := afjwt.NewSigned(jwtPayload, nil, signer)
 		r.NoError(err)
 
-		err = VerifyDisclosuresInSDJWT([]string{additionalDisclosure}, signedJWT, SDJWTVersionV2)
+		err = VerifyDisclosuresInSDJWT([]string{additionalDisclosure}, signedJWT)
 		r.Error(err)
 		r.Contains(err.Error(),
 			"disclosure digest 'X9yH0Ajrdm1Oij4tWso9UzzKJvPoDxwmuEcO3XAdRC0' not found in SD-JWT disclosure digests")
@@ -224,7 +224,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		signedJWT, err := afjwt.NewSigned(jwtPayload, nil, signer)
 		r.NoError(err)
 
-		err = VerifyDisclosuresInSDJWT(nil, signedJWT, SDJWTVersionV2)
+		err = VerifyDisclosuresInSDJWT(nil, signedJWT)
 		r.Error(err)
 		r.Contains(err.Error(), "_sd_alg must be present in SD-JWT", SDAlgorithmKey)
 	})
@@ -238,7 +238,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		signedJWT, err := afjwt.NewSigned(jwtPayload, nil, signer)
 		r.NoError(err)
 
-		err = VerifyDisclosuresInSDJWT(nil, signedJWT, SDJWTVersionV2)
+		err = VerifyDisclosuresInSDJWT(nil, signedJWT)
 		r.Error(err)
 		r.Contains(err.Error(), "_sd_alg 'SHA-XXX' not supported")
 	})
@@ -250,7 +250,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
 		r.NoError(err)
 
-		err = VerifyDisclosuresInSDJWT(nil, signedJWT, SDJWTVersionV2)
+		err = VerifyDisclosuresInSDJWT(nil, signedJWT)
 		r.Error(err)
 		r.Contains(err.Error(), "_sd_alg must be a string")
 	})
@@ -263,7 +263,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
 		r.NoError(err)
 
-		err = VerifyDisclosuresInSDJWT([]string{additionalDisclosure}, signedJWT, SDJWTVersionV2)
+		err = VerifyDisclosuresInSDJWT([]string{additionalDisclosure}, signedJWT)
 		r.Error(err)
 		r.Contains(err.Error(), "get disclosure digests: entry type[string] is not an array")
 	})
@@ -276,7 +276,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
 		r.NoError(err)
 
-		err = VerifyDisclosuresInSDJWT([]string{additionalDisclosure}, signedJWT, SDJWTVersionV2)
+		err = VerifyDisclosuresInSDJWT([]string{additionalDisclosure}, signedJWT)
 		r.Error(err)
 		r.Contains(err.Error(), "get disclosure digests: entry item type[float64] is not a string")
 	})
