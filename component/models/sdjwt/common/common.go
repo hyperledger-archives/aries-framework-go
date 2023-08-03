@@ -114,18 +114,24 @@ func GetDisclosureClaims(
 	disclosures []string,
 	hash crypto.Hash,
 ) ([]*DisclosureClaim, error) {
-	recData, err := getDisclosureClaimsInternal(disclosures, hash, true)
+	disclosureClaims, err := getDisclosureClaims(disclosures, hash)
 	if err != nil {
 		return nil, err
 	}
 
-	var final []*DisclosureClaim
+	recData := &recursiveData{
+		disclosures: disclosureClaims,
+	}
+
+	for _, wrappedDisclosureClaim := range disclosureClaims {
+		if err = setDisclosureClaimValue(recData, wrappedDisclosureClaim); err != nil {
+			return nil, err
+		}
+	}
+
+	final := make([]*DisclosureClaim, 0, len(disclosureClaims))
 
 	for _, disclosureClaim := range recData.disclosures {
-		if disclosureClaim.Type == DisclosureClaimTypeArrayElement {
-			continue
-		}
-
 		final = append(final, disclosureClaim)
 	}
 
