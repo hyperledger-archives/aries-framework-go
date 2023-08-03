@@ -15,7 +15,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
 
-	afgjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
 	utils "github.com/hyperledger/aries-framework-go/component/models/util/maphelpers"
 )
 
@@ -167,15 +166,6 @@ func GetHash(hash crypto.Hash, value string) (string, error) {
 	result := h.Sum(nil)
 
 	return base64.RawURLEncoding.EncodeToString(result), nil
-}
-
-// VerifyDisclosuresInSDJWT checks for disclosure inclusion in SD-JWT.
-func VerifyDisclosuresInSDJWT(
-	disclosures []string,
-	signedJWT *afgjwt.JSONWebToken,
-	version SDJWTVersion,
-) error {
-	return newCommon(version).VerifyDisclosuresInSDJWT(disclosures, signedJWT)
 }
 
 func isDigestInClaims(digest string, claims map[string]interface{}) (bool, error) {

@@ -55,6 +55,55 @@ func (c *commonV5) VerifyDisclosuresInSDJWT(disclosures []string, signedJWT *afg
 	return nil
 }
 
+// VerifyDisclosuresInSDJWT checks for disclosure inclusion in SD-JWT.
+func VerifyDisclosuresInSDJWT(
+	disclosures []string,
+	signedJWT *afgjwt.JSONWebToken,
+) error {
+	claims := utils.CopyMap(signedJWT.Payload)
+
+	// check that the _sd_alg claim is present
+	// check that _sd_alg value is understood and the hash algorithm is deemed secure.
+	cryptoHash, err := GetCryptoHashFromClaims(claims)
+	if err != nil {
+		return err
+	}
+
+	var disclosuresClaims []*DisclosureClaim
+
+	for _, disclosure := range disclosures {
+		digest, err := GetHash(cryptoHash, disclosure)
+		if err != nil {
+			return err
+		}
+
+		found, err := isDigestInClaims(digest, claims)
+		if err != nil {
+			return err
+		}
+
+		if found {
+			continue
+		}
+
+		if disclosuresClaims == nil {
+			disclosuresClaims, err = GetDisclosureClaims(disclosures, cryptoHash)
+			if err != nil {
+				return fmt.Errorf("getDisclosureClaims: %w", err)
+			}
+		}
+
+		// Check if given digest contains in nested disclosures
+		if found = isDigestInDisclosures(disclosuresClaims, digest); found {
+			continue
+		}
+
+		return fmt.Errorf("disclosure digest '%s' not found in SD-JWT disclosure digests", digest)
+	}
+
+	return nil
+}
+
 func getDisclosureClaim(disclosure string, hash crypto.Hash) (*wrappedClaim, error) {
 	decoded, err := base64.RawURLEncoding.DecodeString(disclosure)
 	if err != nil {
