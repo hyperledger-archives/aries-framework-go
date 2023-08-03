@@ -404,7 +404,7 @@ func TestGetDisclosureClaims(t *testing.T) {
 	})
 
 	t.Run("error - invalid disclosure format (not encoded)", func(t *testing.T) {
-		sdJWT := ParseCombinedFormatForIssuance("jws~xyz")
+		sdJWT := ParseCombinedFormatForIssuance(testSDJWT + "~xyz")
 		require.Equal(t, 1, len(sdJWT.Disclosures))
 
 		token, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
@@ -419,12 +419,12 @@ func TestGetDisclosureClaims(t *testing.T) {
 		r.Contains(err.Error(), "failed to unmarshal disclosure array")
 	})
 
-	t.Run("error - invalid disclosure array (not three parts)", func(t *testing.T) {
-		disclosureArr := []interface{}{"name", "value"}
+	t.Run("error - invalid disclosure array (less then 2 parts)", func(t *testing.T) {
+		disclosureArr := []interface{}{"name"}
 		disclosureJSON, err := json.Marshal(disclosureArr)
 		require.NoError(t, err)
 
-		sdJWT := ParseCombinedFormatForIssuance(fmt.Sprintf("jws~%s", base64.RawURLEncoding.EncodeToString(disclosureJSON)))
+		sdJWT := ParseCombinedFormatForIssuance(fmt.Sprintf("%s~%s", testSDJWT, base64.RawURLEncoding.EncodeToString(disclosureJSON)))
 		require.Equal(t, 1, len(sdJWT.Disclosures))
 
 		token, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
@@ -436,7 +436,7 @@ func TestGetDisclosureClaims(t *testing.T) {
 		disclosureClaims, err := GetDisclosureClaims(sdJWT.Disclosures, hash)
 		r.Error(err)
 		r.Nil(disclosureClaims)
-		r.Contains(err.Error(), "disclosure array size[2] must be 3")
+		r.Contains(err.Error(), "disclosure array size[1] must be greater 2")
 	})
 
 	t.Run("error - invalid disclosure array (name is not a string)", func(t *testing.T) {
@@ -444,7 +444,7 @@ func TestGetDisclosureClaims(t *testing.T) {
 		disclosureJSON, err := json.Marshal(disclosureArr)
 		require.NoError(t, err)
 
-		sdJWT := ParseCombinedFormatForIssuance(fmt.Sprintf("jws~%s", base64.RawURLEncoding.EncodeToString(disclosureJSON)))
+		sdJWT := ParseCombinedFormatForIssuance(fmt.Sprintf("%s~%s", testSDJWT, base64.RawURLEncoding.EncodeToString(disclosureJSON)))
 		require.Equal(t, 1, len(sdJWT.Disclosures))
 
 		token, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
