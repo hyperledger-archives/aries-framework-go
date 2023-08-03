@@ -92,7 +92,7 @@ const (
 	// DisclosureClaimTypeArrayElement array element.
 	DisclosureClaimTypeArrayElement = DisclosureClaimType(1)
 	// DisclosureClaimTypeArray array.
-	DisclosureClaimTypeArray = DisclosureClaimType(2)
+	DisclosureClaimTypeObject = DisclosureClaimType(2)
 )
 
 // DisclosureClaim defines claim.
@@ -113,11 +113,9 @@ type wrappedClaim struct {
 // GetDisclosureClaims de-codes disclosures.
 func GetDisclosureClaims(
 	disclosures []string,
-	version SDJWTVersion,
+	hash crypto.Hash,
 ) ([]*DisclosureClaim, error) {
-	instance := newCommon(version)
-
-	return instance.GetDisclosureClaims(disclosures)
+	return getDisclosureClaims(disclosures, hash)
 }
 
 // ParseCombinedFormatForIssuance parses combined format for issuance into CombinedFormatForIssuance parts.

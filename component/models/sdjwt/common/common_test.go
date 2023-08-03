@@ -289,7 +289,13 @@ func TestGetDisclosureClaims(t *testing.T) {
 		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuance)
 		require.Equal(t, 1, len(sdJWT.Disclosures))
 
-		disclosureClaims, err := GetDisclosureClaims(sdJWT.Disclosures, SDJWTVersionV2)
+		token, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		r.NoError(err)
+
+		hash, err := GetCryptoHashFromClaims(token.Payload)
+		r.NoError(err)
+
+		disclosureClaims, err := GetDisclosureClaims(sdJWT.Disclosures, hash)
 		r.NoError(err)
 		r.Len(disclosureClaims, 1)
 
@@ -301,7 +307,13 @@ func TestGetDisclosureClaims(t *testing.T) {
 		sdJWT := ParseCombinedFormatForIssuance("jws~xyz")
 		require.Equal(t, 1, len(sdJWT.Disclosures))
 
-		disclosureClaims, err := GetDisclosureClaims(sdJWT.Disclosures, SDJWTVersionV2)
+		token, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		r.NoError(err)
+
+		hash, err := GetCryptoHashFromClaims(token.Payload)
+		r.NoError(err)
+
+		disclosureClaims, err := GetDisclosureClaims(sdJWT.Disclosures, hash)
 		r.Error(err)
 		r.Nil(disclosureClaims)
 		r.Contains(err.Error(), "failed to unmarshal disclosure array")
@@ -315,7 +327,13 @@ func TestGetDisclosureClaims(t *testing.T) {
 		sdJWT := ParseCombinedFormatForIssuance(fmt.Sprintf("jws~%s", base64.RawURLEncoding.EncodeToString(disclosureJSON)))
 		require.Equal(t, 1, len(sdJWT.Disclosures))
 
-		disclosureClaims, err := GetDisclosureClaims(sdJWT.Disclosures, SDJWTVersionV2)
+		token, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		r.NoError(err)
+
+		hash, err := GetCryptoHashFromClaims(token.Payload)
+		r.NoError(err)
+
+		disclosureClaims, err := GetDisclosureClaims(sdJWT.Disclosures, hash)
 		r.Error(err)
 		r.Nil(disclosureClaims)
 		r.Contains(err.Error(), "disclosure array size[2] must be 3")
@@ -329,7 +347,13 @@ func TestGetDisclosureClaims(t *testing.T) {
 		sdJWT := ParseCombinedFormatForIssuance(fmt.Sprintf("jws~%s", base64.RawURLEncoding.EncodeToString(disclosureJSON)))
 		require.Equal(t, 1, len(sdJWT.Disclosures))
 
-		disclosureClaims, err := GetDisclosureClaims(sdJWT.Disclosures, SDJWTVersionV2)
+		token, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		r.NoError(err)
+
+		hash, err := GetCryptoHashFromClaims(token.Payload)
+		r.NoError(err)
+
+		disclosureClaims, err := GetDisclosureClaims(sdJWT.Disclosures, hash)
 		r.Error(err)
 		r.Nil(disclosureClaims)
 		r.Contains(err.Error(), "disclosure name type[float64] must be string")
@@ -343,10 +367,13 @@ func TestGetDisclosedClaims(t *testing.T) {
 	r.Equal(testSDJWT, cfi.SDJWT)
 	r.Equal(1, len(cfi.Disclosures))
 
-	disclosureClaims, err := GetDisclosureClaims(cfi.Disclosures, SDJWTVersionV2)
+	token, _, err := afjwt.Parse(cfi.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
 	r.NoError(err)
 
-	token, _, err := afjwt.Parse(cfi.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+	hash, err := GetCryptoHashFromClaims(token.Payload)
+	r.NoError(err)
+
+	disclosureClaims, err := GetDisclosureClaims(cfi.Disclosures, hash)
 	r.NoError(err)
 
 	var claims map[string]interface{}

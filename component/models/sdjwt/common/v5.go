@@ -12,22 +12,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
-
 	afgjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
 	utils "github.com/hyperledger/aries-framework-go/component/models/util/maphelpers"
 )
 
 type commonV5 struct {
-	disclosureParts int
-	saltIndex       int
 }
 
 func newCommonV5() *commonV5 {
-	return &commonV5{
-		disclosureParts: 2,
-		saltIndex:       0,
-	}
+	return &commonV5{}
 }
 
 // VerifyDisclosuresInSDJWT checks for disclosure inclusion in SD-JWT.
@@ -53,7 +46,7 @@ func (c *commonV5) VerifyDisclosuresInSDJWT(disclosures []string, signedJWT *afg
 		}
 
 		if !found {
-			parsed, err := c.getDisclosureClaim(disclosure)
+			parsed, err := getDisclosureClaim(disclosure, cryptoHash)
 			if err != nil {
 				return err
 			}
@@ -69,7 +62,7 @@ func (c *commonV5) VerifyDisclosuresInSDJWT(disclosures []string, signedJWT *afg
 	return nil
 }
 
-func (c *commonV5) getDisclosureClaim(disclosure string) (*wrappedClaim, error) {
+func getDisclosureClaim(disclosure string, hash crypto.Hash) (*wrappedClaim, error) {
 	decoded, err := base64.RawURLEncoding.DecodeString(disclosure)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode disclosure: %w", err)
@@ -82,16 +75,16 @@ func (c *commonV5) getDisclosureClaim(disclosure string) (*wrappedClaim, error) 
 		return nil, fmt.Errorf("failed to unmarshal disclosure array: %w", err)
 	}
 
-	if len(disclosureArr) < c.disclosureParts {
+	if len(disclosureArr) < 2 {
 		return nil, fmt.Errorf("disclosure array size[%d] must be greater %d", len(disclosureArr),
-			c.disclosureParts)
+			2)
 	}
 
 	claim := &DisclosureClaim{Disclosure: disclosure}
 
-	salt, ok := disclosureArr[c.saltIndex].(string)
+	salt, ok := disclosureArr[0].(string)
 	if !ok {
-		return nil, fmt.Errorf("disclosure salt type[%T] must be string", disclosureArr[c.saltIndex])
+		return nil, fmt.Errorf("disclosure salt type[%T] must be string", disclosureArr[1])
 	}
 
 	claim.Salt = salt
@@ -107,18 +100,11 @@ func (c *commonV5) getDisclosureClaim(disclosure string) (*wrappedClaim, error) 
 
 		claim.Name = name
 		claim.Value = disclosureArr[2]
-
-		switch reflect.TypeOf(claim.Value).Kind() {
-		case reflect.Array:
-			fallthrough
-		case reflect.Slice:
-			claim.Type = DisclosureClaimTypeArray
-		}
 	}
 
-	digest, err := GetHash(crypto.SHA256, disclosure)
+	digest, err := GetHash(hash, disclosure)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get disclosure hash: %w", err)
 	}
 
 	return &wrappedClaim{
@@ -128,7 +114,7 @@ func (c *commonV5) getDisclosureClaim(disclosure string) (*wrappedClaim, error) 
 	}, nil
 }
 
-func (c *commonV5) processClaimValue(
+func processClaimValue(
 	claimMap map[string]*wrappedClaim,
 	claim *wrappedClaim,
 ) error {
@@ -136,7 +122,7 @@ func (c *commonV5) processClaimValue(
 		return nil
 	}
 
-	v, err := c.processObj(claim.Claim.Value, claimMap)
+	v, err := processObj(claim.Claim.Value, claimMap)
 	if err != nil {
 		return err
 	}
@@ -147,7 +133,7 @@ func (c *commonV5) processClaimValue(
 	return nil
 }
 
-func (c *commonV5) processObj(
+func processObj(
 	inputObj interface{},
 	claimMap map[string]*wrappedClaim,
 ) (interface{}, error) {
@@ -172,7 +158,7 @@ func (c *commonV5) processObj(
 				continue
 			}
 
-			if err := c.processClaimValue(claimMap, cl); err != nil {
+			if err := processClaimValue(claimMap, cl); err != nil {
 				return nil, err
 			}
 
@@ -186,7 +172,7 @@ func (c *commonV5) processObj(
 				continue
 			}
 
-			res, resErr := c.processObj(v, claimMap)
+			res, resErr := processObj(v, claimMap)
 			if resErr != nil {
 				return nil, resErr
 			}
@@ -206,7 +192,7 @@ func (c *commonV5) processObj(
 					continue
 				}
 
-				if err := c.processClaimValue(claimMap, cl); err != nil {
+				if err := processClaimValue(claimMap, cl); err != nil {
 					return nil, err
 				}
 
@@ -225,13 +211,14 @@ func (c *commonV5) processObj(
 	}
 }
 
-func (c *commonV5) GetDisclosureClaims(
+func getDisclosureClaims(
 	disclosures []string,
+	hash crypto.Hash,
 ) ([]*DisclosureClaim, error) {
 	claimMap := map[string]*wrappedClaim{}
 
 	for _, disclosure := range disclosures {
-		claim, err := c.getDisclosureClaim(disclosure)
+		claim, err := getDisclosureClaim(disclosure, hash)
 		if err != nil {
 			return nil, err
 		}
@@ -245,7 +232,7 @@ func (c *commonV5) GetDisclosureClaims(
 			continue
 		}
 
-		if err := c.processClaimValue(claimMap, v); err != nil {
+		if err := processClaimValue(claimMap, v); err != nil {
 			return nil, err
 		}
 

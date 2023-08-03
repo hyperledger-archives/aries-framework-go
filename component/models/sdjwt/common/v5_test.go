@@ -1,6 +1,7 @@
 package common
 
 import (
+	"crypto"
 	"encoding/json"
 	"testing"
 
@@ -24,8 +25,8 @@ func TestGetClaimsV5(t *testing.T) {
 
 		var disData []string
 		assert.NoError(t, json.Unmarshal([]byte(testDisclosures), &disData))
-		cm := newCommonV5()
-		parsed, err := cm.GetDisclosureClaims(disData)
+
+		parsed, err := GetDisclosureClaims(disData, crypto.SHA256)
 		assert.NoError(t, err)
 		assert.Len(t, parsed, 7)
 
@@ -72,8 +73,7 @@ func TestGetClaimsV5(t *testing.T) {
 		// - 	"WyJURWtwSjJkYWxraGltUUVLd25Cblp3IiwiVUEiXQ", UA
 		var disData []string
 		assert.NoError(t, json.Unmarshal([]byte(testDisclosures), &disData))
-		cm := newCommonV5()
-		parsed, err := cm.GetDisclosureClaims(disData)
+		parsed, err := GetDisclosureClaims(disData, crypto.SHA256)
 		assert.NoError(t, err)
 		assert.Len(t, parsed, 6) // - locality - arr elements
 
