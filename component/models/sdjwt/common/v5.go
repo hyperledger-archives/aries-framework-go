@@ -147,7 +147,7 @@ func processObj(
 				continue
 			}
 
-			elementDigest, ok := parsedMap["..."]
+			elementDigest, ok := parsedMap[ArrayElementDigestKey]
 			if !ok {
 				return nil, errors.New("invalid array struct")
 			}

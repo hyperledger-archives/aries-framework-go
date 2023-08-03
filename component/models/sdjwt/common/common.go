@@ -23,9 +23,10 @@ import (
 const (
 	CombinedFormatSeparator = "~"
 
-	SDAlgorithmKey = "_sd_alg"
-	SDKey          = "_sd"
-	CNFKey         = "cnf"
+	SDAlgorithmKey        = "_sd_alg"
+	SDKey                 = "_sd"
+	CNFKey                = "cnf"
+	ArrayElementDigestKey = "..."
 )
 
 // SDJWTVersion represents version SD-JWT according to spec version.
@@ -303,19 +304,43 @@ func GetCNF(claims map[string]interface{}) (map[string]interface{}, error) {
 	return cnf, nil
 }
 
-// GetDisclosureDigests returns digests from claims map.
+// GetDisclosureDigests returns digests from claims map considering
+// either SDKey and array elements that are objects with one key, that key being ... and referring to a string.
 func GetDisclosureDigests(claims map[string]interface{}) (map[string]bool, error) {
-	disclosuresObj, ok := claims[SDKey]
-	if !ok {
-		return nil, nil
+	var (
+		digests []string
+		err     error
+	)
+
+	// Find all objects having an _sd key that refers to an array of strings.
+	digestsObj, exist := claims[SDKey]
+	if exist {
+		digests, err = stringArray(digestsObj)
+		if err != nil {
+			return nil, fmt.Errorf("get disclosure digests: %w", err)
+		}
 	}
 
-	disclosures, err := stringArray(disclosuresObj)
-	if err != nil {
-		return nil, fmt.Errorf("get disclosure digests: %w", err)
+	// Find all array elements that are objects with one key, that key being ... and referring to a string.
+	for _, v := range claims {
+		switch t := v.(type) {
+		case []interface{}:
+			for _, vv := range t {
+				valueMapped, ok := vv.(map[string]interface{})
+				if !ok {
+					continue
+				}
+
+				if digestIface, ok := valueMapped[ArrayElementDigestKey]; ok && len(valueMapped) == 1 {
+					if digest, ok := digestIface.(string); ok {
+						digests = append(digests, digest)
+					}
+				}
+			}
+		}
 	}
 
-	return SliceToMap(disclosures), nil
+	return SliceToMap(digests), nil
 }
 
 // GetDisclosedClaims returns disclosed claims only.
