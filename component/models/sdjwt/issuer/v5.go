@@ -267,7 +267,7 @@ func (s *SDJWTBuilderV5) processArrayElements(
 		}
 
 		elementsDisclosures = append(elementsDisclosures, disclosure)
-		digestArr = append(digestArr, map[string]string{"...": digest})
+		digestArr = append(digestArr, map[string]string{common.ArrayElementDigestKey: digest})
 	}
 
 	return digestArr, elementsDisclosures, nil
