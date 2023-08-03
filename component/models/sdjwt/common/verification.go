@@ -125,7 +125,7 @@ func VerifyDisclosuresInSDJWT(
 	// If the digest cannot be found in the SD-JWT payload, the Verifier MUST reject the Presentation.
 	for _, disclosure := range parsedDisclosureClaims {
 		if !disclosure.IsValueParsed {
-			return fmt.Errorf("disclosure %s is not used", disclosure.Disclosure)
+			return fmt.Errorf("disclosure digest '%s' not found in SD-JWT disclosure digests", disclosure.Digest)
 		}
 	}
 
@@ -230,7 +230,7 @@ func discloseClaimValue(claim interface{}, recData *recursiveData) (interface{},
 		if nestedSDListIface, ok := disclosureValue[SDKey]; ok {
 			nestedSDList, err := stringArray(nestedSDListIface)
 			if err != nil {
-				return nil, fmt.Errorf("get nested disclosure digests: %w", err)
+				return nil, fmt.Errorf("get disclosure digests: %w", err)
 			}
 
 			var missingSDs []interface{}
