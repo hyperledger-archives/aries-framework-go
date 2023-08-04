@@ -127,7 +127,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
 		require.NoError(t, err)
 
-		err = VerifyDisclosuresInSDJWT(append(sdJWT.Disclosures, additionalDisclosure), signedJWT)
+		err = VerifyDisclosuresInSDJWT(append(sdJWT.Disclosures, additionalSDDisclosure), signedJWT)
 		r.Error(err)
 		r.Contains(err.Error(),
 			"disclosure digest 'X9yH0Ajrdm1Oij4tWso9UzzKJvPoDxwmuEcO3XAdRC0' not found in SD-JWT disclosure digests")
@@ -142,7 +142,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		signedJWT, err := afjwt.NewSigned(jwtPayload, nil, signer)
 		r.NoError(err)
 
-		err = VerifyDisclosuresInSDJWT([]string{additionalDisclosure}, signedJWT)
+		err = VerifyDisclosuresInSDJWT([]string{additionalSDDisclosure}, signedJWT)
 		r.Error(err)
 		r.Contains(err.Error(),
 			"disclosure digest 'X9yH0Ajrdm1Oij4tWso9UzzKJvPoDxwmuEcO3XAdRC0' not found in SD-JWT disclosure digests")
@@ -195,7 +195,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
 		r.NoError(err)
 
-		err = VerifyDisclosuresInSDJWT([]string{additionalDisclosure}, signedJWT)
+		err = VerifyDisclosuresInSDJWT([]string{additionalSDDisclosure}, signedJWT)
 		r.Error(err)
 		r.Contains(err.Error(), "get disclosure digests: entry type[string] is not an array")
 	})
@@ -208,7 +208,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
 		r.NoError(err)
 
-		err = VerifyDisclosuresInSDJWT([]string{additionalDisclosure}, signedJWT)
+		err = VerifyDisclosuresInSDJWT([]string{additionalSDDisclosure}, signedJWT)
 		r.Error(err)
 		r.Contains(err.Error(), "get disclosure digests: entry item type[float64] is not a string")
 	})
@@ -220,13 +220,12 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
 		require.NoError(t, err)
 
-		additionalDigest, err := GetHash(crypto.SHA256, additionalDisclosure)
+		additionalDigest, err := GetHash(crypto.SHA256, additionalSDDisclosure)
 		r.NoError(err)
 
-		oldDigest := findAndReplace(signedJWT.Payload, additionalDigest)
-		fmt.Println(oldDigest)
+		oldDigest := findAndReplaceArrayElementDigest(signedJWT.Payload, additionalDigest)
 
-		updatedDisclosures := []string{additionalDisclosure}
+		updatedDisclosures := []string{additionalSDDisclosure}
 		for _, d := range sdJWT.Disclosures {
 			h, err := GetHash(crypto.SHA256, d)
 			r.NoError(err)
@@ -240,10 +239,25 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		r.ErrorContains(err, fmt.Sprintf("invald disclosure associated with array element digest %s", additionalDigest))
 	})
 
+	t.Run("error - sd element associated disclosure is invalid", func(t *testing.T) {
+		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuanceV5)
+		require.Equal(t, 6, len(sdJWT.Disclosures))
+
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		require.NoError(t, err)
+
+		additionalDigest, err := GetHash(crypto.SHA256, additionalArrayElementDisclosure)
+		r.NoError(err)
+
+		ok := findAndReplaceSDElementDigest(signedJWT.Payload, additionalDigest)
+		r.True(ok)
+
+		err = VerifyDisclosuresInSDJWT(append(sdJWT.Disclosures, additionalArrayElementDisclosure), signedJWT)
+		r.ErrorContains(err, fmt.Sprintf("invald disclosure associated with sd element digest %s", additionalDigest))
+	})
 }
 
-// find any array element digest and replace it with hash of additionalDigest
-func findAndReplace(claimsMap map[string]interface{}, additionalDigest string) string {
+func findAndReplaceArrayElementDigest(claimsMap map[string]interface{}, additionalDigest string) string {
 	if digest, ok := claimsMap[ArrayElementDigestKey]; ok {
 		claimsMap[ArrayElementDigestKey] = additionalDigest
 		return digest.(string)
@@ -252,15 +266,35 @@ func findAndReplace(claimsMap map[string]interface{}, additionalDigest string) s
 	for _, v := range claimsMap {
 		switch t := v.(type) {
 		case map[string]interface{}:
-			return findAndReplace(t, additionalDigest)
+			return findAndReplaceArrayElementDigest(t, additionalDigest)
 		case []interface{}:
 			for _, nv := range t {
 				if mapped, ok := nv.(map[string]interface{}); ok {
-					return findAndReplace(mapped, additionalDigest)
+					return findAndReplaceArrayElementDigest(mapped, additionalDigest)
 				}
 			}
 		}
 	}
 
 	return ""
+}
+
+func findAndReplaceSDElementDigest(claimsMap map[string]interface{}, additionalDigest string) bool {
+	if digests, ok := claimsMap[SDKey]; ok {
+		if d, ok := digests.([]interface{}); ok {
+			claimsMap[SDKey] = append(d, additionalDigest)
+			return true
+		}
+	}
+
+	for _, v := range claimsMap {
+		switch t := v.(type) {
+		case map[string]interface{}:
+			if ok := findAndReplaceSDElementDigest(t, additionalDigest); ok {
+				return ok
+			}
+		}
+	}
+
+	return false
 }

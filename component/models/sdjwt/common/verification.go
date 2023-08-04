@@ -235,7 +235,7 @@ func discloseClaimValue(claim interface{}, recData *recursiveData) (interface{},
 				if disclosureClaim.Elements != disclosureElementsAmountForSDDigest {
 					// If the digest was found in an object's _sd key:
 					//  If the respective Disclosure is not a JSON-encoded array of three elements, the SD-JWT MUST be rejected.
-					return nil, fmt.Errorf("invald disclosure associated with digest %s", digest)
+					return nil, fmt.Errorf("invald disclosure associated with sd element digest %s", digest)
 				}
 
 				if err = setDisclosureClaimValue(recData, disclosureClaim); err != nil {

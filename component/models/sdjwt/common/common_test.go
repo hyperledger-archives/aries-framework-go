@@ -344,7 +344,7 @@ func TestGetDisclosedClaims(t *testing.T) {
 	t.Run("success - with complex object", func(t *testing.T) {
 		testClaims := utils.CopyMap(claims)
 
-		additionalDigest, err := GetHash(crypto.SHA256, additionalDisclosure)
+		additionalDigest, err := GetHash(crypto.SHA256, additionalSDDisclosure)
 		r.NoError(err)
 
 		parentObj := make(map[string]interface{})
@@ -358,7 +358,7 @@ func TestGetDisclosedClaims(t *testing.T) {
 		disclosedClaims, err := GetDisclosedClaims(append(disclosureClaims,
 			&DisclosureClaim{
 				Digest:        additionalDigest,
-				Disclosure:    additionalDisclosure,
+				Disclosure:    additionalSDDisclosure,
 				Salt:          "",
 				Elements:      disclosureElementsAmountForSDDigest,
 				Type:          DisclosureClaimTypePlainText,
@@ -381,7 +381,7 @@ func TestGetDisclosedClaims(t *testing.T) {
 	t.Run("error - claim value contains _sd", func(t *testing.T) {
 		testClaims := utils.CopyMap(claims)
 
-		additionalDigest, err := GetHash(crypto.SHA256, additionalDisclosure)
+		additionalDigest, err := GetHash(crypto.SHA256, additionalSDDisclosure)
 		r.NoError(err)
 
 		parentObj := make(map[string]interface{})
@@ -392,7 +392,7 @@ func TestGetDisclosedClaims(t *testing.T) {
 
 		disclosedClaims, err := GetDisclosedClaims(append(disclosureClaims,
 			&DisclosureClaim{
-				Disclosure: additionalDisclosure,
+				Disclosure: additionalSDDisclosure,
 				Name:       "key-x",
 				Value: map[string]interface{}{
 					"_sd": []interface{}{"test-digest"},
@@ -735,7 +735,8 @@ func (sv *NoopSignatureVerifier) Verify(joseHeaders jose.Headers, payload, signi
 	return nil
 }
 
-const additionalDisclosure = `WyJfMjZiYzRMVC1hYzZxMktJNmNCVzVlcyIsICJmYW1pbHlfbmFtZSIsICJNw7ZiaXVzIl0`
+const additionalSDDisclosure = `WyJfMjZiYzRMVC1hYzZxMktJNmNCVzVlcyIsICJmYW1pbHlfbmFtZSIsICJNw7ZiaXVzIl0`
+const additionalArrayElementDisclosure = `WyJjc3AteWZLWWNTYWlkUElUMHpyOFNRIiwiTWluYXMgVGlyaXRoIl0`
 
 // nolint: lll
 const testCombinedFormatForIssuance = `eyJhbGciOiJFZERTQSJ9.eyJfc2QiOlsicXF2Y3FuY3pBTWdZeDdFeWtJNnd3dHNweXZ5dks3OTBnZTdNQmJRLU51cyJdLCJfc2RfYWxnIjoic2hhLTI1NiIsImV4cCI6MTcwMzAyMzg1NSwiaWF0IjoxNjcxNDg3ODU1LCJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tL2lzc3VlciIsIm5iZiI6MTY3MTQ4Nzg1NX0.vscuzfwcHGi04pWtJCadc4iDELug6NH6YK-qxhY1qacsciIHuoLELAfon1tGamHtuu8TSs6OjtLk3lHE16jqAQ~WyIzanFjYjY3ejl3a3MwOHp3aUs3RXlRIiwgImdpdmVuX25hbWUiLCAiSm9obiJd`
