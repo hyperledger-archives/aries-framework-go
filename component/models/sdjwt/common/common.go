@@ -14,8 +14,6 @@ import (
 	"strings"
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
-
-	utils "github.com/hyperledger/aries-framework-go/component/models/util/maphelpers"
 )
 
 // CombinedFormatSeparator is disclosure separator.
@@ -39,6 +37,43 @@ const (
 	// SDJWTVersionV5 SD-JWT v5 spec.
 	SDJWTVersionV5 = SDJWTVersion(5)
 )
+
+const (
+	disclosureElementsAmountForArrayDigest = 2
+	disclosureElementsAmountForSDDigest    = 3
+
+	saltPosition             = 0
+	arrayDigestValuePosition = 1
+	sdDigestNamePosition     = 1
+	sdDigestValuePosition    = 2
+)
+
+// DisclosureClaimType disclosure claim type, used for sd-jwt v5+.
+type DisclosureClaimType int
+
+const (
+	// DisclosureClaimTypeUnknown default type for disclosure claim.
+	DisclosureClaimTypeUnknown = DisclosureClaimType(0)
+	// DisclosureClaimTypeArrayElement array element.
+	DisclosureClaimTypeArrayElement = DisclosureClaimType(2)
+	// DisclosureClaimTypeObject object.
+	DisclosureClaimTypeObject = DisclosureClaimType(3)
+	// DisclosureClaimTypePlainText object.
+	DisclosureClaimTypePlainText = DisclosureClaimType(3)
+)
+
+// DisclosureClaim defines claim.
+type DisclosureClaim struct {
+	Digest        string
+	Disclosure    string
+	Salt          string
+	Elements      int
+	Type          DisclosureClaimType
+	Version       SDJWTVersion
+	Name          string
+	Value         interface{}
+	IsValueParsed bool
+}
 
 // CombinedFormatForIssuance holds SD-JWT and disclosures.
 type CombinedFormatForIssuance struct {
@@ -83,53 +118,34 @@ func (cf *CombinedFormatForPresentation) Serialize() string {
 	return presentation
 }
 
-// DisclosureClaimType disclosure claim type, used for sd-jwt v5+.
-type DisclosureClaimType int
-
-const (
-	// DisclosureClaimTypeUnknown default type for disclosure claim.
-	DisclosureClaimTypeUnknown = DisclosureClaimType(0)
-	// DisclosureClaimTypeArrayElement array element.
-	DisclosureClaimTypeArrayElement = DisclosureClaimType(1)
-	// DisclosureClaimTypeObject object.
-	DisclosureClaimTypeObject = DisclosureClaimType(2)
-	// DisclosureClaimTypePlainText object.
-	DisclosureClaimTypePlainText = DisclosureClaimType(3)
-)
-
-// DisclosureClaim defines claim.
-type DisclosureClaim struct {
-	Disclosure string
-	Salt       string
-	Name       string
-	Value      interface{}
-	Type       DisclosureClaimType
-}
-
-type wrappedClaim struct {
-	Claim         *DisclosureClaim
-	IsValueParsed bool
-	Digest        string
-}
-
 // GetDisclosureClaims de-codes disclosures.
 func GetDisclosureClaims(
 	disclosures []string,
 	hash crypto.Hash,
 ) ([]*DisclosureClaim, error) {
-	recData, err := getDisclosureClaimsInternal(disclosures, hash, true)
+	disclosureClaims, err := getDisclosureClaims(disclosures, hash)
 	if err != nil {
 		return nil, err
 	}
 
-	var final []*DisclosureClaim
+	recData := &recursiveData{
+		disclosures: disclosureClaims,
+	}
 
-	for _, cl := range recData.claimMap {
-		if cl.Claim.Type == DisclosureClaimTypeArrayElement {
+	for _, wrappedDisclosureClaim := range disclosureClaims {
+		if err = setDisclosureClaimValue(recData, wrappedDisclosureClaim); err != nil {
+			return nil, err
+		}
+	}
+
+	final := make([]*DisclosureClaim, 0, len(disclosureClaims))
+
+	for _, disclosureClaim := range recData.disclosures {
+		if disclosureClaim.Type == DisclosureClaimTypeArrayElement {
 			continue
 		}
 
-		final = append(final, cl.Claim)
+		final = append(final, disclosureClaim)
 	}
 
 	return final, nil
@@ -326,20 +342,58 @@ func GetDisclosureDigests(claims map[string]interface{}) (map[string]bool, error
 
 // GetDisclosedClaims returns disclosed claims only.
 func GetDisclosedClaims(disclosureClaims []*DisclosureClaim, claims map[string]interface{}) (map[string]interface{}, error) { // nolint:lll
-	hash, err := GetCryptoHashFromClaims(claims)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get crypto hash from claims: %w", err)
+	disclosureClaimsMap := make(map[string]*DisclosureClaim, len(disclosureClaims))
+
+	for _, d := range disclosureClaims {
+		disclosureClaimsMap[d.Digest] = d
 	}
 
-	output := utils.CopyMap(claims)
-	includedDigests := make(map[string]bool)
-
-	err = processDisclosedClaims(disclosureClaims, output, includedDigests, hash)
-	if err != nil {
-		return nil, fmt.Errorf("failed to process disclosed claims: %w", err)
+	recData := &recursiveData{
+		disclosures: disclosureClaimsMap,
 	}
 
-	return output, nil
+	output, err := discloseClaimValue(claims, recData)
+	if err != nil {
+		return nil, err
+	}
+
+	outputMapped, ok := output.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected output type")
+	}
+
+	CleanupNestedDigests(outputMapped)
+
+	return outputMapped, nil
+}
+
+func CleanupNestedDigests(claims map[string]interface{}) { // nolint:lll
+	delete(claims, SDKey)
+	delete(claims, SDAlgorithmKey)
+
+	// Find all array elements that are objects with one key, that key being ... and referring to a string.
+	for key, v := range claims {
+		switch t := v.(type) {
+		case map[string]interface{}:
+			CleanupNestedDigests(t)
+		case []interface{}:
+			var newElements []interface{}
+			for _, vv := range t {
+				valueMapped, ok := vv.(map[string]interface{})
+				if ok {
+					if digestIface, ok := valueMapped[ArrayElementDigestKey]; ok && len(valueMapped) == 1 {
+						if _, ok := digestIface.(string); ok {
+							continue
+						}
+					}
+				}
+
+				newElements = append(newElements, vv)
+			}
+
+			claims[key] = newElements
+		}
+	}
 }
 
 func processDisclosedClaims(disclosureClaims []*DisclosureClaim, claims map[string]interface{}, includedDigests map[string]bool, hash crypto.Hash) error { // nolint:lll
@@ -360,20 +414,20 @@ func processDisclosedClaims(disclosureClaims []*DisclosureClaim, claims map[stri
 	}
 
 	for _, dc := range disclosureClaims {
-		digest, err := GetHash(hash, dc.Disclosure)
+		disclosureDigest, err := GetHash(hash, dc.Disclosure)
 		if err != nil {
 			return err
 		}
 
-		if _, ok := digests[digest]; !ok {
+		if _, ok := digests[disclosureDigest]; !ok {
 			continue
 		}
 
-		_, digestAlreadyIncluded := includedDigests[digest]
+		_, digestAlreadyIncluded := includedDigests[disclosureDigest]
 		if digestAlreadyIncluded {
 			// If there is more than one place where the digest is included,
 			// the Verifier MUST reject the Presentation.
-			return fmt.Errorf("digest '%s' has been included in more than one place", digest)
+			return fmt.Errorf("digest '%s' has been included in more than one place", disclosureDigest)
 		}
 
 		err = validateClaim(dc, claims)
@@ -383,7 +437,7 @@ func processDisclosedClaims(disclosureClaims []*DisclosureClaim, claims map[stri
 
 		claims[dc.Name] = dc.Value
 
-		includedDigests[digest] = true
+		includedDigests[disclosureDigest] = true
 	}
 
 	delete(claims, SDKey)

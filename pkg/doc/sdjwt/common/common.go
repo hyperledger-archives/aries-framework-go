@@ -32,8 +32,8 @@ type CombinedFormatForPresentation = common.CombinedFormatForPresentation
 type DisclosureClaim = common.DisclosureClaim
 
 // GetDisclosureClaims de-codes disclosures.
-func GetDisclosureClaims(disclosures []string, version common.SDJWTVersion) ([]*DisclosureClaim, error) {
-	return common.GetDisclosureClaims(disclosures, version)
+func GetDisclosureClaims(disclosures []string, hash crypto.Hash) ([]*DisclosureClaim, error) {
+	return common.GetDisclosureClaims(disclosures, hash)
 }
 
 // ParseCombinedFormatForIssuance parses combined format for issuance into CombinedFormatForIssuance parts.
@@ -52,8 +52,8 @@ func GetHash(hash crypto.Hash, value string) (string, error) {
 }
 
 // VerifyDisclosuresInSDJWT checks for disclosure inclusion in SD-JWT.
-func VerifyDisclosuresInSDJWT(disclosures []string, signedJWT *afgjwt.JSONWebToken, version common.SDJWTVersion) error {
-	return common.VerifyDisclosuresInSDJWT(disclosures, signedJWT, version)
+func VerifyDisclosuresInSDJWT(disclosures []string, signedJWT *afgjwt.JSONWebToken) error {
+	return common.VerifyDisclosuresInSDJWT(disclosures, signedJWT)
 }
 
 // GetCryptoHashFromClaims returns crypto hash from claims.

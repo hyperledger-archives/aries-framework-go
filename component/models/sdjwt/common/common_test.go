@@ -9,14 +9,11 @@ package common
 import (
 	"bytes"
 	"crypto"
-	"crypto/ed25519"
-	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
@@ -30,108 +27,6 @@ const (
 
 	testAlg = "sha-256"
 )
-
-func TestGetDisclosureClaimsV5(t *testing.T) {
-	t.Run("full disclosures", func(t *testing.T) {
-		testDisclosures := `[
-	"WyI2NDYwRkU1STJvN0l0bktGX2s4YWZ3IiwiYWRkcmVzcyIseyJfc2QiOlsiQjJBQVFzTVk4V1B1bWZoOWtXY3J1RXV4TUVaT2J5bW5MNGU2OVB5U0psNCIsIkV3TGVJbVFVdWIyS1F6eURoNmxnU1c1TnZsMExqQWFlaXFCZHJzeDY1T28iLCI4TG56SUJ5QlNDZ243SG1zcURUbW1GeXZSVTRRdHRuaVNlZE4xanN2LXhvIiwibk54dThkU3laV0x3QVAteTJtV0k5aXRpMmRHejQ5RUM0eDY2RGxDZ0QwZyJdLCJleHRyYSI6eyJfc2QiOlsib2RqUjRraHQxcGVNZFRUMzVFMUotWXF5Q0gyM0dfSGhrQXRLZks0cUpIVSJdfSwiZXh0cmFBcnJJbmNsdWRlIjpbeyIuLi4iOiIxRVN5RGlLTE9KbEF2VnYtQnJaN1JQTU4zRXVOdU1Jc014aXVMeGhZWjg0In0sIlBMIl0sInJlZ2lvbiI6IlNhY2hzZW4tQW5oYWx0In1d",
-	"WyJZbEFCTmZkaXhKSVF4Z3hNZ0RTcUpRIiwiY291bnRyeSIsIkRFIl0",
-	"WyJJdGZ2ellZdXlMSTF3TGZLU213M0dRIiwiZXh0cmFBcnIiLFt7Ii4uLiI6IkRsVHpXT0tWbzJNbzNPNUZER0hpWGhuSnd4c2hBTkQyMUVibmQyWFRiT0kifSx7Ii4uLiI6IkMwbUl4SXdEQm4xZ1IxamZBTDFYZVJNdGlYLVdDMVBjc3FUVkphdnJMQTQifV1d",
-	"WyJkWW10LWNjcWMyeUJYd1ZGTFZkeFdnIiwic3RyZWV0X2FkZHJlc3MiLCJTY2h1bHN0ci4gMTIiXQ",
-	"WyJURWtwSjJkYWxraGltUUVLd25Cblp3IiwiVUEiXQ",
-	"WyIxRTlRZnRDS3YtbTFjN0VFOXlXMmh3IiwiRXh0cmExIl0",
-	"WyI0Mjl4ejFGeTlEdU9SQ0R2cHd3bzFBIiwiRXh0cmEyIl0",
-	"WyJvVy1oMDZYVUNsTU45YTBVV3VHMGhBIiwicmVjdXJzaXZlIix7Il9zZCI6WyJoX2h1bVhsYjhVekM5T0tGOHc3SEd6ZmYzSGgzMmh3SGR6Vms5WS1oOGR3Il19XQ",
-	"WyItdHBPTUlPS3dnOUNtNlBRVTlDTktBIiwia2V5MSIsInZhbHVlMSJd",
-	"WyJ5WElBaTZSb1Y1eDV2X3lsVm1wXzhBIiwibG9jYWxpdHkiLCJTY2h1bHBmb3J0YSJd"
-]`
-
-		var disData []string
-		assert.NoError(t, json.Unmarshal([]byte(testDisclosures), &disData))
-
-		parsed, err := GetDisclosureClaims(disData, crypto.SHA256)
-		assert.NoError(t, err)
-		assert.Len(t, parsed, 7)
-
-		var address *DisclosureClaim
-		for _, cl := range parsed {
-			if cl.Name == "address" {
-				address = cl
-				break
-			}
-		}
-
-		assert.Equal(t, map[string]interface{}{
-			"extraArrInclude": []interface{}{
-				"UA", "PL",
-			},
-			"extra": map[string]interface{}{
-				"recursive": map[string]interface{}{
-					"key1": "value1",
-				},
-			},
-			"region":         "Sachsen-Anhalt",
-			"country":        "DE",
-			"street_address": "Schulstr. 12",
-			"locality":       "Schulpforta",
-			"extraArr": []interface{}{
-				"Extra1", "Extra2",
-			},
-		}, address.Value)
-	})
-
-	t.Run("array element and one value missing", func(t *testing.T) {
-		testDisclosures := `[
-	"WyI2NDYwRkU1STJvN0l0bktGX2s4YWZ3IiwiYWRkcmVzcyIseyJfc2QiOlsiQjJBQVFzTVk4V1B1bWZoOWtXY3J1RXV4TUVaT2J5bW5MNGU2OVB5U0psNCIsIkV3TGVJbVFVdWIyS1F6eURoNmxnU1c1TnZsMExqQWFlaXFCZHJzeDY1T28iLCI4TG56SUJ5QlNDZ243SG1zcURUbW1GeXZSVTRRdHRuaVNlZE4xanN2LXhvIiwibk54dThkU3laV0x3QVAteTJtV0k5aXRpMmRHejQ5RUM0eDY2RGxDZ0QwZyJdLCJleHRyYSI6eyJfc2QiOlsib2RqUjRraHQxcGVNZFRUMzVFMUotWXF5Q0gyM0dfSGhrQXRLZks0cUpIVSJdfSwiZXh0cmFBcnJJbmNsdWRlIjpbeyIuLi4iOiIxRVN5RGlLTE9KbEF2VnYtQnJaN1JQTU4zRXVOdU1Jc014aXVMeGhZWjg0In0sIlBMIl0sInJlZ2lvbiI6IlNhY2hzZW4tQW5oYWx0In1d",
-	"WyJZbEFCTmZkaXhKSVF4Z3hNZ0RTcUpRIiwiY291bnRyeSIsIkRFIl0",
-	"WyJJdGZ2ellZdXlMSTF3TGZLU213M0dRIiwiZXh0cmFBcnIiLFt7Ii4uLiI6IkRsVHpXT0tWbzJNbzNPNUZER0hpWGhuSnd4c2hBTkQyMUVibmQyWFRiT0kifSx7Ii4uLiI6IkMwbUl4SXdEQm4xZ1IxamZBTDFYZVJNdGlYLVdDMVBjc3FUVkphdnJMQTQifV1d",
-	"WyJkWW10LWNjcWMyeUJYd1ZGTFZkeFdnIiwic3RyZWV0X2FkZHJlc3MiLCJTY2h1bHN0ci4gMTIiXQ",
-	"WyIxRTlRZnRDS3YtbTFjN0VFOXlXMmh3IiwiRXh0cmExIl0",
-	"WyI0Mjl4ejFGeTlEdU9SQ0R2cHd3bzFBIiwiRXh0cmEyIl0",
-	"WyJvVy1oMDZYVUNsTU45YTBVV3VHMGhBIiwicmVjdXJzaXZlIix7Il9zZCI6WyJoX2h1bVhsYjhVekM5T0tGOHc3SEd6ZmYzSGgzMmh3SGR6Vms5WS1oOGR3Il19XQ",
-	"WyItdHBPTUlPS3dnOUNtNlBRVTlDTktBIiwia2V5MSIsInZhbHVlMSJd"
-]`
-
-		// - 	"WyJ5WElBaTZSb1Y1eDV2X3lsVm1wXzhBIiwibG9jYWxpdHkiLCJTY2h1bHBmb3J0YSJd" locality
-		// - 	"WyJURWtwSjJkYWxraGltUUVLd25Cblp3IiwiVUEiXQ", UA
-		var disData []string
-		assert.NoError(t, json.Unmarshal([]byte(testDisclosures), &disData))
-		parsed, err := GetDisclosureClaims(disData, crypto.SHA256)
-		assert.NoError(t, err)
-		assert.Len(t, parsed, 6) // - locality - arr elements
-
-		var address *DisclosureClaim
-		for _, cl := range parsed {
-			if cl.Name == "address" {
-				address = cl
-				break
-			}
-		}
-
-		assert.Equal(t, map[string]interface{}{
-			"_sd": []interface{}{
-				"8LnzIByBSCgn7HmsqDTmmFyvRU4QttniSedN1jsv-xo", // locality
-			},
-			"extraArrInclude": []interface{}{
-				map[string]interface{}{
-					"...": "1ESyDiKLOJlAvVv-BrZ7RPMN3EuNuMIsMxiuLxhYZ84", // UA
-				},
-				"PL",
-			},
-			"extra": map[string]interface{}{
-				"recursive": map[string]interface{}{
-					"key1": "value1",
-				},
-			},
-			"region":         "Sachsen-Anhalt",
-			"country":        "DE",
-			"street_address": "Schulstr. 12",
-			"extraArr": []interface{}{
-				"Extra1", "Extra2",
-			},
-		}, address.Value)
-	})
-}
 
 func TestGetHash(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
@@ -235,156 +130,6 @@ func TestParseCombinedFormatForPresentation(t *testing.T) {
 	})
 }
 
-func TestVerifyDisclosuresInSDJWT(t *testing.T) {
-	r := require.New(t)
-
-	_, privKey, err := ed25519.GenerateKey(rand.Reader)
-	r.NoError(err)
-
-	signer := afjwt.NewEd25519Signer(privKey)
-
-	t.Run("success", func(t *testing.T) {
-		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuance)
-		require.Equal(t, 1, len(sdJWT.Disclosures))
-
-		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
-		require.NoError(t, err)
-
-		err = VerifyDisclosuresInSDJWT(sdJWT.Disclosures, signedJWT)
-		r.NoError(err)
-	})
-
-	t.Run("success - complex struct(spec example 2b)", func(t *testing.T) {
-		specExample2bPresentation := fmt.Sprintf("%s%s", specExample2bJWT, specExample2bDisclosures)
-
-		sdJWT := ParseCombinedFormatForPresentation(specExample2bPresentation)
-
-		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
-		require.NoError(t, err)
-
-		err = VerifyDisclosuresInSDJWT(sdJWT.Disclosures, signedJWT)
-		r.NoError(err)
-	})
-
-	t.Run("success - no selective disclosures(valid case)", func(t *testing.T) {
-		jwtPayload := &payload{
-			Issuer: "issuer",
-			SDAlg:  "sha-256",
-		}
-
-		signedJWT, err := afjwt.NewSigned(jwtPayload, nil, signer)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT(nil, signedJWT)
-		r.NoError(err)
-	})
-
-	t.Run("success - selective disclosures nil", func(t *testing.T) {
-		payload := make(map[string]interface{})
-		payload[SDAlgorithmKey] = testAlg
-		payload[SDKey] = nil
-
-		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT(nil, signedJWT)
-		r.NoError(err)
-	})
-
-	t.Run("error - disclosure not present in SD-JWT", func(t *testing.T) {
-		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuance)
-		require.Equal(t, 1, len(sdJWT.Disclosures))
-
-		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
-		require.NoError(t, err)
-
-		err = VerifyDisclosuresInSDJWT(append(sdJWT.Disclosures, additionalDisclosure), signedJWT)
-		r.Error(err)
-		r.Contains(err.Error(),
-			"disclosure digest 'X9yH0Ajrdm1Oij4tWso9UzzKJvPoDxwmuEcO3XAdRC0' not found in SD-JWT disclosure digests")
-	})
-
-	t.Run("error - disclosure not present in SD-JWT without selective disclosures", func(t *testing.T) {
-		jwtPayload := &payload{
-			Issuer: "issuer",
-			SDAlg:  testAlg,
-		}
-
-		signedJWT, err := afjwt.NewSigned(jwtPayload, nil, signer)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT([]string{additionalDisclosure}, signedJWT)
-		r.Error(err)
-		r.Contains(err.Error(),
-			"disclosure digest 'X9yH0Ajrdm1Oij4tWso9UzzKJvPoDxwmuEcO3XAdRC0' not found in SD-JWT disclosure digests")
-	})
-
-	t.Run("error - missing algorithm", func(t *testing.T) {
-		jwtPayload := &payload{
-			Issuer: "issuer",
-		}
-
-		signedJWT, err := afjwt.NewSigned(jwtPayload, nil, signer)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT(nil, signedJWT)
-		r.Error(err)
-		r.Contains(err.Error(), "_sd_alg must be present in SD-JWT", SDAlgorithmKey)
-	})
-
-	t.Run("error - invalid algorithm", func(t *testing.T) {
-		jwtPayload := payload{
-			Issuer: "issuer",
-			SDAlg:  "SHA-XXX",
-		}
-
-		signedJWT, err := afjwt.NewSigned(jwtPayload, nil, signer)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT(nil, signedJWT)
-		r.Error(err)
-		r.Contains(err.Error(), "_sd_alg 'SHA-XXX' not supported")
-	})
-
-	t.Run("error - algorithm is not a string", func(t *testing.T) {
-		payload := make(map[string]interface{})
-		payload[SDAlgorithmKey] = 18
-
-		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT(nil, signedJWT)
-		r.Error(err)
-		r.Contains(err.Error(), "_sd_alg must be a string")
-	})
-
-	t.Run("error - selective disclosures must be an array", func(t *testing.T) {
-		payload := make(map[string]interface{})
-		payload[SDAlgorithmKey] = testAlg
-		payload[SDKey] = "test"
-
-		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT([]string{additionalDisclosure}, signedJWT)
-		r.Error(err)
-		r.Contains(err.Error(), "get disclosure digests: entry type[string] is not an array")
-	})
-
-	t.Run("error - selective disclosures must be a string", func(t *testing.T) {
-		payload := make(map[string]interface{})
-		payload[SDAlgorithmKey] = testAlg
-		payload[SDKey] = []float64{123}
-
-		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT([]string{additionalDisclosure}, signedJWT)
-		r.Error(err)
-		r.Contains(err.Error(), "get disclosure digests: entry item type[float64] is not a string")
-	})
-}
-
 func TestGetDisclosureClaims(t *testing.T) {
 	r := require.New(t)
 
@@ -406,8 +151,108 @@ func TestGetDisclosureClaims(t *testing.T) {
 		r.Equal("John", disclosureClaims[0].Value)
 	})
 
+	t.Run("full disclosures V5", func(t *testing.T) {
+		testDisclosures := `[
+	"WyI2NDYwRkU1STJvN0l0bktGX2s4YWZ3IiwiYWRkcmVzcyIseyJfc2QiOlsiQjJBQVFzTVk4V1B1bWZoOWtXY3J1RXV4TUVaT2J5bW5MNGU2OVB5U0psNCIsIkV3TGVJbVFVdWIyS1F6eURoNmxnU1c1TnZsMExqQWFlaXFCZHJzeDY1T28iLCI4TG56SUJ5QlNDZ243SG1zcURUbW1GeXZSVTRRdHRuaVNlZE4xanN2LXhvIiwibk54dThkU3laV0x3QVAteTJtV0k5aXRpMmRHejQ5RUM0eDY2RGxDZ0QwZyJdLCJleHRyYSI6eyJfc2QiOlsib2RqUjRraHQxcGVNZFRUMzVFMUotWXF5Q0gyM0dfSGhrQXRLZks0cUpIVSJdfSwiZXh0cmFBcnJJbmNsdWRlIjpbeyIuLi4iOiIxRVN5RGlLTE9KbEF2VnYtQnJaN1JQTU4zRXVOdU1Jc014aXVMeGhZWjg0In0sIlBMIl0sInJlZ2lvbiI6IlNhY2hzZW4tQW5oYWx0In1d",
+	"WyJZbEFCTmZkaXhKSVF4Z3hNZ0RTcUpRIiwiY291bnRyeSIsIkRFIl0",
+	"WyJJdGZ2ellZdXlMSTF3TGZLU213M0dRIiwiZXh0cmFBcnIiLFt7Ii4uLiI6IkRsVHpXT0tWbzJNbzNPNUZER0hpWGhuSnd4c2hBTkQyMUVibmQyWFRiT0kifSx7Ii4uLiI6IkMwbUl4SXdEQm4xZ1IxamZBTDFYZVJNdGlYLVdDMVBjc3FUVkphdnJMQTQifV1d",
+	"WyJkWW10LWNjcWMyeUJYd1ZGTFZkeFdnIiwic3RyZWV0X2FkZHJlc3MiLCJTY2h1bHN0ci4gMTIiXQ",
+	"WyJURWtwSjJkYWxraGltUUVLd25Cblp3IiwiVUEiXQ",
+	"WyIxRTlRZnRDS3YtbTFjN0VFOXlXMmh3IiwiRXh0cmExIl0",
+	"WyI0Mjl4ejFGeTlEdU9SQ0R2cHd3bzFBIiwiRXh0cmEyIl0",
+	"WyJvVy1oMDZYVUNsTU45YTBVV3VHMGhBIiwicmVjdXJzaXZlIix7Il9zZCI6WyJoX2h1bVhsYjhVekM5T0tGOHc3SEd6ZmYzSGgzMmh3SGR6Vms5WS1oOGR3Il19XQ",
+	"WyItdHBPTUlPS3dnOUNtNlBRVTlDTktBIiwia2V5MSIsInZhbHVlMSJd",
+	"WyJ5WElBaTZSb1Y1eDV2X3lsVm1wXzhBIiwibG9jYWxpdHkiLCJTY2h1bHBmb3J0YSJd"
+]`
+
+		var disData []string
+		r.NoError(json.Unmarshal([]byte(testDisclosures), &disData))
+
+		parsed, err := GetDisclosureClaims(disData, crypto.SHA256)
+		r.NoError(err)
+		r.Len(parsed, 7)
+
+		var address *DisclosureClaim
+		for _, cl := range parsed {
+			if cl.Name == "address" {
+				address = cl
+				break
+			}
+		}
+
+		r.Equal(map[string]interface{}{
+			"extraArrInclude": []interface{}{
+				"UA", "PL",
+			},
+			"extra": map[string]interface{}{
+				"recursive": map[string]interface{}{
+					"key1": "value1",
+				},
+			},
+			"region":         "Sachsen-Anhalt",
+			"country":        "DE",
+			"street_address": "Schulstr. 12",
+			"locality":       "Schulpforta",
+			"extraArr": []interface{}{
+				"Extra1", "Extra2",
+			},
+		}, address.Value)
+	})
+
+	t.Run("array element and one value missing V5", func(t *testing.T) {
+		testDisclosures := `[
+	"WyI2NDYwRkU1STJvN0l0bktGX2s4YWZ3IiwiYWRkcmVzcyIseyJfc2QiOlsiQjJBQVFzTVk4V1B1bWZoOWtXY3J1RXV4TUVaT2J5bW5MNGU2OVB5U0psNCIsIkV3TGVJbVFVdWIyS1F6eURoNmxnU1c1TnZsMExqQWFlaXFCZHJzeDY1T28iLCI4TG56SUJ5QlNDZ243SG1zcURUbW1GeXZSVTRRdHRuaVNlZE4xanN2LXhvIiwibk54dThkU3laV0x3QVAteTJtV0k5aXRpMmRHejQ5RUM0eDY2RGxDZ0QwZyJdLCJleHRyYSI6eyJfc2QiOlsib2RqUjRraHQxcGVNZFRUMzVFMUotWXF5Q0gyM0dfSGhrQXRLZks0cUpIVSJdfSwiZXh0cmFBcnJJbmNsdWRlIjpbeyIuLi4iOiIxRVN5RGlLTE9KbEF2VnYtQnJaN1JQTU4zRXVOdU1Jc014aXVMeGhZWjg0In0sIlBMIl0sInJlZ2lvbiI6IlNhY2hzZW4tQW5oYWx0In1d",
+	"WyJZbEFCTmZkaXhKSVF4Z3hNZ0RTcUpRIiwiY291bnRyeSIsIkRFIl0",
+	"WyJJdGZ2ellZdXlMSTF3TGZLU213M0dRIiwiZXh0cmFBcnIiLFt7Ii4uLiI6IkRsVHpXT0tWbzJNbzNPNUZER0hpWGhuSnd4c2hBTkQyMUVibmQyWFRiT0kifSx7Ii4uLiI6IkMwbUl4SXdEQm4xZ1IxamZBTDFYZVJNdGlYLVdDMVBjc3FUVkphdnJMQTQifV1d",
+	"WyJkWW10LWNjcWMyeUJYd1ZGTFZkeFdnIiwic3RyZWV0X2FkZHJlc3MiLCJTY2h1bHN0ci4gMTIiXQ",
+	"WyIxRTlRZnRDS3YtbTFjN0VFOXlXMmh3IiwiRXh0cmExIl0",
+	"WyI0Mjl4ejFGeTlEdU9SQ0R2cHd3bzFBIiwiRXh0cmEyIl0",
+	"WyJvVy1oMDZYVUNsTU45YTBVV3VHMGhBIiwicmVjdXJzaXZlIix7Il9zZCI6WyJoX2h1bVhsYjhVekM5T0tGOHc3SEd6ZmYzSGgzMmh3SGR6Vms5WS1oOGR3Il19XQ",
+	"WyItdHBPTUlPS3dnOUNtNlBRVTlDTktBIiwia2V5MSIsInZhbHVlMSJd"
+]`
+
+		// - 	"WyJ5WElBaTZSb1Y1eDV2X3lsVm1wXzhBIiwibG9jYWxpdHkiLCJTY2h1bHBmb3J0YSJd" locality
+		// - 	"WyJURWtwSjJkYWxraGltUUVLd25Cblp3IiwiVUEiXQ", UA
+		var disData []string
+		r.NoError(json.Unmarshal([]byte(testDisclosures), &disData))
+		parsed, err := GetDisclosureClaims(disData, crypto.SHA256)
+		r.NoError(err)
+		r.Len(parsed, 6) // - locality - arr elements
+
+		var address *DisclosureClaim
+		for _, cl := range parsed {
+			if cl.Name == "address" {
+				address = cl
+				break
+			}
+		}
+
+		r.Equal(map[string]interface{}{
+			"_sd": []interface{}{
+				"8LnzIByBSCgn7HmsqDTmmFyvRU4QttniSedN1jsv-xo", // locality
+			},
+			"extraArrInclude": []interface{}{
+				map[string]interface{}{
+					"...": "1ESyDiKLOJlAvVv-BrZ7RPMN3EuNuMIsMxiuLxhYZ84", // UA
+				},
+				"PL",
+			},
+			"extra": map[string]interface{}{
+				"recursive": map[string]interface{}{
+					"key1": "value1",
+				},
+			},
+			"region":         "Sachsen-Anhalt",
+			"country":        "DE",
+			"street_address": "Schulstr. 12",
+			"extraArr": []interface{}{
+				"Extra1", "Extra2",
+			},
+		}, address.Value)
+	})
+
 	t.Run("error - invalid disclosure format (not encoded)", func(t *testing.T) {
-		sdJWT := ParseCombinedFormatForIssuance("jws~xyz")
+		sdJWT := ParseCombinedFormatForIssuance(testSDJWT + "~xyz")
 		require.Equal(t, 1, len(sdJWT.Disclosures))
 
 		token, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
@@ -422,12 +267,12 @@ func TestGetDisclosureClaims(t *testing.T) {
 		r.Contains(err.Error(), "failed to unmarshal disclosure array")
 	})
 
-	t.Run("error - invalid disclosure array (not three parts)", func(t *testing.T) {
-		disclosureArr := []interface{}{"name", "value"}
+	t.Run("error - invalid disclosure array (less then 2 parts)", func(t *testing.T) {
+		disclosureArr := []interface{}{"name"}
 		disclosureJSON, err := json.Marshal(disclosureArr)
 		require.NoError(t, err)
 
-		sdJWT := ParseCombinedFormatForIssuance(fmt.Sprintf("jws~%s", base64.RawURLEncoding.EncodeToString(disclosureJSON)))
+		sdJWT := ParseCombinedFormatForIssuance(fmt.Sprintf("%s~%s", testSDJWT, base64.RawURLEncoding.EncodeToString(disclosureJSON)))
 		require.Equal(t, 1, len(sdJWT.Disclosures))
 
 		token, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
@@ -439,7 +284,7 @@ func TestGetDisclosureClaims(t *testing.T) {
 		disclosureClaims, err := GetDisclosureClaims(sdJWT.Disclosures, hash)
 		r.Error(err)
 		r.Nil(disclosureClaims)
-		r.Contains(err.Error(), "disclosure array size[2] must be 3")
+		r.Contains(err.Error(), "disclosure array size[1] must be greater 2")
 	})
 
 	t.Run("error - invalid disclosure array (name is not a string)", func(t *testing.T) {
@@ -447,7 +292,7 @@ func TestGetDisclosureClaims(t *testing.T) {
 		disclosureJSON, err := json.Marshal(disclosureArr)
 		require.NoError(t, err)
 
-		sdJWT := ParseCombinedFormatForIssuance(fmt.Sprintf("jws~%s", base64.RawURLEncoding.EncodeToString(disclosureJSON)))
+		sdJWT := ParseCombinedFormatForIssuance(fmt.Sprintf("%s~%s", testSDJWT, base64.RawURLEncoding.EncodeToString(disclosureJSON)))
 		require.Equal(t, 1, len(sdJWT.Disclosures))
 
 		token, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
@@ -512,9 +357,16 @@ func TestGetDisclosedClaims(t *testing.T) {
 
 		disclosedClaims, err := GetDisclosedClaims(append(disclosureClaims,
 			&DisclosureClaim{
-				Disclosure: additionalDisclosure,
-				Name:       "key-x",
-				Value:      "value-y"}),
+				Digest:        additionalDigest,
+				Disclosure:    additionalDisclosure,
+				Salt:          "",
+				Elements:      disclosureElementsAmountForSDDigest,
+				Type:          DisclosureClaimTypePlainText,
+				Version:       SDJWTVersionV2,
+				Name:          "key-x",
+				Value:         "value-y",
+				IsValueParsed: false,
+			}),
 			testClaims)
 		r.NoError(err)
 		r.NotNil(disclosedClaims)
@@ -887,6 +739,7 @@ const additionalDisclosure = `WyJfMjZiYzRMVC1hYzZxMktJNmNCVzVlcyIsICJmYW1pbHlfbm
 
 // nolint: lll
 const testCombinedFormatForIssuance = `eyJhbGciOiJFZERTQSJ9.eyJfc2QiOlsicXF2Y3FuY3pBTWdZeDdFeWtJNnd3dHNweXZ5dks3OTBnZTdNQmJRLU51cyJdLCJfc2RfYWxnIjoic2hhLTI1NiIsImV4cCI6MTcwMzAyMzg1NSwiaWF0IjoxNjcxNDg3ODU1LCJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tL2lzc3VlciIsIm5iZiI6MTY3MTQ4Nzg1NX0.vscuzfwcHGi04pWtJCadc4iDELug6NH6YK-qxhY1qacsciIHuoLELAfon1tGamHtuu8TSs6OjtLk3lHE16jqAQ~WyIzanFjYjY3ejl3a3MwOHp3aUs3RXlRIiwgImdpdmVuX25hbWUiLCAiSm9obiJd`
+const testCombinedFormatForIssuanceV5 = `eyJhbGciOiJFZERTQSJ9.eyJfc2RfYWxnIjoic2hhLTI1NiIsImFkZHJlc3MiOnsiX3NkIjpbIlRaV0JRdlpTam1VemxRZ1AzZ2EydkFlYlV6cDhpU2NRNlBFT0gzSHQ1bm8iXSwiY2l0aWVzIjpbeyIuLi4iOiI0U1lCT3NMcVRURU42QnpTSV9NX0pyQ0NzWFJ0Y1BTbWNqV3ROMEdjU0dJIn0sIkVsIFBhc28iXSwiY291bnRyeUNvZGVzIjpbeyIuLi4iOiJab2hsNGd4OXd0czJBRlVrbmd1c3FleWJDUERWUVFLNHNPR3A4dWZHcWg4In0seyIuLi4iOiIxbVl4V1VZN2M5T1pEWlZnd0N6aUFuWkY1TDgzUzZaN2pGb1U2ck5vaEtzIn1dLCJleHRyYSI6eyJfc2QiOlsibXZtZVoxb3ZmY1RRTi01Q3A5YlhYcElKREd2THVkNVg4SVIyajctVUd0WSJdfSwicmVnaW9uIjoiU2FjaHNlbi1BbmhhbHQifSwiaXNzIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9pc3N1ZXIifQ.l-xc_9hGQMHfkPmMeG_EQIZU5guVme9FSKgN58WqfBJcMvfrb9rTc2PHmxveerMTA2cjgJzM2OZgibQCxRePAg~WyJTUEh2T185NEsyWENVdVhSeURjcHJnIiwibG9jYWxpdHkiLCJTY2h1bHBmb3J0YSJd~WyJSaHh1bDBnd2x6cTlSNDg4ZV8tQ3B3IiwiVUEiXQ~WyJKQWlwWm5uSUM3ejAtZzJoNzZmc0FBIiwiUEwiXQ~WyIxdzZVNkRkSG9laFdUdG5UNG5iS3RnIiwiQWxidXF1ZXJxdWUiXQ~WyJVWnUxcjR5YnpfUGNiU3BRcTFpMllRIiwicmVjdXJzaXZlIix7Il9zZCI6WyJydjZNejBheXJZYWU1MHpWRXYtbExKNFZRRzhNMGFJdjJOVW1LVDRRRjVJIl19XQ~WyJoRWNiQmxZQ0ZSVGVtMG1uVXQzTVNnIiwia2V5MSIsInZhbHVlMSJd`
 
 // nolint: lll
 const testSDJWT = `eyJhbGciOiJFZERTQSJ9.eyJfc2QiOlsicXF2Y3FuY3pBTWdZeDdFeWtJNnd3dHNweXZ5dks3OTBnZTdNQmJRLU51cyJdLCJfc2RfYWxnIjoic2hhLTI1NiIsImV4cCI6MTcwMzAyMzg1NSwiaWF0IjoxNjcxNDg3ODU1LCJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tL2lzc3VlciIsIm5iZiI6MTY3MTQ4Nzg1NX0.vscuzfwcHGi04pWtJCadc4iDELug6NH6YK-qxhY1qacsciIHuoLELAfon1tGamHtuu8TSs6OjtLk3lHE16jqAQ`
