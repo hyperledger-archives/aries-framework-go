@@ -322,32 +322,47 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		additionalDigest, err := GetHash(crypto.SHA256, additionalArrayElementDisclosure)
 		r.NoError(err)
 
-		var findAndReplaceSDElementDigest func(claimsMap map[string]interface{}, additionalDigest string) bool
-
-		findAndReplaceSDElementDigest = func(claimsMap map[string]interface{}, additionalDigest string) bool {
-			if digests, ok := claimsMap[SDKey]; ok {
-				if d, ok := digests.([]interface{}); ok {
-					claimsMap[SDKey] = append(d, additionalDigest)
-					return true
-				}
-			}
-
-			for _, v := range claimsMap {
-				switch t := v.(type) {
-				case map[string]interface{}:
-					if ok := findAndReplaceSDElementDigest(t, additionalDigest); ok {
-						return ok
-					}
-				}
-			}
-
-			return false
-		}
-
-		ok := findAndReplaceSDElementDigest(signedJWT.Payload, additionalDigest)
+		ok := findAndAppendSDElementDigest(signedJWT.Payload, additionalDigest)
 		r.True(ok)
 
 		err = VerifyDisclosuresInSDJWT(append(sdJWT.Disclosures, additionalArrayElementDisclosure), signedJWT)
 		r.ErrorContains(err, fmt.Sprintf("invald disclosure associated with sd element digest %s", additionalDigest))
 	})
+
+	t.Run("error - sd element was found more then once", func(t *testing.T) {
+		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuanceV5)
+		require.Equal(t, 6, len(sdJWT.Disclosures))
+
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		require.NoError(t, err)
+
+		additionalDigest, err := GetHash(crypto.SHA256, additionalSDDisclosure)
+		r.NoError(err)
+
+		ok := findAndAppendSDElementDigest(signedJWT.Payload, additionalDigest, additionalDigest)
+		r.True(ok)
+
+		err = VerifyDisclosuresInSDJWT(append(sdJWT.Disclosures, additionalSDDisclosure), signedJWT)
+		r.ErrorContains(err, fmt.Sprintf("digest '%s' has been included in more than one place", additionalDigest))
+	})
+}
+
+func findAndAppendSDElementDigest(claimsMap map[string]interface{}, additionalDigest ...interface{}) bool {
+	if digests, ok := claimsMap[SDKey]; ok {
+		if d, ok := digests.([]interface{}); ok {
+			claimsMap[SDKey] = append(d, additionalDigest...)
+			return true
+		}
+	}
+
+	for _, v := range claimsMap {
+		switch t := v.(type) {
+		case map[string]interface{}:
+			if ok := findAndAppendSDElementDigest(t, additionalDigest...); ok {
+				return ok
+			}
+		}
+	}
+
+	return false
 }
