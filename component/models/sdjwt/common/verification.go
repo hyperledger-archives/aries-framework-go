@@ -114,7 +114,8 @@ func VerifyDisclosuresInSDJWT(
 	}
 
 	recData := &recursiveData{
-		disclosures: parsedDisclosureClaims,
+		disclosures:          parsedDisclosureClaims,
+		cleanupDigestsClaims: false,
 	}
 
 	_, err = discloseClaimValue(claims, recData)
@@ -183,7 +184,7 @@ func discloseClaimValue(claim interface{}, recData *recursiveData) (interface{},
 			recData.nestedSD = append(recData.nestedSD, arrayElementDigest)
 
 			disclosureClaim, ok := recData.disclosures[arrayElementDigest]
-			if !ok {
+			if !ok && !recData.cleanupDigestsClaims {
 				// If there is no disclosure provided for given array element digest - use map as it is.
 				newValues = append(newValues, value)
 				continue
@@ -245,20 +246,16 @@ func discloseClaimValue(claim interface{}, recData *recursiveData) (interface{},
 				if _, ok = newValues[disclosureClaim.Name]; ok {
 					return nil, fmt.Errorf("claim name '%s' already exists at the same level", disclosureClaim.Name)
 				}
+
 				newValues[disclosureClaim.Name] = disclosureClaim.Value
 			}
 
-			if len(missingSDs) > 0 {
+			if !recData.cleanupDigestsClaims && len(missingSDs) > 0 {
 				newValues[SDKey] = missingSDs
 			}
 		}
 
 		for k, disclosureNestedClaim := range disclosureValue {
-			// This case was processed above.
-			if k == SDKey {
-				continue
-			}
-
 			newValue, err := discloseClaimValue(disclosureNestedClaim, recData)
 			if err != nil {
 				return nil, fmt.Errorf("parse nested disclosure value")

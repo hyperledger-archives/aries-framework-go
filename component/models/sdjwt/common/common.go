@@ -349,7 +349,8 @@ func GetDisclosedClaims(disclosureClaims []*DisclosureClaim, claims map[string]i
 	}
 
 	recData := &recursiveData{
-		disclosures: disclosureClaimsMap,
+		disclosures:          disclosureClaimsMap,
+		cleanupDigestsClaims: true,
 	}
 
 	output, err := discloseClaimValue(claims, recData)
@@ -362,38 +363,7 @@ func GetDisclosedClaims(disclosureClaims []*DisclosureClaim, claims map[string]i
 		return nil, fmt.Errorf("unexpected output type")
 	}
 
-	CleanupNestedDigests(outputMapped)
-
 	return outputMapped, nil
-}
-
-func CleanupNestedDigests(claims map[string]interface{}) { // nolint:lll
-	delete(claims, SDKey)
-	delete(claims, SDAlgorithmKey)
-
-	// Find all array elements that are objects with one key, that key being ... and referring to a string.
-	for key, v := range claims {
-		switch t := v.(type) {
-		case map[string]interface{}:
-			CleanupNestedDigests(t)
-		case []interface{}:
-			var newElements []interface{}
-			for _, vv := range t {
-				valueMapped, ok := vv.(map[string]interface{})
-				if ok {
-					if digestIface, ok := valueMapped[ArrayElementDigestKey]; ok && len(valueMapped) == 1 {
-						if _, ok := digestIface.(string); ok {
-							continue
-						}
-					}
-				}
-
-				newElements = append(newElements, vv)
-			}
-
-			claims[key] = newElements
-		}
-	}
 }
 
 func processDisclosedClaims(disclosureClaims []*DisclosureClaim, claims map[string]interface{}, includedDigests map[string]bool, hash crypto.Hash) error { // nolint:lll
