@@ -14,8 +14,6 @@ import (
 	"strings"
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
-
-	utils "github.com/hyperledger/aries-framework-go/component/models/util/maphelpers"
 )
 
 // CombinedFormatSeparator is disclosure separator.
@@ -344,20 +342,58 @@ func GetDisclosureDigests(claims map[string]interface{}) (map[string]bool, error
 
 // GetDisclosedClaims returns disclosed claims only.
 func GetDisclosedClaims(disclosureClaims []*DisclosureClaim, claims map[string]interface{}) (map[string]interface{}, error) { // nolint:lll
-	hash, err := GetCryptoHashFromClaims(claims)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get crypto hash from claims: %w", err)
+	disclosureClaimsMap := make(map[string]*DisclosureClaim, len(disclosureClaims))
+
+	for _, d := range disclosureClaims {
+		disclosureClaimsMap[d.Digest] = d
 	}
 
-	output := utils.CopyMap(claims)
-	includedDigests := make(map[string]bool)
-
-	err = processDisclosedClaims(disclosureClaims, output, includedDigests, hash)
-	if err != nil {
-		return nil, fmt.Errorf("failed to process disclosed claims: %w", err)
+	recData := &recursiveData{
+		disclosures: disclosureClaimsMap,
 	}
 
-	return output, nil
+	output, err := discloseClaimValue(claims, recData)
+	if err != nil {
+		return nil, err
+	}
+
+	outputMapped, ok := output.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected output type")
+	}
+
+	CleanupNestedDigests(outputMapped)
+
+	return outputMapped, nil
+}
+
+func CleanupNestedDigests(claims map[string]interface{}) { // nolint:lll
+	delete(claims, SDKey)
+	delete(claims, SDAlgorithmKey)
+
+	// Find all array elements that are objects with one key, that key being ... and referring to a string.
+	for key, v := range claims {
+		switch t := v.(type) {
+		case map[string]interface{}:
+			CleanupNestedDigests(t)
+		case []interface{}:
+			var newElements []interface{}
+			for _, vv := range t {
+				valueMapped, ok := vv.(map[string]interface{})
+				if ok {
+					if digestIface, ok := valueMapped[ArrayElementDigestKey]; ok && len(valueMapped) == 1 {
+						if _, ok := digestIface.(string); ok {
+							continue
+						}
+					}
+				}
+
+				newElements = append(newElements, vv)
+			}
+
+			claims[key] = newElements
+		}
+	}
 }
 
 func processDisclosedClaims(disclosureClaims []*DisclosureClaim, claims map[string]interface{}, includedDigests map[string]bool, hash crypto.Hash) error { // nolint:lll

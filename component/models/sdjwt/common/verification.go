@@ -148,24 +148,6 @@ func setDisclosureClaimValue(recData *recursiveData, disclosureClaim *Disclosure
 	return nil
 }
 
-// GetDisclosedClaimsV2 returns disclosed claims only.
-func GetDisclosedClaimsV2(disclosureClaims []*DisclosureClaim, claims map[string]interface{}) (map[string]interface{}, error) { // nolint:lll
-	hash, err := GetCryptoHashFromClaims(claims)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get crypto hash from claims: %w", err)
-	}
-
-	output := utils.CopyMap(claims)
-	includedDigests := make(map[string]bool)
-
-	err = processDisclosedClaims(disclosureClaims, output, includedDigests, hash)
-	if err != nil {
-		return nil, fmt.Errorf("failed to process disclosed claims: %w", err)
-	}
-
-	return output, nil
-}
-
 // discloseClaimValue returns new value of claim, resolving dependencies on other disclosures.
 func discloseClaimValue(claim interface{}, recData *recursiveData) (interface{}, error) {
 	switch disclosureValue := claim.(type) {

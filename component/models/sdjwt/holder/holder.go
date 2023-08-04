@@ -8,6 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 package holder
 
 import (
+	"crypto"
 	"fmt"
 	"time"
 
@@ -110,7 +111,7 @@ func Parse(combinedFormatForIssuance string, opts ...ParseOpt) ([]*Claim, error)
 		}
 	}
 
-	err = common.VerifyDisclosuresInSDJWT(cfi.Disclosures, signedJWT, sdJWTVersion)
+	err = common.VerifyDisclosuresInSDJWT(cfi.Disclosures, signedJWT)
 	if err != nil {
 		return nil, err
 	}
@@ -120,9 +121,9 @@ func Parse(combinedFormatForIssuance string, opts ...ParseOpt) ([]*Claim, error)
 
 func getClaims(
 	disclosures []string,
-	version common.SDJWTVersion,
+	hash crypto.Hash,
 ) ([]*Claim, error) {
-	disclosureClaims, err := common.GetDisclosureClaims(disclosures, version)
+	disclosureClaims, err := common.GetDisclosureClaims(disclosures, hash)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get claims from disclosures: %w", err)
 	}
