@@ -48,6 +48,33 @@ const (
 	sdDigestValuePosition    = 2
 )
 
+// DisclosureClaimType disclosure claim type, used for sd-jwt v5+.
+type DisclosureClaimType int
+
+const (
+	// DisclosureClaimTypeUnknown default type for disclosure claim.
+	DisclosureClaimTypeUnknown = DisclosureClaimType(0)
+	// DisclosureClaimTypeArrayElement array element.
+	DisclosureClaimTypeArrayElement = DisclosureClaimType(2)
+	// DisclosureClaimTypeObject object.
+	DisclosureClaimTypeObject = DisclosureClaimType(3)
+	// DisclosureClaimTypePlainText object.
+	DisclosureClaimTypePlainText = DisclosureClaimType(3)
+)
+
+// DisclosureClaim defines claim.
+type DisclosureClaim struct {
+	Digest        string
+	Disclosure    string
+	Salt          string
+	Elements      int
+	Type          DisclosureClaimType
+	Version       SDJWTVersion
+	Name          string
+	Value         interface{}
+	IsValueParsed bool
+}
+
 // CombinedFormatForIssuance holds SD-JWT and disclosures.
 type CombinedFormatForIssuance struct {
 	SDJWT       string
@@ -89,33 +116,6 @@ func (cf *CombinedFormatForPresentation) Serialize() string {
 	presentation += cf.HolderVerification
 
 	return presentation
-}
-
-// DisclosureClaimType disclosure claim type, used for sd-jwt v5+.
-type DisclosureClaimType int
-
-const (
-	// DisclosureClaimTypeUnknown default type for disclosure claim.
-	DisclosureClaimTypeUnknown = DisclosureClaimType(0)
-	// DisclosureClaimTypeArrayElement array element.
-	DisclosureClaimTypeArrayElement = DisclosureClaimType(2)
-	// DisclosureClaimTypeObject object.
-	DisclosureClaimTypeObject = DisclosureClaimType(3)
-	// DisclosureClaimTypePlainText object.
-	DisclosureClaimTypePlainText = DisclosureClaimType(3)
-)
-
-// DisclosureClaim defines claim.
-type DisclosureClaim struct {
-	Digest        string
-	Disclosure    string
-	Salt          string
-	Elements      int
-	Type          DisclosureClaimType
-	Version       SDJWTVersion
-	Name          string
-	Value         interface{}
-	IsValueParsed bool
 }
 
 // GetDisclosureClaims de-codes disclosures.

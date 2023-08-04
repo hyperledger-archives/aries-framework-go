@@ -357,9 +357,16 @@ func TestGetDisclosedClaims(t *testing.T) {
 
 		disclosedClaims, err := GetDisclosedClaims(append(disclosureClaims,
 			&DisclosureClaim{
-				Disclosure: additionalDisclosure,
-				Name:       "key-x",
-				Value:      "value-y"}),
+				Digest:        additionalDigest,
+				Disclosure:    additionalDisclosure,
+				Salt:          "",
+				Elements:      disclosureElementsAmountForSDDigest,
+				Type:          DisclosureClaimTypePlainText,
+				Version:       SDJWTVersionV2,
+				Name:          "key-x",
+				Value:         "value-y",
+				IsValueParsed: false,
+			}),
 			testClaims)
 		r.NoError(err)
 		r.NotNil(disclosedClaims)
