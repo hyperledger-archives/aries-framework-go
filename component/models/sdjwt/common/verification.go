@@ -193,7 +193,7 @@ func discloseClaimValue(claim interface{}, recData *recursiveData) (interface{},
 			// If the digest was found in an array element:
 			//   If the respective Disclosure is not a JSON-encoded array of two elements, the SD-JWT MUST be rejected.
 			if disclosureClaim.Elements != disclosureElementsAmountForArrayDigest {
-				return nil, fmt.Errorf("invald disclosure associated with digest %s", arrayElementDigest)
+				return nil, fmt.Errorf("invald disclosure associated with array element digest %s", arrayElementDigest)
 			}
 
 			// If disclosure is provided - parse the value.
@@ -258,7 +258,7 @@ func discloseClaimValue(claim interface{}, recData *recursiveData) (interface{},
 		for k, disclosureNestedClaim := range disclosureValue {
 			newValue, err := discloseClaimValue(disclosureNestedClaim, recData)
 			if err != nil {
-				return nil, fmt.Errorf("parse nested disclosure value")
+				return nil, err
 			}
 
 			newValues[k] = newValue

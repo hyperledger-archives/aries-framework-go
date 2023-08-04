@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package common
 
 import (
+	"crypto"
 	"crypto/ed25519"
 	"crypto/rand"
 	"fmt"
@@ -211,4 +212,55 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		r.Error(err)
 		r.Contains(err.Error(), "get disclosure digests: entry item type[float64] is not a string")
 	})
+
+	t.Run("error - array element associated disclosure is invalid", func(t *testing.T) {
+		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuanceV5)
+		require.Equal(t, 6, len(sdJWT.Disclosures))
+
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		require.NoError(t, err)
+
+		additionalDigest, err := GetHash(crypto.SHA256, additionalDisclosure)
+		r.NoError(err)
+
+		oldDigest := findAndReplace(signedJWT.Payload, additionalDigest)
+		fmt.Println(oldDigest)
+
+		updatedDisclosures := []string{additionalDisclosure}
+		for _, d := range sdJWT.Disclosures {
+			h, err := GetHash(crypto.SHA256, d)
+			r.NoError(err)
+			if h == oldDigest {
+				continue
+			}
+			updatedDisclosures = append(updatedDisclosures, d)
+		}
+
+		err = VerifyDisclosuresInSDJWT(updatedDisclosures, signedJWT)
+		r.ErrorContains(err, fmt.Sprintf("invald disclosure associated with array element digest %s", additionalDigest))
+	})
+
+}
+
+// find any array element digest and replace it with hash of additionalDigest
+func findAndReplace(claimsMap map[string]interface{}, additionalDigest string) string {
+	if digest, ok := claimsMap[ArrayElementDigestKey]; ok {
+		claimsMap[ArrayElementDigestKey] = additionalDigest
+		return digest.(string)
+	}
+
+	for _, v := range claimsMap {
+		switch t := v.(type) {
+		case map[string]interface{}:
+			return findAndReplace(t, additionalDigest)
+		case []interface{}:
+			for _, nv := range t {
+				if mapped, ok := nv.(map[string]interface{}); ok {
+					return findAndReplace(mapped, additionalDigest)
+				}
+			}
+		}
+	}
+
+	return ""
 }
