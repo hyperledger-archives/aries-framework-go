@@ -8,6 +8,7 @@ package dataintegrity
 
 import (
 	_ "embed"
+	"fmt"
 	"testing"
 	"time"
 
@@ -34,8 +35,9 @@ var (
 )
 
 const (
+	mockDID2  = "did:test:p384"
 	mockVMID2 = "#key-2"
-	mockKID2  = mockDID + mockVMID2
+	mockKID2  = mockDID2 + mockVMID2
 )
 
 func TestIntegration(t *testing.T) {
@@ -60,16 +62,18 @@ func TestIntegration(t *testing.T) {
 	p256VM, err := did.NewVerificationMethodFromJWK(mockVMID, "JsonWebKey2020", mockDID, p256JWK)
 	require.NoError(t, err)
 
-	p384VM, err := did.NewVerificationMethodFromJWK(mockVMID2, "JsonWebKey2020", mockDID, p384JWK)
+	p384VM, err := did.NewVerificationMethodFromJWK(mockVMID2, "JsonWebKey2020", mockDID2, p384JWK)
 	require.NoError(t, err)
 
 	resolver := resolveFunc(func(id string) (*did.DocResolution, error) {
 		switch id {
-		case mockKID:
+		case mockDID:
 			return makeMockDIDResolution(id, p256VM, did.AssertionMethod), nil
-		case mockKID2:
+		case mockDID2:
 			return makeMockDIDResolution(id, p384VM, did.AssertionMethod), nil
 		}
+
+		fmt.Printf("DID: '%s'", id)
 
 		return nil, ErrVMResolution
 	})
@@ -82,7 +86,7 @@ func TestIntegration(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		t.Run("P-256 key", func(t *testing.T) {
-			proofOpts := &models.ProofOptions{
+			signOpts := &models.ProofOptions{
 				VerificationMethod:       p256VM,
 				VerificationMethodID:     p256VM.ID,
 				SuiteType:                ecdsa2019.SuiteType,
@@ -93,17 +97,26 @@ func TestIntegration(t *testing.T) {
 				MaxAge:                   100,
 			}
 
-			signedCred, err := signer.AddProof(validCredential, proofOpts)
+			signedCred, err := signer.AddProof(validCredential, signOpts)
 			require.NoError(t, err)
 
-			err = verifier.VerifyProof(signedCred, proofOpts)
+			verifyOpts := &models.ProofOptions{
+				VerificationMethodID: mockKID,
+				SuiteType:            ecdsa2019.SuiteType,
+				Purpose:              "assertionMethod",
+				ProofType:            models.DataIntegrityProof,
+				Created:              time.Now(),
+				MaxAge:               100,
+			}
+
+			err = verifier.VerifyProof(signedCred, verifyOpts)
 			require.NoError(t, err)
 		})
 
 		t.Run("P-384 key", func(t *testing.T) {
-			proofOpts := &models.ProofOptions{
+			signOpts := &models.ProofOptions{
 				VerificationMethod:       p384VM,
-				VerificationMethodID:     p384VM.ID,
+				VerificationMethodID:     mockKID2,
 				SuiteType:                ecdsa2019.SuiteType,
 				Purpose:                  "assertionMethod",
 				VerificationRelationship: "assertionMethod",
@@ -112,10 +125,19 @@ func TestIntegration(t *testing.T) {
 				MaxAge:                   100,
 			}
 
-			signedCred, err := signer.AddProof(validCredential, proofOpts)
+			signedCred, err := signer.AddProof(validCredential, signOpts)
 			require.NoError(t, err)
 
-			err = verifier.VerifyProof(signedCred, proofOpts)
+			verifyOpts := &models.ProofOptions{
+				VerificationMethodID: mockKID2,
+				SuiteType:            ecdsa2019.SuiteType,
+				Purpose:              "assertionMethod",
+				ProofType:            models.DataIntegrityProof,
+				Created:              time.Now(),
+				MaxAge:               100,
+			}
+
+			err = verifier.VerifyProof(signedCred, verifyOpts)
 			require.NoError(t, err)
 		})
 	})

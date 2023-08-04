@@ -115,6 +115,10 @@ func (v *Verifier) VerifyProof(doc []byte, opts *models.ProofOptions) error { //
 		return ErrUnsupportedSuite
 	}
 
+	if opts.SuiteType == "" {
+		opts.SuiteType = proof.CryptoSuite
+	}
+
 	if verifierSuite.RequiresCreated() && proof.Created == "" {
 		return ErrMalformedProof
 	}
@@ -128,7 +132,7 @@ func (v *Verifier) VerifyProof(doc []byte, opts *models.ProofOptions) error { //
 		return ErrMalformedProof
 	}
 
-	err = resolveVM(opts, v.resolver)
+	err = resolveVM(opts, v.resolver, proof.VerificationMethod)
 	if err != nil {
 		return err
 	}
@@ -141,12 +145,14 @@ func (v *Verifier) VerifyProof(doc []byte, opts *models.ProofOptions) error { //
 			return ErrMalformedProof
 		}
 
-		now := time.Now()
+		if opts.MaxAge > 0 {
+			now := time.Now()
 
-		diff := now.Sub(createdTime)
+			diff := now.Sub(createdTime)
 
-		if diff > time.Second*time.Duration(opts.MaxAge) {
-			return ErrOutOfDate
+			if diff > time.Second*time.Duration(opts.MaxAge) {
+				return ErrOutOfDate
+			}
 		}
 	}
 

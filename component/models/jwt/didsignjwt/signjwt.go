@@ -17,7 +17,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/component/models/did"
 	"github.com/hyperledger/aries-framework-go/component/models/did/util/vmparse"
 	"github.com/hyperledger/aries-framework-go/component/models/jwt"
-	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 	"github.com/hyperledger/aries-framework-go/spi/vdr"
 )
 
@@ -155,7 +154,7 @@ func SignJWT( // nolint: funlen,gocyclo
 func VerifyJWT(compactJWT string,
 	didResolver didResolver) error {
 	_, _, err := jwt.Parse(compactJWT, jwt.WithSignatureVerifier(jwt.NewVerifier(
-		jwt.KeyResolverFunc(verifiable.NewVDRKeyResolver(didResolver).PublicKeyFetcher())),
+		jwt.KeyResolverFunc(NewVDRKeyResolver(didResolver).PublicKeyFetcher())),
 	))
 	if err != nil {
 		return fmt.Errorf("jwt verification failed: %w", err)

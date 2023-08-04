@@ -75,7 +75,7 @@ func (s *Signer) AddProof(doc []byte, opts *models.ProofOptions) ([]byte, error)
 		return nil, ErrUnsupportedSuite
 	}
 
-	err := resolveVM(opts, s.resolver)
+	err := resolveVM(opts, s.resolver, "")
 	if err != nil {
 		return nil, err
 	}
@@ -114,8 +114,12 @@ func (s *Signer) AddProof(doc []byte, opts *models.ProofOptions) ([]byte, error)
 	return out, nil
 }
 
-func resolveVM(opts *models.ProofOptions, resolver didResolver) error {
+func resolveVM(opts *models.ProofOptions, resolver didResolver, vmID string) error {
 	if opts.VerificationMethod == nil || opts.VerificationRelationship == "" {
+		if opts.VerificationMethodID == "" {
+			opts.VerificationMethodID = vmID
+		}
+
 		if resolver == nil {
 			return ErrNoResolver
 		}
@@ -128,6 +132,12 @@ func resolveVM(opts *models.ProofOptions, resolver didResolver) error {
 
 		opts.VerificationMethodID = vmID
 		opts.VerificationMethod = vm
+
+		// A VM with general relationship is allowed for assertion
+		if rel == "" {
+			rel = "assertionMethod"
+		}
+
 		opts.VerificationRelationship = rel
 	}
 
