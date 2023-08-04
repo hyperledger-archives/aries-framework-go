@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity"
 	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/xeipuuv/gojsonschema"
 
@@ -587,6 +588,7 @@ type credentialOpts struct {
 	ldpSuites             []verifier.SignatureSuite
 	defaultSchema         string
 	disableValidation     bool
+	verifyDataIntegrity   *verifyDataIntegrityOpts
 
 	jsonldCredentialOpts
 }
@@ -651,6 +653,26 @@ func WithJSONLDValidation() CredentialOpt {
 func WithBaseContextValidation() CredentialOpt {
 	return func(opts *credentialOpts) {
 		opts.modelValidationMode = baseContextValidation
+	}
+}
+
+// WithDataIntegrityVerifier provides the Data Integrity verifier to use when
+// the credential being processed has a Data Integrity proof.
+func WithDataIntegrityVerifier(v *dataintegrity.Verifier) CredentialOpt {
+	return func(opts *credentialOpts) {
+		opts.verifyDataIntegrity.Verifier = v
+	}
+}
+
+// WithExpectedDataIntegrityFields validates that a Data Integrity proof has the
+// given purpose, domain, and challenge. Empty purpose means the default,
+// assertionMethod, will be expected. Empty domain and challenge will mean they
+// are not checked.
+func WithExpectedDataIntegrityFields(purpose, domain, challenge string) CredentialOpt {
+	return func(opts *credentialOpts) {
+		opts.verifyDataIntegrity.Purpose = purpose
+		opts.verifyDataIntegrity.Domain = domain
+		opts.verifyDataIntegrity.Challenge = challenge
 	}
 }
 
@@ -1235,12 +1257,14 @@ func getEmbeddedProofCheckOpts(vcOpts *credentialOpts) *embeddedProofCheckOpts {
 		disabledProofCheck:   vcOpts.disabledProofCheck,
 		ldpSuites:            vcOpts.ldpSuites,
 		jsonldCredentialOpts: vcOpts.jsonldCredentialOpts,
+		dataIntegrityOpts:    vcOpts.verifyDataIntegrity,
 	}
 }
 
 func getCredentialOpts(opts []CredentialOpt) *credentialOpts {
 	crOpts := &credentialOpts{
 		modelValidationMode: combinedValidation,
+		verifyDataIntegrity: &verifyDataIntegrityOpts{},
 	}
 
 	for _, opt := range opts {
