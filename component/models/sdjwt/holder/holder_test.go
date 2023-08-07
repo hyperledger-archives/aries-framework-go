@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package holder
 
 import (
+	"crypto"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/base64"
@@ -182,7 +183,7 @@ func TestDiscloseClaims(t *testing.T) {
 		r.Empty(combinedFormatForPresentation)
 
 		r.Contains(err.Error(),
-			"failed to create holder binding: create JWS: sign JWS: sign JWS verification data: signing error")
+			"failed to create holder verification: create JWS: sign JWS: sign JWS verification data: signing error")
 	})
 
 	t.Run("error - no disclosure(s)", func(t *testing.T) {
@@ -207,13 +208,13 @@ func TestGetClaims(t *testing.T) {
 	r := require.New(t)
 
 	t.Run("success", func(t *testing.T) {
-		claims, err := getClaims([]string{additionalDisclosure}, common.SDJWTVersionV5)
+		claims, err := getClaims([]string{additionalDisclosure}, crypto.SHA256)
 		r.NoError(err)
 		r.Len(claims, 1)
 	})
 
 	t.Run("error - not base64 encoded ", func(t *testing.T) {
-		claims, err := getClaims([]string{"!!!"}, common.SDJWTVersionV5)
+		claims, err := getClaims([]string{"!!!"}, crypto.SHA256)
 		r.Error(err)
 		r.Nil(claims)
 		r.Contains(err.Error(), "failed to decode disclosure")

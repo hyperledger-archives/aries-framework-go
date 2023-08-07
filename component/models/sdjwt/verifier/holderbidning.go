@@ -8,6 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 Package verifier enables the Verifier: An entity that requests, checks and
 extracts the claims from an SD-JWT and respective Disclosures.
 */
+
 package verifier
 
 import (
@@ -17,77 +18,12 @@ import (
 	"github.com/mitchellh/mapstructure"
 
 	afgjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
-	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 	utils "github.com/hyperledger/aries-framework-go/component/models/util/maphelpers"
 )
 
-func parseV5(
-	cfp *common.CombinedFormatForPresentation,
-	signedJWT *afgjwt.JSONWebToken,
-	pOpts *parseOpts,
-) (map[string]interface{}, error) {
-	err := common.VerifyTyp(signedJWT.Headers, pOpts.expectedTypHeader)
-	if err != nil {
-		return nil, fmt.Errorf("failed to verify typ header: %w", err)
-	}
-
-	err = verifyKeyBinding(signedJWT, cfp.HolderVerification, pOpts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to verify key binding: %w", err)
-	}
-
-	return getDisclosedClaims(cfp.Disclosures, signedJWT, common.SDJWTVersionV5)
-}
-
-func verifyKeyBinding(sdJWT *afgjwt.JSONWebToken, keyBinding string, pOpts *parseOpts) error {
-	if pOpts.holderVerificationRequired && keyBinding == "" {
-		return fmt.Errorf("key binding is required")
-	}
-
-	if keyBinding == "" {
-		// not required and not present - nothing to do
-		return nil
-	}
-
-	signatureVerifier, err := getSignatureVerifier(utils.CopyMap(sdJWT.Payload))
-	if err != nil {
-		return fmt.Errorf("failed to get signature verifier from presentation claims: %w", err)
-	}
-
-	// Validate the signature over the Key Binding JWT.
-	holderJWT, _, err := afgjwt.Parse(keyBinding,
-		afgjwt.WithSignatureVerifier(signatureVerifier))
-	if err != nil {
-		return fmt.Errorf("failed to parse key binding: %w", err)
-	}
-
-	err = verifyKeyBindingJWT(holderJWT, pOpts)
-	if err != nil {
-		return fmt.Errorf("failed to verify holder JWT: %w", err)
-	}
-
-	return nil
-}
-
+// verifyKeyBindingJWT verifies key binding JWT.
+// Section: https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-02.html#section-6.2-4.6.1
 func verifyKeyBindingJWT(holderJWT *afgjwt.JSONWebToken, pOpts *parseOpts) error {
-	// Ensure that a signing algorithm was used that was deemed secure for the application.
-	// The none algorithm MUST NOT be accepted.
-	err := common.VerifySigningAlg(holderJWT.Headers, pOpts.holderSigningAlgorithms)
-	if err != nil {
-		return fmt.Errorf("failed to verify holder signing algorithm: %w", err)
-	}
-
-	// Check that the typ of the Key Binding JWT is kb+jwt.
-	err = common.VerifyTyp(holderJWT.Headers, "kb+jwt")
-	if err != nil {
-		return fmt.Errorf("failed to verify typ header: %w", err)
-	}
-
-	err = common.VerifyJWT(holderJWT, pOpts.leewayForClaimsValidation)
-	if err != nil {
-		return err
-	}
-
 	var bindingPayload keyBindingPayload
 
 	d, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{

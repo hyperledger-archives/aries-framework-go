@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package common
 
 import (
+	"crypto"
 	"crypto/ed25519"
 	"crypto/rand"
 	"fmt"
@@ -126,7 +127,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
 		require.NoError(t, err)
 
-		err = VerifyDisclosuresInSDJWT(append(sdJWT.Disclosures, additionalDisclosure), signedJWT)
+		err = VerifyDisclosuresInSDJWT(append(sdJWT.Disclosures, additionalSDDisclosure), signedJWT)
 		r.Error(err)
 		r.Contains(err.Error(),
 			"disclosure digest 'X9yH0Ajrdm1Oij4tWso9UzzKJvPoDxwmuEcO3XAdRC0' not found in SD-JWT disclosure digests")
@@ -141,7 +142,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		signedJWT, err := afjwt.NewSigned(jwtPayload, nil, signer)
 		r.NoError(err)
 
-		err = VerifyDisclosuresInSDJWT([]string{additionalDisclosure}, signedJWT)
+		err = VerifyDisclosuresInSDJWT([]string{additionalSDDisclosure}, signedJWT)
 		r.Error(err)
 		r.Contains(err.Error(),
 			"disclosure digest 'X9yH0Ajrdm1Oij4tWso9UzzKJvPoDxwmuEcO3XAdRC0' not found in SD-JWT disclosure digests")
@@ -194,7 +195,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
 		r.NoError(err)
 
-		err = VerifyDisclosuresInSDJWT([]string{additionalDisclosure}, signedJWT)
+		err = VerifyDisclosuresInSDJWT([]string{additionalSDDisclosure}, signedJWT)
 		r.Error(err)
 		r.Contains(err.Error(), "get disclosure digests: entry type[string] is not an array")
 	})
@@ -207,8 +208,174 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
 		r.NoError(err)
 
-		err = VerifyDisclosuresInSDJWT([]string{additionalDisclosure}, signedJWT)
+		err = VerifyDisclosuresInSDJWT([]string{additionalSDDisclosure}, signedJWT)
 		r.Error(err)
 		r.Contains(err.Error(), "get disclosure digests: entry item type[float64] is not a string")
 	})
+
+	t.Run("error - array element associated disclosure is invalid", func(t *testing.T) {
+		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuanceV5)
+		require.Equal(t, 6, len(sdJWT.Disclosures))
+
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		require.NoError(t, err)
+
+		additionalDigest, err := GetHash(crypto.SHA256, additionalSDDisclosure)
+		r.NoError(err)
+
+		var findAndReplaceArrayElementDigest func(claimsMap map[string]interface{}, additionalDigest string) string
+
+		findAndReplaceArrayElementDigest = func(claimsMap map[string]interface{}, additionalDigest string) string {
+			if digest, ok := claimsMap[ArrayElementDigestKey]; ok {
+				claimsMap[ArrayElementDigestKey] = additionalDigest
+				return digest.(string)
+			}
+
+			for _, v := range claimsMap {
+				switch t := v.(type) {
+				case map[string]interface{}:
+					return findAndReplaceArrayElementDigest(t, additionalDigest)
+				case []interface{}:
+					for _, nv := range t {
+						if mapped, ok := nv.(map[string]interface{}); ok {
+							return findAndReplaceArrayElementDigest(mapped, additionalDigest)
+						}
+					}
+				}
+			}
+
+			return ""
+		}
+
+		oldDigest := findAndReplaceArrayElementDigest(signedJWT.Payload, additionalDigest)
+
+		updatedDisclosures := []string{additionalSDDisclosure}
+		for _, d := range sdJWT.Disclosures {
+			h, err := GetHash(crypto.SHA256, d)
+			r.NoError(err)
+			if h == oldDigest {
+				continue
+			}
+			updatedDisclosures = append(updatedDisclosures, d)
+		}
+
+		err = VerifyDisclosuresInSDJWT(updatedDisclosures, signedJWT)
+		r.ErrorContains(err, fmt.Sprintf("invald disclosure associated with array element digest %s", additionalDigest))
+	})
+
+	t.Run("error - array element was found more then once", func(t *testing.T) {
+		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuanceV5)
+		require.Equal(t, 6, len(sdJWT.Disclosures))
+
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		require.NoError(t, err)
+
+		additionalDigest, err := GetHash(crypto.SHA256, additionalArrayElementDisclosure)
+		r.NoError(err)
+
+		var findAndAppendArrayElementDigest func(claimsMap map[string]interface{}, additionalDigest string) bool
+
+		findAndAppendArrayElementDigest = func(claimsMap map[string]interface{}, additionalDigest string) bool {
+			for k, v := range claimsMap {
+				switch t := v.(type) {
+				case map[string]interface{}:
+					if ok := findAndAppendArrayElementDigest(t, additionalDigest); ok {
+						return true
+					}
+				case []interface{}:
+					for _, nv := range t {
+						if mapped, ok := nv.(map[string]interface{}); ok {
+							if _, ok := mapped[ArrayElementDigestKey]; ok {
+								updatedList := append(t, map[string]interface{}{
+									ArrayElementDigestKey: additionalDigest,
+								}, map[string]interface{}{
+									ArrayElementDigestKey: additionalDigest,
+								})
+
+								claimsMap[k] = updatedList
+
+								return true
+							}
+							return findAndAppendArrayElementDigest(mapped, additionalDigest)
+						}
+					}
+				}
+			}
+
+			return false
+		}
+
+		ok := findAndAppendArrayElementDigest(signedJWT.Payload, additionalDigest)
+		r.True(ok)
+
+		err = VerifyDisclosuresInSDJWT(append(sdJWT.Disclosures, additionalArrayElementDisclosure), signedJWT)
+		r.ErrorContains(err, fmt.Sprintf("digest '%s' has been included in more than one place", additionalDigest))
+	})
+
+	t.Run("error - sd element associated disclosure is invalid", func(t *testing.T) {
+		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuanceV5)
+		require.Equal(t, 6, len(sdJWT.Disclosures))
+
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		require.NoError(t, err)
+
+		additionalDigest, err := GetHash(crypto.SHA256, additionalArrayElementDisclosure)
+		r.NoError(err)
+
+		ok := findAndAppendSDElementDigest(signedJWT.Payload, additionalDigest)
+		r.True(ok)
+
+		err = VerifyDisclosuresInSDJWT(append(sdJWT.Disclosures, additionalArrayElementDisclosure), signedJWT)
+		r.ErrorContains(err, fmt.Sprintf("invald disclosure associated with sd element digest %s", additionalDigest))
+	})
+
+	t.Run("error - sd element was found more then once", func(t *testing.T) {
+		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuanceV5)
+		require.Equal(t, 6, len(sdJWT.Disclosures))
+
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		require.NoError(t, err)
+
+		additionalDigest, err := GetHash(crypto.SHA256, additionalSDDisclosure)
+		r.NoError(err)
+
+		ok := findAndAppendSDElementDigest(signedJWT.Payload, additionalDigest, additionalDigest)
+		r.True(ok)
+
+		err = VerifyDisclosuresInSDJWT(append(sdJWT.Disclosures, additionalSDDisclosure), signedJWT)
+		r.ErrorContains(err, fmt.Sprintf("digest '%s' has been included in more than one place", additionalDigest))
+	})
+
+	t.Run("error - claim name was found more then once", func(t *testing.T) {
+		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuanceV5)
+		require.Equal(t, 6, len(sdJWT.Disclosures))
+
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		require.NoError(t, err)
+
+		signedJWT.Payload["address"].(map[string]interface{})["locality"] = "some existing claim"
+
+		err = VerifyDisclosuresInSDJWT(append(sdJWT.Disclosures, additionalSDDisclosure), signedJWT)
+		r.ErrorContains(err, "claim name 'locality' already exists at the same level")
+	})
+}
+
+func findAndAppendSDElementDigest(claimsMap map[string]interface{}, additionalDigest ...interface{}) bool {
+	if digests, ok := claimsMap[SDKey]; ok {
+		if d, ok := digests.([]interface{}); ok {
+			claimsMap[SDKey] = append(d, additionalDigest...)
+			return true
+		}
+	}
+
+	for _, v := range claimsMap {
+		switch t := v.(type) {
+		case map[string]interface{}:
+			if ok := findAndAppendSDElementDigest(t, additionalDigest...); ok {
+				return ok
+			}
+		}
+	}
+
+	return false
 }

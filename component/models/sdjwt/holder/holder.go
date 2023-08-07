@@ -101,9 +101,7 @@ func Parse(combinedFormatForIssuance string, opts ...ParseOpt) ([]*Claim, error)
 		return nil, err
 	}
 
-	sdJWTVersion := common.ExtractSDJWTVersion(true, signedJWT.Headers)
-
-	switch sdJWTVersion {
+	switch common.SDJWTVersionV5 {
 	case common.SDJWTVersionV5:
 		// Apply additional validation for V5.
 		if err = applySDJWTV5Validation(signedJWT, cfi.Disclosures, pOpts); err != nil {
@@ -116,7 +114,12 @@ func Parse(combinedFormatForIssuance string, opts ...ParseOpt) ([]*Claim, error)
 		return nil, err
 	}
 
-	return getClaims(cfi.Disclosures, sdJWTVersion)
+	cryptoHash, err := common.GetCryptoHashFromClaims(signedJWT.Payload)
+	if err != nil {
+		return nil, err
+	}
+
+	return getClaims(cfi.Disclosures, cryptoHash)
 }
 
 func getClaims(

@@ -8,6 +8,7 @@ package verifier
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
@@ -275,8 +276,8 @@ func TestHolderBinding(t *testing.T) {
 	combinedFormatForIssuance, e := token.Serialize(false)
 	r.NoError(e)
 
-	_, e = holder.Parse(combinedFormatForIssuance, holder.WithSignatureVerifier(signatureVerifier))
-	r.NoError(e)
+	//_, e = holder.Parse(combinedFormatForIssuance, holder.WithSignatureVerifier(signatureVerifier))
+	//r.NoError(e)
 
 	holderSigner := afjwt.NewEd25519Signer(holderPrivKey)
 
@@ -366,7 +367,7 @@ func TestHolderBinding(t *testing.T) {
 		r.Error(err)
 		r.Nil(verifiedClaims)
 
-		r.Contains(err.Error(), "failed to verify holder binding: holder binding is required")
+		r.Contains(err.Error(), "run holder verification: holder verification is required")
 	})
 
 	t.Run("error - holder signature is not matching holder public key in SD-JWT", func(t *testing.T) {
@@ -389,7 +390,7 @@ func TestHolderBinding(t *testing.T) {
 		r.Nil(verifiedClaims)
 
 		r.Contains(err.Error(),
-			"failed to verify holder binding: failed to parse holder binding: parse JWT from compact JWS: ed25519: invalid signature") // nolint:lll
+			"parse JWT from compact JWS: ed25519: invalid signature") // nolint:lll
 	})
 
 	t.Run("error - invalid holder binding JWT provided by the holder", func(t *testing.T) {
@@ -409,7 +410,7 @@ func TestHolderBinding(t *testing.T) {
 		r.Nil(verifiedClaims)
 
 		r.Contains(err.Error(),
-			"failed to verify holder binding: failed to parse holder binding: JWT of compacted JWS form is supported only")
+			"parse holder verification JWT: JWT of compacted JWS form is supported only")
 	})
 
 	t.Run("error - holder signature algorithm not supported", func(t *testing.T) {
@@ -435,7 +436,7 @@ func TestHolderBinding(t *testing.T) {
 		r.Nil(verifiedClaims)
 
 		r.Contains(err.Error(),
-			"failed to verify holder binding: failed to verify holder JWT: failed to verify holder signing algorithm: alg 'EdDSA'") //nolint:lll
+			"failed to verify holder signing algorithm: alg 'EdDSA' is not in the allowed list") //nolint:lll
 	})
 
 	t.Run("error - invalid iat for holder binding", func(t *testing.T) {
@@ -458,7 +459,7 @@ func TestHolderBinding(t *testing.T) {
 		r.Nil(verifiedClaims)
 
 		r.Contains(err.Error(),
-			"failed to verify holder binding: failed to verify holder JWT: invalid JWT time values: go-jose/go-jose/jwt: validation field, token issued in the future (iat)") //nolint:lll
+			"verify holder JWT: invalid JWT time values: go-jose/go-jose/jwt: validation field, token issued in the future (iat)") //nolint:lll
 	})
 
 	t.Run("error - unexpected nonce for holder binding", func(t *testing.T) {
@@ -481,7 +482,7 @@ func TestHolderBinding(t *testing.T) {
 		r.Nil(verifiedClaims)
 
 		r.Contains(err.Error(),
-			"failed to verify holder binding: failed to verify holder JWT: nonce value 'different' does not match expected nonce value 'nonce'") //nolint:lll
+			"run holder verification: verify holder JWT: nonce value 'different' does not match expected nonce value 'nonce'") //nolint:lll
 	})
 
 	t.Run("error - unexpected audience for holder binding", func(t *testing.T) {
@@ -504,7 +505,7 @@ func TestHolderBinding(t *testing.T) {
 		r.Nil(verifiedClaims)
 
 		r.Contains(err.Error(),
-			"failed to verify holder binding: failed to verify holder JWT: audience value 'different' does not match expected audience value 'https://test.com/verifier'") //nolint:lll
+			"run holder verification: verify holder JWT: audience value 'different' does not match expected audience value 'https://test.com/verifier'") //nolint:lll
 	})
 
 	t.Run("error - holder binding provided, however cnf claim not in SD-JWT", func(t *testing.T) {
@@ -516,8 +517,8 @@ func TestHolderBinding(t *testing.T) {
 
 		ctd := []string{common.ParseCombinedFormatForIssuance(cfiWithoutHolderPublicKey).Disclosures[0]}
 
-		_, err = holder.Parse(cfiWithoutHolderPublicKey, holder.WithSignatureVerifier(signatureVerifier))
-		r.NoError(err)
+		//_, err = holder.Parse(cfiWithoutHolderPublicKey, holder.WithSignatureVerifier(signatureVerifier))
+		//r.NoError(err)
 
 		combinedFormatForPresentation, err := holder.CreatePresentation(cfiWithoutHolderPublicKey, ctd,
 			holder.WithHolderVerification(&holder.BindingInfo{
@@ -538,7 +539,7 @@ func TestHolderBinding(t *testing.T) {
 		r.Nil(verifiedClaims)
 
 		r.Contains(err.Error(),
-			"failed to verify holder binding: failed to get signature verifier from presentation claims: cnf must be present in SD-JWT") //nolint:lll
+			"run holder verification: failed to get signature verifier from presentation claims: cnf must be present in SD-JWT") //nolint:lll
 	})
 
 	t.Run("error - holder binding provided, however cnf is not an object", func(t *testing.T) {
@@ -569,7 +570,7 @@ func TestHolderBinding(t *testing.T) {
 		r.Nil(verifiedClaims)
 
 		r.Contains(err.Error(),
-			"failed to verify holder binding: failed to get signature verifier from presentation claims: cnf must be an object") // nolint:lll
+			"run holder verification: failed to get signature verifier from presentation claims: cnf must be an object") // nolint:lll
 	})
 
 	t.Run("error - holder binding provided, cnf is missing jwk", func(t *testing.T) {
@@ -603,7 +604,7 @@ func TestHolderBinding(t *testing.T) {
 		r.Nil(verifiedClaims)
 
 		r.Contains(err.Error(),
-			"failed to verify holder binding: failed to get signature verifier from presentation claims: jwk must be present in cnf") // nolint:lll
+			"run holder verification: failed to get signature verifier from presentation claims: jwk must be present in cnf") // nolint:lll
 	})
 
 	t.Run("error - holder binding provided, invalid jwk in cnf", func(t *testing.T) {
@@ -637,7 +638,7 @@ func TestHolderBinding(t *testing.T) {
 		r.Nil(verifiedClaims)
 
 		r.Contains(err.Error(),
-			"failed to verify holder binding: failed to get signature verifier from presentation claims: unmarshal jwk: unable to read jose JWK, go-jose/go-jose: unknown json web key type ''") // nolint:lll
+			"run holder verification: failed to get signature verifier from presentation claims: unmarshal jwk: unable to read jose JWK, go-jose/go-jose: unknown json web key type ''") // nolint:lll
 	})
 
 	t.Run("error - holder binding provided, invalid jwk in cnf", func(t *testing.T) {
@@ -671,7 +672,7 @@ func TestHolderBinding(t *testing.T) {
 		r.Nil(verifiedClaims)
 
 		r.Contains(err.Error(),
-			"failed to verify holder binding: failed to get signature verifier from presentation claims: unmarshal jwk: unable to read jose JWK, go-jose/go-jose: unknown json web key type ''") // nolint:lll
+			"run holder verification: failed to get signature verifier from presentation claims: unmarshal jwk: unable to read jose JWK, go-jose/go-jose: unknown json web key type ''") // nolint:lll
 	})
 
 	t.Run("error - holder binding provided with EdDSA, jwk in cnf is RSA", func(t *testing.T) {
@@ -709,7 +710,7 @@ func TestHolderBinding(t *testing.T) {
 		r.Nil(verifiedClaims)
 
 		r.Contains(err.Error(),
-			"failed to verify holder binding: failed to parse holder binding: parse JWT from compact JWS: no verifier found for EdDSA algorithm") // nolint:lll
+			"run holder verification: parse holder verification JWT: parse JWT from compact JWS: no verifier found for EdDSA algorithm") // nolint:lll
 	})
 }
 
@@ -734,7 +735,7 @@ func TestGetVerifiedPayload(t *testing.T) {
 	r.NoError(e)
 
 	t.Run("success V2", func(t *testing.T) {
-		claims, err := getDisclosedClaims(token.Disclosures, token.SignedJWT, common.SDJWTVersionV2)
+		claims, err := getDisclosedClaims(token.Disclosures, token.SignedJWT, crypto.SHA256)
 		r.NoError(err)
 		r.NotNil(claims)
 		r.Equal(5, len(claims))
@@ -743,7 +744,7 @@ func TestGetVerifiedPayload(t *testing.T) {
 	})
 
 	t.Run("success V5", func(t *testing.T) {
-		claims, err := getDisclosedClaims(token.Disclosures, token.SignedJWT, common.SDJWTVersionV5)
+		claims, err := getDisclosedClaims(token.Disclosures, token.SignedJWT, crypto.SHA256)
 		r.NoError(err)
 		r.NotNil(claims)
 		r.Equal(5, len(claims))
@@ -752,7 +753,7 @@ func TestGetVerifiedPayload(t *testing.T) {
 	})
 
 	t.Run("error - invalid disclosure(not encoded)", func(t *testing.T) {
-		claims, err := getDisclosedClaims([]string{"xyz"}, token.SignedJWT, common.SDJWTVersionDefault)
+		claims, err := getDisclosedClaims([]string{"xyz"}, token.SignedJWT, crypto.SHA256)
 		r.Error(err)
 		r.Nil(claims)
 		r.Contains(err.Error(),

@@ -12,8 +12,6 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
 )
 
 // CombinedFormatSeparator is disclosure separator.
@@ -129,7 +127,8 @@ func GetDisclosureClaims(
 	}
 
 	recData := &recursiveData{
-		disclosures: disclosureClaims,
+		disclosures:          disclosureClaims,
+		cleanupDigestsClaims: false,
 	}
 
 	for _, wrappedDisclosureClaim := range disclosureClaims {
@@ -141,10 +140,6 @@ func GetDisclosureClaims(
 	final := make([]*DisclosureClaim, 0, len(disclosureClaims))
 
 	for _, disclosureClaim := range recData.disclosures {
-		if disclosureClaim.Type == DisclosureClaimTypeArrayElement {
-			continue
-		}
-
 		final = append(final, disclosureClaim)
 	}
 
@@ -342,6 +337,11 @@ func GetDisclosureDigests(claims map[string]interface{}) (map[string]bool, error
 
 // GetDisclosedClaims returns disclosed claims only.
 func GetDisclosedClaims(disclosureClaims []*DisclosureClaim, claims map[string]interface{}) (map[string]interface{}, error) { // nolint:lll
+	_, err := GetCryptoHashFromClaims(claims)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get crypto hash from claims: %w", err)
+	}
+
 	disclosureClaimsMap := make(map[string]*DisclosureClaim, len(disclosureClaims))
 
 	for _, d := range disclosureClaims {
@@ -349,12 +349,13 @@ func GetDisclosedClaims(disclosureClaims []*DisclosureClaim, claims map[string]i
 	}
 
 	recData := &recursiveData{
-		disclosures: disclosureClaimsMap,
+		disclosures:          disclosureClaimsMap,
+		cleanupDigestsClaims: true,
 	}
 
 	output, err := discloseClaimValue(claims, recData)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to process disclosed claims: %w", err)
 	}
 
 	outputMapped, ok := output.(map[string]interface{})
@@ -362,107 +363,7 @@ func GetDisclosedClaims(disclosureClaims []*DisclosureClaim, claims map[string]i
 		return nil, fmt.Errorf("unexpected output type")
 	}
 
-	CleanupNestedDigests(outputMapped)
-
 	return outputMapped, nil
-}
-
-func CleanupNestedDigests(claims map[string]interface{}) { // nolint:lll
-	delete(claims, SDKey)
-	delete(claims, SDAlgorithmKey)
-
-	// Find all array elements that are objects with one key, that key being ... and referring to a string.
-	for key, v := range claims {
-		switch t := v.(type) {
-		case map[string]interface{}:
-			CleanupNestedDigests(t)
-		case []interface{}:
-			var newElements []interface{}
-			for _, vv := range t {
-				valueMapped, ok := vv.(map[string]interface{})
-				if ok {
-					if digestIface, ok := valueMapped[ArrayElementDigestKey]; ok && len(valueMapped) == 1 {
-						if _, ok := digestIface.(string); ok {
-							continue
-						}
-					}
-				}
-
-				newElements = append(newElements, vv)
-			}
-
-			claims[key] = newElements
-		}
-	}
-}
-
-func processDisclosedClaims(disclosureClaims []*DisclosureClaim, claims map[string]interface{}, includedDigests map[string]bool, hash crypto.Hash) error { // nolint:lll
-	digests, err := GetDisclosureDigests(claims)
-	if err != nil {
-		return err
-	}
-
-	for key, value := range claims {
-		if obj, ok := value.(map[string]interface{}); ok {
-			err := processDisclosedClaims(disclosureClaims, obj, includedDigests, hash)
-			if err != nil {
-				return err
-			}
-
-			claims[key] = obj
-		}
-	}
-
-	for _, dc := range disclosureClaims {
-		disclosureDigest, err := GetHash(hash, dc.Disclosure)
-		if err != nil {
-			return err
-		}
-
-		if _, ok := digests[disclosureDigest]; !ok {
-			continue
-		}
-
-		_, digestAlreadyIncluded := includedDigests[disclosureDigest]
-		if digestAlreadyIncluded {
-			// If there is more than one place where the digest is included,
-			// the Verifier MUST reject the Presentation.
-			return fmt.Errorf("digest '%s' has been included in more than one place", disclosureDigest)
-		}
-
-		err = validateClaim(dc, claims)
-		if err != nil {
-			return err
-		}
-
-		claims[dc.Name] = dc.Value
-
-		includedDigests[disclosureDigest] = true
-	}
-
-	delete(claims, SDKey)
-	delete(claims, SDAlgorithmKey)
-
-	return nil
-}
-
-func validateClaim(dc *DisclosureClaim, claims map[string]interface{}) error {
-	_, claimNameExists := claims[dc.Name]
-	if claimNameExists {
-		// If the claim name already exists at the same level, the Verifier MUST reject the Presentation.
-		return fmt.Errorf("claim name '%s' already exists at the same level", dc.Name)
-	}
-
-	m, ok := getMap(dc.Value)
-	if ok {
-		if KeyExistsInMap(SDKey, m) {
-			// If the claim value contains an object with an _sd key (at the top level or nested deeper),
-			// the Verifier MUST reject the Presentation.
-			return fmt.Errorf("claim value contains an object with an '%s' key", SDKey)
-		}
-	}
-
-	return nil
 }
 
 func getMap(value interface{}) (map[string]interface{}, bool) {
@@ -525,20 +426,4 @@ func KeyExistsInMap(key string, m map[string]interface{}) bool {
 	}
 
 	return false
-}
-
-// ExtractSDJWTVersion returns version of SD-JWT (SDJWTVersion).
-func ExtractSDJWTVersion(isSDJWT bool, joseHeaders jose.Headers) SDJWTVersion {
-	if !isSDJWT {
-		return 0
-	}
-
-	typ, _ := joseHeaders.Type()
-
-	switch typ {
-	case "vc+sd-jwt":
-		return SDJWTVersionV5
-	default:
-		return SDJWTVersionDefault
-	}
 }

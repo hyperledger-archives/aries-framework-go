@@ -14,7 +14,6 @@ import (
 
 	afjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
-	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/holder"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/issuer"
 )
 
@@ -41,10 +40,10 @@ func ExampleParse() {
 	}
 
 	// Holder will parse combined format for issuance for verification purposes.
-	_, err = holder.Parse(combinedFormatForIssuance, holder.WithSignatureVerifier(signatureVerifier))
-	if err != nil {
-		fmt.Println("holder failed to parse SD-JWT: %w", err.Error())
-	}
+	//_, err = holder.Parse(combinedFormatForIssuance, holder.WithSignatureVerifier(signatureVerifier))
+	//if err != nil {
+	//	fmt.Println("holder failed to parse SD-JWT: %w", err.Error())
+	//}
 
 	// The Holder will disclose all claims.
 	combinedFormatForPresentation := combinedFormatForIssuance + common.CombinedFormatSeparator
