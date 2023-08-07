@@ -7,6 +7,7 @@ package verifiable
 
 import (
 	"bytes"
+	"crypto"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -20,9 +21,12 @@ import (
 	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/xeipuuv/gojsonschema"
 
+	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity"
+
 	"github.com/hyperledger/aries-framework-go/component/log"
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+
 	"github.com/hyperledger/aries-framework-go/component/models/jwt"
 	docjsonld "github.com/hyperledger/aries-framework-go/component/models/ld/validator"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
@@ -829,17 +833,12 @@ func ParseCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) 
 
 	isJWT, vcStr, disclosures, holderBinding = isJWTVC(vcStr)
 	if isJWT {
-		var joseHeaders jose.Headers
-
-		joseHeaders, vcDataDecoded, err = decodeJWTVC(vcStr, vcOpts)
+		_, vcDataDecoded, err = decodeJWTVC(vcStr, vcOpts)
 		if err != nil {
 			return nil, fmt.Errorf("decode new JWT credential: %w", err)
 		}
 
-		isSDJWTVC := disclosures != nil
-		sdJWTVersion = common.ExtractSDJWTVersion(isSDJWTVC, joseHeaders)
-
-		if err = validateDisclosures(vcDataDecoded, disclosures, sdJWTVersion); err != nil {
+		if err = validateDisclosures(vcDataDecoded, disclosures); err != nil {
 			return nil, err
 		}
 
@@ -871,7 +870,7 @@ func ParseCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) 
 	return vc, nil
 }
 
-func validateDisclosures(vcBytes []byte, disclosures []string, sdjwtVersion common.SDJWTVersion) error {
+func validateDisclosures(vcBytes []byte, disclosures []string) error {
 	if len(disclosures) == 0 {
 		return nil
 	}
@@ -890,7 +889,7 @@ func validateDisclosures(vcBytes []byte, disclosures []string, sdjwtVersion comm
 		}
 	}
 
-	err = common.VerifyDisclosuresInSDJWT(disclosures, vcPayload, sdjwtVersion)
+	err = common.VerifyDisclosuresInSDJWT(disclosures, vcPayload)
 	if err != nil {
 		return fmt.Errorf("invalid SDJWT disclosures: %w", err)
 	}
@@ -1072,7 +1071,15 @@ func newCredential(raw *rawCredential) (*Credential, error) {
 		return nil, fmt.Errorf("fill credential subject from raw: %w", err)
 	}
 
-	disclosures, err := parseDisclosures(raw.SDJWTDisclosures, raw.SDJWTVersion)
+	alg, _ := common.GetCryptoHash(raw.SDJWTHashAlg)
+	if alg == 0 {
+		sub, _ := subjects.([]Subject)
+		if len(sub) > 0 && len(sub[0].CustomFields) > 0 {
+			alg, _ = common.GetCryptoHashFromClaims(sub[0].CustomFields)
+		}
+	}
+
+	disclosures, err := parseDisclosures(raw.SDJWTDisclosures, alg)
 	if err != nil {
 		return nil, fmt.Errorf("fill credential sdjwt disclosures from raw: %w", err)
 	}
@@ -1122,12 +1129,12 @@ func parseTypedID(data json.RawMessage) ([]TypedID, error) {
 	return nil, err
 }
 
-func parseDisclosures(disclosures []string, version common.SDJWTVersion) ([]*common.DisclosureClaim, error) {
+func parseDisclosures(disclosures []string, hash crypto.Hash) ([]*common.DisclosureClaim, error) {
 	if len(disclosures) == 0 {
 		return nil, nil
 	}
 
-	disc, err := common.GetDisclosureClaims(disclosures, version)
+	disc, err := common.GetDisclosureClaims(disclosures, hash)
 	if err != nil {
 		return nil, fmt.Errorf("parsing disclosures from SD-JWT credential: %w", err)
 	}
