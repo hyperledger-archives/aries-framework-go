@@ -142,10 +142,6 @@ func GetDisclosureClaims(
 	final := make([]*DisclosureClaim, 0, len(disclosureClaims))
 
 	for _, disclosureClaim := range recData.disclosures {
-		//if disclosureClaim.Type == DisclosureClaimTypeArrayElement {
-		//	continue
-		//}
-
 		final = append(final, disclosureClaim)
 	}
 

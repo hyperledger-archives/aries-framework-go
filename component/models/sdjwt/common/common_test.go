@@ -170,7 +170,7 @@ func TestGetDisclosureClaims(t *testing.T) {
 
 		parsed, err := GetDisclosureClaims(disData, crypto.SHA256)
 		r.NoError(err)
-		r.Len(parsed, 7)
+		r.Len(parsed, 10)
 
 		var address *DisclosureClaim
 		for _, cl := range parsed {
@@ -217,7 +217,7 @@ func TestGetDisclosureClaims(t *testing.T) {
 		r.NoError(json.Unmarshal([]byte(testDisclosures), &disData))
 		parsed, err := GetDisclosureClaims(disData, crypto.SHA256)
 		r.NoError(err)
-		r.Len(parsed, 6) // - locality - arr elements
+		r.Len(parsed, 8)
 
 		var address *DisclosureClaim
 		for _, cl := range parsed {
