@@ -234,7 +234,7 @@ func WithNonSelectivelyDisclosableClaims(nonSDClaims []string) NewOpt {
 
 // WithAlwaysIncludeObjects is an option for provide object keys that should be a part of
 // selectively disclosable claims.
-// For example if you would like to keep original claims structure from example below, but selectively disclose all claims
+// Eexample if you would like to keep original claims structure from example below, but selectively disclose all claims
 //
 //	{
 //		"degree": {

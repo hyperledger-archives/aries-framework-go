@@ -152,7 +152,7 @@ func setDisclosureClaimValue(recData *recursiveData, disclosureClaim *Disclosure
 }
 
 // discloseClaimValue returns new value of claim, resolving dependencies on other disclosures.
-func discloseClaimValue(claim interface{}, recData *recursiveData) (interface{}, error) {
+func discloseClaimValue(claim interface{}, recData *recursiveData) (interface{}, error) { // nolint:funlen
 	switch disclosureValue := claim.(type) {
 	case []interface{}:
 		var newValues []interface{}
