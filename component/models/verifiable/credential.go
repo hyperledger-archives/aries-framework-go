@@ -21,8 +21,6 @@ import (
 	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/xeipuuv/gojsonschema"
 
-	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity"
-
 	"github.com/hyperledger/aries-framework-go/component/log"
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
