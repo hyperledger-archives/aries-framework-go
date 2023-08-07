@@ -15,6 +15,7 @@ import (
 	"github.com/go-jose/go-jose/v3/jwt"
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+
 	afgjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 )
@@ -101,13 +102,13 @@ func Parse(combinedFormatForIssuance string, opts ...ParseOpt) ([]*Claim, error)
 		return nil, err
 	}
 
-	switch common.SDJWTVersionV5 {
-	case common.SDJWTVersionV5:
-		// Apply additional validation for V5.
-		if err = applySDJWTV5Validation(signedJWT, cfi.Disclosures, pOpts); err != nil {
-			return nil, err
-		}
-	}
+	//switch common.SDJWTVersionV5 {
+	//case common.SDJWTVersionV5:
+	//	// Apply additional validation for V5.
+	//	if err = applySDJWTV5Validation(signedJWT, cfi.Disclosures, pOpts); err != nil {
+	//		return nil, err
+	//	}
+	//}
 
 	err = common.VerifyDisclosuresInSDJWT(cfi.Disclosures, signedJWT)
 	if err != nil {

@@ -57,8 +57,7 @@ linters-settings:
     line-length: 120
     tab-width: 1
     exclude:
-      - ".*\\.md" # ignore .md files
-      - ".*\\.go:.*\s\/.*$" # ignore commented lines in .go files
+      - "^\\s*\\/\\/.*$"
   unused:
     check-exported: false
   unparam:
