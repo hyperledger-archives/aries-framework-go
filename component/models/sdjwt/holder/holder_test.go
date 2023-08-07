@@ -218,7 +218,7 @@ func TestDiscloseClaims(t *testing.T) {
 		require.Equal(t, combinedFormatForIssuance+common.CombinedFormatSeparator, combinedFormatForPresentation)
 	})
 
-	t.Run("success - with holder binding", func(t *testing.T) {
+	t.Run("success - with holder verification", func(t *testing.T) {
 		_, holderPrivKey, e := ed25519.GenerateKey(rand.Reader)
 		r.NoError(e)
 
@@ -238,7 +238,7 @@ func TestDiscloseClaims(t *testing.T) {
 		r.Contains(combinedFormatForPresentation, combinedFormatForIssuance+common.CombinedFormatSeparator)
 	})
 
-	t.Run("error - failed to create holder binding due to signing error", func(t *testing.T) {
+	t.Run("error - failed to create holder verification due to signing error", func(t *testing.T) {
 		combinedFormatForPresentation, err := CreatePresentation(combinedFormatForIssuance, claimsToDisclose,
 			WithHolderVerification(&BindingInfo{
 				Payload: BindingPayload{},

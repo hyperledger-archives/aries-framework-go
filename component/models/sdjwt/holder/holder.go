@@ -176,7 +176,7 @@ func applySDJWTV5Validation(signedJWT *afgjwt.JSONWebToken, disclosures []string
 	}
 
 	if pOpts.expectedTypHeader != "" {
-		// Check that the typ of the SD JWT is vc+sd-jwt.
+		// Check that the typ header.
 		// Spec: https://vcstuff.github.io/draft-terbu-sd-jwt-vc/draft-terbu-oauth-sd-jwt-vc.html#name-header-parameters
 		err := common.VerifyTyp(signedJWT.Headers, pOpts.expectedTypHeader)
 		if err != nil {
@@ -214,6 +214,7 @@ type BindingPayload struct {
 type BindingInfo struct {
 	Payload BindingPayload
 	Signer  jose.Signer
+	Headers jose.Headers
 }
 
 // options holds options for holder.
@@ -291,7 +292,7 @@ func CreatePresentation(combinedFormatForIssuance string, claimsToDisclose []str
 
 // CreateHolderVerification will create holder verification from binding info.
 func CreateHolderVerification(info *BindingInfo) (string, error) {
-	hbJWT, err := afgjwt.NewSigned(info.Payload, nil, info.Signer)
+	hbJWT, err := afgjwt.NewSigned(info.Payload, info.Headers, info.Signer)
 	if err != nil {
 		return "", err
 	}
