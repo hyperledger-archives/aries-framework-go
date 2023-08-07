@@ -345,6 +345,19 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		err = VerifyDisclosuresInSDJWT(append(sdJWT.Disclosures, additionalSDDisclosure), signedJWT)
 		r.ErrorContains(err, fmt.Sprintf("digest '%s' has been included in more than one place", additionalDigest))
 	})
+
+	t.Run("error - claim name was found more then once", func(t *testing.T) {
+		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuanceV5)
+		require.Equal(t, 6, len(sdJWT.Disclosures))
+
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		require.NoError(t, err)
+
+		signedJWT.Payload["address"].(map[string]interface{})["locality"] = "some existing claim"
+
+		err = VerifyDisclosuresInSDJWT(append(sdJWT.Disclosures, additionalSDDisclosure), signedJWT)
+		r.ErrorContains(err, "claim name 'locality' already exists at the same level")
+	})
 }
 
 func findAndAppendSDElementDigest(claimsMap map[string]interface{}, additionalDigest ...interface{}) bool {
