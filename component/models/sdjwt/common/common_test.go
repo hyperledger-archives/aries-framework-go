@@ -370,7 +370,7 @@ func TestGetDisclosedClaims(t *testing.T) {
 		}, disclosedClaims["address"])
 	})
 
-	t.Run("success V5 not all digests provided", func(t *testing.T) {
+	t.Run("success V5 not all disclosures provided", func(t *testing.T) {
 		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuanceV5)
 		require.Equal(t, 6, len(sdJWT.Disclosures))
 
@@ -382,11 +382,19 @@ func TestGetDisclosedClaims(t *testing.T) {
 
 		var disclosuresLimitedList []*DisclosureClaim
 		for _, d := range disclosureClaimsV5 {
-			// Remove one array element
+			// Remove UA array element
 			if v, ok := d.Value.(string); ok && v == "UA" {
 				continue
 			}
-			// Remove one array element
+			// Remove PL array element
+			if v, ok := d.Value.(string); ok && v == "PL" {
+				continue
+			}
+			// Remove Albuquerque array element
+			if v, ok := d.Value.(string); ok && v == "Albuquerque" {
+				continue
+			}
+			// Remove one sd element
 			if v, ok := d.Value.(string); ok && v == "Schulpforta" {
 				continue
 			}
@@ -401,9 +409,8 @@ func TestGetDisclosedClaims(t *testing.T) {
 		r.Equal(2, len(disclosedClaims))
 		r.Equal("https://example.com/issuer", disclosedClaims["iss"])
 		r.Equal(map[string]interface{}{
-			"region":       "Sachsen-Anhalt",
-			"cities":       []interface{}{"Albuquerque", "El Paso"},
-			"countryCodes": []interface{}{"PL"},
+			"region": "Sachsen-Anhalt",
+			"cities": []interface{}{"El Paso"},
 			"extra": map[string]interface{}{
 				"recursive": map[string]interface{}{
 					"key1": "value1",
