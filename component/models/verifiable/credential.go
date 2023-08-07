@@ -1069,11 +1069,11 @@ func newCredential(raw *rawCredential) (*Credential, error) {
 		return nil, fmt.Errorf("fill credential subject from raw: %w", err)
 	}
 
-	alg, _ := common.GetCryptoHash(raw.SDJWTHashAlg)
+	alg, _ := common.GetCryptoHash(raw.SDJWTHashAlg) // nolint:errcheck
 	if alg == 0 {
 		sub, _ := subjects.([]Subject)
 		if len(sub) > 0 && len(sub[0].CustomFields) > 0 {
-			alg, _ = common.GetCryptoHashFromClaims(sub[0].CustomFields)
+			alg, _ = common.GetCryptoHashFromClaims(sub[0].CustomFields) // nolint:errcheck
 		}
 	}
 
