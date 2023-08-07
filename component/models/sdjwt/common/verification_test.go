@@ -11,8 +11,9 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"fmt"
-	afjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
 	"testing"
+
+	afjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
 
 	"github.com/stretchr/testify/require"
 
@@ -251,7 +252,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 
 		updatedDisclosures := []string{additionalSDDisclosure}
 		for _, d := range sdJWT.Disclosures {
-			h, err := GetHash(crypto.SHA256, d)
+			h, err := GetHash(crypto.SHA256, d) // nolint
 			r.NoError(err)
 			if h == oldDigest {
 				continue

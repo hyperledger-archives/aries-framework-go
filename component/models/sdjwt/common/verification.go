@@ -12,13 +12,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"golang.org/x/exp/slices"
 	"time"
+
+	"golang.org/x/exp/slices"
 
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/mitchellh/mapstructure"
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+
 	afgjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
 	utils "github.com/hyperledger/aries-framework-go/component/models/util/maphelpers"
 )
@@ -150,7 +152,7 @@ func setDisclosureClaimValue(recData *recursiveData, disclosureClaim *Disclosure
 }
 
 // discloseClaimValue returns new value of claim, resolving dependencies on other disclosures.
-func discloseClaimValue(claim interface{}, recData *recursiveData) (interface{}, error) {
+func discloseClaimValue(claim interface{}, recData *recursiveData) (interface{}, error) { // nolint:funlen
 	switch disclosureValue := claim.(type) {
 	case []interface{}:
 		var newValues []interface{}
@@ -190,6 +192,7 @@ func discloseClaimValue(claim interface{}, recData *recursiveData) (interface{},
 				}
 				// If there is no disclosure provided for given array element digest - use map as it is.
 				newValues = append(newValues, value)
+
 				continue
 			}
 
@@ -217,7 +220,7 @@ func discloseClaimValue(claim interface{}, recData *recursiveData) (interface{},
 		newValues := make(map[string]interface{}, len(disclosureValue))
 
 		// If there is nested digests.
-		if nestedSDListIface, ok := disclosureValue[SDKey]; ok {
+		if nestedSDListIface, ok := disclosureValue[SDKey]; ok { // nolint:nestif
 			nestedSDList, err := stringArray(nestedSDListIface)
 			if err != nil {
 				return nil, fmt.Errorf("get disclosure digests: %w", err)
@@ -280,6 +283,7 @@ func discloseClaimValue(claim interface{}, recData *recursiveData) (interface{},
 			if _, ok := newValues[k]; ok {
 				return nil, fmt.Errorf("claim name '%s' already exists at the same level", k)
 			}
+
 			if newValue != nil {
 				newValues[k] = newValue
 			}

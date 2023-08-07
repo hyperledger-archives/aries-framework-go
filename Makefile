@@ -255,3 +255,10 @@ clean-fixtures:
 	@cd test/bdd/fixtures/sidetree-mock && docker-compose down 2> /dev/null
 	@cd test/bdd/fixtures/agent-rest && docker-compose down 2> /dev/null
 
+.PHONY: tidy-modules
+tidy-modules:
+	@find . -type d \( -name build -prune \) -o -name go.mod -print | while read -r gomod_path; do \
+		dir_path=$$(dirname "$$gomod_path"); \
+		echo "Executing 'go mod tidy' in directory: $$dir_path"; \
+		(cd "$$dir_path" && go mod tidy) || exit 1; \
+	done

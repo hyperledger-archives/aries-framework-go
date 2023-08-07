@@ -234,7 +234,7 @@ func WithNonSelectivelyDisclosableClaims(nonSDClaims []string) NewOpt {
 
 // WithAlwaysIncludeObjects is an option for provide object keys that should be a part of
 // selectively disclosable claims.
-// For example if you would like to keep original claims structure from example below, but selectively disclose all claims
+// Eexample if you would like to keep original claims structure from example below, but selectively disclose all claims
 //
 //	{
 //		"degree": {
@@ -330,7 +330,7 @@ func WithAlwaysIncludeObjects(alwaysIncludeObjects []string) NewOpt {
 //		"DebugDigest": "gfseqHmNitIu0-0h14ynqMzuvq1EirTAzUhDnElSVX0"
 //	}
 //
-// ]
+// ].
 func WithRecursiveClaimsObjects(recursiveClaimsObject []string) NewOpt {
 	return func(opts *newOpts) {
 		opts.recursiveClaimMap = common.SliceToMap(recursiveClaimsObject)

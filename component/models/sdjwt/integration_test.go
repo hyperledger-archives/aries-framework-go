@@ -296,7 +296,7 @@ func TestSDJWTFlow(t *testing.T) {
 
 		printObject(t, "Holder Claims", claims)
 
-		r.Equal(4, len(claims))
+		r.Equal(5, len(claims))
 
 		const testAudience = "https://test.com/verifier"
 		const testNonce = "nonce"

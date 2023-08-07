@@ -9,6 +9,7 @@ package common
 import (
 	"bytes"
 	"crypto"
+	_ "embed"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -27,6 +28,12 @@ const (
 
 	testAlg = "sha-256"
 )
+
+//go:embed testdata/full_disclosures_v5.json
+var fullDisclosuresV5TestData []byte
+
+//go:embed testdata/array_element_and_one_missing_v5.json
+var arrayElementAndOneMissingV5TestData []byte
 
 func TestGetHash(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
@@ -152,21 +159,8 @@ func TestGetDisclosureClaims(t *testing.T) {
 	})
 
 	t.Run("full disclosures V5", func(t *testing.T) {
-		testDisclosures := `[
-	"WyI2NDYwRkU1STJvN0l0bktGX2s4YWZ3IiwiYWRkcmVzcyIseyJfc2QiOlsiQjJBQVFzTVk4V1B1bWZoOWtXY3J1RXV4TUVaT2J5bW5MNGU2OVB5U0psNCIsIkV3TGVJbVFVdWIyS1F6eURoNmxnU1c1TnZsMExqQWFlaXFCZHJzeDY1T28iLCI4TG56SUJ5QlNDZ243SG1zcURUbW1GeXZSVTRRdHRuaVNlZE4xanN2LXhvIiwibk54dThkU3laV0x3QVAteTJtV0k5aXRpMmRHejQ5RUM0eDY2RGxDZ0QwZyJdLCJleHRyYSI6eyJfc2QiOlsib2RqUjRraHQxcGVNZFRUMzVFMUotWXF5Q0gyM0dfSGhrQXRLZks0cUpIVSJdfSwiZXh0cmFBcnJJbmNsdWRlIjpbeyIuLi4iOiIxRVN5RGlLTE9KbEF2VnYtQnJaN1JQTU4zRXVOdU1Jc014aXVMeGhZWjg0In0sIlBMIl0sInJlZ2lvbiI6IlNhY2hzZW4tQW5oYWx0In1d",
-	"WyJZbEFCTmZkaXhKSVF4Z3hNZ0RTcUpRIiwiY291bnRyeSIsIkRFIl0",
-	"WyJJdGZ2ellZdXlMSTF3TGZLU213M0dRIiwiZXh0cmFBcnIiLFt7Ii4uLiI6IkRsVHpXT0tWbzJNbzNPNUZER0hpWGhuSnd4c2hBTkQyMUVibmQyWFRiT0kifSx7Ii4uLiI6IkMwbUl4SXdEQm4xZ1IxamZBTDFYZVJNdGlYLVdDMVBjc3FUVkphdnJMQTQifV1d",
-	"WyJkWW10LWNjcWMyeUJYd1ZGTFZkeFdnIiwic3RyZWV0X2FkZHJlc3MiLCJTY2h1bHN0ci4gMTIiXQ",
-	"WyJURWtwSjJkYWxraGltUUVLd25Cblp3IiwiVUEiXQ",
-	"WyIxRTlRZnRDS3YtbTFjN0VFOXlXMmh3IiwiRXh0cmExIl0",
-	"WyI0Mjl4ejFGeTlEdU9SQ0R2cHd3bzFBIiwiRXh0cmEyIl0",
-	"WyJvVy1oMDZYVUNsTU45YTBVV3VHMGhBIiwicmVjdXJzaXZlIix7Il9zZCI6WyJoX2h1bVhsYjhVekM5T0tGOHc3SEd6ZmYzSGgzMmh3SGR6Vms5WS1oOGR3Il19XQ",
-	"WyItdHBPTUlPS3dnOUNtNlBRVTlDTktBIiwia2V5MSIsInZhbHVlMSJd",
-	"WyJ5WElBaTZSb1Y1eDV2X3lsVm1wXzhBIiwibG9jYWxpdHkiLCJTY2h1bHBmb3J0YSJd"
-]`
-
 		var disData []string
-		r.NoError(json.Unmarshal([]byte(testDisclosures), &disData))
+		r.NoError(json.Unmarshal(fullDisclosuresV5TestData, &disData))
 
 		parsed, err := GetDisclosureClaims(disData, crypto.SHA256)
 		r.NoError(err)
@@ -200,21 +194,10 @@ func TestGetDisclosureClaims(t *testing.T) {
 	})
 
 	t.Run("array element and one value missing V5", func(t *testing.T) {
-		testDisclosures := `[
-	"WyI2NDYwRkU1STJvN0l0bktGX2s4YWZ3IiwiYWRkcmVzcyIseyJfc2QiOlsiQjJBQVFzTVk4V1B1bWZoOWtXY3J1RXV4TUVaT2J5bW5MNGU2OVB5U0psNCIsIkV3TGVJbVFVdWIyS1F6eURoNmxnU1c1TnZsMExqQWFlaXFCZHJzeDY1T28iLCI4TG56SUJ5QlNDZ243SG1zcURUbW1GeXZSVTRRdHRuaVNlZE4xanN2LXhvIiwibk54dThkU3laV0x3QVAteTJtV0k5aXRpMmRHejQ5RUM0eDY2RGxDZ0QwZyJdLCJleHRyYSI6eyJfc2QiOlsib2RqUjRraHQxcGVNZFRUMzVFMUotWXF5Q0gyM0dfSGhrQXRLZks0cUpIVSJdfSwiZXh0cmFBcnJJbmNsdWRlIjpbeyIuLi4iOiIxRVN5RGlLTE9KbEF2VnYtQnJaN1JQTU4zRXVOdU1Jc014aXVMeGhZWjg0In0sIlBMIl0sInJlZ2lvbiI6IlNhY2hzZW4tQW5oYWx0In1d",
-	"WyJZbEFCTmZkaXhKSVF4Z3hNZ0RTcUpRIiwiY291bnRyeSIsIkRFIl0",
-	"WyJJdGZ2ellZdXlMSTF3TGZLU213M0dRIiwiZXh0cmFBcnIiLFt7Ii4uLiI6IkRsVHpXT0tWbzJNbzNPNUZER0hpWGhuSnd4c2hBTkQyMUVibmQyWFRiT0kifSx7Ii4uLiI6IkMwbUl4SXdEQm4xZ1IxamZBTDFYZVJNdGlYLVdDMVBjc3FUVkphdnJMQTQifV1d",
-	"WyJkWW10LWNjcWMyeUJYd1ZGTFZkeFdnIiwic3RyZWV0X2FkZHJlc3MiLCJTY2h1bHN0ci4gMTIiXQ",
-	"WyIxRTlRZnRDS3YtbTFjN0VFOXlXMmh3IiwiRXh0cmExIl0",
-	"WyI0Mjl4ejFGeTlEdU9SQ0R2cHd3bzFBIiwiRXh0cmEyIl0",
-	"WyJvVy1oMDZYVUNsTU45YTBVV3VHMGhBIiwicmVjdXJzaXZlIix7Il9zZCI6WyJoX2h1bVhsYjhVekM5T0tGOHc3SEd6ZmYzSGgzMmh3SGR6Vms5WS1oOGR3Il19XQ",
-	"WyItdHBPTUlPS3dnOUNtNlBRVTlDTktBIiwia2V5MSIsInZhbHVlMSJd"
-]`
-
 		// - 	"WyJ5WElBaTZSb1Y1eDV2X3lsVm1wXzhBIiwibG9jYWxpdHkiLCJTY2h1bHBmb3J0YSJd" locality
 		// - 	"WyJURWtwSjJkYWxraGltUUVLd25Cblp3IiwiVUEiXQ", UA
 		var disData []string
-		r.NoError(json.Unmarshal([]byte(testDisclosures), &disData))
+		r.NoError(json.Unmarshal(arrayElementAndOneMissingV5TestData, &disData))
 		parsed, err := GetDisclosureClaims(disData, crypto.SHA256)
 		r.NoError(err)
 		r.Len(parsed, 8)
@@ -272,7 +255,8 @@ func TestGetDisclosureClaims(t *testing.T) {
 		disclosureJSON, err := json.Marshal(disclosureArr)
 		require.NoError(t, err)
 
-		sdJWT := ParseCombinedFormatForIssuance(fmt.Sprintf("%s~%s", testSDJWT, base64.RawURLEncoding.EncodeToString(disclosureJSON)))
+		sdJWT := ParseCombinedFormatForIssuance(fmt.Sprintf("%s~%s", testSDJWT,
+			base64.RawURLEncoding.EncodeToString(disclosureJSON)))
 		require.Equal(t, 1, len(sdJWT.Disclosures))
 
 		token, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
@@ -292,7 +276,8 @@ func TestGetDisclosureClaims(t *testing.T) {
 		disclosureJSON, err := json.Marshal(disclosureArr)
 		require.NoError(t, err)
 
-		sdJWT := ParseCombinedFormatForIssuance(fmt.Sprintf("%s~%s", testSDJWT, base64.RawURLEncoding.EncodeToString(disclosureJSON)))
+		sdJWT := ParseCombinedFormatForIssuance(fmt.Sprintf("%s~%s", testSDJWT,
+			base64.RawURLEncoding.EncodeToString(disclosureJSON)))
 		require.Equal(t, 1, len(sdJWT.Disclosures))
 
 		token, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
@@ -810,9 +795,8 @@ func (sv *NoopSignatureVerifier) Verify(joseHeaders jose.Headers, payload, signi
 const additionalSDDisclosure = `WyJfMjZiYzRMVC1hYzZxMktJNmNCVzVlcyIsICJmYW1pbHlfbmFtZSIsICJNw7ZiaXVzIl0`
 const additionalArrayElementDisclosure = `WyJjc3AteWZLWWNTYWlkUElUMHpyOFNRIiwiTWluYXMgVGlyaXRoIl0`
 
-// nolint: lll
-const testCombinedFormatForIssuance = `eyJhbGciOiJFZERTQSJ9.eyJfc2QiOlsicXF2Y3FuY3pBTWdZeDdFeWtJNnd3dHNweXZ5dks3OTBnZTdNQmJRLU51cyJdLCJfc2RfYWxnIjoic2hhLTI1NiIsImV4cCI6MTcwMzAyMzg1NSwiaWF0IjoxNjcxNDg3ODU1LCJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tL2lzc3VlciIsIm5iZiI6MTY3MTQ4Nzg1NX0.vscuzfwcHGi04pWtJCadc4iDELug6NH6YK-qxhY1qacsciIHuoLELAfon1tGamHtuu8TSs6OjtLk3lHE16jqAQ~WyIzanFjYjY3ejl3a3MwOHp3aUs3RXlRIiwgImdpdmVuX25hbWUiLCAiSm9obiJd`
-const testCombinedFormatForIssuanceV5 = `eyJhbGciOiJFZERTQSJ9.eyJfc2RfYWxnIjoic2hhLTI1NiIsImFkZHJlc3MiOnsiX3NkIjpbIlRaV0JRdlpTam1VemxRZ1AzZ2EydkFlYlV6cDhpU2NRNlBFT0gzSHQ1bm8iXSwiY2l0aWVzIjpbeyIuLi4iOiI0U1lCT3NMcVRURU42QnpTSV9NX0pyQ0NzWFJ0Y1BTbWNqV3ROMEdjU0dJIn0sIkVsIFBhc28iXSwiY291bnRyeUNvZGVzIjpbeyIuLi4iOiJab2hsNGd4OXd0czJBRlVrbmd1c3FleWJDUERWUVFLNHNPR3A4dWZHcWg4In0seyIuLi4iOiIxbVl4V1VZN2M5T1pEWlZnd0N6aUFuWkY1TDgzUzZaN2pGb1U2ck5vaEtzIn1dLCJleHRyYSI6eyJfc2QiOlsibXZtZVoxb3ZmY1RRTi01Q3A5YlhYcElKREd2THVkNVg4SVIyajctVUd0WSJdfSwicmVnaW9uIjoiU2FjaHNlbi1BbmhhbHQifSwiaXNzIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9pc3N1ZXIifQ.l-xc_9hGQMHfkPmMeG_EQIZU5guVme9FSKgN58WqfBJcMvfrb9rTc2PHmxveerMTA2cjgJzM2OZgibQCxRePAg~WyJTUEh2T185NEsyWENVdVhSeURjcHJnIiwibG9jYWxpdHkiLCJTY2h1bHBmb3J0YSJd~WyJSaHh1bDBnd2x6cTlSNDg4ZV8tQ3B3IiwiVUEiXQ~WyJKQWlwWm5uSUM3ejAtZzJoNzZmc0FBIiwiUEwiXQ~WyIxdzZVNkRkSG9laFdUdG5UNG5iS3RnIiwiQWxidXF1ZXJxdWUiXQ~WyJVWnUxcjR5YnpfUGNiU3BRcTFpMllRIiwicmVjdXJzaXZlIix7Il9zZCI6WyJydjZNejBheXJZYWU1MHpWRXYtbExKNFZRRzhNMGFJdjJOVW1LVDRRRjVJIl19XQ~WyJoRWNiQmxZQ0ZSVGVtMG1uVXQzTVNnIiwia2V5MSIsInZhbHVlMSJd`
+const testCombinedFormatForIssuance = `eyJhbGciOiJFZERTQSJ9.eyJfc2QiOlsicXF2Y3FuY3pBTWdZeDdFeWtJNnd3dHNweXZ5dks3OTBnZTdNQmJRLU51cyJdLCJfc2RfYWxnIjoic2hhLTI1NiIsImV4cCI6MTcwMzAyMzg1NSwiaWF0IjoxNjcxNDg3ODU1LCJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tL2lzc3VlciIsIm5iZiI6MTY3MTQ4Nzg1NX0.vscuzfwcHGi04pWtJCadc4iDELug6NH6YK-qxhY1qacsciIHuoLELAfon1tGamHtuu8TSs6OjtLk3lHE16jqAQ~WyIzanFjYjY3ejl3a3MwOHp3aUs3RXlRIiwgImdpdmVuX25hbWUiLCAiSm9obiJd`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           // nolint: lll
+const testCombinedFormatForIssuanceV5 = `eyJhbGciOiJFZERTQSJ9.eyJfc2RfYWxnIjoic2hhLTI1NiIsImFkZHJlc3MiOnsiX3NkIjpbIlRaV0JRdlpTam1VemxRZ1AzZ2EydkFlYlV6cDhpU2NRNlBFT0gzSHQ1bm8iXSwiY2l0aWVzIjpbeyIuLi4iOiI0U1lCT3NMcVRURU42QnpTSV9NX0pyQ0NzWFJ0Y1BTbWNqV3ROMEdjU0dJIn0sIkVsIFBhc28iXSwiY291bnRyeUNvZGVzIjpbeyIuLi4iOiJab2hsNGd4OXd0czJBRlVrbmd1c3FleWJDUERWUVFLNHNPR3A4dWZHcWg4In0seyIuLi4iOiIxbVl4V1VZN2M5T1pEWlZnd0N6aUFuWkY1TDgzUzZaN2pGb1U2ck5vaEtzIn1dLCJleHRyYSI6eyJfc2QiOlsibXZtZVoxb3ZmY1RRTi01Q3A5YlhYcElKREd2THVkNVg4SVIyajctVUd0WSJdfSwicmVnaW9uIjoiU2FjaHNlbi1BbmhhbHQifSwiaXNzIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9pc3N1ZXIifQ.l-xc_9hGQMHfkPmMeG_EQIZU5guVme9FSKgN58WqfBJcMvfrb9rTc2PHmxveerMTA2cjgJzM2OZgibQCxRePAg~WyJTUEh2T185NEsyWENVdVhSeURjcHJnIiwibG9jYWxpdHkiLCJTY2h1bHBmb3J0YSJd~WyJSaHh1bDBnd2x6cTlSNDg4ZV8tQ3B3IiwiVUEiXQ~WyJKQWlwWm5uSUM3ejAtZzJoNzZmc0FBIiwiUEwiXQ~WyIxdzZVNkRkSG9laFdUdG5UNG5iS3RnIiwiQWxidXF1ZXJxdWUiXQ~WyJVWnUxcjR5YnpfUGNiU3BRcTFpMllRIiwicmVjdXJzaXZlIix7Il9zZCI6WyJydjZNejBheXJZYWU1MHpWRXYtbExKNFZRRzhNMGFJdjJOVW1LVDRRRjVJIl19XQ~WyJoRWNiQmxZQ0ZSVGVtMG1uVXQzTVNnIiwia2V5MSIsInZhbHVlMSJd` // nolint: lll
 
 // nolint: lll
 const testSDJWT = `eyJhbGciOiJFZERTQSJ9.eyJfc2QiOlsicXF2Y3FuY3pBTWdZeDdFeWtJNnd3dHNweXZ5dks3OTBnZTdNQmJRLU51cyJdLCJfc2RfYWxnIjoic2hhLTI1NiIsImV4cCI6MTcwMzAyMzg1NSwiaWF0IjoxNjcxNDg3ODU1LCJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tL2lzc3VlciIsIm5iZiI6MTY3MTQ4Nzg1NX0.vscuzfwcHGi04pWtJCadc4iDELug6NH6YK-qxhY1qacsciIHuoLELAfon1tGamHtuu8TSs6OjtLk3lHE16jqAQ`
