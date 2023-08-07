@@ -46,6 +46,13 @@ func WithSDJWTV5Validation(flag bool) ParseOpt {
 	return holder.WithSDJWTV5Validation(flag)
 }
 
+// WithExpectedTypHeader is an option for JWT typ header validation.
+// Might be relevant for SDJWT V5 VC validation.
+// Spec: https://vcstuff.github.io/draft-terbu-sd-jwt-vc/draft-terbu-oauth-sd-jwt-vc.html#name-header-parameters
+func WithExpectedTypHeader(typ string) ParseOpt {
+	return holder.WithExpectedTypHeader(typ)
+}
+
 // Parse parses issuer SD-JWT and returns claims that can be selected.
 // The Holder MUST perform the following (or equivalent) steps when receiving a Combined Format for Issuance:
 //

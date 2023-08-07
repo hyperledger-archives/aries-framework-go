@@ -33,6 +33,7 @@ type parseOpts struct {
 
 	issuerSigningAlgorithms []string
 	sdjwtV5Validation       bool
+	expectedTypHeader       string
 
 	leewayForClaimsValidation time.Duration
 }
@@ -76,6 +77,15 @@ func WithLeewayForClaimsValidation(duration time.Duration) ParseOpt {
 	}
 }
 
+// WithExpectedTypHeader is an option for JWT typ header validation.
+// Might be relevant for SDJWT V5 VC validation.
+// Spec: https://vcstuff.github.io/draft-terbu-sd-jwt-vc/draft-terbu-oauth-sd-jwt-vc.html#name-header-parameters
+func WithExpectedTypHeader(typ string) ParseOpt {
+	return func(opts *parseOpts) {
+		opts.expectedTypHeader = typ
+	}
+}
+
 // Parse parses issuer SD-JWT and returns claims that can be selected.
 // The Holder MUST perform the following (or equivalent) steps when receiving a Combined Format for Issuance:
 //
@@ -110,8 +120,7 @@ func Parse(combinedFormatForIssuance string, opts ...ParseOpt) ([]*Claim, error)
 		return nil, err
 	}
 
-	switch common.SDJWTVersionV5 {
-	case common.SDJWTVersionV5:
+	if pOpts.sdjwtV5Validation {
 		// Apply additional validation for V5.
 		if err = applySDJWTV5Validation(signedJWT, cfi.Disclosures, pOpts); err != nil {
 			return nil, err
@@ -166,16 +175,18 @@ func applySDJWTV5Validation(signedJWT *afgjwt.JSONWebToken, disclosures []string
 		return fmt.Errorf("unexpected key binding JWT supplied")
 	}
 
-	// Check that the typ of the SD JWT is vc+sd-jwt.
-	// Spec: https://vcstuff.github.io/draft-terbu-sd-jwt-vc/draft-terbu-oauth-sd-jwt-vc.html#name-header-parameters
-	err := common.VerifyTyp(signedJWT.Headers, "vc+sd-jwt")
-	if err != nil {
-		return fmt.Errorf("failed to verify typ header: %w", err)
+	if pOpts.expectedTypHeader != "" {
+		// Check that the typ of the SD JWT is vc+sd-jwt.
+		// Spec: https://vcstuff.github.io/draft-terbu-sd-jwt-vc/draft-terbu-oauth-sd-jwt-vc.html#name-header-parameters
+		err := common.VerifyTyp(signedJWT.Headers, pOpts.expectedTypHeader)
+		if err != nil {
+			return fmt.Errorf("verify typ header: %w", err)
+		}
 	}
 
 	// Ensure that a signing algorithm was used that was deemed secure for the application.
 	// The none algorithm MUST NOT be accepted.
-	err = common.VerifySigningAlg(signedJWT.Headers, pOpts.issuerSigningAlgorithms)
+	err := common.VerifySigningAlg(signedJWT.Headers, pOpts.issuerSigningAlgorithms)
 	if err != nil {
 		return fmt.Errorf("failed to verify issuer signing algorithm: %w", err)
 	}
