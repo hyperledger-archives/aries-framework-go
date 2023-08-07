@@ -184,7 +184,10 @@ func discloseClaimValue(claim interface{}, recData *recursiveData) (interface{},
 			recData.nestedSD = append(recData.nestedSD, arrayElementDigest)
 
 			disclosureClaim, ok := recData.disclosures[arrayElementDigest]
-			if !ok && !recData.cleanupDigestsClaims {
+			if !ok {
+				if recData.cleanupDigestsClaims {
+					continue
+				}
 				// If there is no disclosure provided for given array element digest - use map as it is.
 				newValues = append(newValues, value)
 				continue
@@ -256,9 +259,22 @@ func discloseClaimValue(claim interface{}, recData *recursiveData) (interface{},
 		}
 
 		for k, disclosureNestedClaim := range disclosureValue {
+			if k == SDKey {
+				continue
+			}
+
+			if k == SDAlgorithmKey && recData.cleanupDigestsClaims {
+				continue
+			}
+
 			newValue, err := discloseClaimValue(disclosureNestedClaim, recData)
 			if err != nil {
 				return nil, err
+			}
+
+			// If the claim name already exists at the same level, the SD-JWT MUST be rejected.
+			if _, ok := newValues[k]; ok {
+				return nil, fmt.Errorf("claim name '%s' already exists at the same level", k)
 			}
 
 			newValues[k] = newValue

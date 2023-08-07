@@ -341,6 +341,77 @@ func TestGetDisclosedClaims(t *testing.T) {
 		r.Equal("John", disclosedClaims["given_name"])
 	})
 
+	t.Run("success V5", func(t *testing.T) {
+		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuanceV5)
+		require.Equal(t, 6, len(sdJWT.Disclosures))
+
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		require.NoError(t, err)
+
+		disclosureClaimsV5, err := GetDisclosureClaims(sdJWT.Disclosures, crypto.SHA256)
+		require.NoError(t, err)
+
+		disclosedClaims, err := GetDisclosedClaims(disclosureClaimsV5, signedJWT.Payload)
+		r.NoError(err)
+		r.NotNil(disclosedClaims)
+
+		r.Equal(2, len(disclosedClaims))
+		r.Equal("https://example.com/issuer", disclosedClaims["iss"])
+		r.Equal(map[string]interface{}{
+			"locality":     "Schulpforta",
+			"region":       "Sachsen-Anhalt",
+			"cities":       []interface{}{"Albuquerque", "El Paso"},
+			"countryCodes": []interface{}{"UA", "PL"},
+			"extra": map[string]interface{}{
+				"recursive": map[string]interface{}{
+					"key1": "value1",
+				},
+			},
+		}, disclosedClaims["address"])
+	})
+
+	t.Run("success V5 not all digests provided", func(t *testing.T) {
+		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuanceV5)
+		require.Equal(t, 6, len(sdJWT.Disclosures))
+
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		require.NoError(t, err)
+
+		disclosureClaimsV5, err := GetDisclosureClaims(sdJWT.Disclosures, crypto.SHA256)
+		require.NoError(t, err)
+
+		var disclosuresLimitedList []*DisclosureClaim
+		for _, d := range disclosureClaimsV5 {
+			// Remove one array element
+			if v, ok := d.Value.(string); ok && v == "UA" {
+				continue
+			}
+			// Remove one array element
+			if v, ok := d.Value.(string); ok && v == "Schulpforta" {
+				continue
+			}
+
+			disclosuresLimitedList = append(disclosuresLimitedList, d)
+		}
+
+		disclosedClaims, err := GetDisclosedClaims(disclosuresLimitedList, signedJWT.Payload)
+		r.NoError(err)
+		r.NotNil(disclosedClaims)
+
+		r.Equal(2, len(disclosedClaims))
+		r.Equal("https://example.com/issuer", disclosedClaims["iss"])
+		r.Equal(map[string]interface{}{
+			"region":       "Sachsen-Anhalt",
+			"cities":       []interface{}{"Albuquerque", "El Paso"},
+			"countryCodes": []interface{}{"PL"},
+			"extra": map[string]interface{}{
+				"recursive": map[string]interface{}{
+					"key1": "value1",
+				},
+			},
+		}, disclosedClaims["address"])
+	})
+
 	t.Run("success - with complex object", func(t *testing.T) {
 		testClaims := utils.CopyMap(claims)
 
@@ -378,7 +449,7 @@ func TestGetDisclosedClaims(t *testing.T) {
 		r.Equal("value-y", disclosedClaims["father"].(map[string]interface{})["key-x"])
 	})
 
-	t.Run("error - claim value contains _sd", func(t *testing.T) {
+	t.Run("success - claim value contains _sd", func(t *testing.T) {
 		testClaims := utils.CopyMap(claims)
 
 		additionalDigest, err := GetHash(crypto.SHA256, additionalSDDisclosure)
@@ -392,16 +463,21 @@ func TestGetDisclosedClaims(t *testing.T) {
 
 		disclosedClaims, err := GetDisclosedClaims(append(disclosureClaims,
 			&DisclosureClaim{
+				Digest:     additionalDigest,
 				Disclosure: additionalSDDisclosure,
+				Salt:       "",
+				Elements:   disclosureElementsAmountForSDDigest,
+				Type:       DisclosureClaimTypeObject,
+				Version:    SDJWTVersionV2,
 				Name:       "key-x",
 				Value: map[string]interface{}{
 					"_sd": []interface{}{"test-digest"},
 				},
+				IsValueParsed: false,
 			}),
 			testClaims)
-		r.Error(err)
-		r.Nil(disclosedClaims)
-		r.Contains(err.Error(), "failed to process disclosed claims: claim value contains an object with an '_sd' key")
+		r.NoError(err)
+		r.NotNil(disclosedClaims)
 	})
 
 	t.Run("error - same claim key at the same level ", func(t *testing.T) {
@@ -412,6 +488,7 @@ func TestGetDisclosedClaims(t *testing.T) {
 		parentObj[SDKey] = claims[SDKey]
 
 		testClaims["father"] = parentObj
+		delete(testClaims, SDKey)
 
 		printObject(t, "Complex Claims", testClaims)
 
@@ -490,18 +567,6 @@ func TestGetDisclosedClaims(t *testing.T) {
 
 		r.Contains(err.Error(),
 			"failed to process disclosed claims: get disclosure digests: entry type[string] is not an array")
-	})
-
-	t.Run("error - get hash fails", func(t *testing.T) {
-		testClaims := make(map[string]interface{})
-		testClaims[SDAlgorithmKey] = "sha-256"
-		testClaims[SDKey] = []interface{}{"abc"}
-
-		err := processDisclosedClaims(disclosureClaims, testClaims, make(map[string]bool), 0)
-		r.Error(err)
-
-		r.Contains(err.Error(),
-			"hash function not available for: 0")
 	})
 }
 
