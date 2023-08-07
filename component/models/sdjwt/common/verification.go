@@ -208,6 +208,10 @@ func discloseClaimValue(claim interface{}, recData *recursiveData) (interface{},
 			newValues = append(newValues, disclosureClaim.Value)
 		}
 
+		if len(newValues) == 0 {
+			return nil, nil
+		}
+
 		return newValues, nil
 	case map[string]interface{}:
 		newValues := make(map[string]interface{}, len(disclosureValue))
@@ -276,8 +280,9 @@ func discloseClaimValue(claim interface{}, recData *recursiveData) (interface{},
 			if _, ok := newValues[k]; ok {
 				return nil, fmt.Errorf("claim name '%s' already exists at the same level", k)
 			}
-
-			newValues[k] = newValue
+			if newValue != nil {
+				newValues[k] = newValue
+			}
 		}
 
 		return newValues, nil
