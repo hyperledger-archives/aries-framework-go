@@ -116,7 +116,12 @@ func Parse(combinedFormatForIssuance string, opts ...ParseOpt) ([]*Claim, error)
 		return nil, err
 	}
 
-	return getClaims(cfi.Disclosures, sdJWTVersion)
+	cryptoHash, err := common.GetCryptoHashFromClaims(signedJWT.Payload)
+	if err != nil {
+		return nil, err
+	}
+
+	return getClaims(cfi.Disclosures, cryptoHash)
 }
 
 func getClaims(
