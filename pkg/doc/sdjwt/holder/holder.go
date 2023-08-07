@@ -8,10 +8,10 @@ SPDX-License-Identifier: Apache-2.0
 package holder
 
 import (
-	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/holder"
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/holder"
 )
 
 // Claim defines claim.
