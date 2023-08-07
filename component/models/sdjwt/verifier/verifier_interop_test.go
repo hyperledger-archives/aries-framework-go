@@ -26,7 +26,7 @@ const specPresentationExample1SDJWTV2 = `eyJhbGciOiAiRVMyNTYifQ.eyJfc2QiOiBbIk5Z
 func TestInterop(t *testing.T) {
 	r := require.New(t)
 
-	t.Run("success - Example 1 - SDJWT V2", func(t *testing.T) {
+	t.Run("success - Example 1", func(t *testing.T) {
 		cfi := specIssuanceExample1SDJWTV2 + common.CombinedFormatSeparator
 
 		claims, err := Parse(cfi,
@@ -53,7 +53,7 @@ func TestInterop(t *testing.T) {
 		r.Equal(len(disclosedClaimsForExample1Obj), len(claims))
 	})
 
-	t.Run("success - Example 1 with Holder Binding - SDJWT V2", func(t *testing.T) {
+	t.Run("success - Example 1 with Holder Binding", func(t *testing.T) {
 		claims, err := Parse(specPresentationExample1SDJWTV2,
 			WithIssuerSigningAlgorithms([]string{"ES256"}),
 			WithHolderSigningAlgorithms([]string{"ES256"}),

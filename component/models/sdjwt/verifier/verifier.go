@@ -11,15 +11,19 @@ extracts the claims from an SD-JWT and respective Disclosures.
 package verifier
 
 import (
+	"crypto"
+	"encoding/json"
 	"fmt"
 	"time"
 
-	"github.com/go-jose/go-jose/v3/jwt"
-
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
-
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
 	afgjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
+	"github.com/hyperledger/aries-framework-go/component/models/signature/verifier"
+	utils "github.com/hyperledger/aries-framework-go/component/models/util/maphelpers"
+
+	"github.com/go-jose/go-jose/v3/jwt"
 )
 
 // parseOpts holds options for the SD-JWT parsing.
@@ -163,20 +167,33 @@ func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]i
 		return nil, err
 	}
 
-	sdJWTVersion := common.ExtractSDJWTVersion(true, signedJWT.Headers)
-
 	// Verify that all disclosures are present in SD-JWT.
-	err = common.VerifyDisclosuresInSDJWT(cfp.Disclosures, signedJWT, sdJWTVersion)
+	err = common.VerifyDisclosuresInSDJWT(cfp.Disclosures, signedJWT)
 	if err != nil {
 		return nil, err
 	}
 
-	switch sdJWTVersion {
-	case common.SDJWTVersionV5:
-		return parseV5(cfp, signedJWT, pOpts)
-	default:
-		return parseV2(cfp, signedJWT, pOpts)
+	if pOpts.expectedTypHeader != "" {
+		err = common.VerifyTyp(signedJWT.Headers, pOpts.expectedTypHeader)
+		if err != nil {
+			return nil, fmt.Errorf("failed to verify typ header: %w", err)
+		}
 	}
+
+	err = runHolderVerification(signedJWT, cfp.HolderVerification, pOpts)
+	if err != nil {
+		return nil, fmt.Errorf("run holder verification: %w", err)
+	}
+
+	cryptoHash, err := common.GetCryptoHashFromClaims(signedJWT.Payload)
+	if err != nil {
+		return nil, err
+	}
+
+	// Process the Disclosures.
+	// Section: https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-02.html#section-6.2-4.5.1
+	// Section: https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-05.html#section-6.1-3
+	return getDisclosedClaims(cfp.Disclosures, signedJWT, cryptoHash)
 }
 
 func validateIssuerSignedSDJWT(sdjwt string, disclosures []string, pOpts *parseOpts) (*afgjwt.JSONWebToken, error) {
@@ -231,4 +248,124 @@ func checkForDuplicates(values []string) error {
 	}
 
 	return nil
+}
+
+func getSignatureVerifier(claims map[string]interface{}) (jose.SignatureVerifier, error) {
+	cnf, err := common.GetCNF(claims)
+	if err != nil {
+		return nil, err
+	}
+
+	signatureVerifier, err := getSignatureVerifierFromCNF(cnf)
+	if err != nil {
+		return nil, err
+	}
+
+	return signatureVerifier, nil
+}
+
+// getSignatureVerifierFromCNF will evolve over time as we support more cnf modes and algorithms.
+func getSignatureVerifierFromCNF(cnf map[string]interface{}) (jose.SignatureVerifier, error) {
+	jwkObj, ok := cnf["jwk"]
+	if !ok {
+		return nil, fmt.Errorf("jwk must be present in cnf")
+	}
+
+	// TODO: Add handling other methods: "jwe", "jku" and "kid"
+
+	jwkObjBytes, err := json.Marshal(jwkObj)
+	if err != nil {
+		return nil, fmt.Errorf("marshal jwk: %w", err)
+	}
+
+	j := jwk.JWK{}
+
+	err = j.UnmarshalJSON(jwkObjBytes)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal jwk: %w", err)
+	}
+
+	signatureVerifier, err := afgjwt.GetVerifier(&verifier.PublicKey{JWK: &j})
+	if err != nil {
+		return nil, fmt.Errorf("get verifier from jwk: %w", err)
+	}
+
+	return signatureVerifier, nil
+}
+
+func getDisclosedClaims(
+	disclosures []string,
+	signedJWT *afgjwt.JSONWebToken,
+	hash crypto.Hash,
+) (map[string]interface{}, error) {
+	disclosureClaims, err := common.GetDisclosureClaims(disclosures, hash)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get verified payload: %w", err)
+	}
+
+	disclosedClaims, err := common.GetDisclosedClaims(disclosureClaims, utils.CopyMap(signedJWT.Payload))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get disclosed claims: %w", err)
+	}
+
+	return disclosedClaims, nil
+}
+
+func runHolderVerification(sdJWT *afgjwt.JSONWebToken, holderVerificationJWT string, pOpts *parseOpts) error {
+	if pOpts.holderVerificationRequired && holderVerificationJWT == "" {
+		return fmt.Errorf("holder verification is required")
+	}
+
+	if holderVerificationJWT == "" {
+		// not required and not present - nothing to do
+		return nil
+	}
+
+	signatureVerifier, err := getSignatureVerifier(utils.CopyMap(sdJWT.Payload))
+	if err != nil {
+		return fmt.Errorf("failed to get signature verifier from presentation claims: %w", err)
+	}
+
+	// Validate the signature over the Key Binding JWT.
+	holderJWT, _, err := afgjwt.Parse(holderVerificationJWT,
+		afgjwt.WithSignatureVerifier(signatureVerifier))
+	if err != nil {
+		return fmt.Errorf("parse holder verification JWT: %w", err)
+	}
+
+	err = verifyHolderVerificationJWT(holderJWT, pOpts)
+	if err != nil {
+		return fmt.Errorf("verify holder JWT: %w", err)
+	}
+
+	return nil
+}
+
+// verifyHolderVerificationJWT verifies Holder/Key Binding JWT.
+func verifyHolderVerificationJWT(holderJWT *afgjwt.JSONWebToken, pOpts *parseOpts) error {
+	// Ensure that a signing algorithm was used that was deemed secure for the application.
+	// The none algorithm MUST NOT be accepted.
+	err := common.VerifySigningAlg(holderJWT.Headers, pOpts.holderSigningAlgorithms)
+	if err != nil {
+		return fmt.Errorf("failed to verify holder signing algorithm: %w", err)
+	}
+
+	err = common.VerifyJWT(holderJWT, pOpts.leewayForClaimsValidation)
+	if err != nil {
+		return err
+	}
+
+	sdJWTVersion := common.SDJWTVersionV2
+	holderVerificationTyp, ok := holderJWT.Headers.Type()
+	// Check that the typ of the Key Binding JWT is kb+jwt. If so - it's SD JWT V5.
+	if ok && holderVerificationTyp == "kb+jwt" {
+		sdJWTVersion = common.SDJWTVersionV5
+	}
+
+	switch sdJWTVersion {
+	case common.SDJWTVersionV5:
+		return verifyKeyBindingJWT(holderJWT, pOpts)
+	default:
+		return verifyHolderBindingJWT(holderJWT, pOpts)
+	}
 }

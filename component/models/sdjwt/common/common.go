@@ -12,8 +12,6 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
 )
 
 // CombinedFormatSeparator is disclosure separator.
@@ -428,20 +426,4 @@ func KeyExistsInMap(key string, m map[string]interface{}) bool {
 	}
 
 	return false
-}
-
-// ExtractSDJWTVersion returns version of SD-JWT (SDJWTVersion).
-func ExtractSDJWTVersion(isSDJWT bool, joseHeaders jose.Headers) SDJWTVersion {
-	if !isSDJWT {
-		return 0
-	}
-
-	typ, _ := joseHeaders.Type()
-
-	switch typ {
-	case "vc+sd-jwt":
-		return SDJWTVersionV5
-	default:
-		return SDJWTVersionDefault
-	}
 }
