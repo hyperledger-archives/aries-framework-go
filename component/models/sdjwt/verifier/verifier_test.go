@@ -570,7 +570,7 @@ func TestHolderBinding(t *testing.T) {
 		r.Nil(verifiedClaims)
 
 		r.Contains(err.Error(),
-			"failed to verify holder binding: failed to get signature verifier from presentation claims: cnf must be an object") // nolint:lll
+			"run holder verification: failed to get signature verifier from presentation claims: cnf must be an object") // nolint:lll
 	})
 
 	t.Run("error - holder binding provided, cnf is missing jwk", func(t *testing.T) {
