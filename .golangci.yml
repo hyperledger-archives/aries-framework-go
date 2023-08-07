@@ -57,7 +57,7 @@ linters-settings:
     line-length: 120
     tab-width: 1
     exclude:
-      - "^\\s*\\/\\/.*$"
+      - "^\\s*\\/\\/.*"
   unused:
     check-exported: false
   unparam:
