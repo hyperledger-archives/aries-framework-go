@@ -32,6 +32,7 @@ type parseOpts struct {
 	sigVerifier     jose.SignatureVerifier
 
 	issuerSigningAlgorithms []string
+	sdjwtV5Validation       bool
 
 	leewayForClaimsValidation time.Duration
 }
@@ -53,7 +54,15 @@ func WithSignatureVerifier(signatureVerifier jose.SignatureVerifier) ParseOpt {
 	}
 }
 
-// WithIssuerSigningAlgorithms option is for defining secure signing algorithms (for issuer).
+// WithSDJWTV5Validation option is for defining additional holder verification defined in SDJWT V5 spec.
+// Section: https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-05.html#section-6.1-3
+func WithSDJWTV5Validation(flag bool) ParseOpt {
+	return func(opts *parseOpts) {
+		opts.sdjwtV5Validation = flag
+	}
+}
+
+// WithIssuerSigningAlgorithms option is for defining secure signing algorithms (for holder verification).
 func WithIssuerSigningAlgorithms(algorithms []string) ParseOpt {
 	return func(opts *parseOpts) {
 		opts.issuerSigningAlgorithms = algorithms
@@ -154,7 +163,7 @@ func applySDJWTV5Validation(signedJWT *afgjwt.JSONWebToken, disclosures []string
 	}
 
 	if afgjwt.IsJWS(possibleKeyBinding) || afgjwt.IsJWTUnsecured(possibleKeyBinding) {
-		return fmt.Errorf("key binding JWT provided")
+		return fmt.Errorf("unexpected key binding JWT supplied")
 	}
 
 	// Check that the typ of the SD JWT is vc+sd-jwt.

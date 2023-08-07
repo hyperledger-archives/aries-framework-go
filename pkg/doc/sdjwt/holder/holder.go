@@ -9,6 +9,7 @@ package holder
 
 import (
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/holder"
+	"time"
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
 )
@@ -27,6 +28,22 @@ func WithJWTDetachedPayload(payload []byte) ParseOpt {
 // WithSignatureVerifier option is for definition of JWT detached payload.
 func WithSignatureVerifier(signatureVerifier jose.SignatureVerifier) ParseOpt {
 	return holder.WithSignatureVerifier(signatureVerifier)
+}
+
+// WithIssuerSigningAlgorithms option is for defining secure signing algorithms (for holder verification).
+func WithIssuerSigningAlgorithms(algorithms []string) ParseOpt {
+	return holder.WithIssuerSigningAlgorithms(algorithms)
+}
+
+// WithLeewayForClaimsValidation is an option for claims time(s) validation.
+func WithLeewayForClaimsValidation(duration time.Duration) ParseOpt {
+	return holder.WithLeewayForClaimsValidation(duration)
+}
+
+// WithSDJWTV5Validation option is for defining additional holder verification defined in SDJWT V5 spec.
+// Section: https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-05.html#section-6.1-3
+func WithSDJWTV5Validation(flag bool) ParseOpt {
+	return holder.WithSDJWTV5Validation(flag)
 }
 
 // Parse parses issuer SD-JWT and returns claims that can be selected.
