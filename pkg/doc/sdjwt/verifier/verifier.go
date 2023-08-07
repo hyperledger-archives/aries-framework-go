@@ -11,6 +11,7 @@ extracts the claims from an SD-JWT and respective Disclosures.
 package verifier
 
 import (
+	"crypto"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -22,7 +23,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
 
 	afgjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
-	common2 "github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/component/models/signature/verifier"
 	utils "github.com/hyperledger/aries-framework-go/component/models/util/maphelpers"
 
@@ -166,9 +166,9 @@ func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]i
 		return nil, fmt.Errorf("check disclosures: %w", err)
 	}
 
-	sdJWTVersion := common2.SDJWTVersionDefault // todo ???
+	cryptoHash, _ := common.GetCryptoHashFromClaims(signedJWT.Payload) // nolint:errcheck
 	// Verify that all disclosures are present in SD-JWT.
-	err = common.VerifyDisclosuresInSDJWT(cfp.Disclosures, signedJWT, sdJWTVersion)
+	err = common.VerifyDisclosuresInSDJWT(cfp.Disclosures, signedJWT)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +178,7 @@ func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]i
 		return nil, fmt.Errorf("failed to verify holder binding: %w", err)
 	}
 
-	return getDisclosedClaims(cfp.Disclosures, signedJWT, sdJWTVersion)
+	return getDisclosedClaims(cfp.Disclosures, signedJWT, cryptoHash)
 }
 
 func verifyHolderBinding(sdJWT *afgjwt.JSONWebToken, holderBinding string, pOpts *parseOpts) error {
@@ -299,9 +299,9 @@ func getSignatureVerifierFromCNF(cnf map[string]interface{}) (jose.SignatureVeri
 func getDisclosedClaims(
 	disclosures []string,
 	signedJWT *afgjwt.JSONWebToken,
-	version common2.SDJWTVersion,
+	hash crypto.Hash,
 ) (map[string]interface{}, error) {
-	disclosureClaims, err := common.GetDisclosureClaims(disclosures, version)
+	disclosureClaims, err := common.GetDisclosureClaims(disclosures, hash)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get verified payload: %w", err)
 	}

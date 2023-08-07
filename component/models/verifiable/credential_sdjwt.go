@@ -154,7 +154,9 @@ func createSDJWTPresentation(vc *Credential, options *marshalDisclosureOpts) (st
 		return "", fmt.Errorf("creating SD-JWT from Credential: %w", err)
 	}
 
-	disclosureClaims, err := common.GetDisclosureClaims(issued.Disclosures, options.sdjwtVersion)
+	alg, _ := common.GetCryptoHashFromClaims(issued.SignedJWT.Payload) // nolint:errcheck
+
+	disclosureClaims, err := common.GetDisclosureClaims(issued.Disclosures, alg)
 	if err != nil {
 		return "", fmt.Errorf("parsing disclosure claims from vc sdjwt: %w", err)
 	}
