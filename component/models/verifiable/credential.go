@@ -1071,7 +1071,7 @@ func newCredential(raw *rawCredential) (*Credential, error) {
 
 	alg, _ := common.GetCryptoHash(raw.SDJWTHashAlg) // nolint:errcheck
 	if alg == 0 {
-		sub, _ := subjects.([]Subject)
+		sub, _ := subjects.([]Subject) // nolint:errcheck
 		if len(sub) > 0 && len(sub[0].CustomFields) > 0 {
 			alg, _ = common.GetCryptoHashFromClaims(sub[0].CustomFields) // nolint:errcheck
 		}

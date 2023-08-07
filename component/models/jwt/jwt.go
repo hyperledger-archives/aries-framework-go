@@ -22,7 +22,8 @@ import (
 
 const (
 	// TypeJWT defines JWT type.
-	TypeJWT   = "JWT"
+	TypeJWT = "JWT"
+	// TypeSDJWT defines SD-JWT type v5+.
 	TypeSDJWT = "SD-JWT"
 
 	// AlgorithmNone used to indicate unsecured JWT.

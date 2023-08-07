@@ -255,7 +255,8 @@ func TestGetDisclosureClaims(t *testing.T) {
 		disclosureJSON, err := json.Marshal(disclosureArr)
 		require.NoError(t, err)
 
-		sdJWT := ParseCombinedFormatForIssuance(fmt.Sprintf("%s~%s", testSDJWT, base64.RawURLEncoding.EncodeToString(disclosureJSON)))
+		sdJWT := ParseCombinedFormatForIssuance(fmt.Sprintf("%s~%s", testSDJWT,
+			base64.RawURLEncoding.EncodeToString(disclosureJSON)))
 		require.Equal(t, 1, len(sdJWT.Disclosures))
 
 		token, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
@@ -275,7 +276,8 @@ func TestGetDisclosureClaims(t *testing.T) {
 		disclosureJSON, err := json.Marshal(disclosureArr)
 		require.NoError(t, err)
 
-		sdJWT := ParseCombinedFormatForIssuance(fmt.Sprintf("%s~%s", testSDJWT, base64.RawURLEncoding.EncodeToString(disclosureJSON)))
+		sdJWT := ParseCombinedFormatForIssuance(fmt.Sprintf("%s~%s", testSDJWT,
+			base64.RawURLEncoding.EncodeToString(disclosureJSON)))
 		require.Equal(t, 1, len(sdJWT.Disclosures))
 
 		token, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))

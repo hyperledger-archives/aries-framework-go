@@ -330,7 +330,7 @@ func WithAlwaysIncludeObjects(alwaysIncludeObjects []string) NewOpt {
 //		"DebugDigest": "gfseqHmNitIu0-0h14ynqMzuvq1EirTAzUhDnElSVX0"
 //	}
 //
-// ]
+// ].
 func WithRecursiveClaimsObjects(recursiveClaimsObject []string) NewOpt {
 	return func(opts *newOpts) {
 		opts.recursiveClaimMap = common.SliceToMap(recursiveClaimsObject)

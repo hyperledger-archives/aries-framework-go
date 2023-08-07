@@ -635,7 +635,7 @@ func TestExamplesV5(
 		assert.Equal(t, "Schulpforta", address.Value.(map[string]interface{})["locality"].(string))
 		assert.Equal(t, "Sachsen-Anhalt", address.Value.(map[string]interface{})["region"].(string))
 
-		country := address.Value.(map[string]interface{})["country"].(map[string]interface{})
+		country := address.Value.(map[string]interface{})["country"].(map[string]interface{}) // nolint:errcheck
 		disCountry := disMap[country["_sd"].([]string)[0]]
 		assert.Equal(t, "code", disCountry.Key)
 		assert.Equal(t, "DE", disCountry.Value)
