@@ -88,7 +88,7 @@ func (s *SDJWTBuilderV5) CreateDisclosuresAndDigests( // nolint:funlen,gocyclo
 	return s.createDisclosuresAndDigestsInternal(path, claims, opts, false)
 }
 
-//nolint:funlen
+//nolint:funlen,gocyclo
 func (s *SDJWTBuilderV5) createDisclosuresAndDigestsInternal(
 	path string,
 	claims map[string]interface{},
