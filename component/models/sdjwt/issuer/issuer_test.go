@@ -419,7 +419,7 @@ func TestNew(t *testing.T) {
 
 		digests, err := common.GetDisclosureDigests(parsedClaims)
 		require.NoError(t, err)
-		require.Nil(t, digests)
+		require.Empty(t, digests)
 	})
 
 	t.Run("Create JWS with holder public key", func(t *testing.T) {

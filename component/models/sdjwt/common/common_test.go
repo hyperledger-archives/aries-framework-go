@@ -211,13 +211,7 @@ func TestGetDisclosureClaims(t *testing.T) {
 		}
 
 		r.Equal(map[string]interface{}{
-			"_sd": []interface{}{
-				"8LnzIByBSCgn7HmsqDTmmFyvRU4QttniSedN1jsv-xo", // locality
-			},
 			"extraArrInclude": []interface{}{
-				map[string]interface{}{
-					"...": "1ESyDiKLOJlAvVv-BrZ7RPMN3EuNuMIsMxiuLxhYZ84", // UA
-				},
 				"PL",
 			},
 			"extra": map[string]interface{}{

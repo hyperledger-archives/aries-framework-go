@@ -360,8 +360,8 @@ func MakeSDJWTWithAlwaysIncludeObjects(alwaysIncludeObjects []string) MakeSDJWTO
 	return verifiable.MakeSDJWTWithAlwaysIncludeObjects(alwaysIncludeObjects)
 }
 
-// MakeSDJWTWithNonSelectivelyDisclosableClaims is an option for provide claim names that should be ignored when creating
-// selectively disclosable claims.
+// MakeSDJWTWithNonSelectivelyDisclosableClaims is an option for provide claim names
+// that should be ignored when creating selectively disclosable claims.
 func MakeSDJWTWithNonSelectivelyDisclosableClaims(nonSDClaims []string) MakeSDJWTOption {
 	return verifiable.MakeSDJWTWithNonSelectivelyDisclosableClaims(nonSDClaims)
 }

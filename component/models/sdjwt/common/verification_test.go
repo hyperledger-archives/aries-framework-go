@@ -224,30 +224,6 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		additionalDigest, err := GetHash(crypto.SHA256, additionalSDDisclosure)
 		r.NoError(err)
 
-		var findAndReplaceArrayElementDigest func(claimsMap map[string]interface{}, additionalDigest string) string
-
-		findAndReplaceArrayElementDigest = func(claimsMap map[string]interface{}, additionalDigest string) string {
-			if digest, ok := claimsMap[ArrayElementDigestKey]; ok {
-				claimsMap[ArrayElementDigestKey] = additionalDigest
-				return digest.(string)
-			}
-
-			for _, v := range claimsMap {
-				switch t := v.(type) {
-				case map[string]interface{}:
-					return findAndReplaceArrayElementDigest(t, additionalDigest)
-				case []interface{}:
-					for _, nv := range t {
-						if mapped, ok := nv.(map[string]interface{}); ok {
-							return findAndReplaceArrayElementDigest(mapped, additionalDigest)
-						}
-					}
-				}
-			}
-
-			return ""
-		}
-
 		oldDigest := findAndReplaceArrayElementDigest(signedJWT.Payload, additionalDigest)
 
 		updatedDisclosures := []string{additionalSDDisclosure}
@@ -273,38 +249,6 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 
 		additionalDigest, err := GetHash(crypto.SHA256, additionalArrayElementDisclosure)
 		r.NoError(err)
-
-		var findAndAppendArrayElementDigest func(claimsMap map[string]interface{}, additionalDigest string) bool
-
-		findAndAppendArrayElementDigest = func(claimsMap map[string]interface{}, additionalDigest string) bool {
-			for k, v := range claimsMap {
-				switch t := v.(type) {
-				case map[string]interface{}:
-					if ok := findAndAppendArrayElementDigest(t, additionalDigest); ok {
-						return true
-					}
-				case []interface{}:
-					for _, nv := range t {
-						if mapped, ok := nv.(map[string]interface{}); ok {
-							if _, ok := mapped[ArrayElementDigestKey]; ok {
-								updatedList := append(t, map[string]interface{}{
-									ArrayElementDigestKey: additionalDigest,
-								}, map[string]interface{}{
-									ArrayElementDigestKey: additionalDigest,
-								})
-
-								claimsMap[k] = updatedList
-
-								return true
-							}
-							return findAndAppendArrayElementDigest(mapped, additionalDigest)
-						}
-					}
-				}
-			}
-
-			return false
-		}
 
 		ok := findAndAppendArrayElementDigest(signedJWT.Payload, additionalDigest)
 		r.True(ok)
@@ -374,6 +318,59 @@ func findAndAppendSDElementDigest(claimsMap map[string]interface{}, additionalDi
 		case map[string]interface{}:
 			if ok := findAndAppendSDElementDigest(t, additionalDigest...); ok {
 				return ok
+			}
+		}
+	}
+
+	return false
+}
+
+func findAndReplaceArrayElementDigest(claimsMap map[string]interface{}, additionalDigest string) string {
+	if digest, ok := claimsMap[ArrayElementDigestKey]; ok {
+		claimsMap[ArrayElementDigestKey] = additionalDigest
+		return digest.(string)
+	}
+
+	for _, v := range claimsMap {
+		switch t := v.(type) {
+		case map[string]interface{}:
+			return findAndReplaceArrayElementDigest(t, additionalDigest)
+		case []interface{}:
+			for _, nv := range t {
+				if mapped, ok := nv.(map[string]interface{}); ok {
+					return findAndReplaceArrayElementDigest(mapped, additionalDigest)
+				}
+			}
+		}
+	}
+
+	return ""
+}
+
+func findAndAppendArrayElementDigest(claimsMap map[string]interface{}, additionalDigest string) bool {
+	for k, v := range claimsMap {
+		switch t := v.(type) {
+		case map[string]interface{}:
+			if ok := findAndAppendArrayElementDigest(t, additionalDigest); ok {
+				return true
+			}
+		case []interface{}:
+			for _, nv := range t {
+				if mapped, ok := nv.(map[string]interface{}); ok {
+					if _, ok := mapped[ArrayElementDigestKey]; ok {
+						updatedList := append(t, map[string]interface{}{
+							ArrayElementDigestKey: additionalDigest,
+						}, map[string]interface{}{
+							ArrayElementDigestKey: additionalDigest,
+						})
+
+						claimsMap[k] = updatedList
+
+						return true
+					}
+
+					return findAndAppendArrayElementDigest(mapped, additionalDigest)
+				}
 			}
 		}
 	}

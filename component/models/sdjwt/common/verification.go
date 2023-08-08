@@ -105,6 +105,7 @@ func VerifyDisclosuresInSDJWT(
 	signedJWT *afgjwt.JSONWebToken,
 ) error {
 	claims := utils.CopyMap(signedJWT.Payload)
+
 	cryptoHash, err := GetCryptoHashFromClaims(claims)
 	if err != nil {
 		return err
@@ -152,7 +153,7 @@ func setDisclosureClaimValue(recData *recursiveData, disclosureClaim *Disclosure
 }
 
 // discloseClaimValue returns new value of claim, resolving dependencies on other disclosures.
-func discloseClaimValue(claim interface{}, recData *recursiveData) (interface{}, error) { // nolint:funlen
+func discloseClaimValue(claim interface{}, recData *recursiveData) (interface{}, error) { // nolint:funlen,gocyclo
 	switch disclosureValue := claim.(type) {
 	case []interface{}:
 		var newValues []interface{}
@@ -352,28 +353,40 @@ func getDisclosureClaim(disclosure string, hash crypto.Hash) (*DisclosureClaim, 
 
 	switch len(disclosureArr) {
 	case disclosureElementsAmountForArrayDigest: //array element
-		claim.Value = disclosureArr[arrayDigestValuePosition]
-		claim.Type = DisclosureClaimTypeArrayElement
-		claim.Version = SDJWTVersionV5
+		enrichWithArrayElement(claim, disclosureArr)
 	case disclosureElementsAmountForSDDigest:
-		name, ok := disclosureArr[sdDigestNamePosition].(string)
-		if !ok {
-			return nil, fmt.Errorf("disclosure name type[%T] must be string", disclosureArr[1])
-		}
-
-		claim.Name = name
-		claim.Value = disclosureArr[sdDigestValuePosition]
-
-		switch t := disclosureArr[sdDigestValuePosition].(type) {
-		case map[string]interface{}:
-			claim.Type = DisclosureClaimTypeObject
-			if KeyExistsInMap(SDKey, t) {
-				claim.Version = SDJWTVersionV5
-			}
-		default:
-			claim.Type = DisclosureClaimTypePlainText
+		if err = enrichWithSDElement(claim, disclosureArr); err != nil {
+			return nil, err
 		}
 	}
 
 	return claim, nil
+}
+
+func enrichWithArrayElement(claim *DisclosureClaim, disclosureElementsArr []interface{}) {
+	claim.Value = disclosureElementsArr[arrayDigestValuePosition]
+	claim.Type = DisclosureClaimTypeArrayElement
+	claim.Version = SDJWTVersionV5
+}
+
+func enrichWithSDElement(claim *DisclosureClaim, disclosureElementsArr []interface{}) error {
+	name, ok := disclosureElementsArr[sdDigestNamePosition].(string)
+	if !ok {
+		return fmt.Errorf("disclosure name type[%T] must be string", disclosureElementsArr[1])
+	}
+
+	claim.Name = name
+	claim.Value = disclosureElementsArr[sdDigestValuePosition]
+
+	switch t := disclosureElementsArr[sdDigestValuePosition].(type) {
+	case map[string]interface{}:
+		claim.Type = DisclosureClaimTypeObject
+		if KeyExistsInMap(SDKey, t) {
+			claim.Version = SDJWTVersionV5
+		}
+	default:
+		claim.Type = DisclosureClaimTypePlainText
+	}
+
+	return nil
 }
