@@ -259,8 +259,11 @@ func filterDisclosures(
 }
 
 type makeSDJWTOpts struct {
-	hashAlg crypto.Hash
-	version common.SDJWTVersion
+	hashAlg               crypto.Hash
+	version               common.SDJWTVersion
+	recursiveClaimsObject []string
+	alwaysIncludeObjects  []string
+	nonSDClaims           []string
 }
 
 // MakeSDJWTOption provides an option for creating an SD-JWT from a VC.
@@ -277,6 +280,29 @@ func MakeSDJWTWithHash(hash crypto.Hash) MakeSDJWTOption {
 func MakeSDJWTWithVersion(version common.SDJWTVersion) MakeSDJWTOption {
 	return func(opts *makeSDJWTOpts) {
 		opts.version = version
+	}
+}
+
+// MakeSDJWTWithRecursiveClaimsObjects sets version for SD-JWT VC. SD-JWT v5+ support.
+func MakeSDJWTWithRecursiveClaimsObjects(recursiveClaimsObject []string) MakeSDJWTOption {
+	return func(opts *makeSDJWTOpts) {
+		opts.recursiveClaimsObject = recursiveClaimsObject
+	}
+}
+
+// MakeSDJWTWithAlwaysIncludeObjects is an option for provide object keys that should be a part of
+// selectively disclosable claims.
+func MakeSDJWTWithAlwaysIncludeObjects(alwaysIncludeObjects []string) MakeSDJWTOption {
+	return func(opts *makeSDJWTOpts) {
+		opts.alwaysIncludeObjects = alwaysIncludeObjects
+	}
+}
+
+// MakeSDJWTWithNonSelectivelyDisclosableClaims is an option for provide claim names that should be ignored when creating
+// selectively disclosable claims.
+func MakeSDJWTWithNonSelectivelyDisclosableClaims(nonSDClaims []string) MakeSDJWTOption {
+	return func(opts *makeSDJWTOpts) {
+		opts.nonSDClaims = nonSDClaims
 	}
 }
 
@@ -350,9 +376,24 @@ func makeSDJWT( //nolint:funlen
 
 	issuerOptions := []issuer.NewOpt{
 		issuer.WithStructuredClaims(true),
-		issuer.WithNonSelectivelyDisclosableClaims([]string{"id"}),
 		issuer.WithSDJWTVersion(opts.version),
 	}
+
+	if len(opts.recursiveClaimsObject) > 0 {
+		issuerOptions = append(issuerOptions,
+			issuer.WithRecursiveClaimsObjects(opts.recursiveClaimsObject),
+		)
+	}
+	if len(opts.alwaysIncludeObjects) > 0 {
+		issuerOptions = append(issuerOptions,
+			issuer.WithAlwaysIncludeObjects(opts.alwaysIncludeObjects),
+		)
+	}
+
+	opts.nonSDClaims = append(opts.nonSDClaims, "id")
+	issuerOptions = append(issuerOptions,
+		issuer.WithNonSelectivelyDisclosableClaims(opts.nonSDClaims),
+	)
 
 	if opts.hashAlg != 0 {
 		issuerOptions = append(issuerOptions, issuer.WithHashAlgorithm(opts.hashAlg))

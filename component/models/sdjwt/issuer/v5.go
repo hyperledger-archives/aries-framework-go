@@ -330,7 +330,12 @@ type DisclosureEntity struct {
 
 // ExtractCredentialClaims extracts credential claims.
 func (s *SDJWTBuilderV5) ExtractCredentialClaims(
-	vcClaims map[string]interface{},
+	vc map[string]interface{},
 ) (map[string]interface{}, error) {
-	return vcClaims, nil
+	vcClaims, ok := vc[vcKey].(map[string]interface{})
+	if ok {
+		return vcClaims, nil
+	}
+
+	return vc, nil
 }

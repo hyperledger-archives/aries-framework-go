@@ -20,13 +20,14 @@ import (
 	jsonld "github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+	"github.com/hyperledger/aries-framework-go/spi/kms"
+	"github.com/hyperledger/aries-framework-go/spi/vdr"
+
 	"github.com/hyperledger/aries-framework-go/component/models/did"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/holder"
 	"github.com/hyperledger/aries-framework-go/component/models/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
-	"github.com/hyperledger/aries-framework-go/spi/kms"
-	"github.com/hyperledger/aries-framework-go/spi/vdr"
 )
 
 // DefaultSchemaTemplate describes default schema.
@@ -341,6 +342,28 @@ type MakeSDJWTOption = verifiable.MakeSDJWTOption
 // MakeSDJWTWithHash sets the hash to use for an SD-JWT VC.
 func MakeSDJWTWithHash(hash crypto.Hash) MakeSDJWTOption {
 	return verifiable.MakeSDJWTWithHash(hash)
+}
+
+// MakeSDJWTWithVersion sets version for SD-JWT VC.
+func MakeSDJWTWithVersion(version common.SDJWTVersion) MakeSDJWTOption {
+	return verifiable.MakeSDJWTWithVersion(version)
+}
+
+// MakeSDJWTWithRecursiveClaimsObjects sets version for SD-JWT VC. SD-JWT v5+ support.
+func MakeSDJWTWithRecursiveClaimsObjects(recursiveClaimsObject []string) MakeSDJWTOption {
+	return verifiable.MakeSDJWTWithRecursiveClaimsObjects(recursiveClaimsObject)
+}
+
+// MakeSDJWTWithAlwaysIncludeObjects is an option for provide object keys that should be a part of
+// selectively disclosable claims.
+func MakeSDJWTWithAlwaysIncludeObjects(alwaysIncludeObjects []string) MakeSDJWTOption {
+	return verifiable.MakeSDJWTWithAlwaysIncludeObjects(alwaysIncludeObjects)
+}
+
+// MakeSDJWTWithNonSelectivelyDisclosableClaims is an option for provide claim names that should be ignored when creating
+// selectively disclosable claims.
+func MakeSDJWTWithNonSelectivelyDisclosableClaims(nonSDClaims []string) MakeSDJWTOption {
+	return verifiable.MakeSDJWTWithNonSelectivelyDisclosableClaims(nonSDClaims)
 }
 
 // DisplayCredentialOption provides an option for Credential.CreateDisplayCredential.
