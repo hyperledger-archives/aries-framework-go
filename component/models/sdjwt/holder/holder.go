@@ -33,6 +33,8 @@ type parseOpts struct {
 	sigVerifier     jose.SignatureVerifier
 
 	issuerSigningAlgorithms []string
+	sdjwtV5Validation       bool
+	expectedTypHeader       string
 
 	leewayForClaimsValidation time.Duration
 }
@@ -54,7 +56,15 @@ func WithSignatureVerifier(signatureVerifier jose.SignatureVerifier) ParseOpt {
 	}
 }
 
-// WithIssuerSigningAlgorithms option is for defining secure signing algorithms (for issuer).
+// WithSDJWTV5Validation option is for defining additional holder verification defined in SDJWT V5 spec.
+// Section: https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-05.html#section-6.1-3
+func WithSDJWTV5Validation(flag bool) ParseOpt {
+	return func(opts *parseOpts) {
+		opts.sdjwtV5Validation = flag
+	}
+}
+
+// WithIssuerSigningAlgorithms option is for defining secure signing algorithms (for holder verification).
 func WithIssuerSigningAlgorithms(algorithms []string) ParseOpt {
 	return func(opts *parseOpts) {
 		opts.issuerSigningAlgorithms = algorithms
@@ -65,6 +75,15 @@ func WithIssuerSigningAlgorithms(algorithms []string) ParseOpt {
 func WithLeewayForClaimsValidation(duration time.Duration) ParseOpt {
 	return func(opts *parseOpts) {
 		opts.leewayForClaimsValidation = duration
+	}
+}
+
+// WithExpectedTypHeader is an option for JWT typ header validation.
+// Might be relevant for SDJWT V5 VC validation.
+// Spec: https://vcstuff.github.io/draft-terbu-sd-jwt-vc/draft-terbu-oauth-sd-jwt-vc.html#name-header-parameters
+func WithExpectedTypHeader(typ string) ParseOpt {
+	return func(opts *parseOpts) {
+		opts.expectedTypHeader = typ
 	}
 }
 
@@ -102,13 +121,12 @@ func Parse(combinedFormatForIssuance string, opts ...ParseOpt) ([]*Claim, error)
 		return nil, err
 	}
 
-	//switch common.SDJWTVersionV5 {
-	//case common.SDJWTVersionV5:
-	//	// Apply additional validation for V5.
-	//	if err = applySDJWTV5Validation(signedJWT, cfi.Disclosures, pOpts); err != nil {
-	//		return nil, err
-	//	}
-	//}
+	if pOpts.sdjwtV5Validation {
+		// Apply additional validation for V5.
+		if err = applySDJWTV5Validation(signedJWT, cfi.Disclosures, pOpts); err != nil {
+			return nil, err
+		}
+	}
 
 	err = common.VerifyDisclosuresInSDJWT(cfi.Disclosures, signedJWT)
 	if err != nil {
@@ -155,19 +173,21 @@ func applySDJWTV5Validation(signedJWT *afgjwt.JSONWebToken, disclosures []string
 	}
 
 	if afgjwt.IsJWS(possibleKeyBinding) || afgjwt.IsJWTUnsecured(possibleKeyBinding) {
-		return fmt.Errorf("key binding JWT provided")
+		return fmt.Errorf("unexpected key binding JWT supplied")
 	}
 
-	// Check that the typ of the SD JWT is vc+sd-jwt.
-	// Spec: https://vcstuff.github.io/draft-terbu-sd-jwt-vc/draft-terbu-oauth-sd-jwt-vc.html#name-header-parameters
-	err := common.VerifyTyp(signedJWT.Headers, "vc+sd-jwt")
-	if err != nil {
-		return fmt.Errorf("failed to verify typ header: %w", err)
+	if pOpts.expectedTypHeader != "" {
+		// Check that the typ header.
+		// Spec: https://vcstuff.github.io/draft-terbu-sd-jwt-vc/draft-terbu-oauth-sd-jwt-vc.html#name-header-parameters
+		err := common.VerifyTyp(signedJWT.Headers, pOpts.expectedTypHeader)
+		if err != nil {
+			return fmt.Errorf("verify typ header: %w", err)
+		}
 	}
 
 	// Ensure that a signing algorithm was used that was deemed secure for the application.
 	// The none algorithm MUST NOT be accepted.
-	err = common.VerifySigningAlg(signedJWT.Headers, pOpts.issuerSigningAlgorithms)
+	err := common.VerifySigningAlg(signedJWT.Headers, pOpts.issuerSigningAlgorithms)
 	if err != nil {
 		return fmt.Errorf("failed to verify issuer signing algorithm: %w", err)
 	}
@@ -195,6 +215,7 @@ type BindingPayload struct {
 type BindingInfo struct {
 	Payload BindingPayload
 	Signer  jose.Signer
+	Headers jose.Headers
 }
 
 // options holds options for holder.
@@ -272,7 +293,7 @@ func CreatePresentation(combinedFormatForIssuance string, claimsToDisclose []str
 
 // CreateHolderVerification will create holder verification from binding info.
 func CreateHolderVerification(info *BindingInfo) (string, error) {
-	hbJWT, err := afgjwt.NewSigned(info.Payload, nil, info.Signer)
+	hbJWT, err := afgjwt.NewSigned(info.Payload, info.Headers, info.Signer)
 	if err != nil {
 		return "", err
 	}
