@@ -128,7 +128,7 @@ func GetDisclosureClaims(
 
 	recData := &recursiveData{
 		disclosures:          disclosureClaims,
-		cleanupDigestsClaims: false,
+		cleanupDigestsClaims: true,
 	}
 
 	for _, wrappedDisclosureClaim := range disclosureClaims {
