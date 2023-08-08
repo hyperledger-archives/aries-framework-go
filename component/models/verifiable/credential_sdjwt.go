@@ -298,8 +298,8 @@ func MakeSDJWTWithAlwaysIncludeObjects(alwaysIncludeObjects []string) MakeSDJWTO
 	}
 }
 
-// MakeSDJWTWithNonSelectivelyDisclosableClaims is an option for provide claim names that should be ignored when creating
-// selectively disclosable claims.
+// MakeSDJWTWithNonSelectivelyDisclosableClaims is an option for provide claim names
+// that should be ignored when creating selectively disclosable claims.
 func MakeSDJWTWithNonSelectivelyDisclosableClaims(nonSDClaims []string) MakeSDJWTOption {
 	return func(opts *makeSDJWTOpts) {
 		opts.nonSDClaims = nonSDClaims
@@ -308,7 +308,10 @@ func MakeSDJWTWithNonSelectivelyDisclosableClaims(nonSDClaims []string) MakeSDJW
 
 // MakeSDJWT creates an SD-JWT in combined format for issuance, with all fields in credentialSubject converted
 // recursively into selectively-disclosable SD-JWT claims.
-func (vc *Credential) MakeSDJWT(signer jose.Signer, signingKeyID string, options ...MakeSDJWTOption) (string, error) {
+func (vc *Credential) MakeSDJWT(
+	signer jose.Signer,
+	signingKeyID string,
+	options ...MakeSDJWTOption) (string, error) {
 	sdjwt, err := makeSDJWT(vc, signer, signingKeyID, options...)
 	if err != nil {
 		return "", err
@@ -322,7 +325,7 @@ func (vc *Credential) MakeSDJWT(signer jose.Signer, signingKeyID string, options
 	return sdjwtSerialized, nil
 }
 
-func makeSDJWT( //nolint:funlen
+func makeSDJWT( //nolint:funlen,gocyclo
 	vc *Credential,
 	signer jose.Signer,
 	signingKeyID string,
@@ -384,6 +387,7 @@ func makeSDJWT( //nolint:funlen
 			issuer.WithRecursiveClaimsObjects(opts.recursiveClaimsObject),
 		)
 	}
+
 	if len(opts.alwaysIncludeObjects) > 0 {
 		issuerOptions = append(issuerOptions,
 			issuer.WithAlwaysIncludeObjects(opts.alwaysIncludeObjects),
