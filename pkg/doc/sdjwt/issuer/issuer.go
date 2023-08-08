@@ -207,7 +207,7 @@ func WithAlwaysIncludeObjects(alwaysIncludeObjects []string) NewOpt {
 //	}
 //
 // and 4 disclosures:
-//
+// nolint:lll
 // [
 //
 //	{

@@ -96,6 +96,7 @@ func WithExpectedTypHeader(typ string) verifier.ParseOpt {
 //     is contained in the SD-JWT.
 //
 // Detailed algorithm:
+// nolint:lll
 // V2 https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-02.html#name-verification-by-the-verifier
 // V5 https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-05.html#name-verification-by-the-verifier
 //
