@@ -42,6 +42,7 @@ package issuer
 
 import (
 	"crypto"
+	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 
 	"github.com/go-jose/go-jose/v3/jwt"
 
@@ -55,6 +56,11 @@ type Claims = issuer.Claims
 
 // NewOpt is the SD-JWT New option.
 type NewOpt = issuer.NewOpt
+
+// WithSDJWTVersion sets version for SD-JWT VC.
+func WithSDJWTVersion(version common.SDJWTVersion) NewOpt {
+	return issuer.WithSDJWTVersion(version)
+}
 
 // WithJSONMarshaller is option is for marshalling disclosure.
 func WithJSONMarshaller(jsonMarshal func(v interface{}) ([]byte, error)) NewOpt {
@@ -144,6 +150,107 @@ func WithStructuredClaims(flag bool) NewOpt {
 // you should specify the following array: []string{"id", "degree.type"}.
 func WithNonSelectivelyDisclosableClaims(nonSDClaims []string) NewOpt {
 	return issuer.WithNonSelectivelyDisclosableClaims(nonSDClaims)
+}
+
+// WithAlwaysIncludeObjects is an option for provide object keys that should be a part of
+// selectively disclosable claims.
+// Eexample if you would like to keep original claims structure from example below, but selectively disclose all claims
+//
+//	{
+//		"degree": {
+//		   "degree": "MIT",
+//		   "type": "BachelorDegree",
+//		 },
+//		 "name": "Jayden Doe",
+//		 "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+//		}
+//
+// you should specify the following array: []string{"degree"}.
+// As output, you will receive:
+//
+//	{
+//		"_sd": [
+//			"zDSZ9PKx_bB2CrFU8Xd__LkpMip06ApY-V6Y9fnppuo",
+//			"5Hnqg9PgQ4MdHxTv2KDt9qp8ILd1JEYq0luNO8JZ7G4"
+//		],
+//		"degree": {
+//			"_sd": [
+//				"i03SehlKmaFrwPM-gX8s3XuF_LTTE2T1XQQSJXjo6pw",
+//				"qZEZR8g_uc8fMyQCvs4DjXdY8uOI9IHpOokzx0cH_Qw"
+//			]
+//		}
+//	}
+func WithAlwaysIncludeObjects(alwaysIncludeObjects []string) NewOpt {
+	return issuer.WithNonSelectivelyDisclosableClaims(alwaysIncludeObjects)
+}
+
+// WithRecursiveClaimsObjects is an option for provide object keys that should be selective disclosed recursively, e.g.
+// output digest for given object will refer to the disclosure, that contains digests of nested claims.
+// For example if you would like to define degree object as selective disclosed recursively
+//
+//	{
+//		"degree": {
+//		   "degree": "MIT",
+//		   "type": "BachelorDegree",
+//		 },
+//		 "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+//	}
+//
+// you should specify the following array: []string{"degree"}.
+// As output, you will receive:
+//
+//	{
+//			"_sd": [
+//				"fgoQstuIzTLQ4zqosjUC_qCk-xx3wjDQU2QkQtbn7FI",
+//				"mdephPRizMUa-LLs3JVeuTRS0tPaTd0faHg5kgKHNGk"
+//			]
+//	}
+//
+// and 4 disclosures:
+//
+// [
+//
+//	{
+//		"Result": "WyJ2Y2g2YXVDVEo3bGdWWjFxNjN3cWF3IiwiZGVncmVlIix7Il9zZCI6WyJnZnNlcUhtTml0SXUwLTBoMTR5bnFNenV2cTFFaXJUQXpVaERuRWxTVlgwIiwiNDNoZm5NN1N6WnNhbEFkYlhReXE3dzRVdmQ1M1lPeFRORnBGSnI0WkcwQSJdfV0",
+//		"Salt": "vch6auCTJ7lgVZ1q63wqaw",
+//		"Key": "degree",
+//		"Value": {
+//			"_sd": [
+//				"gfseqHmNitIu0-0h14ynqMzuvq1EirTAzUhDnElSVX0",
+//				"43hfnM7SzZsalAdbXQyq7w4Uvd53YOxTNFpFJr4ZG0A"
+//			]
+//		},
+//		"DebugStr": "[\"vch6auCTJ7lgVZ1q63wqaw\",\"degree\",{\"_sd\":[\"gfseqHmNitIu0-0h14ynqMzuvq1EirTAzUhDnElSVX0\",\"43hfnM7SzZsalAdbXQyq7w4Uvd53YOxTNFpFJr4ZG0A\"]}]",
+//		"DebugDigest": "mdephPRizMUa-LLs3JVeuTRS0tPaTd0faHg5kgKHNGk"
+//	},
+//	{
+//		"Result": "WyJaVHFiUzI0ZWlybmpQMFlObmFmakxRIiwiaWQiLCJkaWQ6ZXhhbXBsZTplYmZlYjFmNzEyZWJjNmYxYzI3NmUxMmVjMjEiXQ",
+//		"Salt": "ZTqbS24eirnjP0YNnafjLQ",
+//		"Key": "id",
+//		"Value": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+//		"DebugStr": "[\"ZTqbS24eirnjP0YNnafjLQ\",\"id\",\"did:example:ebfeb1f712ebc6f1c276e12ec21\"]",
+//		"DebugDigest": "fgoQstuIzTLQ4zqosjUC_qCk-xx3wjDQU2QkQtbn7FI"
+//	},
+//	{
+//		"Result": "WyIyOEEzMmR0OW9JR0lLZW9iVEdIM2F3IiwiZGVncmVlIiwiTUlUIl0",
+//		"Salt": "28A32dt9oIGIKeobTGH3aw",
+//		"Key": "degree",
+//		"Value": "MIT",
+//		"DebugStr": "[\"28A32dt9oIGIKeobTGH3aw\",\"degree\",\"MIT\"]",
+//		"DebugDigest": "43hfnM7SzZsalAdbXQyq7w4Uvd53YOxTNFpFJr4ZG0A"
+//	},
+//	{
+//		"Result": "WyJUNE8wRlZ2MDBpREhGNFZpYy0wR1VnIiwidHlwZSIsIkJhY2hlbG9yRGVncmVlIl0",
+//		"Salt": "T4O0FVv00iDHF4Vic-0GUg",
+//		"Key": "type",
+//		"Value": "BachelorDegree",
+//		"DebugStr": "[\"T4O0FVv00iDHF4Vic-0GUg\",\"type\",\"BachelorDegree\"]",
+//		"DebugDigest": "gfseqHmNitIu0-0h14ynqMzuvq1EirTAzUhDnElSVX0"
+//	}
+//
+// ].
+func WithRecursiveClaimsObjects(recursiveClaimsObject []string) NewOpt {
+	return issuer.WithNonSelectivelyDisclosableClaims(recursiveClaimsObject)
 }
 
 // New creates new signed Selective Disclosure JWT based on input claims.
