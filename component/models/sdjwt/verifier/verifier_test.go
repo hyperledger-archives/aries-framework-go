@@ -276,8 +276,8 @@ func TestHolderBinding(t *testing.T) {
 	combinedFormatForIssuance, e := token.Serialize(false)
 	r.NoError(e)
 
-	//_, e = holder.Parse(combinedFormatForIssuance, holder.WithSignatureVerifier(signatureVerifier))
-	//r.NoError(e)
+	_, e = holder.Parse(combinedFormatForIssuance, holder.WithSignatureVerifier(signatureVerifier))
+	r.NoError(e)
 
 	holderSigner := afjwt.NewEd25519Signer(holderPrivKey)
 
@@ -517,8 +517,8 @@ func TestHolderBinding(t *testing.T) {
 
 		ctd := []string{common.ParseCombinedFormatForIssuance(cfiWithoutHolderPublicKey).Disclosures[0]}
 
-		//_, err = holder.Parse(cfiWithoutHolderPublicKey, holder.WithSignatureVerifier(signatureVerifier))
-		//r.NoError(err)
+		_, err = holder.Parse(cfiWithoutHolderPublicKey, holder.WithSignatureVerifier(signatureVerifier))
+		r.NoError(err)
 
 		combinedFormatForPresentation, err := holder.CreatePresentation(cfiWithoutHolderPublicKey, ctd,
 			holder.WithHolderVerification(&holder.BindingInfo{
