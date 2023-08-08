@@ -13,6 +13,8 @@ import (
 	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/xeipuuv/gojsonschema"
 
+	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity"
+
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
 	"github.com/hyperledger/aries-framework-go/component/models/jwt"
 	docjsonld "github.com/hyperledger/aries-framework-go/component/models/ld/validator"
@@ -357,6 +359,7 @@ type presentationOpts struct {
 	requireVC           bool
 	requireProof        bool
 	disableJSONLDChecks bool
+	verifyDataIntegrity *verifyDataIntegrityOpts
 
 	jsonldCredentialOpts
 }
@@ -408,6 +411,26 @@ func WithPresJSONLDDocumentLoader(documentLoader jsonld.DocumentLoader) Presenta
 func WithDisabledJSONLDChecks() PresentationOpt {
 	return func(opts *presentationOpts) {
 		opts.disableJSONLDChecks = true
+	}
+}
+
+// WithPresDataIntegrityVerifier provides the Data Integrity verifier to use when
+// the presentation being processed has a Data Integrity proof.
+func WithPresDataIntegrityVerifier(v *dataintegrity.Verifier) PresentationOpt {
+	return func(opts *presentationOpts) {
+		opts.verifyDataIntegrity.Verifier = v
+	}
+}
+
+// WithPresExpectedDataIntegrityFields validates that a Data Integrity proof has the
+// given purpose, domain, and challenge. Empty purpose means the default,
+// assertionMethod, will be expected. Empty domain and challenge will mean they
+// are not checked.
+func WithPresExpectedDataIntegrityFields(purpose, domain, challenge string) PresentationOpt {
+	return func(opts *presentationOpts) {
+		opts.verifyDataIntegrity.Purpose = purpose
+		opts.verifyDataIntegrity.Domain = domain
+		opts.verifyDataIntegrity.Challenge = challenge
 	}
 }
 
@@ -606,6 +629,7 @@ func decodeRawPresentation(vpData []byte, vpOpts *presentationOpts) ([]byte, *ra
 	}
 
 	embeddedProofCheckOpts := &embeddedProofCheckOpts{
+		dataIntegrityOpts:    vpOpts.verifyDataIntegrity,
 		publicKeyFetcher:     vpOpts.publicKeyFetcher,
 		disabledProofCheck:   vpOpts.disabledProofCheck,
 		ldpSuites:            vpOpts.ldpSuites,
@@ -656,5 +680,7 @@ func decodeVPFromJSON(vpData []byte) (*rawPresentation, error) {
 }
 
 func defaultPresentationOpts() *presentationOpts {
-	return &presentationOpts{}
+	return &presentationOpts{
+		verifyDataIntegrity: &verifyDataIntegrityOpts{},
+	}
 }

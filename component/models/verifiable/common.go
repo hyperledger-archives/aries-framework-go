@@ -23,12 +23,13 @@ import (
 	"github.com/piprate/json-gold/ld"
 	"github.com/xeipuuv/gojsonschema"
 
-	kmsapi "github.com/hyperledger/aries-framework-go/spi/kms"
-	vdrapi "github.com/hyperledger/aries-framework-go/spi/vdr"
+	"github.com/hyperledger/aries-framework-go/component/models/jwt/didsignjwt"
 
 	"github.com/hyperledger/aries-framework-go/component/models/did"
 	"github.com/hyperledger/aries-framework-go/component/models/signature/verifier"
 	jsonutil "github.com/hyperledger/aries-framework-go/component/models/util/json"
+	kmsapi "github.com/hyperledger/aries-framework-go/spi/kms"
+	vdrapi "github.com/hyperledger/aries-framework-go/spi/vdr"
 )
 
 // TODO https://github.com/square/go-jose/issues/263 support ES256K
@@ -112,7 +113,7 @@ type jsonldCredentialOpts struct {
 // PublicKeyFetcher fetches public key for JWT signing verification based on Issuer ID (possibly DID)
 // and Key ID.
 // If not defined, JWT encoding is not tested.
-type PublicKeyFetcher func(issuerID, keyID string) (*verifier.PublicKey, error)
+type PublicKeyFetcher = didsignjwt.PublicKeyFetcher
 
 // SingleKey defines the case when only one verification key is used and we don't need to pick the one.
 func SingleKey(pubKey []byte, pubKeyType string) PublicKeyFetcher {

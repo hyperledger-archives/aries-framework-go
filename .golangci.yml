@@ -142,6 +142,11 @@ linters:
     - nosprintfhostport
     - typecheck
     - maintidx
+    - depguard
+    - musttag
+    - mirror
+    - errorlint
+    - nakedret
 
 issues:
   exclude-use-default: false
@@ -158,6 +163,7 @@ issues:
         - stylecheck
         - typecheck
         - maintidx
+        - mirror
     - path: example_[^\/]*_test\.go
       linters:
         - dupl
