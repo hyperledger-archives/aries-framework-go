@@ -105,6 +105,7 @@ func VerifyDisclosuresInSDJWT(
 	signedJWT *afgjwt.JSONWebToken,
 ) error {
 	claims := utils.CopyMap(signedJWT.Payload)
+
 	cryptoHash, err := GetCryptoHashFromClaims(claims)
 	if err != nil {
 		return err

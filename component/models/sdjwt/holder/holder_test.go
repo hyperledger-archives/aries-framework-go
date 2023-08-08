@@ -150,6 +150,7 @@ func TestParse(t *testing.T) {
 			},
 			Signer: holderSigner,
 		})
+		r.NoError(err)
 
 		cfp := specSDJWTV5 + common.CombinedFormatSeparator + holderVerification
 

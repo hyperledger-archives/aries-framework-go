@@ -18,8 +18,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
-
 	"github.com/PaesslerAG/gval"
 	"github.com/PaesslerAG/jsonpath"
 	"github.com/google/uuid"
@@ -731,7 +729,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
 		require.NoError(t, err)
 
-		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer, common.SDJWTVersionV2)
+		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer)
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{sdJwtVC},
 			lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
@@ -802,7 +800,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
 		require.NoError(t, err)
 
-		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer, common.SDJWTVersionV2)
+		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer)
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{sdJwtVC},
 			lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
@@ -860,7 +858,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
 		require.NoError(t, err)
 
-		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer, common.SDJWTVersionV2)
+		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer)
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{sdJwtVC},
 			lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
@@ -916,7 +914,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
 		require.NoError(t, err)
 
-		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer, common.SDJWTVersionV2)
+		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer)
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{sdJwtVC},
 			lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
@@ -975,7 +973,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
 		require.NoError(t, err)
 
-		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer, common.SDJWTVersionV2)
+		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer)
 
 		sdJwtVC.SDJWTHashAlg = "sha-128"
 
@@ -1013,7 +1011,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
 		require.NoError(t, err)
 
-		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer, common.SDJWTVersionV2)
+		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer)
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{sdJwtVC},
 			lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
@@ -1053,7 +1051,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
 		require.NoError(t, err)
 
-		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer, common.SDJWTVersionV2)
+		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer)
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{sdJwtVC},
 			lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
@@ -1092,7 +1090,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
 		require.NoError(t, err)
 
-		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer, common.SDJWTVersionV2)
+		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer)
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{sdJwtVC},
 			lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
@@ -1128,7 +1126,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
 		require.NoError(t, err)
 
-		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer, common.SDJWTVersionV2)
+		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer)
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{sdJwtVC},
 			lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
@@ -2315,7 +2313,6 @@ func newSdJwtVC(
 	t *testing.T,
 	vc *verifiable.Credential,
 	signer sigutil.Signer,
-	version common.SDJWTVersion,
 ) *verifiable.Credential {
 	t.Helper()
 
@@ -2332,7 +2329,7 @@ func newSdJwtVC(
 	require.NoError(t, err)
 
 	combinedFormatForIssuance, err := vc.MakeSDJWT(
-		verifiable.GetJWTSigner(signer, algName), verMethod, verifiable.MakeSDJWTWithVersion(version))
+		verifiable.GetJWTSigner(signer, algName), verMethod)
 	require.NoError(t, err)
 
 	parsed, err := verifiable.ParseCredential([]byte(combinedFormatForIssuance),
