@@ -9,7 +9,7 @@ go 1.20
 require (
 	github.com/IBM/mathlib v0.0.3-0.20230605104224-932ab92f2ce0
 	github.com/bluele/gcache v0.0.0-20190518031135-bc40bd653833
-	github.com/btcsuite/btcd v0.22.0-beta
+	github.com/btcsuite/btcd v0.22.3
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/go-jose/go-jose/v3 v3.0.1-0.20221117193127-916db76e8214
 	github.com/golang/mock v1.4.4

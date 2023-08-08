@@ -24,7 +24,7 @@ require (
 	github.com/PaesslerAG/jsonpath v0.1.1 // indirect
 	github.com/VictoriaMetrics/fastcache v1.5.7 // indirect
 	github.com/bluele/gcache v0.0.0-20190518031135-bc40bd653833 // indirect
-	github.com/btcsuite/btcd v0.22.0-beta // indirect
+	github.com/btcsuite/btcd v0.22.3 // indirect
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
@@ -79,9 +79,9 @@ require (
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
 	github.com/teserakt-io/golang-ed25519 v0.0.0-20210104091850-3888c087a4c8 // indirect
-	github.com/tidwall/gjson v1.6.7 // indirect
-	github.com/tidwall/match v1.0.3 // indirect
-	github.com/tidwall/pretty v1.0.2 // indirect
+	github.com/tidwall/gjson v1.14.3 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tidwall/sjson v1.1.4 // indirect
 	github.com/valyala/fastjson v1.6.3 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect

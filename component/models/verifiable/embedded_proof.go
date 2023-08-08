@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity/models"
 	jsonld "github.com/hyperledger/aries-framework-go/component/models/ld/processor"
 	"github.com/hyperledger/aries-framework-go/component/models/signature/suite"
 	"github.com/hyperledger/aries-framework-go/component/models/signature/suite/bbsblssignature2020"
@@ -53,10 +54,12 @@ type embeddedProofCheckOpts struct {
 
 	ldpSuites []verifier.SignatureSuite
 
+	dataIntegrityOpts *verifyDataIntegrityOpts
+
 	jsonldCredentialOpts
 }
 
-func checkEmbeddedProof(docBytes []byte, opts *embeddedProofCheckOpts) error {
+func checkEmbeddedProof(docBytes []byte, opts *embeddedProofCheckOpts) error { // nolint:gocyclo
 	if opts.disabledProofCheck {
 		return nil
 	}
@@ -80,6 +83,23 @@ func checkEmbeddedProof(docBytes []byte, opts *embeddedProofCheckOpts) error {
 		return fmt.Errorf("check embedded proof: %w", err)
 	}
 
+	if len(opts.externalContext) > 0 {
+		// Use external contexts for check of the linked data proofs to enrich JSON-LD context vocabulary.
+		jsonldDoc["@context"] = jsonld.AppendExternalContexts(jsonldDoc["@context"], opts.externalContext...)
+	}
+
+	if len(proofs) > 0 {
+		typeStr, ok := proofs[0]["type"]
+		if ok && typeStr == models.DataIntegrityProof {
+			docBytes, err = json.Marshal(jsonldDoc)
+			if err != nil {
+				return err
+			}
+
+			return checkDataIntegrityProof(docBytes, opts.dataIntegrityOpts)
+		}
+	}
+
 	ldpSuites, err := getSuites(proofs, opts)
 	if err != nil {
 		return err
@@ -87,11 +107,6 @@ func checkEmbeddedProof(docBytes []byte, opts *embeddedProofCheckOpts) error {
 
 	if opts.publicKeyFetcher == nil {
 		return errors.New("public key fetcher is not defined")
-	}
-
-	if len(opts.externalContext) > 0 {
-		// Use external contexts for check of the linked data proofs to enrich JSON-LD context vocabulary.
-		jsonldDoc["@context"] = jsonld.AppendExternalContexts(jsonldDoc["@context"], opts.externalContext...)
 	}
 
 	err = checkLinkedDataProof(jsonldDoc, ldpSuites, opts.publicKeyFetcher, &opts.jsonldCredentialOpts)
