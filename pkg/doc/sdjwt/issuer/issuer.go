@@ -42,12 +42,12 @@ package issuer
 
 import (
 	"crypto"
-	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 
 	"github.com/go-jose/go-jose/v3/jwt"
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
+	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/issuer"
 )
 
@@ -181,7 +181,7 @@ func WithNonSelectivelyDisclosableClaims(nonSDClaims []string) NewOpt {
 //		}
 //	}
 func WithAlwaysIncludeObjects(alwaysIncludeObjects []string) NewOpt {
-	return issuer.WithNonSelectivelyDisclosableClaims(alwaysIncludeObjects)
+	return issuer.WithAlwaysIncludeObjects(alwaysIncludeObjects)
 }
 
 // WithRecursiveClaimsObjects is an option for provide object keys that should be selective disclosed recursively, e.g.
@@ -250,7 +250,7 @@ func WithAlwaysIncludeObjects(alwaysIncludeObjects []string) NewOpt {
 //
 // ].
 func WithRecursiveClaimsObjects(recursiveClaimsObject []string) NewOpt {
-	return issuer.WithNonSelectivelyDisclosableClaims(recursiveClaimsObject)
+	return issuer.WithRecursiveClaimsObjects(recursiveClaimsObject)
 }
 
 // New creates new signed Selective Disclosure JWT based on input claims.
