@@ -20,7 +20,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk/jwksupport"
+
 	afjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
+	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/holder"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/issuer"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/verifier"
@@ -138,7 +140,7 @@ func TestSDJWTFlow(t *testing.T) {
 
 		// Holder will disclose only sub-set of claims to verifier and add holder binding.
 		combinedFormatForPresentation, err := holder.CreatePresentation(combinedFormatForIssuance, selectedDisclosures,
-			holder.WithHolderBinding(&holder.BindingInfo{
+			holder.WithHolderVerification(&holder.BindingInfo{
 				Payload: holder.BindingPayload{
 					Nonce:    testNonce,
 					Audience: testAudience,
@@ -153,9 +155,9 @@ func TestSDJWTFlow(t *testing.T) {
 		// Verifier will validate combined format for presentation and create verified claims.
 		verifiedClaims, err := verifier.Parse(combinedFormatForPresentation,
 			verifier.WithSignatureVerifier(signatureVerifier),
-			verifier.WithHolderBindingRequired(true),
-			verifier.WithExpectedAudienceForHolderBinding(testAudience),
-			verifier.WithExpectedNonceForHolderBinding(testNonce))
+			verifier.WithHolderVerificationRequired(true),
+			verifier.WithExpectedAudienceForHolderVerification(testAudience),
+			verifier.WithExpectedNonceForHolderVerification(testNonce))
 		r.NoError(err)
 
 		printObject(t, "Verified Claims", verifiedClaims)
@@ -294,7 +296,7 @@ func TestSDJWTFlow(t *testing.T) {
 
 		printObject(t, "Holder Claims", claims)
 
-		r.Equal(4, len(claims))
+		r.Equal(5, len(claims))
 
 		const testAudience = "https://test.com/verifier"
 		const testNonce = "nonce"
@@ -305,7 +307,111 @@ func TestSDJWTFlow(t *testing.T) {
 
 		// Holder will disclose only sub-set of claims to verifier.
 		combinedFormatForPresentation, err := holder.CreatePresentation(vcCombinedFormatForIssuance, selectedDisclosures,
-			holder.WithHolderBinding(&holder.BindingInfo{
+			holder.WithHolderVerification(&holder.BindingInfo{
+				Payload: holder.BindingPayload{
+					Nonce:    testNonce,
+					Audience: testAudience,
+					IssuedAt: jwt.NewNumericDate(time.Now()),
+				},
+				Signer: holderSigner,
+			}))
+		r.NoError(err)
+
+		fmt.Println(fmt.Sprintf("holder SD-JWT: %s", combinedFormatForPresentation))
+
+		// Verifier will validate combined format for presentation and create verified claims.
+		// In this case it will be VC since VC was passed in.
+		verifiedClaims, err := verifier.Parse(combinedFormatForPresentation,
+			verifier.WithSignatureVerifier(signatureVerifier))
+		r.NoError(err)
+
+		printObject(t, "Verified Claims", verifiedClaims)
+
+		r.Equal(len(vc), len(verifiedClaims))
+	})
+
+	t.Run("success - NewFromVC API v5", func(t *testing.T) {
+		holderPublicKey, holderPrivateKey, err := ed25519.GenerateKey(rand.Reader)
+		r.NoError(err)
+
+		holderPublicJWK, err := jwksupport.JWKFromKey(holderPublicKey)
+		require.NoError(t, err)
+
+		localVc := `
+{
+	"iat": 1673987547,
+	"iss": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+	"jti": "http://example.edu/credentials/1872",
+	"nbf": 1673987547,
+	"sub": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+	"vc": {
+		"@context": [
+			"https://www.w3.org/2018/credentials/v1"
+		],
+		"credentialSubject": {
+			"degree": {
+				"degree": "MIT",
+				"type": "BachelorDegree",
+				"id": "some-id"
+			},
+			"arr" : ["a", "b"],
+			"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+			"name": "Jayden Doe",
+			"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+		},
+		"first_name": "First name",
+		"id": "http://example.edu/credentials/1872",
+		"info": "Info",
+		"issuanceDate": "2023-01-17T22:32:27.468109817+02:00",
+		"issuer": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		"last_name": "Last name",
+		"type": "VerifiableCredential"
+	}
+}`
+		// create VC - we will use template here
+		var vc map[string]interface{}
+		err = json.Unmarshal([]byte(localVc), &vc)
+		r.NoError(err)
+
+		token, err := issuer.NewFromVC(vc, nil, signer,
+			issuer.WithHolderPublicKey(holderPublicJWK),
+			issuer.WithStructuredClaims(true),
+			//issuer.WithNonSelectivelyDisclosableClaims([]string{"id", "degree.type"}),
+			issuer.WithSDJWTVersion(common.SDJWTVersionV5),
+		)
+		r.NoError(err)
+
+		var decoded map[string]interface{}
+
+		err = token.DecodeClaims(&decoded)
+		require.NoError(t, err)
+
+		printObject(t, "SD-JWT Payload", decoded)
+
+		vcCombinedFormatForIssuance, err := token.Serialize(false)
+		r.NoError(err)
+
+		fmt.Println(fmt.Sprintf("issuer SD-JWT: %s", vcCombinedFormatForIssuance))
+
+		claims, err := holder.Parse(vcCombinedFormatForIssuance,
+			holder.WithSignatureVerifier(signatureVerifier),
+		)
+		r.NoError(err)
+
+		printObject(t, "Holder Claims", claims)
+
+		r.Equal(8, len(claims))
+
+		const testAudience = "https://test.com/verifier"
+		const testNonce = "nonce"
+
+		holderSigner := afjwt.NewEd25519Signer(holderPrivateKey)
+
+		selectedDisclosures := getDisclosuresFromClaimNames([]string{"degree", "id", "name"}, claims)
+
+		// Holder will disclose only sub-set of claims to verifier.
+		combinedFormatForPresentation, err := holder.CreatePresentation(vcCombinedFormatForIssuance, selectedDisclosures,
+			holder.WithHolderVerification(&holder.BindingInfo{
 				Payload: holder.BindingPayload{
 					Nonce:    testNonce,
 					Audience: testAudience,
@@ -411,6 +517,7 @@ const sampleVCFull = `
 				"type": "BachelorDegree",
 				"id": "some-id"
 			},
+			"arr" : ["a", "b"],
 			"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
 			"name": "Jayden Doe",
 			"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"

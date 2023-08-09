@@ -10,9 +10,11 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/component/models/did"
+	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
 
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr"
@@ -133,4 +135,22 @@ func createDIDDoc() *did.Doc {
 	}
 
 	return didDoc
+}
+
+func TestOptions(t *testing.T) {
+	opts := []MakeSDJWTOption{
+		MakeSDJWTWithRecursiveClaimsObjects([]string{"aa", "bb"}),
+		MakeSDJWTWithAlwaysIncludeObjects([]string{"cc", "dd"}),
+		MakeSDJWTWithNonSelectivelyDisclosableClaims([]string{"xx", "yy"}),
+		MakeSDJWTWithVersion(100500),
+	}
+
+	opt := &verifiable.MakeSDJWTOpts{}
+	for _, o := range opts {
+		o(opt)
+	}
+
+	assert.Equal(t, []string{"aa", "bb"}, opt.GetRecursiveClaimsObject())
+	assert.Equal(t, []string{"cc", "dd"}, opt.GetAlwaysIncludeObject())
+	assert.Equal(t, []string{"xx", "yy"}, opt.GetNonSDClaims())
 }

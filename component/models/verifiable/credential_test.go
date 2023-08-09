@@ -11,20 +11,23 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 	"github.com/xeipuuv/gojsonschema"
+	"golang.org/x/exp/slices"
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+	"github.com/hyperledger/aries-framework-go/spi/kms"
+
 	jsonld "github.com/hyperledger/aries-framework-go/component/models/ld/processor"
 	"github.com/hyperledger/aries-framework-go/component/models/signature/suite"
 	"github.com/hyperledger/aries-framework-go/component/models/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/component/models/signature/verifier"
 	jsonutil "github.com/hyperledger/aries-framework-go/component/models/util/json"
-	"github.com/hyperledger/aries-framework-go/spi/kms"
 )
 
 const singleCredentialSubject = `
@@ -729,7 +732,13 @@ func TestCredential_MarshalJSON(t *testing.T) {
 
 		// original sd-jwt is in 'issuance' format, without a trailing tilde, while MarshalJSON will marshal
 		// in 'presentation' format, including a trailing tilde if the sd-jwt has disclosures but no holder binding.
-		require.Equal(t, string(unQuote([]byte(sdJWTString)))+"~", string(unQuote(byteCred)))
+
+		sdJWTSegments := strings.Split(string(unQuote([]byte(sdJWTString)))+"~", "~")
+		byteCredSegments := strings.Split(string(unQuote(byteCred)), "~")
+
+		slices.Sort(sdJWTSegments)
+		slices.Sort(byteCredSegments)
+		require.Equal(t, sdJWTSegments, byteCredSegments)
 
 		// convert SD-JWT json string to verifiable credential
 		cred2, err := ParseCredential(byteCred,

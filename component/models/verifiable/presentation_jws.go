@@ -13,7 +13,7 @@ func (jpc *JWTPresClaims) MarshalJWS(signatureAlg JWSAlgorithm, signer Signer, k
 func unmarshalPresJWSClaims(vpJWT string, checkProof bool, fetcher PublicKeyFetcher) (*JWTPresClaims, error) {
 	var claims JWTPresClaims
 
-	err := unmarshalJWS(vpJWT, checkProof, fetcher, &claims)
+	_, err := unmarshalJWS(vpJWT, checkProof, fetcher, &claims)
 	if err != nil {
 		return nil, err
 	}

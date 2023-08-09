@@ -27,6 +27,7 @@ import (
 	afjose "github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk/jwksupport"
+
 	afjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 )
@@ -159,7 +160,9 @@ func TestNew(t *testing.T) {
 			WithID("id"),
 			WithSubject("subject"),
 			WithAudience("audience"),
-			WithSaltFnc(generateSalt),
+			WithSaltFnc(func() (string, error) {
+				return generateSalt(128 / 8)
+			}),
 			WithJSONMarshaller(json.Marshal),
 			WithHashAlgorithm(crypto.SHA256),
 		)
@@ -382,6 +385,43 @@ func TestNew(t *testing.T) {
 		}
 	})
 
+	t.Run("Create SD-JWS V5 with structured claims, recursive SD and SD array elements", func(t *testing.T) {
+		r := require.New(t)
+
+		complexClaims := createComplexClaimsWithSlice()
+
+		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+		r.NoError(err)
+
+		verifier, e := afjwt.NewEd25519Verifier(pubKey)
+		r.NoError(e)
+
+		token, err := New(issuer, complexClaims, nil, afjwt.NewEd25519Signer(privKey),
+			WithSDJWTVersion(common.SDJWTVersionV5),
+			WithStructuredClaims(true),
+			WithAlwaysIncludeObjects([]string{"address.countryCodes", "address.extra"}),
+			WithNonSelectivelyDisclosableClaims([]string{"address.cities[1]", "address.region"}),
+			WithRecursiveClaimsObjects([]string{"address.extra.recursive"}),
+		)
+		r.NoError(err)
+		combinedFormatForIssuance, err := token.Serialize(false)
+		r.NoError(err)
+
+		cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
+		r.Equal(6, len(cfi.Disclosures))
+
+		afjwtToken, _, err := afjwt.Parse(cfi.SDJWT, afjwt.WithSignatureVerifier(verifier))
+		r.NoError(err)
+
+		var parsedClaims map[string]interface{}
+		err = afjwtToken.DecodeClaims(&parsedClaims)
+		r.NoError(err)
+
+		digests, err := common.GetDisclosureDigests(parsedClaims)
+		require.NoError(t, err)
+		require.Empty(t, digests)
+	})
+
 	t.Run("Create JWS with holder public key", func(t *testing.T) {
 		r := require.New(t)
 
@@ -580,6 +620,50 @@ func TestNewFromVC(t *testing.T) {
 		r.Contains(err.Error(), "unknown key id")
 	})
 
+	t.Run("success - structured claims + holder binding + SD JWT V5 format", func(t *testing.T) {
+		holderPublicKey, _, err := ed25519.GenerateKey(rand.Reader)
+		r.NoError(err)
+
+		holderPublicJWK, err := jwksupport.JWKFromKey(holderPublicKey)
+		require.NoError(t, err)
+
+		// create VC - we will use template here
+		var vc map[string]interface{}
+		err = json.Unmarshal([]byte(sampleSDJWTV5Full), &vc)
+		r.NoError(err)
+
+		token, err := NewFromVC(vc, nil, signer,
+			WithHolderPublicKey(holderPublicJWK),
+			WithStructuredClaims(true),
+			WithNonSelectivelyDisclosableClaims([]string{"id", "degree.type"}),
+			WithSDJWTVersion(common.SDJWTVersionV5))
+		r.NoError(err)
+
+		vcCombinedFormatForIssuance, err := token.Serialize(false)
+		r.NoError(err)
+
+		fmt.Println(fmt.Sprintf("issuer SD-JWT: %s", vcCombinedFormatForIssuance))
+
+		var vcWithSelectedDisclosures map[string]interface{}
+		err = token.DecodeClaims(&vcWithSelectedDisclosures)
+		r.NoError(err)
+
+		printObject(t, "VC with selected disclosures", vcWithSelectedDisclosures)
+
+		id, err := jsonpath.Get("$.credentialSubject.id", vcWithSelectedDisclosures)
+		r.NoError(err)
+		r.Equal("did:example:ebfeb1f712ebc6f1c276e12ec21", id)
+
+		degreeType, err := jsonpath.Get("$.credentialSubject.degree.type", vcWithSelectedDisclosures)
+		r.NoError(err)
+		r.Equal("BachelorDegree", degreeType)
+
+		degreeID, err := jsonpath.Get("$.credentialSubject.degree.id", vcWithSelectedDisclosures)
+		r.Error(err)
+		r.Nil(degreeID)
+		r.Contains(err.Error(), "unknown key id")
+	})
+
 	t.Run("success - flat claims + holder binding", func(t *testing.T) {
 		holderPublicKey, _, err := ed25519.GenerateKey(rand.Reader)
 		r.NoError(err)
@@ -733,11 +817,11 @@ func TestJSONWebToken_createDisclosure(t *testing.T) {
 		expectedDisclosureWithSpaces := "WyIzanFjYjY3ejl3a3MwOHp3aUs3RXlRIiwgImdpdmVuX25hbWUiLCAiSm9obiJd"
 		expectedHashWithSpaces := expectedHashWithSpaces
 
-		disclosure, err := createDisclosure("given_name", "John", nOpts)
+		disclosure, err := NewSDJWTBuilderV2().createDisclosure("given_name", "John", nOpts)
 		require.NoError(t, err)
-		require.Equal(t, expectedDisclosureWithSpaces, disclosure)
+		require.Equal(t, expectedDisclosureWithSpaces, disclosure.Result)
 
-		dh, err := common.GetHash(defaultHash, disclosure)
+		dh, err := common.GetHash(defaultHash, disclosure.Result)
 		require.NoError(t, err)
 		require.Equal(t, expectedHashWithSpaces, dh)
 	})
@@ -753,9 +837,9 @@ func TestJSONWebToken_createDisclosure(t *testing.T) {
 				return "_26bc4LT-ac6q2KI6cBW5es", nil
 			}))
 
-		disclosure, err := createDisclosure("family_name", "Möbius", nOpts)
+		disclosure, err := NewSDJWTBuilderV2().createDisclosure("family_name", "Möbius", nOpts)
 		require.NoError(t, err)
-		require.Equal(t, expectedDisclosureWithoutSpaces, disclosure)
+		require.Equal(t, expectedDisclosureWithoutSpaces, disclosure.Result)
 
 		nOpts = getOpts(
 			WithJSONMarshaller(jsonMarshalWithSpace),
@@ -763,16 +847,15 @@ func TestJSONWebToken_createDisclosure(t *testing.T) {
 				return "_26bc4LT-ac6q2KI6cBW5es", nil
 			}))
 
-		disclosure, err = createDisclosure("family_name", "Möbius", nOpts)
+		disclosure, err = NewSDJWTBuilderV2().createDisclosure("family_name", "Möbius", nOpts)
 		require.NoError(t, err)
-		require.Equal(t, expectedDisclosureWithSpaces, disclosure)
+		require.Equal(t, expectedDisclosureWithSpaces, disclosure.Result)
 	})
 }
 
 func getOpts(opts ...NewOpt) *newOpts {
 	nOpts := &newOpts{
 		jsonMarshal: json.Marshal,
-		getSalt:     generateSalt,
 		HashAlg:     defaultHash,
 	}
 
@@ -860,6 +943,24 @@ func createComplexClaims() map[string]interface{} {
 			"locality":       "Anytown",
 			"region":         "Anystate",
 			"country":        "US",
+		},
+	}
+
+	return claims
+}
+
+func createComplexClaimsWithSlice() map[string]interface{} {
+	claims := map[string]interface{}{
+		"address": map[string]interface{}{
+			"locality":     "Schulpforta",
+			"region":       "Sachsen-Anhalt",
+			"countryCodes": []string{"UA", "PL"},
+			"cities":       []string{"Albuquerque", "El Paso"},
+			"extra": map[string]interface{}{
+				"recursive": map[string]interface{}{
+					"key1": "value1",
+				},
+			},
 		},
 	}
 
@@ -1013,4 +1114,33 @@ const sampleVCFull = `
 		"last_name": "Last name",
 		"type": "VerifiableCredential"
 	}
+}`
+
+const sampleSDJWTV5Full = `
+{
+	"iat": 1673987547,
+	"iss": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+	"jti": "http://example.edu/credentials/1872",
+	"nbf": 1673987547,
+	"sub": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+	"@context": [
+		"https://www.w3.org/2018/credentials/v1"
+	],
+	"credentialSubject": {
+		"degree": {
+			"degree": "MIT",
+			"type": "BachelorDegree",
+			"id": "some-id"
+		},
+		"name": "Jayden Doe",
+		"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+		"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+	},
+	"first_name": "First name",
+	"id": "http://example.edu/credentials/1872",
+	"info": "Info",
+	"issuanceDate": "2023-01-17T22:32:27.468109817+02:00",
+	"issuer": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+	"last_name": "Last name",
+	"type": "VerifiableCredential"
 }`
