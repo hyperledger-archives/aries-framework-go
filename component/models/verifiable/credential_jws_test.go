@@ -15,6 +15,7 @@ import (
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/stretchr/testify/require"
 
+	ariesjose "github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
 	"github.com/hyperledger/aries-framework-go/component/models/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/spi/kms"
 )
@@ -33,13 +34,14 @@ func TestJWTCredClaimsMarshalJWS(t *testing.T) {
 		jws, err := jwtClaims.MarshalJWS(RS256, signer, "did:123#key1")
 		require.NoError(t, err)
 
-		vcBytes, err := decodeCredJWS(jws, true, func(issuerID, keyID string) (*verifier.PublicKey, error) {
+		headers, vcBytes, err := decodeCredJWS(jws, true, func(issuerID, keyID string) (*verifier.PublicKey, error) {
 			return &verifier.PublicKey{
 				Type:  kms.RSARS256,
 				Value: signer.PublicKeyBytes(),
 			}, nil
 		})
 		require.NoError(t, err)
+		require.Equal(t, ariesjose.Headers{"alg": "RS256", "kid": "did:123#key1"}, headers)
 
 		vcRaw := new(rawCredential)
 		err = json.Unmarshal(vcBytes, &vcRaw)
@@ -70,8 +72,9 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 	validJWS := createRS256JWS(t, []byte(jwtTestCredential), signer, false)
 
 	t.Run("Successful JWS decoding", func(t *testing.T) {
-		vcBytes, err := decodeCredJWS(string(validJWS), true, pkFetcher)
+		headers, vcBytes, err := decodeCredJWS(string(validJWS), true, pkFetcher)
 		require.NoError(t, err)
+		require.NotNil(t, headers)
 
 		vcRaw := new(rawCredential)
 		err = json.Unmarshal(vcBytes, &vcRaw)
@@ -83,10 +86,11 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 	})
 
 	t.Run("Invalid serialized JWS", func(t *testing.T) {
-		jws, err := decodeCredJWS("invalid JWS", true, pkFetcher)
+		joseHeaders, jws, err := decodeCredJWS("invalid JWS", true, pkFetcher)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unmarshal VC JWT claims")
 		require.Nil(t, jws)
+		require.Nil(t, joseHeaders)
 	})
 
 	t.Run("Invalid format of \"vc\" claim", func(t *testing.T) {
@@ -106,10 +110,11 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 		jwtCompact, err := jwt.Signed(signer).Claims(claims).CompactSerialize()
 		require.NoError(t, err)
 
-		jws, err := decodeCredJWS(jwtCompact, true, pkFetcher)
+		joseHeaders, jws, err := decodeCredJWS(jwtCompact, true, pkFetcher)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unmarshal VC JWT claims")
 		require.Nil(t, jws)
+		require.Nil(t, joseHeaders)
 	})
 
 	t.Run("Invalid signature of JWS", func(t *testing.T) {
@@ -124,9 +129,10 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 			}, nil
 		}
 
-		jws, err := decodeCredJWS(string(validJWS), true, pkFetcherOther)
+		joseHeaders, jws, err := decodeCredJWS(string(validJWS), true, pkFetcherOther)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unmarshal VC JWT claims")
 		require.Nil(t, jws)
+		require.Nil(t, joseHeaders)
 	})
 }

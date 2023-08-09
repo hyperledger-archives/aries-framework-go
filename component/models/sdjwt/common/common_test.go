@@ -9,16 +9,17 @@ package common
 import (
 	"bytes"
 	"crypto"
-	"crypto/ed25519"
-	"crypto/rand"
+	_ "embed"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+
 	afjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
 	utils "github.com/hyperledger/aries-framework-go/component/models/util/maphelpers"
 )
@@ -28,6 +29,12 @@ const (
 
 	testAlg = "sha-256"
 )
+
+//go:embed testdata/full_disclosures_v5.json
+var fullDisclosuresV5TestData []byte
+
+//go:embed testdata/array_element_and_one_missing_v5.json
+var arrayElementAndOneMissingV5TestData []byte
 
 func TestGetHash(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
@@ -76,7 +83,7 @@ func TestParseCombinedFormatForPresentation(t *testing.T) {
 		cfp := ParseCombinedFormatForPresentation(testCombinedFormatForPresentation)
 		require.Equal(t, testSDJWT, cfp.SDJWT)
 		require.Equal(t, 1, len(cfp.Disclosures))
-		require.Empty(t, cfp.HolderBinding)
+		require.Empty(t, cfp.HolderVerification)
 
 		require.Equal(t, testCombinedFormatForPresentation, cfp.Serialize())
 	})
@@ -84,7 +91,7 @@ func TestParseCombinedFormatForPresentation(t *testing.T) {
 	t.Run("success - spec example", func(t *testing.T) {
 		cfp := ParseCombinedFormatForPresentation(specCombinedFormatForIssuance + CombinedFormatSeparator)
 		require.Equal(t, 7, len(cfp.Disclosures))
-		require.Empty(t, cfp.HolderBinding)
+		require.Empty(t, cfp.HolderVerification)
 
 		require.Equal(t, specCombinedFormatForIssuance+CombinedFormatSeparator, cfp.Serialize())
 	})
@@ -94,7 +101,7 @@ func TestParseCombinedFormatForPresentation(t *testing.T) {
 		cfp := ParseCombinedFormatForPresentation(testCFI)
 		require.Equal(t, testSDJWT, cfp.SDJWT)
 		require.Equal(t, 1, len(cfp.Disclosures))
-		require.Equal(t, testHolderBinding, cfp.HolderBinding)
+		require.Equal(t, testHolderBinding, cfp.HolderVerification)
 
 		require.Equal(t, testCFI, cfp.Serialize())
 	})
@@ -103,7 +110,7 @@ func TestParseCombinedFormatForPresentation(t *testing.T) {
 		cfp := ParseCombinedFormatForPresentation(testSDJWT)
 		require.Equal(t, testSDJWT, cfp.SDJWT)
 		require.Equal(t, 0, len(cfp.Disclosures))
-		require.Empty(t, cfp.HolderBinding)
+		require.Empty(t, cfp.HolderVerification)
 
 		require.Equal(t, testSDJWT, cfp.Serialize())
 	})
@@ -114,7 +121,7 @@ func TestParseCombinedFormatForPresentation(t *testing.T) {
 		cfp := ParseCombinedFormatForPresentation(testCFI)
 		require.Equal(t, testSDJWT, cfp.SDJWT)
 		require.Equal(t, 0, len(cfp.Disclosures))
-		require.Equal(t, testHolderBinding, cfp.HolderBinding)
+		require.Equal(t, testHolderBinding, cfp.HolderVerification)
 
 		require.Equal(t, testCFI, cfp.Serialize())
 	})
@@ -125,159 +132,9 @@ func TestParseCombinedFormatForPresentation(t *testing.T) {
 		cfp := ParseCombinedFormatForPresentation(specExample2bPresentation)
 		require.Equal(t, specExample2bJWT, cfp.SDJWT)
 		require.Equal(t, 6, len(cfp.Disclosures))
-		require.Empty(t, cfp.HolderBinding)
+		require.Empty(t, cfp.HolderVerification)
 
 		require.Equal(t, specExample2bPresentation, cfp.Serialize())
-	})
-}
-
-func TestVerifyDisclosuresInSDJWT(t *testing.T) {
-	r := require.New(t)
-
-	_, privKey, err := ed25519.GenerateKey(rand.Reader)
-	r.NoError(err)
-
-	signer := afjwt.NewEd25519Signer(privKey)
-
-	t.Run("success", func(t *testing.T) {
-		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuance)
-		require.Equal(t, 1, len(sdJWT.Disclosures))
-
-		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
-		require.NoError(t, err)
-
-		err = VerifyDisclosuresInSDJWT(sdJWT.Disclosures, signedJWT)
-		r.NoError(err)
-	})
-
-	t.Run("success - complex struct(spec example 2b)", func(t *testing.T) {
-		specExample2bPresentation := fmt.Sprintf("%s%s", specExample2bJWT, specExample2bDisclosures)
-
-		sdJWT := ParseCombinedFormatForPresentation(specExample2bPresentation)
-
-		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
-		require.NoError(t, err)
-
-		err = VerifyDisclosuresInSDJWT(sdJWT.Disclosures, signedJWT)
-		r.NoError(err)
-	})
-
-	t.Run("success - no selective disclosures(valid case)", func(t *testing.T) {
-		jwtPayload := &payload{
-			Issuer: "issuer",
-			SDAlg:  "sha-256",
-		}
-
-		signedJWT, err := afjwt.NewSigned(jwtPayload, nil, signer)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT(nil, signedJWT)
-		r.NoError(err)
-	})
-
-	t.Run("success - selective disclosures nil", func(t *testing.T) {
-		payload := make(map[string]interface{})
-		payload[SDAlgorithmKey] = testAlg
-		payload[SDKey] = nil
-
-		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT(nil, signedJWT)
-		r.NoError(err)
-	})
-
-	t.Run("error - disclosure not present in SD-JWT", func(t *testing.T) {
-		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuance)
-		require.Equal(t, 1, len(sdJWT.Disclosures))
-
-		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
-		require.NoError(t, err)
-
-		err = VerifyDisclosuresInSDJWT(append(sdJWT.Disclosures, additionalDisclosure), signedJWT)
-		r.Error(err)
-		r.Contains(err.Error(),
-			"disclosure digest 'X9yH0Ajrdm1Oij4tWso9UzzKJvPoDxwmuEcO3XAdRC0' not found in SD-JWT disclosure digests")
-	})
-
-	t.Run("error - disclosure not present in SD-JWT without selective disclosures", func(t *testing.T) {
-		jwtPayload := &payload{
-			Issuer: "issuer",
-			SDAlg:  testAlg,
-		}
-
-		signedJWT, err := afjwt.NewSigned(jwtPayload, nil, signer)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT([]string{additionalDisclosure}, signedJWT)
-		r.Error(err)
-		r.Contains(err.Error(),
-			"disclosure digest 'X9yH0Ajrdm1Oij4tWso9UzzKJvPoDxwmuEcO3XAdRC0' not found in SD-JWT disclosure digests")
-	})
-
-	t.Run("error - missing algorithm", func(t *testing.T) {
-		jwtPayload := &payload{
-			Issuer: "issuer",
-		}
-
-		signedJWT, err := afjwt.NewSigned(jwtPayload, nil, signer)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT(nil, signedJWT)
-		r.Error(err)
-		r.Contains(err.Error(), "_sd_alg must be present in SD-JWT", SDAlgorithmKey)
-	})
-
-	t.Run("error - invalid algorithm", func(t *testing.T) {
-		jwtPayload := payload{
-			Issuer: "issuer",
-			SDAlg:  "SHA-XXX",
-		}
-
-		signedJWT, err := afjwt.NewSigned(jwtPayload, nil, signer)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT(nil, signedJWT)
-		r.Error(err)
-		r.Contains(err.Error(), "_sd_alg 'SHA-XXX' not supported")
-	})
-
-	t.Run("error - algorithm is not a string", func(t *testing.T) {
-		payload := make(map[string]interface{})
-		payload[SDAlgorithmKey] = 18
-
-		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT(nil, signedJWT)
-		r.Error(err)
-		r.Contains(err.Error(), "_sd_alg must be a string")
-	})
-
-	t.Run("error - selective disclosures must be an array", func(t *testing.T) {
-		payload := make(map[string]interface{})
-		payload[SDAlgorithmKey] = testAlg
-		payload[SDKey] = "test"
-
-		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT([]string{additionalDisclosure}, signedJWT)
-		r.Error(err)
-		r.Contains(err.Error(), "get disclosure digests: entry type[string] is not an array")
-	})
-
-	t.Run("error - selective disclosures must be a string", func(t *testing.T) {
-		payload := make(map[string]interface{})
-		payload[SDAlgorithmKey] = testAlg
-		payload[SDKey] = []float64{123}
-
-		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
-		r.NoError(err)
-
-		err = VerifyDisclosuresInSDJWT([]string{additionalDisclosure}, signedJWT)
-		r.Error(err)
-		r.Contains(err.Error(), "get disclosure digests: entry item type[float64] is not a string")
 	})
 }
 
@@ -288,7 +145,13 @@ func TestGetDisclosureClaims(t *testing.T) {
 		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuance)
 		require.Equal(t, 1, len(sdJWT.Disclosures))
 
-		disclosureClaims, err := GetDisclosureClaims(sdJWT.Disclosures)
+		token, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		r.NoError(err)
+
+		hash, err := GetCryptoHashFromClaims(token.Payload)
+		r.NoError(err)
+
+		disclosureClaims, err := GetDisclosureClaims(sdJWT.Disclosures, hash)
 		r.NoError(err)
 		r.Len(disclosureClaims, 1)
 
@@ -296,28 +159,111 @@ func TestGetDisclosureClaims(t *testing.T) {
 		r.Equal("John", disclosureClaims[0].Value)
 	})
 
+	t.Run("full disclosures V5", func(t *testing.T) {
+		var disData []string
+		r.NoError(json.Unmarshal(fullDisclosuresV5TestData, &disData))
+
+		parsed, err := GetDisclosureClaims(disData, crypto.SHA256)
+		r.NoError(err)
+		r.Len(parsed, 10)
+
+		var address *DisclosureClaim
+		for _, cl := range parsed {
+			if cl.Name == "address" {
+				address = cl
+				break
+			}
+		}
+
+		r.Equal(map[string]interface{}{
+			"extraArrInclude": []interface{}{
+				"UA", "PL",
+			},
+			"extra": map[string]interface{}{
+				"recursive": map[string]interface{}{
+					"key1": "value1",
+				},
+			},
+			"region":         "Sachsen-Anhalt",
+			"country":        "DE",
+			"street_address": "Schulstr. 12",
+			"locality":       "Schulpforta",
+			"extraArr": []interface{}{
+				"Extra1", "Extra2",
+			},
+		}, address.Value)
+	})
+
+	t.Run("array element and one value missing V5", func(t *testing.T) {
+		// - 	"WyJ5WElBaTZSb1Y1eDV2X3lsVm1wXzhBIiwibG9jYWxpdHkiLCJTY2h1bHBmb3J0YSJd" locality
+		// - 	"WyJURWtwSjJkYWxraGltUUVLd25Cblp3IiwiVUEiXQ", UA
+		var disData []string
+		r.NoError(json.Unmarshal(arrayElementAndOneMissingV5TestData, &disData))
+		parsed, err := GetDisclosureClaims(disData, crypto.SHA256)
+		r.NoError(err)
+		r.Len(parsed, 8)
+
+		var address *DisclosureClaim
+		for _, cl := range parsed {
+			if cl.Name == "address" {
+				address = cl
+				break
+			}
+		}
+
+		r.Equal(map[string]interface{}{
+			"extraArrInclude": []interface{}{
+				"PL",
+			},
+			"extra": map[string]interface{}{
+				"recursive": map[string]interface{}{
+					"key1": "value1",
+				},
+			},
+			"region":         "Sachsen-Anhalt",
+			"country":        "DE",
+			"street_address": "Schulstr. 12",
+			"extraArr": []interface{}{
+				"Extra1", "Extra2",
+			},
+		}, address.Value)
+	})
+
 	t.Run("error - invalid disclosure format (not encoded)", func(t *testing.T) {
-		sdJWT := ParseCombinedFormatForIssuance("jws~xyz")
+		sdJWT := ParseCombinedFormatForIssuance(testSDJWT + "~xyz")
 		require.Equal(t, 1, len(sdJWT.Disclosures))
 
-		disclosureClaims, err := GetDisclosureClaims(sdJWT.Disclosures)
+		token, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		r.NoError(err)
+
+		hash, err := GetCryptoHashFromClaims(token.Payload)
+		r.NoError(err)
+
+		disclosureClaims, err := GetDisclosureClaims(sdJWT.Disclosures, hash)
 		r.Error(err)
 		r.Nil(disclosureClaims)
 		r.Contains(err.Error(), "failed to unmarshal disclosure array")
 	})
 
-	t.Run("error - invalid disclosure array (not three parts)", func(t *testing.T) {
-		disclosureArr := []interface{}{"name", "value"}
+	t.Run("error - invalid disclosure array (less then 2 parts)", func(t *testing.T) {
+		disclosureArr := []interface{}{"name"}
 		disclosureJSON, err := json.Marshal(disclosureArr)
 		require.NoError(t, err)
 
-		sdJWT := ParseCombinedFormatForIssuance(fmt.Sprintf("jws~%s", base64.RawURLEncoding.EncodeToString(disclosureJSON)))
+		sdJWT := ParseCombinedFormatForIssuance(fmt.Sprintf("%s~%s", testSDJWT,
+			base64.RawURLEncoding.EncodeToString(disclosureJSON)))
 		require.Equal(t, 1, len(sdJWT.Disclosures))
 
-		disclosureClaims, err := GetDisclosureClaims(sdJWT.Disclosures)
+		token, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		r.NoError(err)
+
+		hash, err := GetCryptoHashFromClaims(token.Payload)
+		r.NoError(err)
+
+		disclosureClaims, err := GetDisclosureClaims(sdJWT.Disclosures, hash)
 		r.Error(err)
 		r.Nil(disclosureClaims)
-		r.Contains(err.Error(), "disclosure array size[2] must be 3")
+		r.Contains(err.Error(), "disclosure array size[1] must be greater 2")
 	})
 
 	t.Run("error - invalid disclosure array (name is not a string)", func(t *testing.T) {
@@ -325,10 +271,17 @@ func TestGetDisclosureClaims(t *testing.T) {
 		disclosureJSON, err := json.Marshal(disclosureArr)
 		require.NoError(t, err)
 
-		sdJWT := ParseCombinedFormatForIssuance(fmt.Sprintf("jws~%s", base64.RawURLEncoding.EncodeToString(disclosureJSON)))
+		sdJWT := ParseCombinedFormatForIssuance(fmt.Sprintf("%s~%s", testSDJWT,
+			base64.RawURLEncoding.EncodeToString(disclosureJSON)))
 		require.Equal(t, 1, len(sdJWT.Disclosures))
 
-		disclosureClaims, err := GetDisclosureClaims(sdJWT.Disclosures)
+		token, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		r.NoError(err)
+
+		hash, err := GetCryptoHashFromClaims(token.Payload)
+		r.NoError(err)
+
+		disclosureClaims, err := GetDisclosureClaims(sdJWT.Disclosures, hash)
 		r.Error(err)
 		r.Nil(disclosureClaims)
 		r.Contains(err.Error(), "disclosure name type[float64] must be string")
@@ -342,10 +295,13 @@ func TestGetDisclosedClaims(t *testing.T) {
 	r.Equal(testSDJWT, cfi.SDJWT)
 	r.Equal(1, len(cfi.Disclosures))
 
-	disclosureClaims, err := GetDisclosureClaims(cfi.Disclosures)
+	token, _, err := afjwt.Parse(cfi.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
 	r.NoError(err)
 
-	token, _, err := afjwt.Parse(cfi.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+	hash, err := GetCryptoHashFromClaims(token.Payload)
+	r.NoError(err)
+
+	disclosureClaims, err := GetDisclosureClaims(cfi.Disclosures, hash)
 	r.NoError(err)
 
 	var claims map[string]interface{}
@@ -365,10 +321,88 @@ func TestGetDisclosedClaims(t *testing.T) {
 		r.Equal("John", disclosedClaims["given_name"])
 	})
 
+	t.Run("success V5", func(t *testing.T) {
+		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuanceV5)
+		require.Equal(t, 6, len(sdJWT.Disclosures))
+
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		require.NoError(t, err)
+
+		disclosureClaimsV5, err := GetDisclosureClaims(sdJWT.Disclosures, crypto.SHA256)
+		require.NoError(t, err)
+
+		disclosedClaims, err := GetDisclosedClaims(disclosureClaimsV5, signedJWT.Payload)
+		r.NoError(err)
+		r.NotNil(disclosedClaims)
+
+		r.Equal(2, len(disclosedClaims))
+		r.Equal("https://example.com/issuer", disclosedClaims["iss"])
+		r.Equal(map[string]interface{}{
+			"locality":     "Schulpforta",
+			"region":       "Sachsen-Anhalt",
+			"cities":       []interface{}{"Albuquerque", "El Paso"},
+			"countryCodes": []interface{}{"UA", "PL"},
+			"extra": map[string]interface{}{
+				"recursive": map[string]interface{}{
+					"key1": "value1",
+				},
+			},
+		}, disclosedClaims["address"])
+	})
+
+	t.Run("success V5 not all disclosures provided", func(t *testing.T) {
+		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuanceV5)
+		require.Equal(t, 6, len(sdJWT.Disclosures))
+
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		require.NoError(t, err)
+
+		disclosureClaimsV5, err := GetDisclosureClaims(sdJWT.Disclosures, crypto.SHA256)
+		require.NoError(t, err)
+
+		var disclosuresLimitedList []*DisclosureClaim
+		for _, d := range disclosureClaimsV5 {
+			// Remove UA array element
+			if v, ok := d.Value.(string); ok && v == "UA" {
+				continue
+			}
+			// Remove PL array element
+			if v, ok := d.Value.(string); ok && v == "PL" {
+				continue
+			}
+			// Remove Albuquerque array element
+			if v, ok := d.Value.(string); ok && v == "Albuquerque" {
+				continue
+			}
+			// Remove one sd element
+			if v, ok := d.Value.(string); ok && v == "Schulpforta" {
+				continue
+			}
+
+			disclosuresLimitedList = append(disclosuresLimitedList, d)
+		}
+
+		disclosedClaims, err := GetDisclosedClaims(disclosuresLimitedList, signedJWT.Payload)
+		r.NoError(err)
+		r.NotNil(disclosedClaims)
+
+		r.Equal(2, len(disclosedClaims))
+		r.Equal("https://example.com/issuer", disclosedClaims["iss"])
+		r.Equal(map[string]interface{}{
+			"region": "Sachsen-Anhalt",
+			"cities": []interface{}{"El Paso"},
+			"extra": map[string]interface{}{
+				"recursive": map[string]interface{}{
+					"key1": "value1",
+				},
+			},
+		}, disclosedClaims["address"])
+	})
+
 	t.Run("success - with complex object", func(t *testing.T) {
 		testClaims := utils.CopyMap(claims)
 
-		additionalDigest, err := GetHash(crypto.SHA256, additionalDisclosure)
+		additionalDigest, err := GetHash(crypto.SHA256, additionalSDDisclosure)
 		r.NoError(err)
 
 		parentObj := make(map[string]interface{})
@@ -381,9 +415,16 @@ func TestGetDisclosedClaims(t *testing.T) {
 
 		disclosedClaims, err := GetDisclosedClaims(append(disclosureClaims,
 			&DisclosureClaim{
-				Disclosure: additionalDisclosure,
-				Name:       "key-x",
-				Value:      "value-y"}),
+				Digest:        additionalDigest,
+				Disclosure:    additionalSDDisclosure,
+				Salt:          "",
+				Elements:      disclosureElementsAmountForSDDigest,
+				Type:          DisclosureClaimTypePlainText,
+				Version:       SDJWTVersionV2,
+				Name:          "key-x",
+				Value:         "value-y",
+				IsValueParsed: false,
+			}),
 			testClaims)
 		r.NoError(err)
 		r.NotNil(disclosedClaims)
@@ -395,10 +436,10 @@ func TestGetDisclosedClaims(t *testing.T) {
 		r.Equal("value-y", disclosedClaims["father"].(map[string]interface{})["key-x"])
 	})
 
-	t.Run("error - claim value contains _sd", func(t *testing.T) {
+	t.Run("success - claim value contains _sd", func(t *testing.T) {
 		testClaims := utils.CopyMap(claims)
 
-		additionalDigest, err := GetHash(crypto.SHA256, additionalDisclosure)
+		additionalDigest, err := GetHash(crypto.SHA256, additionalSDDisclosure)
 		r.NoError(err)
 
 		parentObj := make(map[string]interface{})
@@ -409,16 +450,21 @@ func TestGetDisclosedClaims(t *testing.T) {
 
 		disclosedClaims, err := GetDisclosedClaims(append(disclosureClaims,
 			&DisclosureClaim{
-				Disclosure: additionalDisclosure,
+				Digest:     additionalDigest,
+				Disclosure: additionalSDDisclosure,
+				Salt:       "",
+				Elements:   disclosureElementsAmountForSDDigest,
+				Type:       DisclosureClaimTypeObject,
+				Version:    SDJWTVersionV2,
 				Name:       "key-x",
 				Value: map[string]interface{}{
 					"_sd": []interface{}{"test-digest"},
 				},
+				IsValueParsed: false,
 			}),
 			testClaims)
-		r.Error(err)
-		r.Nil(disclosedClaims)
-		r.Contains(err.Error(), "failed to process disclosed claims: claim value contains an object with an '_sd' key")
+		r.NoError(err)
+		r.NotNil(disclosedClaims)
 	})
 
 	t.Run("error - same claim key at the same level ", func(t *testing.T) {
@@ -429,6 +475,7 @@ func TestGetDisclosedClaims(t *testing.T) {
 		parentObj[SDKey] = claims[SDKey]
 
 		testClaims["father"] = parentObj
+		delete(testClaims, SDKey)
 
 		printObject(t, "Complex Claims", testClaims)
 
@@ -507,18 +554,6 @@ func TestGetDisclosedClaims(t *testing.T) {
 
 		r.Contains(err.Error(),
 			"failed to process disclosed claims: get disclosure digests: entry type[string] is not an array")
-	})
-
-	t.Run("error - get hash fails", func(t *testing.T) {
-		testClaims := make(map[string]interface{})
-		testClaims[SDAlgorithmKey] = "sha-256"
-		testClaims[SDKey] = []interface{}{"abc"}
-
-		err := processDisclosedClaims(disclosureClaims, testClaims, make(map[string]bool), 0)
-		r.Error(err)
-
-		r.Contains(err.Error(),
-			"hash function not available for: 0")
 	})
 }
 
@@ -752,10 +787,11 @@ func (sv *NoopSignatureVerifier) Verify(joseHeaders jose.Headers, payload, signi
 	return nil
 }
 
-const additionalDisclosure = `WyJfMjZiYzRMVC1hYzZxMktJNmNCVzVlcyIsICJmYW1pbHlfbmFtZSIsICJNw7ZiaXVzIl0`
+const additionalSDDisclosure = `WyJfMjZiYzRMVC1hYzZxMktJNmNCVzVlcyIsICJmYW1pbHlfbmFtZSIsICJNw7ZiaXVzIl0`
+const additionalArrayElementDisclosure = `WyJjc3AteWZLWWNTYWlkUElUMHpyOFNRIiwiTWluYXMgVGlyaXRoIl0`
 
-// nolint: lll
-const testCombinedFormatForIssuance = `eyJhbGciOiJFZERTQSJ9.eyJfc2QiOlsicXF2Y3FuY3pBTWdZeDdFeWtJNnd3dHNweXZ5dks3OTBnZTdNQmJRLU51cyJdLCJfc2RfYWxnIjoic2hhLTI1NiIsImV4cCI6MTcwMzAyMzg1NSwiaWF0IjoxNjcxNDg3ODU1LCJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tL2lzc3VlciIsIm5iZiI6MTY3MTQ4Nzg1NX0.vscuzfwcHGi04pWtJCadc4iDELug6NH6YK-qxhY1qacsciIHuoLELAfon1tGamHtuu8TSs6OjtLk3lHE16jqAQ~WyIzanFjYjY3ejl3a3MwOHp3aUs3RXlRIiwgImdpdmVuX25hbWUiLCAiSm9obiJd`
+const testCombinedFormatForIssuance = `eyJhbGciOiJFZERTQSJ9.eyJfc2QiOlsicXF2Y3FuY3pBTWdZeDdFeWtJNnd3dHNweXZ5dks3OTBnZTdNQmJRLU51cyJdLCJfc2RfYWxnIjoic2hhLTI1NiIsImV4cCI6MTcwMzAyMzg1NSwiaWF0IjoxNjcxNDg3ODU1LCJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tL2lzc3VlciIsIm5iZiI6MTY3MTQ4Nzg1NX0.vscuzfwcHGi04pWtJCadc4iDELug6NH6YK-qxhY1qacsciIHuoLELAfon1tGamHtuu8TSs6OjtLk3lHE16jqAQ~WyIzanFjYjY3ejl3a3MwOHp3aUs3RXlRIiwgImdpdmVuX25hbWUiLCAiSm9obiJd`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           // nolint: lll
+const testCombinedFormatForIssuanceV5 = `eyJhbGciOiJFZERTQSJ9.eyJfc2RfYWxnIjoic2hhLTI1NiIsImFkZHJlc3MiOnsiX3NkIjpbIlRaV0JRdlpTam1VemxRZ1AzZ2EydkFlYlV6cDhpU2NRNlBFT0gzSHQ1bm8iXSwiY2l0aWVzIjpbeyIuLi4iOiI0U1lCT3NMcVRURU42QnpTSV9NX0pyQ0NzWFJ0Y1BTbWNqV3ROMEdjU0dJIn0sIkVsIFBhc28iXSwiY291bnRyeUNvZGVzIjpbeyIuLi4iOiJab2hsNGd4OXd0czJBRlVrbmd1c3FleWJDUERWUVFLNHNPR3A4dWZHcWg4In0seyIuLi4iOiIxbVl4V1VZN2M5T1pEWlZnd0N6aUFuWkY1TDgzUzZaN2pGb1U2ck5vaEtzIn1dLCJleHRyYSI6eyJfc2QiOlsibXZtZVoxb3ZmY1RRTi01Q3A5YlhYcElKREd2THVkNVg4SVIyajctVUd0WSJdfSwicmVnaW9uIjoiU2FjaHNlbi1BbmhhbHQifSwiaXNzIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9pc3N1ZXIifQ.l-xc_9hGQMHfkPmMeG_EQIZU5guVme9FSKgN58WqfBJcMvfrb9rTc2PHmxveerMTA2cjgJzM2OZgibQCxRePAg~WyJTUEh2T185NEsyWENVdVhSeURjcHJnIiwibG9jYWxpdHkiLCJTY2h1bHBmb3J0YSJd~WyJSaHh1bDBnd2x6cTlSNDg4ZV8tQ3B3IiwiVUEiXQ~WyJKQWlwWm5uSUM3ejAtZzJoNzZmc0FBIiwiUEwiXQ~WyIxdzZVNkRkSG9laFdUdG5UNG5iS3RnIiwiQWxidXF1ZXJxdWUiXQ~WyJVWnUxcjR5YnpfUGNiU3BRcTFpMllRIiwicmVjdXJzaXZlIix7Il9zZCI6WyJydjZNejBheXJZYWU1MHpWRXYtbExKNFZRRzhNMGFJdjJOVW1LVDRRRjVJIl19XQ~WyJoRWNiQmxZQ0ZSVGVtMG1uVXQzTVNnIiwia2V5MSIsInZhbHVlMSJd` // nolint: lll
 
 // nolint: lll
 const testSDJWT = `eyJhbGciOiJFZERTQSJ9.eyJfc2QiOlsicXF2Y3FuY3pBTWdZeDdFeWtJNnd3dHNweXZ5dks3OTBnZTdNQmJRLU51cyJdLCJfc2RfYWxnIjoic2hhLTI1NiIsImV4cCI6MTcwMzAyMzg1NSwiaWF0IjoxNjcxNDg3ODU1LCJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tL2lzc3VlciIsIm5iZiI6MTY3MTQ4Nzg1NX0.vscuzfwcHGi04pWtJCadc4iDELug6NH6YK-qxhY1qacsciIHuoLELAfon1tGamHtuu8TSs6OjtLk3lHE16jqAQ`
@@ -810,3 +846,230 @@ const vcSample = `
 		"type": "VerifiableCredential"
 	}
 }`
+
+func TestGetKeyFromVC(t *testing.T) {
+	type args struct {
+		key    string
+		claims map[string]interface{}
+	}
+	tests := []struct {
+		name  string
+		args  args
+		want  interface{}
+		want1 bool
+	}{
+		{
+			name: "success - vc root claim does not exist",
+			args: args{
+				key: "credentialSubject",
+				claims: map[string]interface{}{
+					"credentialSubject": 123,
+				},
+			},
+			want:  123,
+			want1: true,
+		},
+		{
+			name: "success - vc root claim exist",
+			args: args{
+				key: "credentialSubject",
+				claims: map[string]interface{}{
+					"vc": map[string]interface{}{
+						"credentialSubject": 321,
+					},
+				},
+			},
+			want:  321,
+			want1: true,
+		},
+		{
+			name: "error - vc root claim does not exist",
+			args: args{
+				key: "credentialSubject",
+				claims: map[string]interface{}{
+					"some": map[string]interface{}{
+						"credentialSubject": 321,
+					},
+				},
+			},
+			want:  nil,
+			want1: false,
+		},
+		{
+			name: "error - vc root claim exist but not a map",
+			args: args{
+				key: "credentialSubject",
+				claims: map[string]interface{}{
+					"vc": 123,
+				},
+			},
+			want:  nil,
+			want1: false,
+		},
+		{
+			name: "error - vc root claim exist but key does not exist in nested map",
+			args: args{
+				key: "credentialSubject",
+				claims: map[string]interface{}{
+					"vc": map[string]interface{}{
+						"some": 321,
+					},
+				},
+			},
+			want:  nil,
+			want1: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, got1 := GetKeyFromVC(tt.args.key, tt.args.claims)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetKeyFromVC() got = %v, want %v", got, tt.want)
+			}
+			if got1 != tt.want1 {
+				t.Errorf("GetKeyFromVC() got1 = %v, want %v", got1, tt.want1)
+			}
+		})
+	}
+}
+
+func TestGetDisclosureDigests(t *testing.T) {
+	type args struct {
+		claims map[string]interface{}
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    map[string]bool
+		wantErr bool
+	}{
+		{
+			name: "success - sd and array elements",
+			args: args{
+				claims: map[string]interface{}{
+					SDKey: []string{
+						"digest1", "digest2",
+					},
+					"claim1": []interface{}{
+						map[string]interface{}{
+							ArrayElementDigestKey: "digest3",
+						},
+					},
+				},
+			},
+			want: map[string]bool{
+				"digest1": true,
+				"digest2": true,
+				"digest3": true,
+			},
+			wantErr: false,
+		},
+		{
+			name: "success - sd root and nested claims",
+			args: args{
+				claims: map[string]interface{}{
+					SDKey: []string{
+						"digest1", "digest2",
+					},
+					"claim1": map[string]interface{}{
+						SDKey: []string{
+							"digest3",
+						},
+					},
+				},
+			},
+			want: map[string]bool{
+				"digest1": true,
+				"digest2": true,
+			},
+			wantErr: false,
+		},
+		{
+			name: "success - array element on nested level",
+			args: args{
+				claims: map[string]interface{}{
+					"claim1": map[string]interface{}{
+						"claim2": map[string]interface{}{
+							ArrayElementDigestKey: "digest3",
+						},
+					},
+				},
+			},
+			want:    map[string]bool{},
+			wantErr: false,
+		},
+		{
+			name: "success - array element not a string",
+			args: args{
+				claims: map[string]interface{}{
+					"claim1": []interface{}{
+						map[string]interface{}{
+							ArrayElementDigestKey: 123,
+						},
+					},
+				},
+			},
+			want:    map[string]bool{},
+			wantErr: false,
+		},
+		{
+			name: "success - array element map longer then one",
+			args: args{
+				claims: map[string]interface{}{
+					"claim1": []interface{}{
+						map[string]interface{}{
+							ArrayElementDigestKey: "digest3",
+							"claim2":              "digest4",
+						},
+					},
+				},
+			},
+			want:    map[string]bool{},
+			wantErr: false,
+		},
+		{
+			name: "success - array element is not a map",
+			args: args{
+				claims: map[string]interface{}{
+					"claim1": []interface{}{"digest3"},
+				},
+			},
+			want:    map[string]bool{},
+			wantErr: false,
+		},
+		{
+			name: "success - no array and sd elements",
+			args: args{
+				claims: map[string]interface{}{
+					"claim1": map[string]interface{}{
+						"claim2": []interface{}{"claim3"},
+					},
+				},
+			},
+			want:    map[string]bool{},
+			wantErr: false,
+		},
+		{
+			name: "error - sd element is not a string",
+			args: args{
+				claims: map[string]interface{}{
+					SDKey: []int{123},
+				},
+			},
+			want:    nil,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetDisclosureDigests(tt.args.claims)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetDisclosureDigests() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetDisclosureDigests() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

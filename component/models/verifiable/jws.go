@@ -71,7 +71,7 @@ func marshalJWS(jwtClaims interface{}, signatureAlg JWSAlgorithm, signer Signer,
 	return token.Serialize(false)
 }
 
-func unmarshalJWS(rawJwt string, checkProof bool, fetcher PublicKeyFetcher, claims interface{}) error {
+func unmarshalJWS(rawJwt string, checkProof bool, fetcher PublicKeyFetcher, claims interface{}) (jose.Headers, error) {
 	var verifier jose.SignatureVerifier
 
 	if checkProof {
@@ -80,18 +80,18 @@ func unmarshalJWS(rawJwt string, checkProof bool, fetcher PublicKeyFetcher, clai
 		verifier = &noVerifier{}
 	}
 
-	_, claimsRaw, err := jwt.Parse(rawJwt,
+	jsonWebToken, claimsRaw, err := jwt.Parse(rawJwt,
 		jwt.WithSignatureVerifier(verifier),
 		jwt.WithIgnoreClaimsMapDecoding(true),
 	)
 	if err != nil {
-		return fmt.Errorf("parse JWT: %w", err)
+		return nil, fmt.Errorf("parse JWT: %w", err)
 	}
 
 	err = json.Unmarshal(claimsRaw, claims)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return jsonWebToken.Headers, nil
 }

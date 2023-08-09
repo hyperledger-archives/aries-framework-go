@@ -9,28 +9,69 @@ package common
 import (
 	"crypto"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
-
-	afgjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
-	utils "github.com/hyperledger/aries-framework-go/component/models/util/maphelpers"
 )
 
 // CombinedFormatSeparator is disclosure separator.
 const (
 	CombinedFormatSeparator = "~"
 
-	SDAlgorithmKey = "_sd_alg"
-	SDKey          = "_sd"
-	CNFKey         = "cnf"
-
-	disclosureParts = 3
-	saltIndex       = 0
-	nameIndex       = 1
-	valueIndex      = 2
+	SDAlgorithmKey        = "_sd_alg"
+	SDKey                 = "_sd"
+	CNFKey                = "cnf"
+	ArrayElementDigestKey = "..."
 )
+
+// SDJWTVersion represents version SD-JWT according to spec version.
+type SDJWTVersion int
+
+const (
+	// SDJWTVersionDefault default SD-JWT version for compatibility purposes.
+	SDJWTVersionDefault = SDJWTVersionV2
+	// SDJWTVersionV2 SD-JWT v2 spec.
+	SDJWTVersionV2 = SDJWTVersion(2)
+	// SDJWTVersionV5 SD-JWT v5 spec.
+	SDJWTVersionV5 = SDJWTVersion(5)
+)
+
+const (
+	disclosureElementsAmountForArrayDigest = 2
+	disclosureElementsAmountForSDDigest    = 3
+
+	saltPosition             = 0
+	arrayDigestValuePosition = 1
+	sdDigestNamePosition     = 1
+	sdDigestValuePosition    = 2
+)
+
+// DisclosureClaimType disclosure claim type, used for sd-jwt v5+.
+type DisclosureClaimType int
+
+const (
+	// DisclosureClaimTypeUnknown default type for disclosure claim.
+	DisclosureClaimTypeUnknown = DisclosureClaimType(0)
+	// DisclosureClaimTypeArrayElement array element.
+	DisclosureClaimTypeArrayElement = DisclosureClaimType(2)
+	// DisclosureClaimTypeObject object.
+	DisclosureClaimTypeObject = DisclosureClaimType(3)
+	// DisclosureClaimTypePlainText object.
+	DisclosureClaimTypePlainText = DisclosureClaimType(3)
+)
+
+// DisclosureClaim defines claim.
+type DisclosureClaim struct {
+	Digest        string
+	Disclosure    string
+	Salt          string
+	Elements      int
+	Type          DisclosureClaimType
+	Version       SDJWTVersion
+	Name          string
+	Value         interface{}
+	IsValueParsed bool
+}
 
 // CombinedFormatForIssuance holds SD-JWT and disclosures.
 type CombinedFormatForIssuance struct {
@@ -50,9 +91,13 @@ func (cf *CombinedFormatForIssuance) Serialize() string {
 
 // CombinedFormatForPresentation holds SD-JWT, disclosures and optional holder binding info.
 type CombinedFormatForPresentation struct {
-	SDJWT         string
-	Disclosures   []string
-	HolderBinding string
+	SDJWT       string
+	Disclosures []string
+
+	// Holder Verification JWT.
+	// For SD JWT V2 field contains Holder Binding JWT data.
+	// For SD JWT V5 field contains Key Binding JWT data.
+	HolderVerification string
 }
 
 // Serialize will assemble combined format for presentation.
@@ -62,69 +107,43 @@ func (cf *CombinedFormatForPresentation) Serialize() string {
 		presentation += CombinedFormatSeparator + disclosure
 	}
 
-	if len(cf.Disclosures) > 0 || cf.HolderBinding != "" {
+	if len(cf.Disclosures) > 0 || cf.HolderVerification != "" {
 		presentation += CombinedFormatSeparator
 	}
 
-	presentation += cf.HolderBinding
+	presentation += cf.HolderVerification
 
 	return presentation
 }
 
-// DisclosureClaim defines claim.
-type DisclosureClaim struct {
-	Disclosure string
-	Salt       string
-	Name       string
-	Value      interface{}
-}
-
 // GetDisclosureClaims de-codes disclosures.
-func GetDisclosureClaims(disclosures []string) ([]*DisclosureClaim, error) {
-	var claims []*DisclosureClaim
+func GetDisclosureClaims(
+	disclosures []string,
+	hash crypto.Hash,
+) ([]*DisclosureClaim, error) {
+	disclosureClaims, err := getDisclosureClaims(disclosures, hash)
+	if err != nil {
+		return nil, err
+	}
 
-	for _, disclosure := range disclosures {
-		claim, err := getDisclosureClaim(disclosure)
-		if err != nil {
+	recData := &recursiveData{
+		disclosures:          disclosureClaims,
+		cleanupDigestsClaims: true,
+	}
+
+	for _, wrappedDisclosureClaim := range disclosureClaims {
+		if err = setDisclosureClaimValue(recData, wrappedDisclosureClaim); err != nil {
 			return nil, err
 		}
-
-		claims = append(claims, claim)
 	}
 
-	return claims, nil
-}
+	final := make([]*DisclosureClaim, 0, len(disclosureClaims))
 
-func getDisclosureClaim(disclosure string) (*DisclosureClaim, error) {
-	decoded, err := base64.RawURLEncoding.DecodeString(disclosure)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode disclosure: %w", err)
+	for _, disclosureClaim := range recData.disclosures {
+		final = append(final, disclosureClaim)
 	}
 
-	var disclosureArr []interface{}
-
-	err = json.Unmarshal(decoded, &disclosureArr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal disclosure array: %w", err)
-	}
-
-	if len(disclosureArr) != disclosureParts {
-		return nil, fmt.Errorf("disclosure array size[%d] must be %d", len(disclosureArr), disclosureParts)
-	}
-
-	salt, ok := disclosureArr[saltIndex].(string)
-	if !ok {
-		return nil, fmt.Errorf("disclosure salt type[%T] must be string", disclosureArr[saltIndex])
-	}
-
-	name, ok := disclosureArr[nameIndex].(string)
-	if !ok {
-		return nil, fmt.Errorf("disclosure name type[%T] must be string", disclosureArr[nameIndex])
-	}
-
-	claim := &DisclosureClaim{Disclosure: disclosure, Salt: salt, Name: name, Value: disclosureArr[valueIndex]}
-
-	return claim, nil
+	return final, nil
 }
 
 // ParseCombinedFormatForIssuance parses combined format for issuance into CombinedFormatForIssuance parts.
@@ -157,7 +176,7 @@ func ParseCombinedFormatForPresentation(combinedFormatForPresentation string) *C
 
 	sdJWT := parts[0]
 
-	return &CombinedFormatForPresentation{SDJWT: sdJWT, Disclosures: disclosures, HolderBinding: holderBinding}
+	return &CombinedFormatForPresentation{SDJWT: sdJWT, Disclosures: disclosures, HolderVerification: holderBinding}
 }
 
 // GetHash calculates hash of data using hash function identified by hash.
@@ -175,62 +194,6 @@ func GetHash(hash crypto.Hash, value string) (string, error) {
 	result := h.Sum(nil)
 
 	return base64.RawURLEncoding.EncodeToString(result), nil
-}
-
-// VerifyDisclosuresInSDJWT checks for disclosure inclusion in SD-JWT.
-func VerifyDisclosuresInSDJWT(disclosures []string, signedJWT *afgjwt.JSONWebToken) error {
-	claims := utils.CopyMap(signedJWT.Payload)
-
-	// check that the _sd_alg claim is present
-	// check that _sd_alg value is understood and the hash algorithm is deemed secure.
-	cryptoHash, err := GetCryptoHashFromClaims(claims)
-	if err != nil {
-		return err
-	}
-
-	for _, disclosure := range disclosures {
-		digest, err := GetHash(cryptoHash, disclosure)
-		if err != nil {
-			return err
-		}
-
-		found, err := isDigestInClaims(digest, claims)
-		if err != nil {
-			return err
-		}
-
-		if !found {
-			return fmt.Errorf("disclosure digest '%s' not found in SD-JWT disclosure digests", digest)
-		}
-	}
-
-	return nil
-}
-
-func isDigestInClaims(digest string, claims map[string]interface{}) (bool, error) {
-	var found bool
-
-	digests, err := GetDisclosureDigests(claims)
-	if err != nil {
-		return false, err
-	}
-
-	for _, value := range claims {
-		if obj, ok := value.(map[string]interface{}); ok {
-			found, err = isDigestInClaims(digest, obj)
-			if err != nil {
-				return false, err
-			}
-
-			if found {
-				return found, nil
-			}
-		}
-	}
-
-	_, ok := digests[digest]
-
-	return ok, nil
 }
 
 // GetCryptoHashFromClaims returns crypto hash from claims.
@@ -293,6 +256,10 @@ func GetSDAlg(claims map[string]interface{}) (string, error) {
 
 // GetKeyFromVC returns key value from VC.
 func GetKeyFromVC(key string, claims map[string]interface{}) (interface{}, bool) {
+	if obj, ok := claims[key]; ok {
+		return obj, true
+	}
+
 	vcObj, ok := claims["vc"]
 	if !ok {
 		return nil, false
@@ -329,106 +296,74 @@ func GetCNF(claims map[string]interface{}) (map[string]interface{}, error) {
 	return cnf, nil
 }
 
-// GetDisclosureDigests returns digests from claims map.
+// GetDisclosureDigests returns digests from claims map considering
+// either SDKey and array elements that are objects with one key, that key being ... and referring to a string.
 func GetDisclosureDigests(claims map[string]interface{}) (map[string]bool, error) {
-	disclosuresObj, ok := claims[SDKey]
-	if !ok {
-		return nil, nil
+	var (
+		digests []string
+		err     error
+	)
+
+	// Find all objects having an _sd key that refers to an array of strings.
+	digestsObj, exist := claims[SDKey]
+	if exist {
+		digests, err = stringArray(digestsObj)
+		if err != nil {
+			return nil, fmt.Errorf("get disclosure digests: %w", err)
+		}
 	}
 
-	disclosures, err := stringArray(disclosuresObj)
-	if err != nil {
-		return nil, fmt.Errorf("get disclosure digests: %w", err)
+	// Find all array elements that are objects with one key, that key being ... and referring to a string.
+	for _, v := range claims {
+		switch t := v.(type) {
+		case []interface{}:
+			for _, vv := range t {
+				valueMapped, ok := vv.(map[string]interface{})
+				if !ok {
+					continue
+				}
+
+				if digestIface, ok := valueMapped[ArrayElementDigestKey]; ok && len(valueMapped) == 1 {
+					if digest, ok := digestIface.(string); ok {
+						digests = append(digests, digest)
+					}
+				}
+			}
+		}
 	}
 
-	return SliceToMap(disclosures), nil
+	return SliceToMap(digests), nil
 }
 
 // GetDisclosedClaims returns disclosed claims only.
 func GetDisclosedClaims(disclosureClaims []*DisclosureClaim, claims map[string]interface{}) (map[string]interface{}, error) { // nolint:lll
-	hash, err := GetCryptoHashFromClaims(claims)
+	_, err := GetCryptoHashFromClaims(claims)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get crypto hash from claims: %w", err)
 	}
 
-	output := utils.CopyMap(claims)
-	includedDigests := make(map[string]bool)
+	disclosureClaimsMap := make(map[string]*DisclosureClaim, len(disclosureClaims))
 
-	err = processDisclosedClaims(disclosureClaims, output, includedDigests, hash)
+	for _, d := range disclosureClaims {
+		disclosureClaimsMap[d.Digest] = d
+	}
+
+	recData := &recursiveData{
+		disclosures:          disclosureClaimsMap,
+		cleanupDigestsClaims: true,
+	}
+
+	output, err := discloseClaimValue(claims, recData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to process disclosed claims: %w", err)
 	}
 
-	return output, nil
-}
-
-func processDisclosedClaims(disclosureClaims []*DisclosureClaim, claims map[string]interface{}, includedDigests map[string]bool, hash crypto.Hash) error { // nolint:lll
-	digests, err := GetDisclosureDigests(claims)
-	if err != nil {
-		return err
+	outputMapped, ok := output.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected output type")
 	}
 
-	for key, value := range claims {
-		if obj, ok := value.(map[string]interface{}); ok {
-			err := processDisclosedClaims(disclosureClaims, obj, includedDigests, hash)
-			if err != nil {
-				return err
-			}
-
-			claims[key] = obj
-		}
-	}
-
-	for _, dc := range disclosureClaims {
-		digest, err := GetHash(hash, dc.Disclosure)
-		if err != nil {
-			return err
-		}
-
-		if _, ok := digests[digest]; !ok {
-			continue
-		}
-
-		_, digestAlreadyIncluded := includedDigests[digest]
-		if digestAlreadyIncluded {
-			// If there is more than one place where the digest is included,
-			// the Verifier MUST reject the Presentation.
-			return fmt.Errorf("digest '%s' has been included in more than one place", digest)
-		}
-
-		err = validateClaim(dc, claims)
-		if err != nil {
-			return err
-		}
-
-		claims[dc.Name] = dc.Value
-
-		includedDigests[digest] = true
-	}
-
-	delete(claims, SDKey)
-	delete(claims, SDAlgorithmKey)
-
-	return nil
-}
-
-func validateClaim(dc *DisclosureClaim, claims map[string]interface{}) error {
-	_, claimNameExists := claims[dc.Name]
-	if claimNameExists {
-		// If the claim name already exists at the same level, the Verifier MUST reject the Presentation.
-		return fmt.Errorf("claim name '%s' already exists at the same level", dc.Name)
-	}
-
-	m, ok := getMap(dc.Value)
-	if ok {
-		if KeyExistsInMap(SDKey, m) {
-			// If the claim value contains an object with an _sd key (at the top level or nested deeper),
-			// the Verifier MUST reject the Presentation.
-			return fmt.Errorf("claim value contains an object with an '%s' key", SDKey)
-		}
-	}
-
-	return nil
+	return outputMapped, nil
 }
 
 func getMap(value interface{}) (map[string]interface{}, bool) {

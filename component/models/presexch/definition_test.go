@@ -29,6 +29,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/localkms"
 	mockkms "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/kms"
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/noop"
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mock/storage"
+	"github.com/hyperledger/aries-framework-go/spi/kms"
+
 	lddocloader "github.com/hyperledger/aries-framework-go/component/models/ld/documentloader"
 	ldprocessor "github.com/hyperledger/aries-framework-go/component/models/ld/processor"
 	ldtestutil "github.com/hyperledger/aries-framework-go/component/models/ld/testutil"
@@ -39,8 +42,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/component/models/signature/verifier"
 	utiltime "github.com/hyperledger/aries-framework-go/component/models/util/time"
 	"github.com/hyperledger/aries-framework-go/component/models/verifiable"
-	"github.com/hyperledger/aries-framework-go/component/storageutil/mock/storage"
-	"github.com/hyperledger/aries-framework-go/spi/kms"
 )
 
 const errMsgSchema = "credentials do not satisfy requirements"
@@ -2308,7 +2309,11 @@ func getTestVC() *verifiable.Credential {
 	return getTestVCWithContext(nil)
 }
 
-func newSdJwtVC(t *testing.T, vc *verifiable.Credential, signer sigutil.Signer) *verifiable.Credential {
+func newSdJwtVC(
+	t *testing.T,
+	vc *verifiable.Credential,
+	signer sigutil.Signer,
+) *verifiable.Credential {
 	t.Helper()
 
 	pubKey := signer.PublicKeyBytes()
@@ -2323,7 +2328,8 @@ func newSdJwtVC(t *testing.T, vc *verifiable.Credential, signer sigutil.Signer) 
 	algName, err := jwsAlgo.Name()
 	require.NoError(t, err)
 
-	combinedFormatForIssuance, err := vc.MakeSDJWT(verifiable.GetJWTSigner(signer, algName), verMethod)
+	combinedFormatForIssuance, err := vc.MakeSDJWT(
+		verifiable.GetJWTSigner(signer, algName), verMethod)
 	require.NoError(t, err)
 
 	parsed, err := verifiable.ParseCredential([]byte(combinedFormatForIssuance),

@@ -23,6 +23,8 @@ import (
 const (
 	// TypeJWT defines JWT type.
 	TypeJWT = "JWT"
+	// TypeSDJWT defines SD-JWT type v5+.
+	TypeSDJWT = "SD-JWT"
 
 	// AlgorithmNone used to indicate unsecured JWT.
 	AlgorithmNone = "none"
@@ -292,9 +294,10 @@ func checkTypHeader(typ interface{}) error {
 
 	chunks := strings.Split(typStr, "+")
 	if len(chunks) > 1 {
+		ending := strings.ToUpper(chunks[1])
 		// Explicit typing.
 		// https://www.rfc-editor.org/rfc/rfc8725.html#name-use-explicit-typing
-		if strings.ToUpper(chunks[1]) != TypeJWT {
+		if ending != TypeJWT && ending != TypeSDJWT {
 			return errors.New("invalid typ header")
 		}
 
