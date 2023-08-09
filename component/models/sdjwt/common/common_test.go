@@ -13,6 +13,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -753,6 +754,233 @@ func TestKeyExistInMap(t *testing.T) {
 		exists := KeyExistsInMap(key, claims)
 		r.False(exists)
 	})
+}
+
+func TestGetKeyFromVC(t *testing.T) {
+	type args struct {
+		key    string
+		claims map[string]interface{}
+	}
+	tests := []struct {
+		name  string
+		args  args
+		want  interface{}
+		want1 bool
+	}{
+		{
+			name: "success - vc root claim does not exist",
+			args: args{
+				key: "credentialSubject",
+				claims: map[string]interface{}{
+					"credentialSubject": 123,
+				},
+			},
+			want:  123,
+			want1: true,
+		},
+		{
+			name: "success - vc root claim exist",
+			args: args{
+				key: "credentialSubject",
+				claims: map[string]interface{}{
+					"vc": map[string]interface{}{
+						"credentialSubject": 321,
+					},
+				},
+			},
+			want:  321,
+			want1: true,
+		},
+		{
+			name: "error - vc root claim does not exist",
+			args: args{
+				key: "credentialSubject",
+				claims: map[string]interface{}{
+					"some": map[string]interface{}{
+						"credentialSubject": 321,
+					},
+				},
+			},
+			want:  nil,
+			want1: false,
+		},
+		{
+			name: "error - vc root claim exist but not a map",
+			args: args{
+				key: "credentialSubject",
+				claims: map[string]interface{}{
+					"vc": 123,
+				},
+			},
+			want:  nil,
+			want1: false,
+		},
+		{
+			name: "error - vc root claim exist but key does not exist in nested map",
+			args: args{
+				key: "credentialSubject",
+				claims: map[string]interface{}{
+					"vc": map[string]interface{}{
+						"some": 321,
+					},
+				},
+			},
+			want:  nil,
+			want1: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, got1 := GetKeyFromVC(tt.args.key, tt.args.claims)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetKeyFromVC() got = %v, want %v", got, tt.want)
+			}
+			if got1 != tt.want1 {
+				t.Errorf("GetKeyFromVC() got1 = %v, want %v", got1, tt.want1)
+			}
+		})
+	}
+}
+
+func TestGetDisclosureDigests(t *testing.T) {
+	type args struct {
+		claims map[string]interface{}
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    map[string]bool
+		wantErr bool
+	}{
+		{
+			name: "success - sd and array elements",
+			args: args{
+				claims: map[string]interface{}{
+					SDKey: []string{
+						"digest1", "digest2",
+					},
+					"claim1": []interface{}{
+						map[string]interface{}{
+							ArrayElementDigestKey: "digest3",
+						},
+					},
+				},
+			},
+			want: map[string]bool{
+				"digest1": true,
+				"digest2": true,
+				"digest3": true,
+			},
+			wantErr: false,
+		},
+		{
+			name: "success - sd root and nested claims",
+			args: args{
+				claims: map[string]interface{}{
+					SDKey: []string{
+						"digest1", "digest2",
+					},
+					"claim1": map[string]interface{}{
+						SDKey: []string{
+							"digest3",
+						},
+					},
+				},
+			},
+			want: map[string]bool{
+				"digest1": true,
+				"digest2": true,
+			},
+			wantErr: false,
+		},
+		{
+			name: "success - array element on nested level",
+			args: args{
+				claims: map[string]interface{}{
+					"claim1": map[string]interface{}{
+						"claim2": map[string]interface{}{
+							ArrayElementDigestKey: "digest3",
+						},
+					},
+				},
+			},
+			want:    map[string]bool{},
+			wantErr: false,
+		},
+		{
+			name: "success - array element not a string",
+			args: args{
+				claims: map[string]interface{}{
+					"claim1": []interface{}{
+						map[string]interface{}{
+							ArrayElementDigestKey: 123,
+						},
+					},
+				},
+			},
+			want:    map[string]bool{},
+			wantErr: false,
+		},
+		{
+			name: "success - array element map longer then one",
+			args: args{
+				claims: map[string]interface{}{
+					"claim1": []interface{}{
+						map[string]interface{}{
+							ArrayElementDigestKey: "digest3",
+							"claim2":              "digest4",
+						},
+					},
+				},
+			},
+			want:    map[string]bool{},
+			wantErr: false,
+		},
+		{
+			name: "success - array element is not a map",
+			args: args{
+				claims: map[string]interface{}{
+					"claim1": []interface{}{"digest3"},
+				},
+			},
+			want:    map[string]bool{},
+			wantErr: false,
+		},
+		{
+			name: "success - no array and sd elements",
+			args: args{
+				claims: map[string]interface{}{
+					"claim1": map[string]interface{}{
+						"claim2": []interface{}{"claim3"},
+					},
+				},
+			},
+			want:    map[string]bool{},
+			wantErr: false,
+		},
+		{
+			name: "error - sd element is not a string",
+			args: args{
+				claims: map[string]interface{}{
+					SDKey: []int{123},
+				},
+			},
+			want:    nil,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetDisclosureDigests(tt.args.claims)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetDisclosureDigests() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetDisclosureDigests() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
 
 func printObject(t *testing.T, name string, obj interface{}) {
