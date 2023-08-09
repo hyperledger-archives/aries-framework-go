@@ -334,7 +334,12 @@ func findAndReplaceArrayElementDigest(claimsMap map[string]interface{}, addition
 	for _, v := range claimsMap {
 		switch t := v.(type) {
 		case map[string]interface{}:
-			return findAndReplaceArrayElementDigest(t, additionalDigest)
+			res := findAndReplaceArrayElementDigest(t, additionalDigest)
+			if res == "" {
+				continue
+			}
+
+			return res
 		case []interface{}:
 			for _, nv := range t {
 				if mapped, ok := nv.(map[string]interface{}); ok {
