@@ -15,13 +15,15 @@ import (
 	"testing"
 
 	"github.com/go-jose/go-jose/v3/jwt"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+	"github.com/hyperledger/aries-framework-go/spi/kms"
+
 	afgojwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/holder"
-	"github.com/hyperledger/aries-framework-go/spi/kms"
 )
 
 func TestParseSDJWT(t *testing.T) {
@@ -33,6 +35,16 @@ func TestParseSDJWT(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		newVC, e := ParseCredential([]byte(sdJWTString),
 			WithPublicKeyFetcher(createDIDKeyFetcher(t, pubKey, issuerID)))
+		require.NoError(t, e)
+		require.NotNil(t, newVC)
+	})
+
+	t.Run("success with SD JWT Version 5", func(t *testing.T) {
+		sdJWTCredFormatString, issuerCredFormatID := createTestSDJWTCred(t, privKey,
+			MakeSDJWTWithVersion(common.SDJWTVersionV5))
+
+		newVC, e := ParseCredential([]byte(sdJWTCredFormatString),
+			WithPublicKeyFetcher(createDIDKeyFetcher(t, pubKey, issuerCredFormatID)))
 		require.NoError(t, e)
 		require.NotNil(t, newVC)
 	})
@@ -54,6 +66,32 @@ func TestParseSDJWT(t *testing.T) {
 		require.NoError(t, e)
 
 		modifiedCred, e := vc.MarshalWithDisclosure(DiscloseAll())
+		require.NoError(t, e)
+
+		newVC, e := ParseCredential([]byte(modifiedCred),
+			WithPublicKeyFetcher(createDIDKeyFetcher(t, ed25519Signer.PublicKeyBytes(), issuerID)))
+		require.NoError(t, e)
+		require.NotNil(t, newVC)
+	})
+
+	t.Run("success with sd alg in subject and v5", func(t *testing.T) {
+		vc, e := ParseCredential([]byte(sdJWTString), WithDisabledProofCheck())
+		require.NoError(t, e)
+
+		claims, e := vc.JWTClaims(false)
+		require.NoError(t, e)
+
+		claims.VC["credentialSubject"].(map[string]interface{})["_sd_alg"] = claims.VC["_sd_alg"]
+		delete(claims.VC, "_sd_alg")
+
+		ed25519Signer, e := newCryptoSigner(kms.ED25519Type)
+		require.NoError(t, e)
+
+		vc.JWT, e = claims.MarshalJWS(EdDSA, ed25519Signer, issuerID+"#keys-1")
+		require.NoError(t, e)
+
+		vc.SDJWTVersion = 100500
+		modifiedCred, e := vc.MarshalWithDisclosure(DiscloseAll(), MarshalWithSDJWTVersion(common.SDJWTVersionV5))
 		require.NoError(t, e)
 
 		newVC, e := ParseCredential([]byte(modifiedCred),
@@ -122,7 +160,7 @@ func TestMarshalWithDisclosure(t *testing.T) {
 			})
 
 			require.Equal(t, src.Disclosures, res.Disclosures)
-			require.NotEmpty(t, res.HolderBinding)
+			require.NotEmpty(t, res.HolderVerification)
 		})
 
 		t.Run("disclose required and some if-available claims", func(t *testing.T) {
@@ -159,7 +197,7 @@ func TestMarshalWithDisclosure(t *testing.T) {
 
 			res := common.ParseCombinedFormatForPresentation(resultCred)
 			require.Len(t, res.Disclosures, 1)
-			require.NotEmpty(t, res.HolderBinding)
+			require.NotEmpty(t, res.HolderVerification)
 		})
 	})
 
@@ -306,6 +344,25 @@ func TestMakeSDJWT(t *testing.T) {
 			require.NoError(t, err)
 		})
 
+		t.Run("with SD JWT V5", func(t *testing.T) {
+			originalVersion := vc.SDJWTVersion
+			vc.SDJWTVersion = common.SDJWTVersionDefault
+			defer func() {
+				vc.SDJWTVersion = originalVersion
+			}()
+
+			sdjwt, err := vc.MakeSDJWT(
+				afgojwt.NewEd25519Signer(privKey), "did:example:abc123#key-1",
+				MakeSDJWTWithVersion(common.SDJWTVersionV5),
+				MakeSDJWTWithRecursiveClaimsObjects([]string{"degree"}),
+				MakeSDJWTWithAlwaysIncludeObjects([]string{"degree"}),
+			)
+			require.NoError(t, err)
+
+			_, err = ParseCredential([]byte(sdjwt), WithPublicKeyFetcher(holderPublicKeyFetcher(pubKey)))
+			require.NoError(t, err)
+		})
+
 		t.Run("with hash option", func(t *testing.T) {
 			sdjwt, err := vc.MakeSDJWT(afgojwt.NewEd25519Signer(privKey), "did:example:abc123#key-1",
 				MakeSDJWTWithHash(crypto.SHA512))
@@ -336,6 +393,25 @@ func TestMakeSDJWT(t *testing.T) {
 			require.Contains(t, err.Error(), "creating SD-JWT from VC")
 		})
 	})
+}
+
+func TestOptions(t *testing.T) {
+	opts := []MakeSDJWTOption{
+		MakeSDJWTWithRecursiveClaimsObjects([]string{"aa", "bb"}),
+		MakeSDJWTWithAlwaysIncludeObjects([]string{"cc", "dd"}),
+		MakeSDJWTWithNonSelectivelyDisclosableClaims([]string{"xx", "yy"}),
+		MakeSDJWTWithVersion(100500),
+	}
+
+	opt := &MakeSDJWTOpts{}
+	for _, o := range opts {
+		o(opt)
+	}
+
+	assert.Equal(t, []string{"aa", "bb"}, opt.GetRecursiveClaimsObject())
+	assert.Equal(t, []string{"cc", "dd"}, opt.GetAlwaysIncludeObject())
+	assert.Equal(t, []string{"xx", "yy"}, opt.GetNonSDClaims())
+	assert.Equal(t, common.SDJWTVersion(100500), opt.version)
 }
 
 func TestCreateDisplayCredential(t *testing.T) {
@@ -510,7 +586,8 @@ func (m *mockSigner) Headers() jose.Headers {
 	return jose.Headers{"alg": "foo"}
 }
 
-func createTestSDJWTCred(t *testing.T, privKey ed25519.PrivateKey) (sdJWTCred string, issuerID string) {
+func createTestSDJWTCred(
+	t *testing.T, privKey ed25519.PrivateKey, opts ...MakeSDJWTOption) (sdJWTCred string, issuerID string) {
 	t.Helper()
 
 	testCred := []byte(jwtTestCredential)
@@ -518,7 +595,7 @@ func createTestSDJWTCred(t *testing.T, privKey ed25519.PrivateKey) (sdJWTCred st
 	srcVC, err := parseTestCredential(t, testCred)
 	require.NoError(t, err)
 
-	sdjwt, err := srcVC.MakeSDJWT(afgojwt.NewEd25519Signer(privKey), srcVC.Issuer.ID+"#keys-1")
+	sdjwt, err := srcVC.MakeSDJWT(afgojwt.NewEd25519Signer(privKey), srcVC.Issuer.ID+"#keys-1", opts...)
 	require.NoError(t, err)
 
 	return sdjwt, srcVC.Issuer.ID

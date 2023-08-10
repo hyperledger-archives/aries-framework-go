@@ -21,11 +21,11 @@ func marshalUnsecuredJWT(headers jose.Headers, claims interface{}) (string, erro
 	return token.Serialize(false)
 }
 
-func unmarshalUnsecuredJWT(rawJWT string, claims interface{}) error {
+func unmarshalUnsecuredJWT(rawJWT string, claims interface{}) (jose.Headers, error) {
 	token, _, err := jwt.Parse(rawJWT, jwt.WithSignatureVerifier(jwt.UnsecuredJWTVerifier()))
 	if err != nil {
-		return fmt.Errorf("unmarshal unsecured JWT: %w", err)
+		return nil, fmt.Errorf("unmarshal unsecured JWT: %w", err)
 	}
 
-	return token.DecodeClaims(claims)
+	return token.Headers, token.DecodeClaims(claims)
 }

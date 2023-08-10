@@ -17,7 +17,7 @@ func (jpc *JWTPresClaims) MarshalUnsecuredJWT() (string, error) {
 func unmarshalUnsecuredJWTPresClaims(vpJWT string) (*JWTPresClaims, error) {
 	var claims JWTPresClaims
 
-	err := unmarshalUnsecuredJWT(vpJWT, &claims)
+	_, err := unmarshalUnsecuredJWT(vpJWT, &claims)
 	if err != nil {
 		return nil, fmt.Errorf("parse VP in JWT Unsecured form: %w", err)
 	}

@@ -55,6 +55,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
+
 	afgjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 	jsonutil "github.com/hyperledger/aries-framework-go/component/models/util/json"
@@ -62,8 +63,7 @@ import (
 )
 
 const (
-	defaultHash     = crypto.SHA256
-	defaultSaltSize = 128 / 8
+	defaultHash = crypto.SHA256
 
 	decoyMinElements = 1
 	decoyMaxElements = 4
@@ -98,11 +98,21 @@ type newOpts struct {
 	addDecoyDigests  bool
 	structuredClaims bool
 
-	nonSDClaimsMap map[string]bool
+	nonSDClaimsMap    map[string]bool
+	version           common.SDJWTVersion
+	alwaysInclude     map[string]bool
+	recursiveClaimMap map[string]bool
 }
 
 // NewOpt is the SD-JWT New option.
 type NewOpt func(opts *newOpts)
+
+// WithSDJWTVersion sets version for SD-JWT VC.
+func WithSDJWTVersion(version common.SDJWTVersion) NewOpt {
+	return func(opts *newOpts) {
+		opts.version = version
+	}
+}
 
 // WithJSONMarshaller is option is for marshalling disclosure.
 func WithJSONMarshaller(jsonMarshal func(v interface{}) ([]byte, error)) NewOpt {
@@ -222,6 +232,111 @@ func WithNonSelectivelyDisclosableClaims(nonSDClaims []string) NewOpt {
 	}
 }
 
+// WithAlwaysIncludeObjects is an option for provide object keys that should be a part of
+// selectively disclosable claims.
+// Eexample if you would like to keep original claims structure from example below, but selectively disclose all claims
+//
+//	{
+//		"degree": {
+//		   "degree": "MIT",
+//		   "type": "BachelorDegree",
+//		 },
+//		 "name": "Jayden Doe",
+//		 "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+//		}
+//
+// you should specify the following array: []string{"degree"}.
+// As output, you will receive:
+//
+//	{
+//		"_sd": [
+//			"zDSZ9PKx_bB2CrFU8Xd__LkpMip06ApY-V6Y9fnppuo",
+//			"5Hnqg9PgQ4MdHxTv2KDt9qp8ILd1JEYq0luNO8JZ7G4"
+//		],
+//		"degree": {
+//			"_sd": [
+//				"i03SehlKmaFrwPM-gX8s3XuF_LTTE2T1XQQSJXjo6pw",
+//				"qZEZR8g_uc8fMyQCvs4DjXdY8uOI9IHpOokzx0cH_Qw"
+//			]
+//		}
+//	}
+func WithAlwaysIncludeObjects(alwaysIncludeObjects []string) NewOpt {
+	return func(opts *newOpts) {
+		opts.alwaysInclude = common.SliceToMap(alwaysIncludeObjects)
+	}
+}
+
+// WithRecursiveClaimsObjects is an option for provide object keys that should be selective disclosed recursively, e.g.
+// output digest for given object will refer to the disclosure, that contains digests of nested claims.
+// For example if you would like to define degree object as selective disclosed recursively
+//
+//	{
+//		"degree": {
+//		   "degree": "MIT",
+//		   "type": "BachelorDegree",
+//		 },
+//		 "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+//	}
+//
+// you should specify the following array: []string{"degree"}.
+// As output, you will receive:
+//
+//	{
+//			"_sd": [
+//				"fgoQstuIzTLQ4zqosjUC_qCk-xx3wjDQU2QkQtbn7FI",
+//				"mdephPRizMUa-LLs3JVeuTRS0tPaTd0faHg5kgKHNGk"
+//			]
+//	}
+//
+// and 4 disclosures:
+// nolint:lll
+// [
+//
+//	{
+//		"Result": "WyJ2Y2g2YXVDVEo3bGdWWjFxNjN3cWF3IiwiZGVncmVlIix7Il9zZCI6WyJnZnNlcUhtTml0SXUwLTBoMTR5bnFNenV2cTFFaXJUQXpVaERuRWxTVlgwIiwiNDNoZm5NN1N6WnNhbEFkYlhReXE3dzRVdmQ1M1lPeFRORnBGSnI0WkcwQSJdfV0",
+//		"Salt": "vch6auCTJ7lgVZ1q63wqaw",
+//		"Key": "degree",
+//		"Value": {
+//			"_sd": [
+//				"gfseqHmNitIu0-0h14ynqMzuvq1EirTAzUhDnElSVX0",
+//				"43hfnM7SzZsalAdbXQyq7w4Uvd53YOxTNFpFJr4ZG0A"
+//			]
+//		},
+//		"DebugStr": "[\"vch6auCTJ7lgVZ1q63wqaw\",\"degree\",{\"_sd\":[\"gfseqHmNitIu0-0h14ynqMzuvq1EirTAzUhDnElSVX0\",\"43hfnM7SzZsalAdbXQyq7w4Uvd53YOxTNFpFJr4ZG0A\"]}]",
+//		"DebugDigest": "mdephPRizMUa-LLs3JVeuTRS0tPaTd0faHg5kgKHNGk"
+//	},
+//	{
+//		"Result": "WyJaVHFiUzI0ZWlybmpQMFlObmFmakxRIiwiaWQiLCJkaWQ6ZXhhbXBsZTplYmZlYjFmNzEyZWJjNmYxYzI3NmUxMmVjMjEiXQ",
+//		"Salt": "ZTqbS24eirnjP0YNnafjLQ",
+//		"Key": "id",
+//		"Value": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+//		"DebugStr": "[\"ZTqbS24eirnjP0YNnafjLQ\",\"id\",\"did:example:ebfeb1f712ebc6f1c276e12ec21\"]",
+//		"DebugDigest": "fgoQstuIzTLQ4zqosjUC_qCk-xx3wjDQU2QkQtbn7FI"
+//	},
+//	{
+//		"Result": "WyIyOEEzMmR0OW9JR0lLZW9iVEdIM2F3IiwiZGVncmVlIiwiTUlUIl0",
+//		"Salt": "28A32dt9oIGIKeobTGH3aw",
+//		"Key": "degree",
+//		"Value": "MIT",
+//		"DebugStr": "[\"28A32dt9oIGIKeobTGH3aw\",\"degree\",\"MIT\"]",
+//		"DebugDigest": "43hfnM7SzZsalAdbXQyq7w4Uvd53YOxTNFpFJr4ZG0A"
+//	},
+//	{
+//		"Result": "WyJUNE8wRlZ2MDBpREhGNFZpYy0wR1VnIiwidHlwZSIsIkJhY2hlbG9yRGVncmVlIl0",
+//		"Salt": "T4O0FVv00iDHF4Vic-0GUg",
+//		"Key": "type",
+//		"Value": "BachelorDegree",
+//		"DebugStr": "[\"T4O0FVv00iDHF4Vic-0GUg\",\"type\",\"BachelorDegree\"]",
+//		"DebugDigest": "gfseqHmNitIu0-0h14ynqMzuvq1EirTAzUhDnElSVX0"
+//	}
+//
+// ].
+func WithRecursiveClaimsObjects(recursiveClaimsObject []string) NewOpt {
+	return func(opts *newOpts) {
+		opts.recursiveClaimMap = common.SliceToMap(recursiveClaimsObject)
+	}
+}
+
 // New creates new signed Selective Disclosure JWT based on input claims.
 // The Issuer MUST create a Disclosure for each selectively disclosable claim as follows:
 // Create an array of three elements in this order:
@@ -238,9 +353,9 @@ func New(issuer string, claims interface{}, headers jose.Headers,
 	signer jose.Signer, opts ...NewOpt) (*SelectiveDisclosureJWT, error) {
 	nOpts := &newOpts{
 		jsonMarshal:    json.Marshal,
-		getSalt:        generateSalt,
 		HashAlg:        defaultHash,
 		nonSDClaimsMap: make(map[string]bool),
+		version:        common.SDJWTVersionDefault,
 	}
 
 	for _, opt := range opts {
@@ -258,7 +373,12 @@ func New(issuer string, claims interface{}, headers jose.Headers,
 		return nil, fmt.Errorf("key '%s' cannot be present in the claims", common.SDKey)
 	}
 
-	disclosures, digests, err := createDisclosuresAndDigests("", claimsMap, nOpts)
+	sdJWTBuilder := getBuilderByVersion(nOpts.version)
+	if nOpts.getSalt == nil {
+		nOpts.getSalt = sdJWTBuilder.GenerateSalt
+	}
+
+	disclosures, digests, err := sdJWTBuilder.CreateDisclosuresAndDigests("", claimsMap, nOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -273,11 +393,16 @@ func New(issuer string, claims interface{}, headers jose.Headers,
 		return nil, fmt.Errorf("failed to create SD-JWT from payload[%+v]: %w", payload, err)
 	}
 
-	return &SelectiveDisclosureJWT{Disclosures: disclosures, SignedJWT: signedJWT}, nil
+	var disArr []string
+	for _, d := range disclosures {
+		disArr = append(disArr, d.Result)
+	}
+
+	return &SelectiveDisclosureJWT{Disclosures: disArr, SignedJWT: signedJWT}, nil
 }
 
 /*
-NewFromVC creates new signed Selective Disclosure JWT based on Verifiable Credential.
+NewFromVC creates new signed Selective Disclosure JWT based on Verifiable Credential in map representation.
 
 Algorithm:
   - extract credential subject map from verifiable credential
@@ -289,6 +414,14 @@ Algorithm:
 */
 func NewFromVC(vc map[string]interface{}, headers jose.Headers,
 	signer jose.Signer, opts ...NewOpt) (*SelectiveDisclosureJWT, error) {
+	nOpts := &newOpts{
+		version: common.SDJWTVersionDefault,
+	}
+
+	for _, opt := range opts {
+		opt(nOpts)
+	}
+
 	csObj, ok := common.GetKeyFromVC(credentialSubjectKey, vc)
 	if !ok {
 		return nil, fmt.Errorf("credential subject not found")
@@ -304,20 +437,26 @@ func NewFromVC(vc map[string]interface{}, headers jose.Headers,
 		return nil, err
 	}
 
+	vcClaims, err := getBuilderByVersion(nOpts.version).ExtractCredentialClaims(vc)
+	if err != nil {
+		return nil, err
+	}
+
 	selectiveCredentialSubject := utils.CopyMap(token.SignedJWT.Payload)
 	// move _sd_alg key from credential subject to vc as per example 4 in spec
-	vc[vcKey].(map[string]interface{})[common.SDAlgorithmKey] = selectiveCredentialSubject[common.SDAlgorithmKey]
+	vcClaims[common.SDAlgorithmKey] = selectiveCredentialSubject[common.SDAlgorithmKey]
 	delete(selectiveCredentialSubject, common.SDAlgorithmKey)
 
 	// move cnf key from credential subject to vc as per example 4 in spec
 	cnfObj, ok := selectiveCredentialSubject[common.CNFKey]
 	if ok {
-		vc[vcKey].(map[string]interface{})[common.CNFKey] = cnfObj
+		vcClaims[common.CNFKey] = cnfObj
+
 		delete(selectiveCredentialSubject, common.CNFKey)
 	}
 
 	// update VC with 'selective' credential subject
-	vc[vcKey].(map[string]interface{})[credentialSubjectKey] = selectiveCredentialSubject
+	vcClaims[credentialSubjectKey] = selectiveCredentialSubject
 
 	// sign VC with 'selective' credential subject
 	signedJWT, err := afgjwt.NewSigned(vc, headers, signer)
@@ -353,11 +492,11 @@ func createPayload(issuer string, nOpts *newOpts) *payload {
 	return payload
 }
 
-func createDigests(disclosures []string, nOpts *newOpts) ([]string, error) {
+func createDigests(disclosures []*DisclosureEntity, nOpts *newOpts) ([]string, error) {
 	var digests []string
 
 	for _, disclosure := range disclosures {
-		digest, inErr := common.GetHash(nOpts.HashAlg, disclosure)
+		digest, inErr := createDigest(disclosure, nOpts)
 		if inErr != nil {
 			return nil, fmt.Errorf("hash disclosure: %w", inErr)
 		}
@@ -372,14 +511,25 @@ func createDigests(disclosures []string, nOpts *newOpts) ([]string, error) {
 	return digests, nil
 }
 
-func createDecoyDisclosures(opts *newOpts) ([]string, error) {
+func createDigest(disclosure *DisclosureEntity, nOpts *newOpts) (string, error) {
+	digest, inErr := common.GetHash(nOpts.HashAlg, disclosure.Result)
+	if inErr != nil {
+		return "", fmt.Errorf("hash disclosure: %w", inErr)
+	}
+
+	disclosure.DebugDigest = digest
+
+	return digest, nil
+}
+
+func createDecoyDisclosures(opts *newOpts) ([]*DisclosureEntity, error) {
 	if !opts.addDecoyDigests {
 		return nil, nil
 	}
 
 	n := mr.Intn(decoyMaxElements-decoyMinElements+1) + decoyMinElements
 
-	var decoyDisclosures []string
+	var decoyDisclosures []*DisclosureEntity
 
 	for i := 0; i < n; i++ {
 		salt, err := opts.getSalt()
@@ -387,7 +537,10 @@ func createDecoyDisclosures(opts *newOpts) ([]string, error) {
 			return nil, err
 		}
 
-		decoyDisclosures = append(decoyDisclosures, salt)
+		decoyDisclosures = append(decoyDisclosures, &DisclosureEntity{
+			Salt:   salt,
+			Result: salt,
+		})
 	}
 
 	return decoyDisclosures, nil
@@ -428,79 +581,8 @@ func (j *SelectiveDisclosureJWT) Serialize(detached bool) (string, error) {
 	return cf.Serialize(), nil
 }
 
-func createDisclosuresAndDigests(path string, claims map[string]interface{}, opts *newOpts) ([]string, map[string]interface{}, error) { // nolint:lll
-	var disclosures []string
-
-	var levelDisclosures []string
-
-	digestsMap := make(map[string]interface{})
-
-	decoyDisclosures, err := createDecoyDisclosures(opts)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create decoy disclosures: %w", err)
-	}
-
-	for key, value := range claims {
-		curPath := key
-		if path != "" {
-			curPath = path + "." + key
-		}
-
-		if obj, ok := value.(map[string]interface{}); ok && opts.structuredClaims {
-			nestedDisclosures, nestedDigestsMap, e := createDisclosuresAndDigests(curPath, obj, opts)
-			if e != nil {
-				return nil, nil, e
-			}
-
-			digestsMap[key] = nestedDigestsMap
-
-			disclosures = append(disclosures, nestedDisclosures...)
-		} else {
-			if _, ok := opts.nonSDClaimsMap[curPath]; ok {
-				digestsMap[key] = value
-
-				continue
-			}
-
-			disclosure, e := createDisclosure(key, value, opts)
-			if e != nil {
-				return nil, nil, fmt.Errorf("create disclosure: %w", e)
-			}
-
-			levelDisclosures = append(levelDisclosures, disclosure)
-		}
-	}
-
-	disclosures = append(disclosures, levelDisclosures...)
-
-	digests, err := createDigests(append(levelDisclosures, decoyDisclosures...), opts)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	digestsMap[common.SDKey] = digests
-
-	return disclosures, digestsMap, nil
-}
-
-func createDisclosure(key string, value interface{}, opts *newOpts) (string, error) {
-	salt, err := opts.getSalt()
-	if err != nil {
-		return "", fmt.Errorf("generate salt: %w", err)
-	}
-
-	disclosure := []interface{}{salt, key, value}
-
-	disclosureBytes, err := opts.jsonMarshal(disclosure)
-	if err != nil {
-		return "", fmt.Errorf("marshal disclosure: %w", err)
-	}
-
-	return base64.RawURLEncoding.EncodeToString(disclosureBytes), nil
-}
-
-func generateSalt() (string, error) {
-	salt := make([]byte, defaultSaltSize)
+func generateSalt(sizeBytes int) (string, error) {
+	salt := make([]byte, sizeBytes)
 
 	_, err := rand.Read(salt)
 	if err != nil {
