@@ -39,18 +39,18 @@ func TestIntegration(t *testing.T) {
 	cr, err := tinkcrypto.New()
 	require.NoError(t, err)
 
-	signerInit := NewSigner(&Options{
+	signerInit := NewSignerInitializer(&SignerInitializerOptions{
 		LDDocumentLoader: docLoader,
-		Crypto:           cr,
+		Signer:           cr,
 		KMS:              kms,
 	})
 
 	signer, err := signerInit.Signer()
 	require.NoError(t, err)
 
-	verifierInit := NewVerifier(&Options{
+	verifierInit := NewVerifierInitializer(&VerifierInitializerOptions{
 		LDDocumentLoader: docLoader,
-		Crypto:           cr,
+		Verifier:         cr,
 		KMS:              kms,
 	})
 
