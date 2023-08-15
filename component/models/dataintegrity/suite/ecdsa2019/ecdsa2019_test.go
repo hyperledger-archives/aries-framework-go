@@ -49,9 +49,9 @@ func TestNew(t *testing.T) {
 	kms := &mockkms.KeyManager{}
 
 	t.Run("signer success", func(t *testing.T) {
-		sigInit := NewSigner(&Options{
+		sigInit := NewSignerInitializer(&SignerInitializerOptions{
 			LDDocumentLoader: docLoader,
-			Crypto:           cryp,
+			Signer:           cryp,
 			KMS:              kms,
 		})
 
@@ -62,9 +62,9 @@ func TestNew(t *testing.T) {
 	})
 
 	t.Run("verifier success", func(t *testing.T) {
-		verInit := NewVerifier(&Options{
+		verInit := NewVerifierInitializer(&VerifierInitializerOptions{
 			LDDocumentLoader: docLoader,
-			Crypto:           cryp,
+			Verifier:         cryp,
 			KMS:              kms,
 		})
 
@@ -135,9 +135,9 @@ func successCase(t *testing.T) *testCase {
 }
 
 func testSign(t *testing.T, tc *testCase) {
-	sigInit := NewSigner(&Options{
+	sigInit := NewSignerInitializer(&SignerInitializerOptions{
 		LDDocumentLoader: tc.docLoader,
-		Crypto:           tc.crypto,
+		Signer:           tc.crypto,
 		KMS:              tc.kms,
 	})
 
@@ -164,9 +164,9 @@ func testSign(t *testing.T, tc *testCase) {
 }
 
 func testVerify(t *testing.T, tc *testCase) {
-	verInit := NewVerifier(&Options{
+	verInit := NewVerifierInitializer(&VerifierInitializerOptions{
 		LDDocumentLoader: tc.docLoader,
-		Crypto:           tc.crypto,
+		Verifier:         tc.crypto,
 		KMS:              tc.kms,
 	})
 

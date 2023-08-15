@@ -41,19 +41,27 @@ const (
 )
 
 func TestIntegration(t *testing.T) {
-	signerOpts := suiteOptions(t)
+	suiteOpts := suiteOptions(t)
 
-	signerInit := ecdsa2019.NewSigner(signerOpts)
+	signerInit := ecdsa2019.NewSignerInitializer(&ecdsa2019.SignerInitializerOptions{
+		LDDocumentLoader: suiteOpts.LDDocumentLoader,
+		Signer:           suiteOpts.Signer,
+		KMS:              suiteOpts.KMS,
+	})
 
-	verifierInit := ecdsa2019.NewVerifier(suiteOptions(t))
+	verifierInit := ecdsa2019.NewVerifierInitializer(&ecdsa2019.VerifierInitializerOptions{
+		LDDocumentLoader: suiteOpts.LDDocumentLoader,
+		Verifier:         suiteOpts.Verifier,
+		KMS:              suiteOpts.KMS,
+	})
 
-	_, p256Bytes, err := signerOpts.KMS.CreateAndExportPubKeyBytes(kmsapi.ECDSAP256IEEEP1363)
+	_, p256Bytes, err := suiteOpts.KMS.CreateAndExportPubKeyBytes(kmsapi.ECDSAP256IEEEP1363)
 	require.NoError(t, err)
 
 	p256JWK, err := jwkkid.BuildJWK(p256Bytes, kmsapi.ECDSAP256IEEEP1363)
 	require.NoError(t, err)
 
-	_, p384Bytes, err := signerOpts.KMS.CreateAndExportPubKeyBytes(kmsapi.ECDSAP384IEEEP1363)
+	_, p384Bytes, err := suiteOpts.KMS.CreateAndExportPubKeyBytes(kmsapi.ECDSAP384IEEEP1363)
 	require.NoError(t, err)
 
 	p384JWK, err := jwkkid.BuildJWK(p384Bytes, kmsapi.ECDSAP384IEEEP1363)
@@ -193,7 +201,8 @@ func suiteOptions(t *testing.T) *ecdsa2019.Options {
 
 	return &ecdsa2019.Options{
 		LDDocumentLoader: docLoader,
-		Crypto:           cr,
+		Signer:           cr,
+		Verifier:         cr,
 		KMS:              kms,
 	}
 }
