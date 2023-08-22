@@ -18,6 +18,15 @@ const (
 	DataIntegrityProof = "DataIntegrityProof"
 )
 
+// KeyManager manages keys and their storage for the aries framework.
+type KeyManager interface {
+	// Get key handle for the given keyID
+	// Returns:
+	//  - handle instance (to private key)
+	//  - error if failure
+	Get(keyID string) (interface{}, error)
+}
+
 // VerificationMethod implements the data integrity verification method model:
 // https://www.w3.org/TR/vc-data-integrity/#verification-methods
 type VerificationMethod = did.VerificationMethod

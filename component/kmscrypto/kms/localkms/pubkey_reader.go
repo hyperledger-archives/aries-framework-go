@@ -29,7 +29,11 @@ import (
 	secp256k1subtle "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/secp256k1/subtle"
 )
 
-func publicKeyBytesToHandle(pubKey []byte, kt kms.KeyType, opts ...kms.KeyOpts) (*keyset.Handle, error) {
+// PublicKeyBytesToHandle will create and return a key handle for pubKey of type kt
+// it returns an error if it failed creating the key handle
+// Note: The key handle created is not stored in the KMS, it's only useful to execute the crypto primitive
+// associated with it.
+func PublicKeyBytesToHandle(pubKey []byte, kt kms.KeyType, opts ...kms.KeyOpts) (*keyset.Handle, error) {
 	if len(pubKey) == 0 {
 		return nil, fmt.Errorf("pubKey is empty")
 	}

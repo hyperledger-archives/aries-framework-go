@@ -285,17 +285,6 @@ func TestSuite_VerifyProof(t *testing.T) {
 			testVerify(t, tc)
 		})
 
-		t.Run("get kms key handle", func(t *testing.T) {
-			tc := successCase(t)
-
-			errExpected := errors.New("expected error")
-
-			tc.kms.PubKeyBytesToHandleErr = errExpected
-			tc.errIs = errExpected
-
-			testVerify(t, tc)
-		})
-
 		t.Run("crypto verify", func(t *testing.T) {
 			tc := successCase(t)
 

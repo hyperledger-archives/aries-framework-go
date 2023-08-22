@@ -22,6 +22,7 @@ import (
 	kmsapi "github.com/hyperledger/aries-framework-go/spi/kms"
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity/models"
 	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity/suite"
 	"github.com/hyperledger/aries-framework-go/component/models/ld/processor"
@@ -57,7 +58,7 @@ type Suite struct {
 	ldLoader ld.DocumentLoader
 	signer   Signer
 	verifier Verifier
-	kms      kmsapi.KeyManager
+	kms      models.KeyManager
 }
 
 // Options provides initialization options for Suite.
@@ -65,7 +66,7 @@ type Options struct {
 	LDDocumentLoader ld.DocumentLoader
 	Signer           Signer
 	Verifier         Verifier
-	KMS              kmsapi.KeyManager
+	KMS              models.KeyManager
 }
 
 // SuiteInitializer is the initializer for Suite.
@@ -122,7 +123,7 @@ func NewSignerInitializer(options *SignerInitializerOptions) suite.SignerInitial
 type VerifierInitializerOptions struct {
 	LDDocumentLoader ld.DocumentLoader
 	Verifier         Verifier
-	KMS              kmsapi.KeyManager
+	KMS              models.KeyManager
 }
 
 // NewVerifierInitializer returns a suite.VerifierInitializer that initializes an
@@ -231,7 +232,7 @@ func (s *Suite) VerifyProof(doc []byte, proof *models.Proof, opts *models.ProofO
 		return fmt.Errorf("decoding proofValue: %w", err)
 	}
 
-	err = verify(sigBase, sig, vmKey, s.verifier, s.kms)
+	err = verify(sigBase, sig, vmKey, s.verifier)
 	if err != nil {
 		return fmt.Errorf("failed to verify ecdsa-2019 DI proof: %w", err)
 	}
@@ -294,7 +295,7 @@ func kmsKID(key *jwk.JWK) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(tp), nil
 }
 
-func sign(sigBase []byte, key *jwk.JWK, signer Signer, kms kmsapi.KeyManager) ([]byte, error) {
+func sign(sigBase []byte, key *jwk.JWK, signer Signer, kms models.KeyManager) ([]byte, error) {
 	kid, err := kmsKID(key)
 	if err != nil {
 		return nil, err
@@ -313,7 +314,7 @@ func sign(sigBase []byte, key *jwk.JWK, signer Signer, kms kmsapi.KeyManager) ([
 	return sig, nil
 }
 
-func verify(sigBase, sig []byte, key *jwk.JWK, verifier Verifier, kms kmsapi.KeyManager) error {
+func verify(sigBase, sig []byte, key *jwk.JWK, verifier Verifier) error {
 	pkBytes, err := key.PublicKeyBytes()
 	if err != nil {
 		return fmt.Errorf("getting verification key bytes: %w", err)
@@ -324,7 +325,7 @@ func verify(sigBase, sig []byte, key *jwk.JWK, verifier Verifier, kms kmsapi.Key
 		return fmt.Errorf("getting key type of verification key: %w", err)
 	}
 
-	kh, err := kms.PubKeyBytesToHandle(pkBytes, kt)
+	kh, err := localkms.PublicKeyBytesToHandle(pkBytes, kt)
 	if err != nil {
 		return err
 	}
