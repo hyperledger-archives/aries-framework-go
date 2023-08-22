@@ -23,6 +23,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/spi/kms"
 	"github.com/hyperledger/aries-framework-go/spi/vdr"
 
+	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity"
 	"github.com/hyperledger/aries-framework-go/component/models/did"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/holder"
@@ -125,6 +126,20 @@ func WithJSONLDValidation() CredentialOpt {
 // in the document. No extra fields are allowed (outside of credentialSubject).
 func WithBaseContextValidation() CredentialOpt {
 	return verifiable.WithBaseContextValidation()
+}
+
+// WithDataIntegrityVerifier provides the Data Integrity verifier to use when
+// the credential being processed has a Data Integrity proof.
+func WithDataIntegrityVerifier(v *dataintegrity.Verifier) CredentialOpt {
+	return verifiable.WithDataIntegrityVerifier(v)
+}
+
+// WithExpectedDataIntegrityFields validates that a Data Integrity proof has the
+// given purpose, domain, and challenge. Empty purpose means the default,
+// assertionMethod, will be expected. Empty domain and challenge will mean they
+// are not checked.
+func WithExpectedDataIntegrityFields(purpose, domain, challenge string) CredentialOpt {
+	return verifiable.WithExpectedDataIntegrityFields(purpose, domain, challenge)
 }
 
 // WithBaseContextExtendedValidation validates that fields that are specified in base context are as specified.
