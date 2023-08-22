@@ -19,8 +19,6 @@ import (
 	"github.com/multiformats/go-multibase"
 	"github.com/piprate/json-gold/ld"
 
-	kmsapi "github.com/hyperledger/aries-framework-go/spi/kms"
-
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity/models"
@@ -106,7 +104,7 @@ func (i initializer) Type() string {
 type SignerInitializerOptions struct {
 	LDDocumentLoader ld.DocumentLoader
 	Signer           Signer
-	KMS              kmsapi.KeyManager
+	KMS              models.KeyManager
 }
 
 // NewSignerInitializer returns a suite.SignerInitializer that initializes an ecdsa-2019
