@@ -311,7 +311,7 @@ func (l *LocalKMS) CreateAndExportPubKeyBytes(kt kmsapi.KeyType, opts ...kmsapi.
 // Note: The key handle created is not stored in the KMS, it's only useful to execute the crypto primitive
 // associated with it.
 func (l *LocalKMS) PubKeyBytesToHandle(pubKey []byte, kt kmsapi.KeyType, opts ...kmsapi.KeyOpts) (interface{}, error) {
-	return publicKeyBytesToHandle(pubKey, kt, opts...)
+	return PublicKeyBytesToHandle(pubKey, kt, opts...)
 }
 
 // ImportPrivateKey will import privKey into the KMS storage for the given keyType then returns the new key id and
