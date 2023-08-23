@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/sjson"
 
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/jwkkid"
@@ -186,6 +187,38 @@ func TestIntegration(t *testing.T) {
 			err = verifier.VerifyProof(signedCred, verifyOpts)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "failed to verify ecdsa-2019 DI proof")
+		})
+		t.Run("malformed proof created", func(t *testing.T) {
+			signOpts := &models.ProofOptions{
+				VerificationMethod:       p256VM,
+				VerificationMethodID:     p256VM.ID,
+				SuiteType:                ecdsa2019.SuiteType,
+				Purpose:                  "assertionMethod",
+				VerificationRelationship: "assertionMethod",
+				ProofType:                models.DataIntegrityProof,
+				Created:                  time.Now(),
+			}
+
+			verifyOpts := &models.ProofOptions{
+				VerificationMethod:       p384VM,
+				VerificationMethodID:     p384VM.ID,
+				SuiteType:                ecdsa2019.SuiteType,
+				Purpose:                  "assertionMethod",
+				VerificationRelationship: "assertionMethod",
+				ProofType:                models.DataIntegrityProof,
+				MaxAge:                   100,
+				Created:                  time.Time{},
+			}
+
+			signedCred, err := signer.AddProof(validCredential, signOpts)
+			require.NoError(t, err)
+
+			signedCredStr, err := sjson.Set(string(signedCred), "proof.created", "malformed")
+			require.NoError(t, err)
+
+			err = verifier.VerifyProof([]byte(signedCredStr), verifyOpts)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "malformed data integrity proof")
 		})
 	})
 }
