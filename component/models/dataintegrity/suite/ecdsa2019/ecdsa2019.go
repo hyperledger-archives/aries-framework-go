@@ -164,6 +164,7 @@ func (s *Suite) CreateProof(doc []byte, opts *models.ProofOptions) (*models.Proo
 		Challenge:          opts.Challenge,
 		VerificationMethod: opts.VerificationMethod.ID,
 		ProofValue:         sigStr,
+		Created:            opts.Created.Format(models.DateTimeFormat),
 	}
 
 	return p, nil

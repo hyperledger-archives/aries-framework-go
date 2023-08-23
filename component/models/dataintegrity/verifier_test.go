@@ -289,6 +289,7 @@ func TestVerifier_VerifyProof(t *testing.T) {
 			require.NoError(t, err)
 
 			err = v.VerifyProof(signedDoc, &models.ProofOptions{
+				Created: time.Now(),
 				Purpose: "different-purpose",
 			})
 			require.ErrorIs(t, err, ErrMismatchedPurpose)
@@ -316,6 +317,7 @@ func TestVerifier_VerifyProof(t *testing.T) {
 
 			err = v.VerifyProof(signedDoc, &models.ProofOptions{
 				Purpose: "mock-purpose",
+				Created: time.Now(),
 				MaxAge:  1000,
 			})
 			require.Error(t, err)
@@ -348,6 +350,7 @@ func TestVerifier_VerifyProof(t *testing.T) {
 
 			err = v.VerifyProof(signedDoc, &models.ProofOptions{
 				Purpose: "mock-purpose",
+				Created: time.Now(),
 				MaxAge:  1000,
 			})
 			require.Error(t, err)
@@ -386,6 +389,7 @@ func TestVerifier_VerifyProof(t *testing.T) {
 
 			err = v.VerifyProof(signedDoc, &models.ProofOptions{
 				Purpose: "mock-purpose",
+				Created: time.Now(),
 			})
 			require.ErrorIs(t, err, errExpected)
 		})
@@ -492,6 +496,7 @@ func TestVerifier_VerifyProof(t *testing.T) {
 			err = v.VerifyProof(signedDoc, &models.ProofOptions{
 				Purpose: "mock-purpose",
 				Domain:  "mock-domain",
+				Created: time.Now(),
 			})
 			require.ErrorIs(t, err, ErrInvalidDomain)
 		})
@@ -527,6 +532,7 @@ func TestVerifier_VerifyProof(t *testing.T) {
 			err = v.VerifyProof(signedDoc, &models.ProofOptions{
 				Purpose:   "mock-purpose",
 				Challenge: "mock-challenge",
+				Created:   time.Now(),
 			})
 			require.ErrorIs(t, err, ErrInvalidChallenge)
 		})

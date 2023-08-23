@@ -34,6 +34,8 @@ var (
 	vcExamples []byte
 	//go:embed contexts/third_party/trustbloc.github.io/trustbloc-authorization-credential_v1.jsonld
 	authCred []byte
+	//go:embed contexts/third_party/w3id.org/data-integrity-v1.jsonld
+	dataIntegrity []byte
 )
 
 var testContexts = []ldcontext.Document{ //nolint:gochecknoglobals // embedded test contexts
@@ -62,6 +64,10 @@ var testContexts = []ldcontext.Document{ //nolint:gochecknoglobals // embedded t
 		URL:         "https://w3c-ccg.github.io/vc-revocation-list-2021/contexts/v1.jsonld",
 		DocumentURL: "https://raw.githubusercontent.com/w3c-ccg/vc-status-list-2021/343b8b59cddba4525e1ef355356ae760fc75904e/contexts/v1.jsonld", //nolint:lll
 		Content:     revocationList2021,
+	},
+	{
+		URL:     "https://w3id.org/security/data-integrity/v1",
+		Content: dataIntegrity,
 	},
 }
 
