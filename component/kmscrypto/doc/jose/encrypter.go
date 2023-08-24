@@ -26,14 +26,15 @@ import (
 	"github.com/google/tink/go/subtle/random"
 	"golang.org/x/crypto/curve25519"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/aead/subtle"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/composite"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/composite/api"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/composite/ecdh"
-	ecdhpb "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/util/cryptoutil"
+	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
+	"github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/aead/subtle"
+	"github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/composite"
+	"github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/composite/api"
+	"github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/composite/ecdh"
+	ecdhpb "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/proto/ecdh_aead_go_proto"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/util/cryptoutil"
+
 	cryptoapi "github.com/hyperledger/aries-framework-go/spi/crypto"
 )
 

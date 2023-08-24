@@ -15,7 +15,7 @@ import (
 	"github.com/google/tink/go/core/registry"
 	"github.com/google/tink/go/keyset"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/composite/api"
+	"github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/composite/api"
 )
 
 // NewECDHDecrypt returns an CompositeDecrypt primitive from the given keyset handle.

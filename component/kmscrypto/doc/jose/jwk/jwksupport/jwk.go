@@ -18,12 +18,11 @@ import (
 
 	"github.com/go-jose/go-jose/v3"
 
-	"github.com/hyperledger/aries-framework-go/spi/kms"
+	"github.com/trustbloc/kms-go/spi/kms"
 
-	cryptoapi "github.com/hyperledger/aries-framework-go/spi/crypto"
-
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/primitive/bbs12381g2pub"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
+	cryptoapi "github.com/trustbloc/kms-go/spi/crypto"
 )
 
 const (

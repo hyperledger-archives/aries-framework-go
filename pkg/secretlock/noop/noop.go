@@ -11,7 +11,7 @@ SPDX-License-Identifier: Apache-2.0
 package noop
 
 import (
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/noop"
+	"github.com/trustbloc/kms-go/secretlock/noop"
 )
 
 // NoLock is a secret lock service that does no key wrapping (keys are not encrypted).

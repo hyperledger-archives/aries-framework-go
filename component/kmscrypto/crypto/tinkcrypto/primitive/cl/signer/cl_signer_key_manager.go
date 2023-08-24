@@ -18,9 +18,9 @@ import (
 	"github.com/hyperledger/ursa-wrapper-go/pkg/libursa/ursa"
 	"google.golang.org/protobuf/proto"
 
-	clsubtle "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/cl/subtle"
-	clpb "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/proto/cl_go_proto"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/internal/ursautil"
+	clsubtle "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/cl/subtle"
+	clpb "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/proto/cl_go_proto"
+	"github.com/trustbloc/kms-go/internal/ursautil"
 )
 
 const (

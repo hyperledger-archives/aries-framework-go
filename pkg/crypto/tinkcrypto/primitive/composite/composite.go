@@ -10,7 +10,7 @@ package composite
 import (
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/composite"
+	"github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/composite"
 )
 
 // EncryptedData represents the Encryption's output data as a result of ECDHEncrypt.Encrypt(pt, aad) call

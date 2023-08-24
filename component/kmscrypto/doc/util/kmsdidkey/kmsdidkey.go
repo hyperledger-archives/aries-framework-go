@@ -15,9 +15,10 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	commonpb "github.com/google/tink/go/proto/common_go_proto"
 
-	afgocrypto "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/fingerprint"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/jwkkid"
+	afgocrypto "github.com/trustbloc/kms-go/crypto"
+	"github.com/trustbloc/kms-go/doc/util/fingerprint"
+	"github.com/trustbloc/kms-go/doc/util/jwkkid"
+
 	cryptoapi "github.com/hyperledger/aries-framework-go/spi/crypto"
 	"github.com/hyperledger/aries-framework-go/spi/kms"
 )

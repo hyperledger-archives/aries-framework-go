@@ -8,7 +8,8 @@ package verifiable
 import (
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+	"github.com/trustbloc/kms-go/doc/jose"
+
 	"github.com/hyperledger/aries-framework-go/component/models/jwt"
 )
 

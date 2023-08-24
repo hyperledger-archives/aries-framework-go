@@ -8,7 +8,7 @@ package verifiable
 import (
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+	"github.com/trustbloc/kms-go/doc/jose"
 )
 
 // MarshalUnsecuredJWT serialized JWT into unsecured JWT.

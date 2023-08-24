@@ -15,11 +15,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/sjson"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/jwkkid"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/localkms"
-	mockkms "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/kms"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/noop"
+	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
+	"github.com/trustbloc/kms-go/doc/util/jwkkid"
+	"github.com/trustbloc/kms-go/kms/localkms"
+	mockkms "github.com/trustbloc/kms-go/mock/kms"
+	"github.com/trustbloc/kms-go/secretlock/noop"
+
 	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity/models"
 	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity/suite/ecdsa2019"
 	"github.com/hyperledger/aries-framework-go/component/models/did"

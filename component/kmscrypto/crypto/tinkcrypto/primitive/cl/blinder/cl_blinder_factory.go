@@ -16,7 +16,7 @@ import (
 	"github.com/google/tink/go/core/registry"
 	"github.com/google/tink/go/keyset"
 
-	clapi "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/cl/api"
+	clapi "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/cl/api"
 )
 
 // NewBlinder returns a CL Blinder primitive from the given keyset handle.

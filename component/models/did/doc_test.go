@@ -23,7 +23,8 @@ import (
 	gojose "github.com/go-jose/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
+
 	"github.com/hyperledger/aries-framework-go/component/models/did/endpoint"
 	"github.com/hyperledger/aries-framework-go/component/models/ld/testutil"
 	"github.com/hyperledger/aries-framework-go/component/models/signature/signer"

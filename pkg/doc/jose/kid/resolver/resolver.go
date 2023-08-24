@@ -7,7 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package resolver
 
 import (
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/kidresolver"
+	"github.com/trustbloc/kms-go/doc/jose/kidresolver"
+
 	"github.com/hyperledger/aries-framework-go/component/models/jose/diddocresolver"
 )
 

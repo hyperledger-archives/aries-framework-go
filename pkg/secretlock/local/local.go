@@ -37,7 +37,8 @@ package local
 import (
 	"io"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/local"
+	"github.com/trustbloc/kms-go/secretlock/local"
+
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 )
 

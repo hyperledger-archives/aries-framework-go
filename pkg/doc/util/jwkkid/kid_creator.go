@@ -7,8 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package jwkkid
 
 import (
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/jwkkid"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/doc/util/jwkkid"
+
 	"github.com/hyperledger/aries-framework-go/spi/kms"
 )
 

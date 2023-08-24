@@ -36,11 +36,11 @@ import (
 
 	cryptoapi "github.com/hyperledger/aries-framework-go/spi/crypto"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/bbs"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/composite/ecdh"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/localkms"
-	webkmsimpl "github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/webkms"
+	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
+	"github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/bbs"
+	"github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/composite/ecdh"
+	"github.com/trustbloc/kms-go/kms/localkms"
+	webkmsimpl "github.com/trustbloc/kms-go/kms/webkms"
 )
 
 const (

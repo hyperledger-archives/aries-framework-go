@@ -22,14 +22,14 @@ import (
 	"github.com/go-jose/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/util/cryptoutil"
+	"github.com/trustbloc/kms-go/util/cryptoutil"
 
 	"github.com/hyperledger/aries-framework-go/spi/kms"
 
 	cryptoapi "github.com/hyperledger/aries-framework-go/spi/crypto"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/primitive/bbs12381g2pub"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
 )
 
 func TestDecodeJWK(t *testing.T) {

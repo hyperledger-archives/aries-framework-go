@@ -16,11 +16,12 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/fingerprint"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/jwkkid"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/localkms"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/noop"
+	"github.com/trustbloc/kms-go/doc/util/fingerprint"
+	"github.com/trustbloc/kms-go/doc/util/jwkkid"
+	"github.com/trustbloc/kms-go/kms"
+	"github.com/trustbloc/kms-go/kms/localkms"
+	"github.com/trustbloc/kms-go/secretlock/noop"
+
 	"github.com/hyperledger/aries-framework-go/component/models/did"
 	"github.com/hyperledger/aries-framework-go/component/models/did/endpoint"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mock/storage"

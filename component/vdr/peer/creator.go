@@ -14,7 +14,8 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/fingerprint"
+	"github.com/trustbloc/kms-go/doc/util/fingerprint"
+
 	"github.com/hyperledger/aries-framework-go/component/models/did"
 	"github.com/hyperledger/aries-framework-go/component/models/did/endpoint"
 	vdrapi "github.com/hyperledger/aries-framework-go/component/vdr/api"

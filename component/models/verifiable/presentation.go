@@ -15,7 +15,8 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+	"github.com/trustbloc/kms-go/doc/jose"
+
 	"github.com/hyperledger/aries-framework-go/component/models/jwt"
 	docjsonld "github.com/hyperledger/aries-framework-go/component/models/ld/validator"
 	"github.com/hyperledger/aries-framework-go/component/models/signature/verifier"

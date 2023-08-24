@@ -15,7 +15,7 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 
-	aes_cbc_go_proto "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/proto/aes_cbc_go_proto"
+	aes_cbc_go_proto "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/proto/aes_cbc_go_proto"
 )
 
 const (

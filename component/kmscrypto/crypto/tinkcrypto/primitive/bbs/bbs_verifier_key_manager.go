@@ -14,8 +14,8 @@ import (
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/bbs/subtle"
-	bbspb "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/proto/bbs_go_proto"
+	"github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/bbs/subtle"
+	bbspb "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/proto/bbs_go_proto"
 )
 
 const (

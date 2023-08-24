@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package bbs12381g2pub
 
 import (
-	bbs "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/primitive/bbs12381g2pub"
+	bbs "github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
 )
 
 // SignatureMessage defines a message to be used for a signature check.

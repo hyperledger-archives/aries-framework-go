@@ -22,7 +22,6 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.7.3
 	github.com/hyperledger/aries-framework-go/component/didconfig v0.0.0-20230622211121-852ce35730b4
-	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230622082138-3ffab1691857
 	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3
 	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230622171716-43af8054a539
 	github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20221025204933-b807371b6f1e
@@ -36,6 +35,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rs/cors v1.7.0
 	github.com/stretchr/testify v1.8.1
+	github.com/trustbloc/kms-go v0.0.0-20230823163616-c9310a484f40
 	golang.org/x/crypto v0.1.0
 	nhooyr.io/websocket v1.8.3
 )
@@ -48,6 +48,7 @@ require (
 	github.com/consensys/gnark-crypto v0.9.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
+	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230622082138-3ffab1691857 // indirect
 	github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2 // indirect
 	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a // indirect
 	github.com/kawamuray/jsonpath v0.0.0-20201211160320-7483bafabd7e // indirect
@@ -82,3 +83,5 @@ require (
 )
 
 replace github.com/hyperledger/aries-framework-go/component/models => ./component/models
+replace github.com/hyperledger/aries-framework-go/component/kmscrypto => ./component/kmscrypto
+replace github.com/hyperledger/aries-framework-go/spi => ./spi

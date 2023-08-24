@@ -12,7 +12,7 @@ import (
 	"crypto/elliptic"
 	"math/big"
 
-	secp256k1subtle "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/secp256k1/subtle"
+	secp256k1subtle "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/secp256k1/subtle"
 )
 
 // Secp256k1Signature is a struct holding the r and s values of an secp256k1 signature.

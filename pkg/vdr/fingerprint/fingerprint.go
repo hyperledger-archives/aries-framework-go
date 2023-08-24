@@ -7,8 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package fingerprint
 
 import (
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/fingerprint"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/doc/util/fingerprint"
 )
 
 const (

@@ -23,8 +23,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/doc/jose"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
+
 	"github.com/hyperledger/aries-framework-go/component/models/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/spi/kms"
 )

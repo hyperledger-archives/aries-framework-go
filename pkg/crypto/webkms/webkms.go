@@ -7,9 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package webkms
 
 import (
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/webkms"
+	"github.com/trustbloc/kms-go/crypto/webkms"
 
-	webkmsimpl "github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/webkms"
+	webkmsimpl "github.com/trustbloc/kms-go/kms/webkms"
 )
 
 // HTTPClient interface for the http client.

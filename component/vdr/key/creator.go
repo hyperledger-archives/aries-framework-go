@@ -10,8 +10,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/fingerprint"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/util/cryptoutil"
+	"github.com/trustbloc/kms-go/doc/util/fingerprint"
+	"github.com/trustbloc/kms-go/util/cryptoutil"
+
 	"github.com/hyperledger/aries-framework-go/component/models/did"
 	vdrspi "github.com/hyperledger/aries-framework-go/spi/vdr"
 )

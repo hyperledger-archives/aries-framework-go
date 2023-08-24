@@ -10,7 +10,8 @@ import (
 
 	"github.com/multiformats/go-multibase"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
+
 	didmodel "github.com/hyperledger/aries-framework-go/component/models/did"
 )
 

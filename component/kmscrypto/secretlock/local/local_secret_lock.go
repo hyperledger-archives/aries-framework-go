@@ -18,7 +18,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/component/log"
 
-	cipherutil "github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/local/internal/cipher"
+	cipherutil "github.com/trustbloc/kms-go/secretlock/local/internal/cipher"
 )
 
 // package local provides a local secret lock service. The user must create a master key and store it

@@ -16,7 +16,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/kmsdidkey"
+	"github.com/trustbloc/kms-go/doc/util/kmsdidkey"
+
 	"github.com/hyperledger/aries-framework-go/component/models/did"
 	"github.com/hyperledger/aries-framework-go/component/models/did/endpoint"
 	ldtestutil "github.com/hyperledger/aries-framework-go/component/models/ld/testutil"

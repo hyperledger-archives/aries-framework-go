@@ -21,6 +21,7 @@ require (
 	github.com/hyperledger/ursa-wrapper-go v0.3.1
 	github.com/stretchr/testify v1.8.1
 	github.com/teserakt-io/golang-ed25519 v0.0.0-20210104091850-3888c087a4c8
+	github.com/trustbloc/kms-go v0.0.0-20230823163616-c9310a484f40
 	golang.org/x/crypto v0.1.0
 	google.golang.org/protobuf v1.28.1
 )

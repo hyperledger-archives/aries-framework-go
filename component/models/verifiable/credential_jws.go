@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+	"github.com/trustbloc/kms-go/doc/jose"
 )
 
 // MarshalJWS serializes JWT into signed form (JWS).

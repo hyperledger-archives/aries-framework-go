@@ -19,11 +19,12 @@ import (
 	"github.com/go-jose/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/localkms"
-	mockkms "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/kms"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/noop"
+	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/kms/localkms"
+	mockkms "github.com/trustbloc/kms-go/mock/kms"
+	"github.com/trustbloc/kms-go/secretlock/noop"
+
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mock/storage"
 	kmsapi "github.com/hyperledger/aries-framework-go/spi/kms"
 

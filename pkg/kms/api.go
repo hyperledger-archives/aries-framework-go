@@ -7,7 +7,8 @@
 package kms
 
 import (
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms"
+	"github.com/trustbloc/kms-go/kms"
+
 	kmsapi "github.com/hyperledger/aries-framework-go/spi/kms"
 )
 

@@ -18,7 +18,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+	"github.com/trustbloc/kms-go/doc/jose"
+
 	"github.com/hyperledger/aries-framework-go/spi/kms"
 
 	afgojwt "github.com/hyperledger/aries-framework-go/component/models/jwt"

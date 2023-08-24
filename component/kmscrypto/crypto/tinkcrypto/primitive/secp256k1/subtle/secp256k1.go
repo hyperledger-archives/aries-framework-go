@@ -14,7 +14,7 @@ import (
 
 	"github.com/btcsuite/btcd/btcec"
 
-	secp256k1pb "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/proto/secp256k1_go_proto"
+	secp256k1pb "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/proto/secp256k1_go_proto"
 )
 
 var errUnsupportedEncoding = errors.New("secp256k1: unsupported encoding")

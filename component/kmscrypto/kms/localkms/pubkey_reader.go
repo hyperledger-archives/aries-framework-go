@@ -23,10 +23,10 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/spi/kms"
 
-	bbspb "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/proto/bbs_go_proto"
-	clpb "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/proto/cl_go_proto"
-	secp256k1pb "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/proto/secp256k1_go_proto"
-	secp256k1subtle "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/secp256k1/subtle"
+	bbspb "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/proto/bbs_go_proto"
+	clpb "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/proto/cl_go_proto"
+	secp256k1pb "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/proto/secp256k1_go_proto"
+	secp256k1subtle "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/secp256k1/subtle"
 )
 
 // PublicKeyBytesToHandle will create and return a key handle for pubKey of type kt

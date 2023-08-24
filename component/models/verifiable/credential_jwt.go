@@ -13,9 +13,9 @@ import (
 
 	josejwt "github.com/go-jose/go-jose/v3/jwt"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
 	"github.com/hyperledger/aries-framework-go/component/models/jwt"
 	jsonutil "github.com/hyperledger/aries-framework-go/component/models/util/json"
+	"github.com/trustbloc/kms-go/doc/jose"
 )
 
 const (

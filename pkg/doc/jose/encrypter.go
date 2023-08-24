@@ -9,7 +9,8 @@ package jose
 import (
 	"github.com/google/tink/go/keyset"
 
-	jose2 "github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+	jose2 "github.com/trustbloc/kms-go/doc/jose"
+
 	cryptoapi "github.com/hyperledger/aries-framework-go/spi/crypto"
 )
 

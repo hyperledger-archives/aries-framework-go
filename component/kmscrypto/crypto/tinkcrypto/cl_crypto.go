@@ -14,8 +14,8 @@ import (
 
 	"github.com/google/tink/go/keyset"
 
-	bld "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/cl/blinder"
-	sgn "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/cl/signer"
+	bld "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/cl/blinder"
+	sgn "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/cl/signer"
 )
 
 // Blind will blind provided values with MasterSecret provided in a kh

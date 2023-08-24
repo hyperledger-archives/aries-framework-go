@@ -18,10 +18,11 @@ import (
 	"github.com/multiformats/go-multibase"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk/jwksupport"
-	mockcrypto "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/crypto"
-	mockkms "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/kms"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/doc/jose/jwk/jwksupport"
+	mockcrypto "github.com/trustbloc/kms-go/mock/crypto"
+	mockkms "github.com/trustbloc/kms-go/mock/kms"
+
 	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity/models"
 	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity/suite"
 	"github.com/hyperledger/aries-framework-go/component/models/did"

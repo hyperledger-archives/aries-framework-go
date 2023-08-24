@@ -8,7 +8,7 @@ package bbs12381g2pub
 
 import (
 	ml "github.com/IBM/mathlib"
-	bbs "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/primitive/bbs12381g2pub"
+	bbs "github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
 )
 
 // PoKOfSignatureProof defines BLS signature proof.

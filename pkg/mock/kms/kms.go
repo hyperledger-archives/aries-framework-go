@@ -9,7 +9,8 @@ package kms
 import (
 	"github.com/google/tink/go/keyset"
 
-	mockkms "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/kms"
+	mockkms "github.com/trustbloc/kms-go/mock/kms"
+
 	"github.com/hyperledger/aries-framework-go/spi/secretlock"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 )

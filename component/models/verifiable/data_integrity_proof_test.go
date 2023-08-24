@@ -12,8 +12,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/jwkkid"
+	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
+	"github.com/trustbloc/kms-go/doc/util/jwkkid"
+
 	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity"
 	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity/suite/ecdsa2019"
 	"github.com/hyperledger/aries-framework-go/component/models/did"

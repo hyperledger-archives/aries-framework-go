@@ -16,11 +16,12 @@ import (
 	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/fingerprint"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/localkms"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/noop"
+	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
+	"github.com/trustbloc/kms-go/doc/util/fingerprint"
+	"github.com/trustbloc/kms-go/kms"
+	"github.com/trustbloc/kms-go/kms/localkms"
+	"github.com/trustbloc/kms-go/secretlock/noop"
+
 	"github.com/hyperledger/aries-framework-go/component/models/did"
 	ldcontext "github.com/hyperledger/aries-framework-go/component/models/ld/context"
 	ldprocessor "github.com/hyperledger/aries-framework-go/component/models/ld/processor"

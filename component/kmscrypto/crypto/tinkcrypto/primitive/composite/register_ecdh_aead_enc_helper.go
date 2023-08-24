@@ -22,8 +22,8 @@ import (
 	"golang.org/x/crypto/poly1305"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/aead/subtle"
-	cbchmacpb "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/proto/aes_cbc_hmac_aead_go_proto"
+	"github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/aead/subtle"
+	cbchmacpb "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/proto/aes_cbc_hmac_aead_go_proto"
 )
 
 const (
@@ -51,6 +51,7 @@ type RegisterCompositeAEADEncHelper struct {
 var _ EncrypterHelper = (*RegisterCompositeAEADEncHelper)(nil)
 
 // NewRegisterCompositeAEADEncHelper initializes and returns a RegisterCompositeAEADEncHelper.
+//
 //nolint:gocyclo
 func NewRegisterCompositeAEADEncHelper(k *tinkpb.KeyTemplate) (*RegisterCompositeAEADEncHelper, error) {
 	var (

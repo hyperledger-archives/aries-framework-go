@@ -13,7 +13,7 @@ import "proto/common.proto";
 option java_package = "com.google.crypto.tink.proto";
 option java_multiple_files = true;
 option objc_class_prefix = "TINKPB";
-option go_package = "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/proto/bbs_go_proto";
+option go_package = "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/proto/bbs_go_proto";
 
 // Protos keys for BBS+ signatures/proofs.
 //

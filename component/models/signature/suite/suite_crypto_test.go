@@ -12,7 +12,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/crypto"
+	"github.com/trustbloc/kms-go/mock/crypto"
+
 	"github.com/hyperledger/aries-framework-go/component/models/signature/api"
 )
 

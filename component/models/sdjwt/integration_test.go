@@ -19,7 +19,7 @@ import (
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk/jwksupport"
+	"github.com/trustbloc/kms-go/doc/jose/jwk/jwksupport"
 
 	afjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"
@@ -376,7 +376,7 @@ func TestSDJWTFlow(t *testing.T) {
 		token, err := issuer.NewFromVC(vc, nil, signer,
 			issuer.WithHolderPublicKey(holderPublicJWK),
 			issuer.WithStructuredClaims(true),
-			//issuer.WithNonSelectivelyDisclosableClaims([]string{"id", "degree.type"}),
+			// issuer.WithNonSelectivelyDisclosableClaims([]string{"id", "degree.type"}),
 			issuer.WithSDJWTVersion(common.SDJWTVersionV5),
 		)
 		r.NoError(err)

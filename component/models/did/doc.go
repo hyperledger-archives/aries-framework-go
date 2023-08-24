@@ -21,7 +21,8 @@ import (
 	"github.com/multiformats/go-multibase"
 	"github.com/xeipuuv/gojsonschema"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
+
 	"github.com/hyperledger/aries-framework-go/component/log"
 	"github.com/hyperledger/aries-framework-go/component/models/did/endpoint"
 	"github.com/hyperledger/aries-framework-go/component/models/ld/processor"

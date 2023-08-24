@@ -11,7 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	bbs "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/primitive/bbs12381g2pub"
+	bbs "github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
 )
 
 func TestParseSignature(t *testing.T) {

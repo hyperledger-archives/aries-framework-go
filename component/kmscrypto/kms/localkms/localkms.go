@@ -23,10 +23,10 @@ import (
 
 	cryptoapi "github.com/hyperledger/aries-framework-go/spi/crypto"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/primitive/bbs12381g2pub"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/jwkkid"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/localkms/internal/keywrapper"
+	"github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
+	"github.com/trustbloc/kms-go/doc/util/jwkkid"
+	"github.com/trustbloc/kms-go/kms"
+	"github.com/trustbloc/kms-go/kms/localkms/internal/keywrapper"
 )
 
 const (

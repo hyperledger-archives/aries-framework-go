@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package jose
 
 import (
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+	"github.com/trustbloc/kms-go/doc/jose"
 )
 
 // JSONWebSignature defines JSON Web Signature (https://tools.ietf.org/html/rfc7515)

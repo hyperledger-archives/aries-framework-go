@@ -9,83 +9,17 @@
 package kms
 
 import (
-	"github.com/hyperledger/aries-framework-go/spi/secretlock"
+	"github.com/trustbloc/kms-go/spi/kms"
 )
 
 // KeyManager manages keys and their storage for the aries framework.
-type KeyManager interface {
-	// Create a new key/keyset/key handle for the type kt
-	// Some key types may require additional attributes described in `opts`
-	// Returns:
-	//  - keyID of the handle
-	//  - handle instance (to private key)
-	//  - error if failure
-	Create(kt KeyType, opts ...KeyOpts) (string, interface{}, error)
-	// Get key handle for the given keyID
-	// Returns:
-	//  - handle instance (to private key)
-	//  - error if failure
-	Get(keyID string) (interface{}, error)
-	// Rotate a key referenced by keyID and return a new handle of a keyset including old key and
-	// new key with type kt. It also returns the updated keyID as the first return value
-	// Some key types may require additional attributes described in `opts`
-	// Returns:
-	//  - new KeyID
-	//  - handle instance (to private key)
-	//  - error if failure
-	Rotate(kt KeyType, keyID string, opts ...KeyOpts) (string, interface{}, error)
-	// ExportPubKeyBytes will fetch a key referenced by id then gets its public key in raw bytes and returns it.
-	// The key must be an asymmetric key.
-	// Returns:
-	//  - marshalled public key []byte
-	//  - error if it fails to export the public key bytes
-	ExportPubKeyBytes(keyID string) ([]byte, KeyType, error)
-	// CreateAndExportPubKeyBytes will create a key of type kt and export its public key in raw bytes and returns it.
-	// The key must be an asymmetric key.
-	// Some key types may require additional attributes described in `opts`
-	// Returns:
-	//  - keyID of the new handle created.
-	//  - marshalled public key []byte
-	//  - error if it fails to export the public key bytes
-	CreateAndExportPubKeyBytes(kt KeyType, opts ...KeyOpts) (string, []byte, error)
-	// PubKeyBytesToHandle transforms pubKey raw bytes into a key handle of keyType. This function is only a utility to
-	// provide a public key handle for Tink/Crypto primitive execution, it does not persist the key handle.
-	// Some key types may require additional attributes described in `opts`
-	// Returns:
-	//  - handle instance to the public key of type keyType
-	//  - error if keyType is not supported, the key does not match keyType or unmarshal fails
-	PubKeyBytesToHandle(pubKey []byte, kt KeyType, opts ...KeyOpts) (interface{}, error)
-	// ImportPrivateKey will import privKey into the KMS storage for the given keyType then returns the new key id and
-	// the newly persisted Handle.
-	// 'privKey' possible types are: *ecdsa.PrivateKey and ed25519.PrivateKey
-	// 'kt' possible types are signing key types only (ECDSA keys or Ed25519)
-	// 'opts' allows setting the keysetID of the imported key using WithKeyID() option. If the ID is already used,
-	// then an error is returned.
-	// Returns:
-	//  - keyID of the handle
-	//  - handle instance (to private key)
-	//  - error if import failure (key empty, invalid, doesn't match keyType, unsupported keyType or storing key failed)
-	ImportPrivateKey(privKey interface{}, kt KeyType, opts ...PrivateKeyOpts) (string, interface{}, error)
-}
+type KeyManager = kms.KeyManager
 
 // Store defines the storage capability required by a KeyManager Provider.
-type Store interface {
-	// Put stores the given key under the given keysetID.
-	Put(keysetID string, key []byte) error
-	// Get retrieves the key stored under the given keysetID. If no key is found, the returned error is expected
-	// to wrap ErrKeyNotFound. KMS implementations may check to see if the error wraps that error type for certain
-	// operations.
-	Get(keysetID string) (key []byte, err error)
-	// Delete deletes the key stored under the given keysetID. A KeyManager will assume that attempting to delete
-	// a non-existent key will not return an error.
-	Delete(keysetID string) error
-}
+type Store = kms.Store
 
 // Provider for KeyManager builder/constructor.
-type Provider interface {
-	StorageProvider() Store
-	SecretLock() secretlock.Service
-}
+type Provider = kms.Provider
 
 // Creator method to create new key management service.
 type Creator func(provider Provider) (KeyManager, error)
@@ -142,7 +76,7 @@ const (
 )
 
 // KeyType represents a key type supported by the KMS.
-type KeyType string
+type KeyType = kms.KeyType
 
 const (
 	// AES128GCMType key type value.

@@ -97,5 +97,5 @@ package ecdh
 
 import (
 	// import to initialize.
-	_ "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/composite"
+	_ "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/composite"
 )

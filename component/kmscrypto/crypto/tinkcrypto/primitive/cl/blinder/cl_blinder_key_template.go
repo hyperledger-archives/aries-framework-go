@@ -13,7 +13,7 @@ import (
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"google.golang.org/protobuf/proto"
 
-	clpb "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/proto/cl_go_proto"
+	clpb "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/proto/cl_go_proto"
 )
 
 // MasterSecretKeyTemplate is for creating CL Master Secret key template.

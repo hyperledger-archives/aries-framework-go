@@ -11,5 +11,5 @@ package signer
 
 import (
 	// import to initialize
-	_ "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/cl/signer"
+	_ "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/cl/signer"
 )

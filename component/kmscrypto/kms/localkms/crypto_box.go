@@ -20,10 +20,11 @@ import (
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"golang.org/x/crypto/nacl/box"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/jwkkid"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/localkms/internal/keywrapper"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/noop"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/util/cryptoutil"
+	"github.com/trustbloc/kms-go/doc/util/jwkkid"
+	"github.com/trustbloc/kms-go/kms/localkms/internal/keywrapper"
+	"github.com/trustbloc/kms-go/secretlock/noop"
+	"github.com/trustbloc/kms-go/util/cryptoutil"
+
 	"github.com/hyperledger/aries-framework-go/spi/kms"
 )
 

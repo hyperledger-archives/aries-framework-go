@@ -7,7 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package kmssigner
 
 import (
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/kmssigner"
+	"github.com/trustbloc/kms-go/doc/util/kmssigner"
+
 	"github.com/hyperledger/aries-framework-go/spi/kms"
 )
 

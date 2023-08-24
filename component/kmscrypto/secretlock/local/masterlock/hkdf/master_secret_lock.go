@@ -18,7 +18,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/spi/secretlock"
 
-	cipherutil "github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/local/internal/cipher"
+	cipherutil "github.com/trustbloc/kms-go/secretlock/local/internal/cipher"
 )
 
 // package hkdf provides an hkdf implementation of secretlock as a masterlock.
@@ -84,7 +84,8 @@ func NewMasterLock(passphrase string, h func() hash.Hash, salt []byte) (secretlo
 }
 
 // Encrypt a master key in req
-//  (keyURI is used for remote locks, it is ignored by this implementation)
+//
+//	(keyURI is used for remote locks, it is ignored by this implementation)
 func (m *masterLockHKDF) Encrypt(keyURI string, req *secretlock.EncryptRequest) (*secretlock.EncryptResponse, error) {
 	nonce := random.GetRandomBytes(uint32(m.aead.NonceSize()))
 	ct := m.aead.Seal(nil, nonce, []byte(req.Plaintext), []byte(req.AdditionalAuthenticatedData))

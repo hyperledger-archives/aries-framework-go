@@ -7,8 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package jose
 
 import (
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
-	resolver "github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/kidresolver"
+	"github.com/trustbloc/kms-go/doc/jose"
+	resolver "github.com/trustbloc/kms-go/doc/jose/kidresolver"
+
 	cryptoapi "github.com/hyperledger/aries-framework-go/spi/crypto"
 	"github.com/hyperledger/aries-framework-go/spi/kms"
 )

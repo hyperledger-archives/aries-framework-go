@@ -19,8 +19,9 @@ import (
 	"github.com/multiformats/go-multibase"
 	"github.com/piprate/json-gold/ld"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/localkms"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/kms/localkms"
+
 	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity/models"
 	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity/suite"
 	"github.com/hyperledger/aries-framework-go/component/models/ld/processor"

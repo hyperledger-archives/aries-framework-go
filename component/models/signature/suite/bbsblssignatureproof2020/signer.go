@@ -12,7 +12,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/primitive/bbs12381g2pub"
+	"github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
+
 	"github.com/hyperledger/aries-framework-go/component/models/ld/processor"
 	"github.com/hyperledger/aries-framework-go/component/models/ld/proof"
 	sigverifier "github.com/hyperledger/aries-framework-go/component/models/signature/verifier"

@@ -17,7 +17,8 @@ import (
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/primitive/bbs12381g2pub"
+	"github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
+
 	ldprocessor "github.com/hyperledger/aries-framework-go/component/models/ld/processor"
 	ldtestutil "github.com/hyperledger/aries-framework-go/component/models/ld/testutil"
 	. "github.com/hyperledger/aries-framework-go/component/models/presexch"

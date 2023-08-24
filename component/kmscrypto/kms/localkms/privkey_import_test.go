@@ -23,8 +23,8 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/spi/secretlock"
 
-	mocksecretlock "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/secretlock"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/noop"
+	mocksecretlock "github.com/trustbloc/kms-go/mock/secretlock"
+	"github.com/trustbloc/kms-go/secretlock/noop"
 )
 
 func TestImportECDSAKeyWithInvalidKey(t *testing.T) {

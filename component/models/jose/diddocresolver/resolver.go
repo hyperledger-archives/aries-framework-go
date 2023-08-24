@@ -13,7 +13,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/jwkkid"
+	"github.com/trustbloc/kms-go/doc/util/jwkkid"
+
 	"github.com/hyperledger/aries-framework-go/component/models/did"
 	"github.com/hyperledger/aries-framework-go/spi/crypto"
 	"github.com/hyperledger/aries-framework-go/spi/kms"

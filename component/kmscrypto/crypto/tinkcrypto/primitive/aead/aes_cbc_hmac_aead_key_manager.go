@@ -19,9 +19,10 @@ import (
 	"github.com/google/tink/go/subtle/random"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/aead/subtle"
-	cbcpb "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/proto/aes_cbc_go_proto"
-	aeadpb "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/proto/aes_cbc_hmac_aead_go_proto"
+	aeadpb "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/proto/aes_cbc_hmac_aead_go_proto"
+
+	"github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/aead/subtle"
+	cbcpb "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/proto/aes_cbc_go_proto"
 )
 
 const (

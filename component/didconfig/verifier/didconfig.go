@@ -14,7 +14,8 @@ import (
 
 	jsonld "github.com/piprate/json-gold/ld"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+	"github.com/trustbloc/kms-go/doc/jose"
+
 	"github.com/hyperledger/aries-framework-go/component/log"
 	diddoc "github.com/hyperledger/aries-framework-go/component/models/did"
 	"github.com/hyperledger/aries-framework-go/component/models/jwt"

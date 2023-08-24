@@ -22,9 +22,10 @@ import (
 	commonpb "github.com/google/tink/go/proto/common_go_proto"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/primitive/bbs12381g2pub"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk/jwksupport"
+	"github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/doc/jose/jwk/jwksupport"
+
 	"github.com/hyperledger/aries-framework-go/component/models/did"
 	mockstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mock/storage"
 	cryptoapi "github.com/hyperledger/aries-framework-go/spi/crypto"

@@ -20,7 +20,8 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 	"golang.org/x/exp/slices"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+	"github.com/trustbloc/kms-go/doc/jose"
+
 	"github.com/hyperledger/aries-framework-go/spi/kms"
 
 	jsonld "github.com/hyperledger/aries-framework-go/component/models/ld/processor"

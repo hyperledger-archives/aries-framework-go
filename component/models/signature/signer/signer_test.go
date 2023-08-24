@@ -12,10 +12,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/localkms"
-	mockkms "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/kms"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/noop"
+	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
+	"github.com/trustbloc/kms-go/kms/localkms"
+	mockkms "github.com/trustbloc/kms-go/mock/kms"
+	"github.com/trustbloc/kms-go/secretlock/noop"
+
 	"github.com/hyperledger/aries-framework-go/component/models/ld/proof"
 	"github.com/hyperledger/aries-framework-go/component/models/ld/testutil"
 	"github.com/hyperledger/aries-framework-go/component/models/signature/suite"

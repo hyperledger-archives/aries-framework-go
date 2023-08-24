@@ -17,7 +17,7 @@ import (
 
 	kmsapi "github.com/hyperledger/aries-framework-go/spi/kms"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms"
+	"github.com/trustbloc/kms-go/kms"
 )
 
 func TestLocalKMSWriter(t *testing.T) {

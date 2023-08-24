@@ -9,7 +9,7 @@ package aead
 import (
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/aead"
+	"github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/aead"
 )
 
 // This file contains pre-generated KeyTemplates for AEAD keys. One can use these templates to generate new Keysets.

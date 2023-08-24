@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package jwk
 
 import (
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
 )
 
 // JWK (JSON Web Key) is a JSON data structure that represents a cryptographic key.

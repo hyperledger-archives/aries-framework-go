@@ -22,9 +22,9 @@ import (
 	hybrid "github.com/google/tink/go/hybrid/subtle"
 	"golang.org/x/crypto/chacha20poly1305"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/util/cryptoutil"
+	"github.com/trustbloc/kms-go/util/cryptoutil"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/aead/subtle"
+	"github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/aead/subtle"
 )
 
 type keyWrapper interface {

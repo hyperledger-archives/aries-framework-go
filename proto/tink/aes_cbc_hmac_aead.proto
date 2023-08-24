@@ -13,7 +13,7 @@ import "proto/hmac.proto";
 
 option java_package = "com.google.crypto.tink.proto";
 option java_multiple_files = true;
-option go_package = "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/proto/aes_cbc_hmac_aead_go_proto";
+option go_package = "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/proto/aes_cbc_hmac_aead_go_proto";
 
 message AesCbcHmacAeadKeyFormat {
   AesCbcKeyFormat aes_cbc_key_format = 1;

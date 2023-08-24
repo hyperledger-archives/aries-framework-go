@@ -14,7 +14,7 @@ import (
 
 	"github.com/hyperledger/ursa-wrapper-go/pkg/libursa/ursa"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/internal/ursautil"
+	"github.com/trustbloc/kms-go/internal/ursautil"
 )
 
 // CLSigner is used for CL signature using the provided CredDef key.

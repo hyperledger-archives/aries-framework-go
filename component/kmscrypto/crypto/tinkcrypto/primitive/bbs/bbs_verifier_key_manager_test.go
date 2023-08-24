@@ -15,8 +15,8 @@ import (
 	"github.com/google/tink/go/subtle"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/primitive/bbs12381g2pub"
-	bbspb "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/proto/bbs_go_proto"
+	"github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
+	bbspb "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/proto/bbs_go_proto"
 )
 
 func TestVerifierKeyManager_Primitive(t *testing.T) {

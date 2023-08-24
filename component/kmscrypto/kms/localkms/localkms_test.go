@@ -31,14 +31,14 @@ import (
 	kmsapi "github.com/hyperledger/aries-framework-go/spi/kms"
 	"github.com/hyperledger/aries-framework-go/spi/secretlock"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/primitive/bbs12381g2pub"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/localkms/internal/keywrapper"
-	mocksecretlock "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/secretlock"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/local"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/local/masterlock/hkdf"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/noop"
+	"github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
+	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
+	"github.com/trustbloc/kms-go/kms"
+	"github.com/trustbloc/kms-go/kms/localkms/internal/keywrapper"
+	mocksecretlock "github.com/trustbloc/kms-go/mock/secretlock"
+	"github.com/trustbloc/kms-go/secretlock/local"
+	"github.com/trustbloc/kms-go/secretlock/local/masterlock/hkdf"
+	"github.com/trustbloc/kms-go/secretlock/noop"
 )
 
 const testMasterKeyURI = keywrapper.LocalKeyURIPrefix + "test/key/uri"

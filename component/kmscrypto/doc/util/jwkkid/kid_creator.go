@@ -21,14 +21,14 @@ import (
 	"github.com/btcsuite/btcd/btcec"
 	hybrid "github.com/google/tink/go/hybrid/subtle"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/util/cryptoutil"
+	"github.com/trustbloc/kms-go/util/cryptoutil"
 
 	"github.com/hyperledger/aries-framework-go/spi/kms"
 
 	cryptoapi "github.com/hyperledger/aries-framework-go/spi/crypto"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk/jwksupport"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/doc/jose/jwk/jwksupport"
 )
 
 var errInvalidKeyType = errors.New("key type is not supported")

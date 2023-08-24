@@ -12,10 +12,10 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk/jwksupport"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/fingerprint"
 	"github.com/hyperledger/aries-framework-go/component/models/did"
 	vdrspi "github.com/hyperledger/aries-framework-go/spi/vdr"
+	"github.com/trustbloc/kms-go/doc/jose/jwk/jwksupport"
+	"github.com/trustbloc/kms-go/doc/util/fingerprint"
 )
 
 // Read expands did:key value to a DID document.

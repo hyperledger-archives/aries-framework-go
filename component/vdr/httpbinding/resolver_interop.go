@@ -12,7 +12,8 @@ package httpbinding
 import (
 	"strings"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/fingerprint"
+	"github.com/trustbloc/kms-go/doc/util/fingerprint"
+
 	diddoc "github.com/hyperledger/aries-framework-go/component/models/did"
 )
 

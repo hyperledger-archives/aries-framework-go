@@ -14,7 +14,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk/jwksupport"
+	"github.com/trustbloc/kms-go/doc/jose/jwk/jwksupport"
+
 	ldprocessor "github.com/hyperledger/aries-framework-go/component/models/ld/processor"
 	"github.com/hyperledger/aries-framework-go/component/models/signature/suite"
 	"github.com/hyperledger/aries-framework-go/component/models/signature/suite/ecdsasecp256k1signature2019"

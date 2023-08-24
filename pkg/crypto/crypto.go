@@ -15,7 +15,8 @@ package crypto
 import (
 	"crypto/ecdsa"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto"
+	"github.com/trustbloc/kms-go/crypto"
+
 	cryptoapi "github.com/hyperledger/aries-framework-go/spi/crypto"
 )
 

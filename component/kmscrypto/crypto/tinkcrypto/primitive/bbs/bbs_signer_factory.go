@@ -15,7 +15,7 @@ import (
 	"github.com/google/tink/go/keyset"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 
-	bbsapi "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/bbs/api"
+	bbsapi "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/bbs/api"
 )
 
 // NewSigner returns a BBS Signer primitive from the given keyset handle.

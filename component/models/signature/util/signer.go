@@ -12,7 +12,8 @@ import (
 	"crypto/rsa"
 	"errors"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
+
 	cryptoapi "github.com/hyperledger/aries-framework-go/spi/crypto"
 	kmsapi "github.com/hyperledger/aries-framework-go/spi/kms"
 

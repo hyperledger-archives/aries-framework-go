@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package jose
 
 import (
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+	"github.com/trustbloc/kms-go/doc/jose"
 )
 
 // IANA registered JOSE headers (https://tools.ietf.org/html/rfc7515#section-4.1)

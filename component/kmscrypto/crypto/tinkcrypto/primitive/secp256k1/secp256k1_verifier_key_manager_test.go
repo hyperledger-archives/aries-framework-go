@@ -15,7 +15,7 @@ import (
 	"github.com/google/tink/go/testutil"
 	"github.com/stretchr/testify/require"
 
-	secp256k1pb "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/proto/secp256k1_go_proto"
+	secp256k1pb "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/proto/secp256k1_go_proto"
 )
 
 const secp256k1VerifierTypeURL = "type.googleapis.com/google.crypto.tink.secp256k1PublicKey"

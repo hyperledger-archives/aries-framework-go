@@ -17,7 +17,8 @@ import (
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/stretchr/testify/require"
 
-	afjose "github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+	afjose "github.com/trustbloc/kms-go/doc/jose"
+
 	afjwt "github.com/hyperledger/aries-framework-go/component/models/jwt"
 )
 

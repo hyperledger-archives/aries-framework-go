@@ -9,7 +9,7 @@ package cryptoutil
 import (
 	chacha "golang.org/x/crypto/chacha20poly1305"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/util/cryptoutil"
+	"github.com/trustbloc/kms-go/util/cryptoutil"
 )
 
 // DeriveECDHX25519 does X25519 ECDH using fromPrivKey and toPubKey.

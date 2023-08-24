@@ -17,7 +17,7 @@ import (
 	"github.com/go-jose/go-jose/v3/json"
 	"github.com/go-jose/go-jose/v3/jwt"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+	"github.com/trustbloc/kms-go/doc/jose"
 )
 
 const (

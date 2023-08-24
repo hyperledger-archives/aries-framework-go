@@ -14,7 +14,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk/jwksupport"
+	"github.com/trustbloc/kms-go/doc/jose/jwk/jwksupport"
+
 	"github.com/hyperledger/aries-framework-go/component/log"
 	jsonld "github.com/hyperledger/aries-framework-go/component/models/ld/processor"
 	"github.com/hyperledger/aries-framework-go/component/models/signature/suite"

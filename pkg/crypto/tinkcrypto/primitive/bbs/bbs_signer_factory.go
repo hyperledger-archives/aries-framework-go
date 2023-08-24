@@ -10,7 +10,7 @@ import (
 	"github.com/google/tink/go/core/registry"
 	"github.com/google/tink/go/keyset"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/bbs"
+	"github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/bbs"
 
 	bbsapi "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/bbs/api"
 )

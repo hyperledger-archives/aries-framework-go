@@ -14,7 +14,7 @@ import (
 	"github.com/go-jose/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
 )
 
 func TestHeaders_GetJWK(t *testing.T) {

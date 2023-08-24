@@ -9,7 +9,7 @@ package webkms
 import (
 	"net/http"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/webkms"
+	"github.com/trustbloc/kms-go/kms/webkms"
 )
 
 const (

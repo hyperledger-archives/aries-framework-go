@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package didfp
 
 import (
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/fingerprint"
+	"github.com/trustbloc/kms-go/doc/util/fingerprint"
 )
 
 // MethodIDFromDIDKey parses the did:key DID and returns it's specific Method ID.

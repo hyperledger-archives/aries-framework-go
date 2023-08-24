@@ -18,13 +18,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity"
 	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/xeipuuv/gojsonschema"
 
+	"github.com/hyperledger/aries-framework-go/component/models/dataintegrity"
+
 	"github.com/hyperledger/aries-framework-go/component/log"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+	"github.com/trustbloc/kms-go/doc/jose"
 
 	"github.com/hyperledger/aries-framework-go/component/models/jwt"
 	docjsonld "github.com/hyperledger/aries-framework-go/component/models/ld/validator"

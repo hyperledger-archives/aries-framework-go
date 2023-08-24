@@ -11,7 +11,8 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/primitive/bbs12381g2pub"
+	"github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
+
 	lddocloader "github.com/hyperledger/aries-framework-go/component/models/ld/documentloader"
 	ldtestutil "github.com/hyperledger/aries-framework-go/component/models/ld/testutil"
 

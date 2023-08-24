@@ -11,7 +11,7 @@ import (
 
 	"github.com/google/tink/go/keyset"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/composite/keyio"
+	"github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/composite/keyio"
 
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"

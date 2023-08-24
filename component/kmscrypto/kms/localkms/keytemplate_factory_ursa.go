@@ -14,8 +14,8 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/spi/kms"
 
-	clbld "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/cl/blinder"
-	clsgn "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/cl/signer"
+	clbld "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/cl/blinder"
+	clsgn "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/cl/signer"
 )
 
 // getKeyTemplate returns tink KeyTemplate associated with the provided keyType.

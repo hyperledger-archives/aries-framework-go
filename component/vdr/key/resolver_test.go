@@ -14,7 +14,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/fingerprint"
+	"github.com/trustbloc/kms-go/doc/util/fingerprint"
 )
 
 func TestReadInvalid(t *testing.T) {

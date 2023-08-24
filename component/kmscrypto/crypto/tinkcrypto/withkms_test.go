@@ -11,17 +11,17 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	mockstorage "github.com/hyperledger/aries-framework-go/component/kmscrypto/internal/mock/storage"
+	mockstorage "github.com/trustbloc/kms-go/internal/mock/storage"
 
 	kmsapi "github.com/hyperledger/aries-framework-go/spi/kms"
 
 	"github.com/hyperledger/aries-framework-go/spi/secretlock"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/util/jwkkid"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/localkms"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/noop"
+	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
+	"github.com/trustbloc/kms-go/doc/util/jwkkid"
+	"github.com/trustbloc/kms-go/kms"
+	"github.com/trustbloc/kms-go/kms/localkms"
+	"github.com/trustbloc/kms-go/secretlock/noop"
 )
 
 type kmsProvider struct {

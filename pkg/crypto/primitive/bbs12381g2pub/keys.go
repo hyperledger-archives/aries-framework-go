@@ -9,7 +9,7 @@ package bbs12381g2pub
 import (
 	"hash"
 
-	bbs "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/primitive/bbs12381g2pub"
+	bbs "github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
 )
 
 // PublicKey defines BLS Public Key.

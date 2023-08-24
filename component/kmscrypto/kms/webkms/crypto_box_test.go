@@ -21,9 +21,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/nacl/box"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/util/cryptoutil"
+	"github.com/trustbloc/kms-go/util/cryptoutil"
 
-	mockkms "github.com/hyperledger/aries-framework-go/component/kmscrypto/mock/kms"
+	mockkms "github.com/trustbloc/kms-go/mock/kms"
 )
 
 func TestNewRemoteCryptoBox(t *testing.T) {

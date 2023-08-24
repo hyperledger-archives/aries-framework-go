@@ -20,8 +20,8 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/spi/secretlock"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/local/masterlock/hkdf"
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/local/masterlock/pbkdf2"
+	"github.com/trustbloc/kms-go/secretlock/local/masterlock/hkdf"
+	"github.com/trustbloc/kms-go/secretlock/local/masterlock/pbkdf2"
 )
 
 const (

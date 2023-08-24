@@ -25,8 +25,9 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/component/log"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/composite/keyio"
-	webkmsimpl "github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/webkms"
+	"github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/composite/keyio"
+	webkmsimpl "github.com/trustbloc/kms-go/kms/webkms"
+
 	spi "github.com/hyperledger/aries-framework-go/spi/log"
 )
 

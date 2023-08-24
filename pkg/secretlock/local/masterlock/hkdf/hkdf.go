@@ -22,7 +22,7 @@ package hkdf
 import (
 	"hash"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/secretlock/local/masterlock/hkdf"
+	"github.com/trustbloc/kms-go/secretlock/local/masterlock/hkdf"
 
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 )

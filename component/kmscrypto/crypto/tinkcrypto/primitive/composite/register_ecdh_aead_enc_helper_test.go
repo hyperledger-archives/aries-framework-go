@@ -23,9 +23,9 @@ import (
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/poly1305"
 
-	cbchmacaead "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/aead"
-	subtlecbchmacaead "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/aead/subtle"
-	aeadpb "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/proto/aes_cbc_hmac_aead_go_proto"
+	cbchmacaead "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/aead"
+	subtlecbchmacaead "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/aead/subtle"
+	aeadpb "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/proto/aes_cbc_hmac_aead_go_proto"
 )
 
 func newKeyTemplates() ([]*tinkpb.KeyTemplate, []int) {

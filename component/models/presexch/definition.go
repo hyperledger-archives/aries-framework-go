@@ -24,7 +24,8 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/component/models/presexch/internal/requirementlogic"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+	"github.com/trustbloc/kms-go/doc/jose"
+
 	"github.com/hyperledger/aries-framework-go/component/log"
 	"github.com/hyperledger/aries-framework-go/component/models/jwt"
 	"github.com/hyperledger/aries-framework-go/component/models/sdjwt/common"

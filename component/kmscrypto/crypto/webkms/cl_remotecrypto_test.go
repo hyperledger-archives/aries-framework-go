@@ -22,9 +22,9 @@ import (
 	"github.com/hyperledger/ursa-wrapper-go/pkg/libursa/ursa"
 	"github.com/stretchr/testify/require"
 
-	bld "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/cl/blinder"
-	sgn "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/cl/signer"
-	webkmsimpl "github.com/hyperledger/aries-framework-go/component/kmscrypto/kms/webkms"
+	bld "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/cl/blinder"
+	sgn "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/cl/signer"
+	webkmsimpl "github.com/trustbloc/kms-go/kms/webkms"
 )
 
 func TestClMethods(t *testing.T) {

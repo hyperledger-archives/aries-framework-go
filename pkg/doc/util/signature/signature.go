@@ -10,7 +10,8 @@ import (
 	"crypto/ed25519"
 	"crypto/elliptic"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
+
 	"github.com/hyperledger/aries-framework-go/component/models/signature/util"
 	cryptoapi "github.com/hyperledger/aries-framework-go/spi/crypto"
 	kmsapi "github.com/hyperledger/aries-framework-go/spi/kms"

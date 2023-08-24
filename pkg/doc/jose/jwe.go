@@ -9,7 +9,7 @@ SPDX-License-Identifier: Apache-2.0
 package jose
 
 import (
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose"
+	"github.com/trustbloc/kms-go/doc/jose"
 )
 
 // JSONWebEncryption represents a JWE as defined in https://tools.ietf.org/html/rfc7516.

@@ -17,7 +17,7 @@ import (
 	"github.com/google/tink/go/keyset"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 
-	clproto "github.com/hyperledger/aries-framework-go/component/kmscrypto/crypto/tinkcrypto/primitive/proto/cl_go_proto"
+	clproto "github.com/trustbloc/kms-go/crypto/tinkcrypto/primitive/proto/cl_go_proto"
 )
 
 // ExportCredDefPubKey will export corresponding pubKey in bytes.
