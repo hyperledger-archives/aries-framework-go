@@ -50,8 +50,6 @@ func TestIntegration(t *testing.T) {
 
 	verifierInit := NewVerifierInitializer(&VerifierInitializerOptions{
 		LDDocumentLoader: docLoader,
-		Verifier:         cr,
-		KMS:              kms,
 	})
 
 	verifier, err := verifierInit.Verifier()

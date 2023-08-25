@@ -60,8 +60,6 @@ func TestIntegration(t *testing.T) {
 
 	verifierInit := ecdsa2019.NewVerifierInitializer(&ecdsa2019.VerifierInitializerOptions{
 		LDDocumentLoader: suiteOpts.LDDocumentLoader,
-		Verifier:         suiteOpts.Verifier,
-		KMS:              suiteOpts.KMS,
 	})
 
 	_, p256Bytes, err := kms.CreateAndExportPubKeyBytes(kmsapi.ECDSAP256IEEEP1363)
@@ -235,7 +233,6 @@ func suiteOptions(t *testing.T) *ecdsa2019.Options {
 	return &ecdsa2019.Options{
 		LDDocumentLoader: docLoader,
 		Signer:           cr,
-		Verifier:         cr,
 	}
 }
 
