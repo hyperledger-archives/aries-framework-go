@@ -33,13 +33,56 @@ const (
 	SuiteType = "ecdsa-2019"
 )
 
-// A Signer is able to sign messages.
-type Signer interface {
+// SignerGetter returns a Signer, which must sign with the private key matching
+// the public key provided in models.ProofOptions.VerificationMethod.
+type SignerGetter func(pub *jwk.JWK) (Signer, error)
+
+// WithStaticSigner sets the Suite to use a fixed Signer, with externally-chosen signing key.
+//
+// Use when a signing Suite is initialized for a single signature, then thrown away.
+func WithStaticSigner(signer Signer) SignerGetter {
+	return func(*jwk.JWK) (Signer, error) {
+		return signer, nil
+	}
+}
+
+// WithLocalKMSSigner returns a SignerGetter that will sign using the given localkms, using the private key matching
+// the given public key.
+func WithLocalKMSSigner(kms models.KeyManager, kmsSigner KMSSigner) SignerGetter {
+	return func(pub *jwk.JWK) (Signer, error) {
+		kid, err := kmsKID(pub)
+		if err != nil {
+			return nil, err
+		}
+
+		kh, err := kms.Get(kid)
+		if err != nil {
+			return nil, err
+		}
+
+		return &wrapSigner{
+			kmsSigner: kmsSigner,
+			kh:        kh,
+		}, nil
+	}
+}
+
+// A KMSSigner is able to sign messages.
+type KMSSigner interface {
 	// Sign will sign msg using a matching signature primitive in kh key handle of a private key
 	// returns:
 	// 		signature in []byte
 	//		error in case of errors
 	Sign(msg []byte, kh interface{}) ([]byte, error)
+}
+
+// A Signer is able to sign messages.
+type Signer interface {
+	// Sign will sign msg using a private key internal to the Signer.
+	// returns:
+	// 		signature in []byte
+	//		error in case of errors
+	Sign(msg []byte) ([]byte, error)
 }
 
 // A Verifier is able to verify messages.
@@ -54,19 +97,17 @@ type Verifier interface {
 // Suite implements the ecdsa-2019 data integrity cryptographic suite.
 type Suite struct {
 	ldLoader     ld.DocumentLoader
-	signer       Signer
 	p256Verifier Verifier
 	p384Verifier Verifier
-	kms          models.KeyManager
+	signerGetter SignerGetter
 }
 
 // Options provides initialization options for Suite.
 type Options struct {
 	LDDocumentLoader ld.DocumentLoader
-	Signer           Signer
 	P256Verifier     Verifier
 	P384Verifier     Verifier
-	KMS              models.KeyManager
+	SignerGetter     SignerGetter
 }
 
 // SuiteInitializer is the initializer for Suite.
@@ -77,10 +118,9 @@ func New(options *Options) SuiteInitializer {
 	return func() (suite.Suite, error) {
 		return &Suite{
 			ldLoader:     options.LDDocumentLoader,
-			signer:       options.Signer,
 			p256Verifier: options.P256Verifier,
 			p384Verifier: options.P384Verifier,
-			kms:          options.KMS,
+			signerGetter: options.SignerGetter,
 		}, nil
 	}
 }
@@ -106,8 +146,7 @@ func (i initializer) Type() string {
 // SignerInitializerOptions provides options for a SignerInitializer.
 type SignerInitializerOptions struct {
 	LDDocumentLoader ld.DocumentLoader
-	Signer           Signer
-	KMS              models.KeyManager
+	SignerGetter     SignerGetter
 }
 
 // NewSignerInitializer returns a suite.SignerInitializer that initializes an ecdsa-2019
@@ -115,8 +154,7 @@ type SignerInitializerOptions struct {
 func NewSignerInitializer(options *SignerInitializerOptions) suite.SignerInitializer {
 	return initializer(New(&Options{
 		LDDocumentLoader: options.LDDocumentLoader,
-		Signer:           options.Signer,
-		KMS:              options.KMS,
+		SignerGetter:     options.SignerGetter,
 	}))
 }
 
@@ -159,7 +197,7 @@ func (s *Suite) CreateProof(doc []byte, opts *models.ProofOptions) (*models.Proo
 		return nil, err
 	}
 
-	sig, err := sign(docHash, vmKey, s.signer, s.kms)
+	sig, err := sign(docHash, vmKey, s.signerGetter)
 	if err != nil {
 		return nil, err
 	}
@@ -312,18 +350,23 @@ func kmsKID(key *jwk.JWK) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(tp), nil
 }
 
-func sign(sigBase []byte, key *jwk.JWK, signer Signer, kms models.KeyManager) ([]byte, error) {
-	kid, err := kmsKID(key)
+type wrapSigner struct {
+	kmsSigner KMSSigner
+	kh        interface{}
+}
+
+// Sign signs using wrapped kms and key handle.
+func (s *wrapSigner) Sign(msg []byte) ([]byte, error) {
+	return s.kmsSigner.Sign(msg, s.kh)
+}
+
+func sign(sigBase []byte, key *jwk.JWK, signerGetter SignerGetter) ([]byte, error) {
+	signer, err := signerGetter(key)
 	if err != nil {
 		return nil, err
 	}
 
-	kh, err := kms.Get(kid)
-	if err != nil {
-		return nil, err
-	}
-
-	sig, err := signer.Sign(sigBase, kh)
+	sig, err := signer.Sign(sigBase)
 	if err != nil {
 		return nil, err
 	}
