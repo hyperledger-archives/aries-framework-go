@@ -49,11 +49,12 @@ func TestNew(t *testing.T) {
 	cryp := &mockcrypto.Crypto{}
 	kms := &mockkms.KeyManager{}
 
+	signerGetter := WithLocalKMSSigner(kms, cryp)
+
 	t.Run("signer success", func(t *testing.T) {
 		sigInit := NewSignerInitializer(&SignerInitializerOptions{
 			LDDocumentLoader: docLoader,
-			Signer:           cryp,
-			KMS:              kms,
+			SignerGetter:     signerGetter,
 		})
 
 		signer, err := sigInit.Signer()
@@ -138,8 +139,7 @@ func successCase(t *testing.T) *testCase {
 func testSign(t *testing.T, tc *testCase) {
 	sigInit := NewSignerInitializer(&SignerInitializerOptions{
 		LDDocumentLoader: tc.docLoader,
-		Signer:           tc.crypto,
-		KMS:              tc.kms,
+		SignerGetter:     WithLocalKMSSigner(tc.kms, tc.crypto),
 	})
 
 	signer, err := sigInit.Signer()
