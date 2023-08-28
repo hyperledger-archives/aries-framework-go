@@ -93,8 +93,6 @@ func Test_DataIntegrity_SignVerify(t *testing.T) {
 	}
 
 	verifySuite := ecdsa2019.NewVerifierInitializer(&ecdsa2019.VerifierInitializerOptions{
-		KMS:              kms,
-		Verifier:         cr,
 		LDDocumentLoader: docLoader,
 	})
 
