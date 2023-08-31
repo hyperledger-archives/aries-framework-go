@@ -323,7 +323,8 @@ func hashData(transformedDoc, confData []byte, h hash.Hash) []byte {
 
 func proofConfig(docCtx interface{}, opts *models.ProofOptions) (map[string]interface{}, error) {
 	if opts.Purpose != opts.VerificationRelationship {
-		return nil, errors.New("verification method is not suitable for purpose")
+		return nil, fmt.Errorf(
+			"verification method %s is not suitable for purpose %s", opts.VerificationRelationship, opts.Purpose)
 	}
 
 	timeStr := opts.Created.Format(models.DateTimeFormat)

@@ -338,7 +338,7 @@ func TestSharedFailures(t *testing.T) {
 		tc := successCase(t)
 
 		tc.proofOpts.Purpose = fooBar
-		tc.errStr = "verification method is not suitable for purpose"
+		tc.errStr = "verification method assertionMethod is not suitable for purpose foo bar"
 
 		testSign(t, tc)
 	})
