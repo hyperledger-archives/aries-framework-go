@@ -82,7 +82,8 @@ func (s *Signer) AddProof(doc []byte, opts *models.ProofOptions) ([]byte, error)
 
 	proof, err := signerSuite.CreateProof(doc, opts)
 	if err != nil {
-		return nil, ErrProofGeneration
+		// TODO update linter to use go 1.20: https://github.com/hyperledger/aries-framework-go/issues/3613
+		return nil, errors.Join(ErrProofGeneration, err) // nolint:typecheck
 	}
 
 	if proof.Type == "" || proof.ProofPurpose == "" || proof.VerificationMethod == "" {
@@ -108,7 +109,8 @@ func (s *Signer) AddProof(doc []byte, opts *models.ProofOptions) ([]byte, error)
 
 	out, err := sjson.SetRawBytes(doc, proofPath, proofRaw)
 	if err != nil {
-		return nil, ErrProofGeneration
+		// TODO update linter to use go 1.20: https://github.com/hyperledger/aries-framework-go/issues/3613
+		return nil, errors.Join(ErrProofGeneration, err) // nolint:typecheck
 	}
 
 	return out, nil
