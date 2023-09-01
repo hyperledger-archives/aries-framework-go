@@ -28,7 +28,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/component/models/ld/documentloader"
 	mockldstore "github.com/hyperledger/aries-framework-go/component/models/ld/mock"
 	"github.com/hyperledger/aries-framework-go/component/models/ld/store"
-	signatureverifier "github.com/hyperledger/aries-framework-go/component/models/signature/verifier"
 )
 
 var (
@@ -49,12 +48,11 @@ func TestNew(t *testing.T) {
 	cryp := &mockcrypto.Crypto{}
 	kms := &mockkms.KeyManager{}
 
-	signerGetter := WithLocalKMSSigner(kms, cryp)
-
 	t.Run("signer success", func(t *testing.T) {
-		sigInit := NewSignerInitializer(&SignerInitializerOptions{
+		sigInit := NewSigner(&Options{
 			LDDocumentLoader: docLoader,
-			SignerGetter:     signerGetter,
+			Crypto:           cryp,
+			KMS:              kms,
 		})
 
 		signer, err := sigInit.Signer()
@@ -64,8 +62,10 @@ func TestNew(t *testing.T) {
 	})
 
 	t.Run("verifier success", func(t *testing.T) {
-		verInit := NewVerifierInitializer(&VerifierInitializerOptions{
+		verInit := NewVerifier(&Options{
 			LDDocumentLoader: docLoader,
+			Crypto:           cryp,
+			KMS:              kms,
 		})
 
 		verifier, err := verInit.Verifier()
@@ -76,16 +76,14 @@ func TestNew(t *testing.T) {
 }
 
 type testCase struct {
-	crypto       *mockcrypto.Crypto
-	kms          *mockkms.KeyManager
-	docLoader    *documentloader.DocumentLoader
-	proofOpts    *models.ProofOptions
-	proof        *models.Proof
-	p256Verifier Verifier
-	p384Verifier Verifier
-	document     []byte
-	errIs        error
-	errStr       string
+	crypto    *mockcrypto.Crypto
+	kms       *mockkms.KeyManager
+	docLoader *documentloader.DocumentLoader
+	proofOpts *models.ProofOptions
+	proof     *models.Proof
+	document  []byte
+	errIs     error
+	errStr    string
 }
 
 func successCase(t *testing.T) *testCase {
@@ -102,14 +100,13 @@ func successCase(t *testing.T) *testCase {
 	proofCreated := time.Now()
 
 	proofOpts := &models.ProofOptions{
-		VerificationMethod:       mockVM,
-		VerificationMethodID:     mockVM.ID,
-		SuiteType:                SuiteType,
-		Purpose:                  "assertionMethod",
-		VerificationRelationship: "assertionMethod",
-		ProofType:                models.DataIntegrityProof,
-		Created:                  proofCreated,
-		MaxAge:                   100,
+		VerificationMethod:   mockVM,
+		VerificationMethodID: mockVM.ID,
+		SuiteType:            SuiteType,
+		Purpose:              "assertionMethod",
+		ProofType:            models.DataIntegrityProof,
+		Created:              proofCreated,
+		MaxAge:               100,
 	}
 
 	mockSig, err := multibase.Encode(multibase.Base58BTC, []byte("mock signature"))
@@ -137,9 +134,10 @@ func successCase(t *testing.T) *testCase {
 }
 
 func testSign(t *testing.T, tc *testCase) {
-	sigInit := NewSignerInitializer(&SignerInitializerOptions{
+	sigInit := NewSigner(&Options{
 		LDDocumentLoader: tc.docLoader,
-		SignerGetter:     WithLocalKMSSigner(tc.kms, tc.crypto),
+		Crypto:           tc.crypto,
+		KMS:              tc.kms,
 	})
 
 	signer, err := sigInit.Signer()
@@ -164,19 +162,11 @@ func testSign(t *testing.T, tc *testCase) {
 	}
 }
 
-type mockVerifier struct {
-	err error
-}
-
-func (mv *mockVerifier) Verify(_ *signatureverifier.PublicKey, _, _ []byte) error {
-	return mv.err
-}
-
 func testVerify(t *testing.T, tc *testCase) {
-	verInit := NewVerifierInitializer(&VerifierInitializerOptions{
+	verInit := NewVerifier(&Options{
 		LDDocumentLoader: tc.docLoader,
-		P256Verifier:     tc.p256Verifier,
-		P384Verifier:     tc.p384Verifier,
+		Crypto:           tc.crypto,
+		KMS:              tc.kms,
 	})
 
 	verifier, err := verInit.Verifier()
@@ -259,9 +249,6 @@ func TestSuite_VerifyProof(t *testing.T) {
 		t.Run("P-256 key", func(t *testing.T) {
 			tc := successCase(t)
 
-			tc.p256Verifier = &mockVerifier{}
-			tc.p384Verifier = &mockVerifier{err: errors.New("some error")}
-
 			testVerify(t, tc)
 		})
 
@@ -269,8 +256,6 @@ func TestSuite_VerifyProof(t *testing.T) {
 			tc := successCase(t)
 
 			tc.proofOpts.VerificationMethod = getP384VM(t)
-			tc.p256Verifier = &mockVerifier{err: errors.New("some error")}
-			tc.p384Verifier = &mockVerifier{}
 
 			testVerify(t, tc)
 		})
@@ -286,12 +271,36 @@ func TestSuite_VerifyProof(t *testing.T) {
 			testVerify(t, tc)
 		})
 
+		t.Run("get verification key bytes", func(t *testing.T) {
+			tc := successCase(t)
+
+			badKey, vm := getVMWithJWK(t)
+
+			badKey.Key = fooBar
+
+			tc.proofOpts.VerificationMethod = vm
+			tc.errStr = "getting verification key bytes"
+
+			testVerify(t, tc)
+		})
+
+		t.Run("get kms key handle", func(t *testing.T) {
+			tc := successCase(t)
+
+			errExpected := errors.New("expected error")
+
+			tc.kms.PubKeyBytesToHandleErr = errExpected
+			tc.errIs = errExpected
+
+			testVerify(t, tc)
+		})
+
 		t.Run("crypto verify", func(t *testing.T) {
 			tc := successCase(t)
 
 			errExpected := errors.New("expected error")
 
-			tc.p256Verifier = &mockVerifier{err: errExpected}
+			tc.crypto.VerifyErr = errExpected
 			tc.errIs = errExpected
 
 			testVerify(t, tc)
@@ -332,15 +341,6 @@ func TestSharedFailures(t *testing.T) {
 		tc.errStr = "unsupported ECDSA curve"
 
 		testVerify(t, tc)
-	})
-
-	t.Run("wrong purpose", func(t *testing.T) {
-		tc := successCase(t)
-
-		tc.proofOpts.Purpose = fooBar
-		tc.errStr = "verification method assertionMethod is not suitable for purpose foo bar"
-
-		testSign(t, tc)
 	})
 
 	t.Run("invalid proof/suite type", func(t *testing.T) {
