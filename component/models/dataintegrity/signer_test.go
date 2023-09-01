@@ -64,16 +64,16 @@ func TestSigner_AddProof(t *testing.T) {
 			&Options{
 				DIDResolver: &mockResolver{
 					vm: &did.VerificationMethod{
-						ID: "#key-1",
+						ID: "did:foo:bar#key-1",
 					},
-					vr: did.AssertionMethod,
+					vr: did.Authentication,
 				},
 			},
 			&mockSuiteInitializer{
 				mockSuite: &mockSuite{
 					CreateProofVal: &models.Proof{
 						Type:               mockSuiteType,
-						ProofPurpose:       "mock-purpose",
+						ProofPurpose:       Authentication,
 						VerificationMethod: "mock-vm",
 						Domain:             "mock-domain",
 						Challenge:          "mock-challenge",
@@ -91,18 +91,19 @@ func TestSigner_AddProof(t *testing.T) {
 			Domain:               "mock-domain",
 			Challenge:            "mock-challenge",
 			MaxAge:               1000,
+			Purpose:              Authentication,
 		})
 		require.NoError(t, err)
 
 		expectProof := []byte(fmt.Sprintf(`{
 			"type": "mock-suite-2023",
-			"proofPurpose": "mock-purpose",
+			"proofPurpose": "%s",
 			"verificationMethod":"mock-vm",
 			"proofValue":"",
 			"created": "%s",
 			"domain": "mock-domain",
 			"challenge":"mock-challenge"
-		}`, createdTime))
+		}`, Authentication, createdTime))
 
 		proofBytes, unsignedDoc := extractProof(t, signedDoc)
 
@@ -154,11 +155,10 @@ func TestSigner_AddProof(t *testing.T) {
 			require.NoError(t, err)
 
 			_, err = s.AddProof(mockDoc, &models.ProofOptions{
-				SuiteType:                mockSuiteType,
-				VerificationRelationship: "assertionMethod",
-				Domain:                   "mock-domain",
-				Challenge:                "mock-challenge",
-				MaxAge:                   1000,
+				SuiteType: mockSuiteType,
+				Domain:    "mock-domain",
+				Challenge: "mock-challenge",
+				MaxAge:    1000,
 			})
 			require.ErrorIs(t, err, ErrNoResolver)
 		})
@@ -176,7 +176,7 @@ func TestSigner_AddProof(t *testing.T) {
 					mockSuite: &mockSuite{
 						CreateProofVal: &models.Proof{
 							Type:               mockSuiteType,
-							ProofPurpose:       "mock-purpose",
+							ProofPurpose:       CapabilityDelegation,
 							VerificationMethod: "mock-vm",
 							Domain:             "mock-domain",
 							Challenge:          "mock-challenge",
@@ -189,11 +189,12 @@ func TestSigner_AddProof(t *testing.T) {
 			require.NoError(t, err)
 
 			_, err = s.AddProof(mockDoc, &models.ProofOptions{
-				SuiteType:                mockSuiteType,
-				VerificationRelationship: "assertionMethod",
-				Domain:                   "mock-domain",
-				Challenge:                "mock-challenge",
-				MaxAge:                   1000,
+				SuiteType:            mockSuiteType,
+				VerificationMethodID: "did:foo:bar#key-1",
+				Purpose:              CapabilityDelegation,
+				Domain:               "mock-domain",
+				Challenge:            "mock-challenge",
+				MaxAge:               1000,
 			})
 			require.ErrorIs(t, err, errExpected)
 			require.ErrorIs(t, err, ErrVMResolution)
@@ -212,9 +213,8 @@ func TestSigner_AddProof(t *testing.T) {
 			require.NoError(t, err)
 
 			signedDoc, err := s.AddProof(mockDoc, &models.ProofOptions{
-				VerificationMethod:       &did.VerificationMethod{},
-				VerificationRelationship: "assertionMethod",
-				SuiteType:                mockSuiteType,
+				VerificationMethod: &did.VerificationMethod{},
+				SuiteType:          mockSuiteType,
 			})
 			require.ErrorIs(t, err, ErrProofGeneration)
 			require.Nil(t, signedDoc)
@@ -238,9 +238,8 @@ func TestSigner_AddProof(t *testing.T) {
 				require.NoError(t, err)
 
 				signedDoc, err := s.AddProof(mockDoc, &models.ProofOptions{
-					SuiteType:                mockSuiteType,
-					VerificationMethod:       &did.VerificationMethod{},
-					VerificationRelationship: "assertionMethod",
+					SuiteType:          mockSuiteType,
+					VerificationMethod: &did.VerificationMethod{},
 				})
 				require.ErrorIs(t, err, ErrProofGeneration)
 				require.Nil(t, signedDoc)
@@ -252,8 +251,7 @@ func TestSigner_AddProof(t *testing.T) {
 					&mockSuiteInitializer{
 						mockSuite: &mockSuite{
 							CreateProofVal: &models.Proof{
-								Type: mockSuiteType,
-								// ProofPurpose:       "mock-purpose",
+								Type:               mockSuiteType,
 								VerificationMethod: "mock-vm",
 							},
 						},
@@ -263,9 +261,8 @@ func TestSigner_AddProof(t *testing.T) {
 				require.NoError(t, err)
 
 				signedDoc, err := s.AddProof(mockDoc, &models.ProofOptions{
-					SuiteType:                mockSuiteType,
-					VerificationMethod:       &did.VerificationMethod{},
-					VerificationRelationship: "assertionMethod",
+					SuiteType:          mockSuiteType,
+					VerificationMethod: &did.VerificationMethod{},
 				})
 				require.ErrorIs(t, err, ErrProofGeneration)
 				require.Nil(t, signedDoc)
@@ -279,7 +276,6 @@ func TestSigner_AddProof(t *testing.T) {
 							CreateProofVal: &models.Proof{
 								Type:         mockSuiteType,
 								ProofPurpose: "mock-purpose",
-								// VerificationMethod: "mock-vm",
 							},
 						},
 						typeStr: mockSuiteType,
@@ -288,9 +284,8 @@ func TestSigner_AddProof(t *testing.T) {
 				require.NoError(t, err)
 
 				signedDoc, err := s.AddProof(mockDoc, &models.ProofOptions{
-					SuiteType:                mockSuiteType,
-					VerificationMethod:       &did.VerificationMethod{},
-					VerificationRelationship: "assertionMethod",
+					SuiteType:          mockSuiteType,
+					VerificationMethod: &did.VerificationMethod{},
 				})
 				require.ErrorIs(t, err, ErrProofGeneration)
 				require.Nil(t, signedDoc)
@@ -314,9 +309,8 @@ func TestSigner_AddProof(t *testing.T) {
 				require.NoError(t, err)
 
 				signedDoc, err := s.AddProof(mockDoc, &models.ProofOptions{
-					SuiteType:                mockSuiteType,
-					VerificationMethod:       &did.VerificationMethod{},
-					VerificationRelationship: "assertionMethod",
+					SuiteType:          mockSuiteType,
+					VerificationMethod: &did.VerificationMethod{},
 				})
 				require.ErrorIs(t, err, ErrProofGeneration)
 				require.Nil(t, signedDoc)
@@ -341,10 +335,9 @@ func TestSigner_AddProof(t *testing.T) {
 			require.NoError(t, err)
 
 			signedDoc, err := s.AddProof(mockDoc, &models.ProofOptions{
-				VerificationMethod:       &did.VerificationMethod{},
-				VerificationRelationship: "assertionMethod",
-				SuiteType:                mockSuiteType,
-				Domain:                   "expected-domain",
+				VerificationMethod: &did.VerificationMethod{},
+				SuiteType:          mockSuiteType,
+				Domain:             "expected-domain",
 			})
 			require.ErrorIs(t, err, ErrProofGeneration)
 			require.Nil(t, signedDoc)
@@ -369,11 +362,10 @@ func TestSigner_AddProof(t *testing.T) {
 			require.NoError(t, err)
 
 			signedDoc, err := s.AddProof(mockDoc, &models.ProofOptions{
-				SuiteType:                mockSuiteType,
-				Domain:                   "expected-domain",
-				Challenge:                "expected-challenge",
-				VerificationMethod:       &did.VerificationMethod{},
-				VerificationRelationship: "assertionMethod",
+				SuiteType:          mockSuiteType,
+				Domain:             "expected-domain",
+				Challenge:          "expected-challenge",
+				VerificationMethod: &did.VerificationMethod{},
 			})
 			require.ErrorIs(t, err, ErrProofGeneration)
 			require.Nil(t, signedDoc)

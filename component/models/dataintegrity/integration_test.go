@@ -77,10 +77,10 @@ func TestIntegration(t *testing.T) {
 	p384JWK, err := jwkkid.BuildJWK(p384Bytes, kmsapi.ECDSAP384IEEEP1363)
 	require.NoError(t, err)
 
-	p256VM, err := did.NewVerificationMethodFromJWK(mockVMID, "JsonWebKey2020", mockDID, p256JWK)
+	p256VM, err := did.NewVerificationMethodFromJWK(mockKID, "JsonWebKey2020", mockDID, p256JWK)
 	require.NoError(t, err)
 
-	p384VM, err := did.NewVerificationMethodFromJWK(mockVMID2, "JsonWebKey2020", mockDID2, p384JWK)
+	p384VM, err := did.NewVerificationMethodFromJWK(mockKID2, "JsonWebKey2020", mockDID2, p384JWK)
 	require.NoError(t, err)
 
 	resolver := resolveFunc(func(id string) (*did.DocResolution, error) {
@@ -105,14 +105,13 @@ func TestIntegration(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Run("P-256 key", func(t *testing.T) {
 			signOpts := &models.ProofOptions{
-				VerificationMethod:       p256VM,
-				VerificationMethodID:     p256VM.ID,
-				SuiteType:                ecdsa2019.SuiteType,
-				Purpose:                  "assertionMethod",
-				VerificationRelationship: "assertionMethod",
-				ProofType:                models.DataIntegrityProof,
-				Created:                  time.Now(),
-				MaxAge:                   100,
+				VerificationMethod:   p256VM,
+				VerificationMethodID: p256VM.ID,
+				SuiteType:            ecdsa2019.SuiteType,
+				Purpose:              AssertionMethod,
+				ProofType:            models.DataIntegrityProof,
+				Created:              time.Now(),
+				MaxAge:               100,
 			}
 
 			signedCred, err := signer.AddProof(validCredential, signOpts)
@@ -121,7 +120,7 @@ func TestIntegration(t *testing.T) {
 			verifyOpts := &models.ProofOptions{
 				VerificationMethodID: mockKID,
 				SuiteType:            ecdsa2019.SuiteType,
-				Purpose:              "assertionMethod",
+				Purpose:              AssertionMethod,
 				ProofType:            models.DataIntegrityProof,
 				Created:              time.Now(),
 				MaxAge:               100,
@@ -133,14 +132,13 @@ func TestIntegration(t *testing.T) {
 
 		t.Run("P-384 key", func(t *testing.T) {
 			signOpts := &models.ProofOptions{
-				VerificationMethod:       p384VM,
-				VerificationMethodID:     mockKID2,
-				SuiteType:                ecdsa2019.SuiteType,
-				Purpose:                  "assertionMethod",
-				VerificationRelationship: "assertionMethod",
-				ProofType:                models.DataIntegrityProof,
-				Created:                  time.Now(),
-				MaxAge:                   100,
+				VerificationMethod:   p384VM,
+				VerificationMethodID: mockKID2,
+				SuiteType:            ecdsa2019.SuiteType,
+				Purpose:              AssertionMethod,
+				ProofType:            models.DataIntegrityProof,
+				Created:              time.Now(),
+				MaxAge:               100,
 			}
 
 			signedCred, err := signer.AddProof(validCredential, signOpts)
@@ -149,7 +147,7 @@ func TestIntegration(t *testing.T) {
 			verifyOpts := &models.ProofOptions{
 				VerificationMethodID: mockKID2,
 				SuiteType:            ecdsa2019.SuiteType,
-				Purpose:              "assertionMethod",
+				Purpose:              AssertionMethod,
 				ProofType:            models.DataIntegrityProof,
 				Created:              time.Now(),
 				MaxAge:               100,
@@ -163,23 +161,21 @@ func TestIntegration(t *testing.T) {
 	t.Run("failure", func(t *testing.T) {
 		t.Run("wrong key", func(t *testing.T) {
 			signOpts := &models.ProofOptions{
-				VerificationMethod:       p256VM,
-				VerificationMethodID:     p256VM.ID,
-				SuiteType:                ecdsa2019.SuiteType,
-				Purpose:                  "assertionMethod",
-				VerificationRelationship: "assertionMethod",
-				ProofType:                models.DataIntegrityProof,
-				Created:                  time.Now(),
+				VerificationMethod:   p256VM,
+				VerificationMethodID: p256VM.ID,
+				SuiteType:            ecdsa2019.SuiteType,
+				Purpose:              AssertionMethod,
+				ProofType:            models.DataIntegrityProof,
+				Created:              time.Now(),
 			}
 
 			verifyOpts := &models.ProofOptions{
-				VerificationMethod:       p384VM,
-				VerificationMethodID:     p384VM.ID,
-				SuiteType:                ecdsa2019.SuiteType,
-				Purpose:                  "assertionMethod",
-				VerificationRelationship: "assertionMethod",
-				ProofType:                models.DataIntegrityProof,
-				MaxAge:                   100,
+				VerificationMethod:   p384VM,
+				VerificationMethodID: p384VM.ID,
+				SuiteType:            ecdsa2019.SuiteType,
+				Purpose:              AssertionMethod,
+				ProofType:            models.DataIntegrityProof,
+				MaxAge:               100,
 			}
 
 			signedCred, err := signer.AddProof(validCredential, signOpts)
@@ -191,24 +187,22 @@ func TestIntegration(t *testing.T) {
 		})
 		t.Run("malformed proof created", func(t *testing.T) {
 			signOpts := &models.ProofOptions{
-				VerificationMethod:       p256VM,
-				VerificationMethodID:     p256VM.ID,
-				SuiteType:                ecdsa2019.SuiteType,
-				Purpose:                  "assertionMethod",
-				VerificationRelationship: "assertionMethod",
-				ProofType:                models.DataIntegrityProof,
-				Created:                  time.Now(),
+				VerificationMethod:   p256VM,
+				VerificationMethodID: p256VM.ID,
+				SuiteType:            ecdsa2019.SuiteType,
+				Purpose:              "assertionMethod",
+				ProofType:            models.DataIntegrityProof,
+				Created:              time.Now(),
 			}
 
 			verifyOpts := &models.ProofOptions{
-				VerificationMethod:       p384VM,
-				VerificationMethodID:     p384VM.ID,
-				SuiteType:                ecdsa2019.SuiteType,
-				Purpose:                  "assertionMethod",
-				VerificationRelationship: "assertionMethod",
-				ProofType:                models.DataIntegrityProof,
-				MaxAge:                   100,
-				Created:                  time.Time{},
+				VerificationMethod:   p384VM,
+				VerificationMethodID: p384VM.ID,
+				SuiteType:            ecdsa2019.SuiteType,
+				Purpose:              "assertionMethod",
+				ProofType:            models.DataIntegrityProof,
+				MaxAge:               100,
+				Created:              time.Time{},
 			}
 
 			signedCred, err := signer.AddProof(validCredential, signOpts)

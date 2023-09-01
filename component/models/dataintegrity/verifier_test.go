@@ -69,7 +69,7 @@ func TestVerifier_VerifyProof(t *testing.T) {
 			&Options{
 				DIDResolver: &mockResolver{
 					vm: &did.VerificationMethod{
-						ID: mockVMID,
+						ID: mockKID,
 					},
 					vr: did.AssertionMethod,
 				},
@@ -87,7 +87,7 @@ func TestVerifier_VerifyProof(t *testing.T) {
 			Type:               models.DataIntegrityProof,
 			CryptoSuite:        mockSuiteType,
 			VerificationMethod: mockKID,
-			ProofPurpose:       "mock-purpose",
+			ProofPurpose:       AssertionMethod,
 			Created:            createdTime,
 			Domain:             "mock-domain",
 			Challenge:          "mock-challenge",
@@ -97,7 +97,50 @@ func TestVerifier_VerifyProof(t *testing.T) {
 		require.NoError(t, err)
 
 		err = v.VerifyProof(signedDoc, &models.ProofOptions{
-			Purpose:   "mock-purpose",
+			Purpose:   AssertionMethod,
+			MaxAge:    1000,
+			Domain:    "mock-domain",
+			Challenge: "mock-challenge",
+		})
+		require.NoError(t, err)
+	})
+
+	t.Run("success general purpose", func(t *testing.T) {
+		createdTime := time.Now().Format(models.DateTimeFormat)
+
+		v, err := NewVerifier(
+			&Options{
+				DIDResolver: &mockResolver{
+					vm: &did.VerificationMethod{
+						ID: mockKID,
+					},
+					vr: did.VerificationRelationshipGeneral,
+				},
+			},
+			&mockSuiteInitializer{
+				mockSuite: &mockSuite{
+					ReqCreatedVal: true,
+				},
+				typeStr: mockSuiteType,
+			})
+
+		require.NoError(t, err)
+
+		mockProof := &models.Proof{
+			Type:               models.DataIntegrityProof,
+			CryptoSuite:        mockSuiteType,
+			VerificationMethod: mockKID,
+			ProofPurpose:       AssertionMethod,
+			Created:            createdTime,
+			Domain:             "mock-domain",
+			Challenge:          "mock-challenge",
+		}
+
+		signedDoc, err := mockAddProof(mockDoc, mockProof)
+		require.NoError(t, err)
+
+		err = v.VerifyProof(signedDoc, &models.ProofOptions{
+			Purpose:   AssertionMethod,
 			MaxAge:    1000,
 			Domain:    "mock-domain",
 			Challenge: "mock-challenge",
@@ -289,10 +332,54 @@ func TestVerifier_VerifyProof(t *testing.T) {
 			require.NoError(t, err)
 
 			err = v.VerifyProof(signedDoc, &models.ProofOptions{
-				Created: time.Now(),
 				Purpose: "different-purpose",
+				Created: time.Now(),
 			})
 			require.ErrorIs(t, err, ErrMismatchedPurpose)
+		})
+
+		t.Run("unsupported purpose", func(t *testing.T) {
+			createdTime := time.Now().Format(models.DateTimeFormat)
+
+			v, err := NewVerifier(
+				&Options{
+					DIDResolver: &mockResolver{
+						vm: &did.VerificationMethod{
+							ID: mockKID,
+						},
+						vr: did.VerificationRelationshipGeneral,
+					},
+				},
+				&mockSuiteInitializer{
+					mockSuite: &mockSuite{
+						ReqCreatedVal: true,
+					},
+					typeStr: mockSuiteType,
+				})
+
+			require.NoError(t, err)
+
+			mockProof := &models.Proof{
+				Type:               models.DataIntegrityProof,
+				CryptoSuite:        mockSuiteType,
+				VerificationMethod: mockKID,
+				ProofPurpose:       "mock-purpose",
+				Created:            createdTime,
+				Domain:             "mock-domain",
+				Challenge:          "mock-challenge",
+			}
+
+			signedDoc, err := mockAddProof(mockDoc, mockProof)
+			require.NoError(t, err)
+
+			err = v.VerifyProof(signedDoc, &models.ProofOptions{
+				Purpose:   "mock-purpose",
+				MaxAge:    1000,
+				Domain:    "mock-domain",
+				Challenge: "mock-challenge",
+			})
+			require.ErrorIs(t, err, ErrVMResolution)
+			require.ErrorContains(t, err, "purpose mock-purpose not supported")
 		})
 
 		t.Run("no resolver", func(t *testing.T) {
@@ -310,6 +397,7 @@ func TestVerifier_VerifyProof(t *testing.T) {
 				CryptoSuite:        mockSuiteType,
 				VerificationMethod: mockKID,
 				ProofPurpose:       "mock-purpose",
+				Created:            time.Now().Format(models.DateTimeFormat),
 			}
 
 			signedDoc, err := mockAddProof(mockDoc, mockProof)
@@ -317,7 +405,6 @@ func TestVerifier_VerifyProof(t *testing.T) {
 
 			err = v.VerifyProof(signedDoc, &models.ProofOptions{
 				Purpose: "mock-purpose",
-				Created: time.Now(),
 				MaxAge:  1000,
 			})
 			require.Error(t, err)
@@ -343,6 +430,7 @@ func TestVerifier_VerifyProof(t *testing.T) {
 				CryptoSuite:        mockSuiteType,
 				VerificationMethod: mockKID,
 				ProofPurpose:       "mock-purpose",
+				Created:            time.Now().Format(models.DateTimeFormat),
 			}
 
 			signedDoc, err := mockAddProof(mockDoc, mockProof)
@@ -350,7 +438,6 @@ func TestVerifier_VerifyProof(t *testing.T) {
 
 			err = v.VerifyProof(signedDoc, &models.ProofOptions{
 				Purpose: "mock-purpose",
-				Created: time.Now(),
 				MaxAge:  1000,
 			})
 			require.Error(t, err)
@@ -365,7 +452,7 @@ func TestVerifier_VerifyProof(t *testing.T) {
 						vm: &did.VerificationMethod{
 							ID: mockVMID,
 						},
-						vr: did.AssertionMethod,
+						vr: did.CapabilityInvocation,
 					},
 				},
 				&mockSuiteInitializer{
@@ -381,15 +468,15 @@ func TestVerifier_VerifyProof(t *testing.T) {
 				Type:               models.DataIntegrityProof,
 				CryptoSuite:        mockSuiteType,
 				VerificationMethod: mockKID,
-				ProofPurpose:       "mock-purpose",
+				ProofPurpose:       CapabilityInvocation,
+				Created:            time.Now().Format(models.DateTimeFormat),
 			}
 
 			signedDoc, err := mockAddProof(mockDoc, mockProof)
 			require.NoError(t, err)
 
 			err = v.VerifyProof(signedDoc, &models.ProofOptions{
-				Purpose: "mock-purpose",
-				Created: time.Now(),
+				Purpose: CapabilityInvocation,
 			})
 			require.ErrorIs(t, err, errExpected)
 		})
@@ -415,7 +502,7 @@ func TestVerifier_VerifyProof(t *testing.T) {
 				Type:               models.DataIntegrityProof,
 				CryptoSuite:        mockSuiteType,
 				VerificationMethod: mockKID,
-				ProofPurpose:       "mock-purpose",
+				ProofPurpose:       AssertionMethod,
 				Created:            "Id. Mar. DCCX AUC",
 			}
 
@@ -423,7 +510,7 @@ func TestVerifier_VerifyProof(t *testing.T) {
 			require.NoError(t, err)
 
 			err = v.VerifyProof(signedDoc, &models.ProofOptions{
-				Purpose: "mock-purpose",
+				Purpose: AssertionMethod,
 			})
 			require.ErrorIs(t, err, ErrMalformedProof)
 		})
@@ -451,7 +538,7 @@ func TestVerifier_VerifyProof(t *testing.T) {
 				Type:               models.DataIntegrityProof,
 				CryptoSuite:        mockSuiteType,
 				VerificationMethod: mockKID,
-				ProofPurpose:       "mock-purpose",
+				ProofPurpose:       AssertionMethod,
 				Created:            createdTime,
 			}
 
@@ -459,7 +546,7 @@ func TestVerifier_VerifyProof(t *testing.T) {
 			require.NoError(t, err)
 
 			err = v.VerifyProof(signedDoc, &models.ProofOptions{
-				Purpose: "mock-purpose",
+				Purpose: AssertionMethod,
 				MaxAge:  5,
 			})
 			require.ErrorIs(t, err, ErrOutOfDate)
@@ -486,17 +573,17 @@ func TestVerifier_VerifyProof(t *testing.T) {
 				Type:               models.DataIntegrityProof,
 				CryptoSuite:        mockSuiteType,
 				VerificationMethod: mockKID,
-				ProofPurpose:       "mock-purpose",
+				ProofPurpose:       AssertionMethod,
 				Domain:             "wrong-domain",
+				Created:            time.Now().Format(models.DateTimeFormat),
 			}
 
 			signedDoc, err := mockAddProof(mockDoc, mockProof)
 			require.NoError(t, err)
 
 			err = v.VerifyProof(signedDoc, &models.ProofOptions{
-				Purpose: "mock-purpose",
+				Purpose: AssertionMethod,
 				Domain:  "mock-domain",
-				Created: time.Now(),
 			})
 			require.ErrorIs(t, err, ErrInvalidDomain)
 		})
@@ -508,7 +595,7 @@ func TestVerifier_VerifyProof(t *testing.T) {
 						vm: &did.VerificationMethod{
 							ID: mockVMID,
 						},
-						vr: did.AssertionMethod,
+						vr: did.CapabilityDelegation,
 					},
 				},
 				&mockSuiteInitializer{
@@ -522,7 +609,7 @@ func TestVerifier_VerifyProof(t *testing.T) {
 				Type:               models.DataIntegrityProof,
 				CryptoSuite:        mockSuiteType,
 				VerificationMethod: mockKID,
-				ProofPurpose:       "mock-purpose",
+				ProofPurpose:       CapabilityDelegation,
 				Challenge:          "wrong-challenge",
 			}
 
@@ -530,7 +617,7 @@ func TestVerifier_VerifyProof(t *testing.T) {
 			require.NoError(t, err)
 
 			err = v.VerifyProof(signedDoc, &models.ProofOptions{
-				Purpose:   "mock-purpose",
+				Purpose:   CapabilityDelegation,
 				Challenge: "mock-challenge",
 				Created:   time.Now(),
 			})

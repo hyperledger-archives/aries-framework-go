@@ -178,6 +178,10 @@ func makeMockDIDResolution(id string, vm *did.VerificationMethod, vr did.Verific
 		doc.Authentication = ver
 	case did.AssertionMethod:
 		doc.AssertionMethod = ver
+	case did.CapabilityDelegation:
+		doc.CapabilityDelegation = ver
+	case did.CapabilityInvocation:
+		doc.CapabilityInvocation = ver
 	}
 
 	return &did.DocResolution{
