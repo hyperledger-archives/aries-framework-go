@@ -250,10 +250,7 @@ func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte,
 		return nil, nil, nil, errors.New("unsupported ECDSA curve")
 	}
 
-	confData, err := proofConfig(docData[ldCtxKey], opts)
-	if err != nil {
-		return nil, nil, nil, err
-	}
+	confData := proofConfig(docData[ldCtxKey], opts)
 
 	if opts.ProofType != "DataIntegrityProof" || opts.SuiteType != SuiteType {
 		return nil, nil, nil, suite.ErrProofTransformation
@@ -321,24 +318,15 @@ func hashData(transformedDoc, confData []byte, h hash.Hash) []byte {
 	return result
 }
 
-func proofConfig(docCtx interface{}, opts *models.ProofOptions) (map[string]interface{}, error) {
-	if opts.Purpose != opts.VerificationRelationship {
-		return nil, fmt.Errorf(
-			"verification method %s is not suitable for purpose %s", opts.VerificationRelationship, opts.Purpose)
-	}
-
-	timeStr := opts.Created.Format(models.DateTimeFormat)
-
-	conf := map[string]interface{}{
+func proofConfig(docCtx interface{}, opts *models.ProofOptions) map[string]interface{} {
+	return map[string]interface{}{
 		ldCtxKey:             docCtx,
 		"type":               models.DataIntegrityProof,
 		"cryptosuite":        SuiteType,
 		"verificationMethod": opts.VerificationMethodID,
-		"created":            timeStr,
+		"created":            opts.Created.Format(models.DateTimeFormat),
 		"proofPurpose":       opts.Purpose,
 	}
-
-	return conf, nil
 }
 
 // TODO copied from kid_creator.go, should move there: https://github.com/hyperledger/aries-framework-go/issues/3614

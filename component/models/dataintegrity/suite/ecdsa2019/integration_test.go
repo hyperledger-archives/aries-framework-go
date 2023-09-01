@@ -75,14 +75,13 @@ func TestIntegration(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Run("P-256 key", func(t *testing.T) {
 			proofOpts := &models.ProofOptions{
-				VerificationMethod:       p256VM,
-				VerificationMethodID:     p256VM.ID,
-				SuiteType:                SuiteType,
-				Purpose:                  "assertionMethod",
-				VerificationRelationship: "assertionMethod",
-				ProofType:                models.DataIntegrityProof,
-				Created:                  time.Now(),
-				MaxAge:                   100,
+				VerificationMethod:   p256VM,
+				VerificationMethodID: p256VM.ID,
+				SuiteType:            SuiteType,
+				Purpose:              "assertionMethod",
+				ProofType:            models.DataIntegrityProof,
+				Created:              time.Now(),
+				MaxAge:               100,
 			}
 
 			proof, err := signer.CreateProof(validCredential, proofOpts)
@@ -94,14 +93,13 @@ func TestIntegration(t *testing.T) {
 
 		t.Run("P-384 key", func(t *testing.T) {
 			proofOpts := &models.ProofOptions{
-				VerificationMethod:       p384VM,
-				VerificationMethodID:     p384VM.ID,
-				SuiteType:                SuiteType,
-				Purpose:                  "assertionMethod",
-				VerificationRelationship: "assertionMethod",
-				ProofType:                models.DataIntegrityProof,
-				Created:                  time.Now(),
-				MaxAge:                   100,
+				VerificationMethod:   p384VM,
+				VerificationMethodID: p384VM.ID,
+				SuiteType:            SuiteType,
+				Purpose:              "assertionMethod",
+				ProofType:            models.DataIntegrityProof,
+				Created:              time.Now(),
+				MaxAge:               100,
 			}
 
 			proof, err := signer.CreateProof(validCredential, proofOpts)
@@ -115,23 +113,21 @@ func TestIntegration(t *testing.T) {
 	t.Run("failure", func(t *testing.T) {
 		t.Run("wrong key", func(t *testing.T) {
 			signOpts := &models.ProofOptions{
-				VerificationMethod:       p256VM,
-				VerificationMethodID:     p256VM.ID,
-				SuiteType:                SuiteType,
-				Purpose:                  "assertionMethod",
-				VerificationRelationship: "assertionMethod",
-				ProofType:                models.DataIntegrityProof,
-				Created:                  time.Now(),
+				VerificationMethod:   p256VM,
+				VerificationMethodID: p256VM.ID,
+				SuiteType:            SuiteType,
+				Purpose:              "assertionMethod",
+				ProofType:            models.DataIntegrityProof,
+				Created:              time.Now(),
 			}
 
 			verifyOpts := &models.ProofOptions{
-				VerificationMethod:       p384VM,
-				VerificationMethodID:     p384VM.ID,
-				SuiteType:                SuiteType,
-				Purpose:                  "assertionMethod",
-				VerificationRelationship: "assertionMethod",
-				ProofType:                models.DataIntegrityProof,
-				MaxAge:                   100,
+				VerificationMethod:   p384VM,
+				VerificationMethodID: p384VM.ID,
+				SuiteType:            SuiteType,
+				Purpose:              "assertionMethod",
+				ProofType:            models.DataIntegrityProof,
+				MaxAge:               100,
 			}
 
 			proof, err := signer.CreateProof(validCredential, signOpts)

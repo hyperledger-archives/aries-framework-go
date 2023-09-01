@@ -48,17 +48,16 @@ type Proof struct {
 
 // ProofOptions provides options for signing or verifying a data integrity proof.
 type ProofOptions struct {
-	Purpose                  string
-	VerificationMethodID     string
-	VerificationMethod       *VerificationMethod
-	VerificationRelationship string
-	ProofType                string
-	SuiteType                string
-	Domain                   string
-	Challenge                string
-	Created                  time.Time
-	MaxAge                   int64
-	CustomFields             map[string]interface{}
+	Purpose              string
+	VerificationMethodID string
+	VerificationMethod   *VerificationMethod
+	ProofType            string
+	SuiteType            string
+	Domain               string
+	Challenge            string
+	Created              time.Time
+	MaxAge               int64
+	CustomFields         map[string]interface{}
 }
 
 // DateTimeFormat is the date-time format used by the data integrity
