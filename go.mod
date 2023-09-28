@@ -32,11 +32,13 @@ require (
 	github.com/hyperledger/ursa-wrapper-go v0.3.1
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/multiformats/go-multibase v0.1.1
+	github.com/perun-network/bbs-plus-threshold-wallet v0.0.0-20230927092152-14474bfdc486
 	github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f
 	github.com/pkg/errors v0.9.1
 	github.com/rs/cors v1.7.0
 	github.com/stretchr/testify v1.8.1
 	golang.org/x/crypto v0.1.0
+	golang.org/x/exp v0.0.0-20230905200255-921286631fa9
 	nhooyr.io/websocket v1.8.3
 )
 
@@ -73,8 +75,7 @@ require (
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
-	golang.org/x/exp v0.0.0-20230728194245-b0cb94b80691 // indirect
-	golang.org/x/sys v0.2.0 // indirect
+	golang.org/x/sys v0.12.0 // indirect
 	golang.org/x/time v0.1.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
