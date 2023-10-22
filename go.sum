@@ -73,8 +73,6 @@ github.com/gorilla/websocket v1.4.1/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/ad
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
 github.com/hyperledger/aries-framework-go/component/didconfig v0.0.0-20230622211121-852ce35730b4 h1:6pkyx5TMJEZpau/HsDNSndZy+MrX9hJmWAtGM1UaGuI=
 github.com/hyperledger/aries-framework-go/component/didconfig v0.0.0-20230622211121-852ce35730b4/go.mod h1:SCS+CWl/U4qRgy540BAKvSlLHAUXrw29pmuhp3nMzbY=
-github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230622082138-3ffab1691857 h1:x7Lt4FAPmMNyKQCUhnUOYeDpskaHnRNrtZj4rKfSKfU=
-github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230622082138-3ffab1691857/go.mod h1:xgNlHAVQjqwoknzHbXkeHkAJgUxRWKfHXPT3nhVhH3Q=
 github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3 h1:x5qFQraTX86z9GCwF28IxfnPm6QH5YgHaX+4x97Jwvw=
 github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3/go.mod h1:CvYs4l8X2NrrF93weLOu5RTOIJeVdoZITtjEflyuTyM=
 github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20221025204933-b807371b6f1e h1:/hrQfwJvHJrwV2FSmfnRp5L6yKY9DqDFqwYyb+oVuDU=
@@ -130,8 +128,6 @@ github.com/multiformats/go-varint v0.0.5/go.mod h1:3Ls8CIEsrijN6+B7PbrXRPxHRPuXS
 github.com/onsi/ginkgo v1.6.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
 github.com/onsi/ginkgo v1.7.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
 github.com/onsi/gomega v1.4.3/go.mod h1:ex+gbHU/CVuBBDIJjb2X0qEXbFg53c61hWP/1CpauHY=
-github.com/perun-network/bbs-plus-threshold-wallet v0.0.0-20230927092152-14474bfdc486 h1:AM+br2N8uaYK1MNcV7tEhUxjeuX2jYpOh5u/i2f88Os=
-github.com/perun-network/bbs-plus-threshold-wallet v0.0.0-20230927092152-14474bfdc486/go.mod h1:WjRbnozv0YGLMGYhp7zh2SUZvcdGMKFekqMRl0J2rGQ=
 github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f h1:HlPa7RcxTCrva5izPfTEfvYecO7LTahgmMRD1Qp13xg=
 github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f/go.mod h1:WZ501QQMbZZ+3pXFPhQKzNwS1+jls0oqov3uQ2WasLs=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=

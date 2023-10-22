@@ -4,25 +4,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
-	"time"
 
+	jsonld "github.com/hyperledger/aries-framework-go/component/models/ld/processor"
+	"github.com/hyperledger/aries-framework-go/component/models/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/client/vcwallet"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
-	bls12381 "github.com/kilic/bls12-381"
-	"github.com/perun-network/bbs-plus-threshold-wallet/fhks_bbs_plus"
-	thwallet "github.com/perun-network/bbs-plus-threshold-wallet/wallet"
 	"github.com/piprate/json-gold/ld"
 	"golang.org/x/exp/slices"
-)
-
-const (
-	walletExpiry = 10 * time.Minute
 )
 
 // provider contains dependencies for the verifiable credential wallet client
@@ -48,22 +43,22 @@ type didCommProvider interface {
 	KeyAgreementType() kms.KeyType
 }
 
-type Client struct {
+type PartySigner struct {
 	userID        string
 	vcwallet      *vcwallet.Client
-	isExpired     bool
+	context       provider
 	collectionIDs []string
 }
 
-func New(userID string, ctx provider, options ...wallet.UnlockOptions) (*Client, error) {
+func NewPartySigner(userID string, ctx provider, options ...wallet.UnlockOptions) (*PartySigner, error) {
 	vcwallet, err := vcwallet.New(userID, ctx, options...)
 	if err != nil {
 		return nil, err
 	}
-	return &Client{
+	return &PartySigner{
 		userID:        userID,
 		vcwallet:      vcwallet,
-		isExpired:     true,
+		context:       ctx,
 		collectionIDs: make([]string, 0),
 	}, nil
 }
@@ -87,24 +82,19 @@ func ProfileExists(userID string, ctx provider) error {
 	return wallet.ProfileExists(userID, ctx)
 }
 
-func (c *Client) Open() error {
-	if err := c.vcwallet.Open(wallet.WithUnlockExpiry(walletExpiry)); err != nil {
+func (c *PartySigner) Open(options ...wallet.UnlockOptions) error {
+	if err := c.vcwallet.Open(options...); err != nil {
 		return err
 	}
-	c.isExpired = false
-	c.watchExpiry()
 	return nil
 }
 
-func (c *Client) Close() error {
-	if !c.isExpired {
-		c.vcwallet.Close()
-		c.isExpired = true
-	}
+func (c *PartySigner) Close() error {
+	c.vcwallet.Close()
 	return nil
 }
 
-func (c *Client) Store(document *thwallet.Document) error {
+func (c *PartySigner) Store(document *Document) error {
 	// Check if the document's collection is already stored.
 	if !slices.Contains(c.collectionIDs, document.CollectionID) {
 		collection := newCollection(document.CollectionID, c.userID)
@@ -121,8 +111,8 @@ func (c *Client) Store(document *thwallet.Document) error {
 
 	// Store document based on its type.
 	switch document.Type {
-	case thwallet.Credential:
-		cred, err := newCredential(document)
+	case Credential:
+		cred, err := credentialFromDocument(document)
 		if err != nil {
 			return fmt.Errorf("create credential: %w", err)
 		}
@@ -136,7 +126,7 @@ func (c *Client) Store(document *thwallet.Document) error {
 		if err != nil {
 			return fmt.Errorf("add new credential to wallet: %w", err)
 		}
-	case thwallet.Signature, thwallet.Presignature, thwallet.PartialSignature, thwallet.SecretKey, thwallet.PublicKey:
+	case Precomputation, PublicKey:
 		metadata, err := newMetadata(document)
 		if err != nil {
 			return fmt.Errorf("create signature: %w", err)
@@ -157,7 +147,7 @@ func (c *Client) Store(document *thwallet.Document) error {
 	return nil
 }
 
-func (c *Client) AddCollection(collectionID string) error {
+func (c *PartySigner) AddCollection(collectionID string) error {
 	collection := newCollection(collectionID, c.userID)
 	collectionBytes, err := json.Marshal(collection)
 	if err != nil {
@@ -171,33 +161,25 @@ func (c *Client) AddCollection(collectionID string) error {
 	return nil
 }
 
-func (c *Client) Get(contentType thwallet.ContentType, documentID string) (*thwallet.Document, error) {
+func (c *PartySigner) Get(contentType ContentType, documentID string, collectionID string) (*Document, error) {
 	switch contentType {
-	case thwallet.Credential:
-		credentialBytes, err := c.vcwallet.Get(wallet.Credential, documentID)
+	case Credential:
+		credentialsBytes, err := c.vcwallet.GetAll(wallet.Credential, wallet.FilterByCollection(collectionID))
 		if err != nil {
 			return nil, err
 		}
-		var credential verifiable.Credential
-		err = json.Unmarshal(credentialBytes, &credential)
-		if err != nil {
-			return nil, fmt.Errorf("unmarshal credential bytes: %w", err)
-		}
-		document, err := documentFromSubject(credential.Subject)
+		document, err := documentFromCredential(credentialsBytes[documentID], collectionID)
 		if err != nil {
 			return nil, fmt.Errorf("retrieve document from credential: %w", err)
 		}
-		if document.Type == thwallet.Credential {
-			return document, nil
-		}
-		return nil, errors.New("document has wrong type")
-	case thwallet.Signature, thwallet.Presignature, thwallet.PartialSignature, thwallet.PublicKey, thwallet.SecretKey:
-		metadataBytes, err := c.vcwallet.Get(wallet.Metadata, documentID)
+		return document, nil
+	case Precomputation, PublicKey:
+		metadatasBytes, err := c.vcwallet.GetAll(wallet.Metadata, wallet.FilterByCollection(collectionID))
 		if err != nil {
 			return nil, err
 		}
 		var metadata ThresholdWalletMetaData
-		err = json.Unmarshal(metadataBytes, &metadata)
+		err = json.Unmarshal(metadatasBytes[documentID], &metadata)
 		if err != nil {
 			return nil, fmt.Errorf("unmarshal metadata  bytes: %w", err)
 		}
@@ -212,21 +194,16 @@ func (c *Client) Get(contentType thwallet.ContentType, documentID string) (*thwa
 	}
 }
 
-func (c *Client) GetCollection(collectionID string) ([]*thwallet.Document, error) {
-	var collection []*thwallet.Document
+func (c *PartySigner) GetCollection(collectionID string) ([]*Document, error) {
+	var collection []*Document
 
 	// Get all credentials from the collection.
 	credentials, err := c.vcwallet.GetAll(wallet.Credential, wallet.FilterByCollection(collectionID+collectionID))
 	if err != nil {
 		return nil, fmt.Errorf("get credentials with collection id %s: %w", collectionID, err)
 	}
-	for key, value := range credentials {
-		var credential verifiable.Credential
-		err := json.Unmarshal(value, &credential)
-		if err != nil {
-			return nil, fmt.Errorf("unmarshal credential %s: %w", key, err)
-		}
-		document, err := documentFromSubject(credential.Subject)
+	for _, value := range credentials {
+		document, err := documentFromCredential(value, collectionID)
 		if err != nil {
 			return nil, fmt.Errorf("retrieve document from credential: %w", err)
 		}
@@ -251,15 +228,15 @@ func (c *Client) GetCollection(collectionID string) ([]*thwallet.Document, error
 	return collection, nil
 }
 
-func (c *Client) Remove(contentType thwallet.ContentType, documentID string) error {
+func (c *PartySigner) Remove(contentType ContentType, documentID string) error {
 	switch contentType {
-	case thwallet.Credential:
+	case Credential:
 		err := c.vcwallet.Remove(wallet.Credential, documentID)
 		if err != nil {
 			return err
 		}
 		return nil
-	case thwallet.Signature, thwallet.Presignature, thwallet.PartialSignature, thwallet.SecretKey, thwallet.PublicKey:
+	case Precomputation, PublicKey:
 		err := c.vcwallet.Remove(wallet.Metadata, documentID)
 		if err != nil {
 			return err
@@ -270,49 +247,7 @@ func (c *Client) Remove(contentType thwallet.ContentType, documentID string) err
 	}
 }
 
-func (c *Client) VerifyThresholdSignature(
-	credentials []*thwallet.Document,
-	signature *thwallet.Document,
-	publicKey *thwallet.Document) (bool, error) {
-
-	if credentials[0] == nil {
-		return false, errors.New("empty credentials list")
-	}
-	var messages []*bls12381.Fr
-	collectionID := credentials[0].CollectionID
-	for _, credential := range credentials {
-		if credential.Type != thwallet.Credential {
-			return false, errors.New("unsupported document type")
-		}
-		if collectionID != credential.CollectionID {
-			return false, errors.New("unmatching collection ID")
-		}
-		message := bls12381.NewFr().FromBytes(credential.Content)
-		messages = append(messages, message)
-	}
-	if signature.Type != thwallet.Signature {
-		return false, errors.New("type failed signature")
-	}
-	if publicKey.Type != thwallet.PublicKey {
-		return false, errors.New("type failed public key")
-	}
-
-	thresholdSig := fhks_bbs_plus.NewThresholdSignature()
-	err := thresholdSig.FromBytes(signature.Content)
-	if err != nil {
-		return false, fmt.Errorf("decode threshold signature: %w", err)
-	}
-
-	pk := &fhks_bbs_plus.PublicKey{}
-	err = pk.FromBytes(publicKey.Content)
-	if err != nil {
-		return false, fmt.Errorf("decode public key: %w", err)
-	}
-
-	return thresholdSig.Verify(messages, pk), nil
-}
-
-func (c *Client) RemoveCollection(collectionID string) error {
+func (c *PartySigner) RemoveCollection(collectionID string) error {
 	err := c.vcwallet.Remove(wallet.Collection, collectionID)
 	if err != nil {
 		return fmt.Errorf("remove collection from wallet: %w", err)
@@ -320,21 +255,70 @@ func (c *Client) RemoveCollection(collectionID string) error {
 	return nil
 }
 
-func (c *Client) watchExpiry() {
-	timeout := time.After(walletExpiry)
-	expiredSignal := make(chan bool)
-	for {
-		if c.isExpired {
-			expiredSignal <- c.isExpired
-		}
-		select {
-		case <-timeout:
-			c.isExpired = true
-			log.Print("Wallet expired!")
-			return
-		case <-expiredSignal:
-			log.Print("Wallet is closed.")
-			return
+func (c *PartySigner) Sign(credential *Document) (*Document, error) {
+	vc, err := verifiable.ParseCredential(credential.Content,
+		verifiable.WithJSONLDDocumentLoader(c.context.JSONLDDocumentLoader()),
+		verifiable.WithCredDisableValidation(),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	collection, err := c.GetCollection(credential.CollectionID)
+	if err != nil {
+		return nil, err
+	}
+
+	var precomputation *Document
+	for _, document := range collection {
+		if document.Type == Precomputation {
+			precomputation = document
 		}
 	}
+	if precomputation == nil {
+		return nil, errors.New("precomputation not found")
+	}
+
+	partySigner, err := signer.NewThresholdBBSG2SignaturePartySigner(precomputation.Content)
+	if err != nil {
+		return nil, err
+	}
+
+	partySigner.SetNexMsgIndex(credential.MsgIndex)
+	partySigner.SetIndices(credential.Indices, credential.MsgIndex)
+	sigSuite := bbsblssignature2020.New(
+		suite.WithSigner(partySigner),
+		suite.WithVerifier(bbsblssignature2020.NewG2PublicKeyVerifier()))
+
+	ldpContext := &verifiable.LinkedDataProofContext{
+		SignatureType:           "BbsBlsSignature2020",
+		SignatureRepresentation: verifiable.SignatureProofValue,
+		Suite:                   sigSuite,
+		VerificationMethod:      "did:bbspublickey#key",
+		Created:                 credential.Created,
+	}
+
+	err = vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(c.context.JSONLDDocumentLoader()))
+	if err != nil {
+		return nil, err
+	}
+
+	vcSignedBytes, err := json.Marshal(vc)
+	if err != nil {
+		return nil, err
+	}
+	signedCredential := NewDocument(Credential, vcSignedBytes, credential.CollectionID)
+	signedCredential.Indices = credential.Indices
+	signedCredential.MsgIndex = credential.MsgIndex
+	return signedCredential, nil
+}
+
+func (c *PartySigner) Verify(signedCredential *Document, publicKey *Document) (bool, error) {
+	_, err := verifiable.ParseCredential(signedCredential.Content,
+		verifiable.WithJSONLDDocumentLoader(c.context.JSONLDDocumentLoader()),
+		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(publicKey.Content, "Bls12381G2Key2020")))
+	if err != nil {
+		return false, fmt.Errorf("credential verification failed: %w", err)
+	}
+	return true, nil
 }
