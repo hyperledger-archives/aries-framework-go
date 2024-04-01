@@ -95,9 +95,12 @@ vc-test-suite: clean
 bbs-interop-test:
 	@scripts/check_bbs_interop.sh
 
+# TODO (#3373): frapsoft/openssl only has an amd64 version. While this does work when using Docker on arm64-based macOS
+#              currently thanks to the automatic built-in QEMU emulation, it would be better to use a
+#              native arm64 version.
 generate-test-keys: clean
 	@mkdir -p -p test/bdd/fixtures/keys/tls
-	@docker run -i --rm \
+	@docker run -i --platform linux/amd64 --rm \
 		-v $(abspath .):/opt/go/src/$(PROJECT_ROOT) \
 		--entrypoint "/opt/go/src/$(PROJECT_ROOT)/scripts/generate_test_keys.sh" \
 		frapsoft/openssl
