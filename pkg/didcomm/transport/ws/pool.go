@@ -79,9 +79,7 @@ func (d *connPool) remove(verKey string) {
 }
 
 func (d *connPool) listener(conn *websocket.Conn, outbound bool) {
-	verKeys := []string{}
-
-	defer d.close(conn, verKeys)
+	defer d.close(conn)
 
 	go keepConnAlive(conn, outbound, pingFrequency)
 
@@ -154,14 +152,25 @@ func (d *connPool) addKey(unpackMsg *transport.Envelope, trans *decorator.Transp
 	}
 }
 
-func (d *connPool) close(conn *websocket.Conn, verKeys []string) {
+func (d *connPool) close(conn *websocket.Conn) {
 	if err := conn.Close(websocket.StatusNormalClosure,
 		"closing the connection"); websocket.CloseStatus(err) != websocket.StatusNormalClosure {
 		logger.Errorf("connection close error")
 	}
 
-	for _, v := range verKeys {
-		d.remove(v)
+	d.Lock()
+	defer d.Unlock()
+
+	var toRemove []string
+
+	for k, v := range d.connMap {
+		if v == conn {
+			toRemove = append(toRemove, k)
+		}
+	}
+
+	for _, v := range toRemove {
+		delete(d.connMap, v)
 	}
 }
 
