@@ -123,7 +123,7 @@ func (o *Operation) registerHandler() {
 	}
 }
 
-// CreateProfile swagger:route POST /vcwallet/create-profile vcwallet createProfileReq
+// CreateProfile swagger:route POST /vcwallet/create-profile vcwallet createProfileRequest
 //
 // Creates new wallet profile and returns error if wallet profile is already created.
 //
@@ -134,7 +134,7 @@ func (o *Operation) CreateProfile(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(o.command.CreateProfile, rw, req.Body)
 }
 
-// UpdateProfile swagger:route POST /vcwallet/update-profile vcwallet UpdateProfileReq
+// UpdateProfile swagger:route POST /vcwallet/update-profile vcwallet updateProfileRequest
 //
 // Updates an existing wallet profile and returns error if profile doesn't exists.
 //
