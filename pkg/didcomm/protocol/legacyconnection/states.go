@@ -206,7 +206,7 @@ func (s *responded) Name() string {
 }
 
 func (s *responded) CanTransitionTo(next state) bool {
-	return StateIDCompleted == next.Name()
+	return StateIDCompleted == next.Name() || StateIDRequested == next.Name()
 }
 
 func (s *responded) ExecuteInbound(msg *stateMachineMsg, _ string, ctx *context) (*connectionstore.Record,
@@ -228,6 +228,13 @@ func (s *responded) ExecuteInbound(msg *stateMachineMsg, _ string, ctx *context)
 		return connRecord, &noOp{}, action, nil
 	case ResponseMsgType:
 		return msg.connRecord, &completed{}, func() error { return nil }, nil
+	case ProblemReportMsgType:
+		err := ctx.connectionRecorder.RemoveConnection(msg.connRecord.ConnectionID)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("delete connection record is failed: %w", err)
+		}
+
+		return msg.connRecord, &noOp{}, func() error { return nil }, nil
 	default:
 		return nil, nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.Type(), s.Name())
 	}

@@ -106,6 +106,17 @@ type legacyDoc struct {
 	Proof                []interface{}            `json:"proof,omitempty"`
 }
 
+type problemReport struct {
+	Type         string            `json:"@type,omitempty"`
+	ID           string            `json:"@id,omitempty"`
+	Thread       *decorator.Thread `json:"~thread,omitempty"`
+	ProblemCode  string            `json:"problem-code,omitempty"`
+	Explain      string            `json:"explain,omitempty"`
+	Localization struct {
+		Locale string `json:"locale,omitempty"`
+	} `json:"~l10n,omitempty"`
+}
+
 // JSONBytes converts Connection to json bytes.
 func (con *Connection) toLegacyJSONBytes() ([]byte, error) {
 	if con.DIDDoc == nil {

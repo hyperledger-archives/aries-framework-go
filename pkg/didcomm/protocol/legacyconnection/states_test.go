@@ -92,7 +92,7 @@ func TestRespondedState(t *testing.T) {
 	require.Equal(t, "responded", res.Name())
 	require.False(t, res.CanTransitionTo(&null{}))
 	require.False(t, res.CanTransitionTo(&invited{}))
-	require.False(t, res.CanTransitionTo(&requested{}))
+	require.True(t, res.CanTransitionTo(&requested{}))
 	require.False(t, res.CanTransitionTo(res))
 	require.True(t, res.CanTransitionTo(&completed{}))
 }
@@ -387,6 +387,32 @@ func TestRespondedState_Execute(t *testing.T) {
 			require.NoError(t, e)
 			require.NotNil(t, connRec)
 			require.Equal(t, (&completed{}).Name(), followup.Name())
+		})
+		t.Run("followup to 'noop' on inbound problem report message", func(t *testing.T) {
+			connRec := &connection.Record{
+				State:        (&responded{}).Name(),
+				ThreadID:     request.ID,
+				ConnectionID: "123",
+				Namespace:    findNamespace(ResponseMsgType),
+			}
+			err = ctx.connectionRecorder.SaveConnectionRecordWithMappings(connRec)
+			require.NoError(t, err)
+
+			problemReportPayload, err := json.Marshal(&problemReport{Type: ProblemReportMsgType})
+			require.NoError(t, err)
+
+			connRec, followup, _, e := (&responded{}).ExecuteInbound(
+				&stateMachineMsg{
+					DIDCommMsg: bytesToDIDCommMsg(t, problemReportPayload),
+					connRecord: connRec,
+				}, "", ctx)
+			require.NoError(t, e)
+			require.NotNil(t, connRec)
+
+			_, e = ctx.connectionRecorder.GetConnectionRecord(connRec.ConnectionID)
+			require.Error(t, e)
+			require.ErrorContains(t, e, "data not found")
+			require.Equal(t, (&noOp{}).Name(), followup.Name())
 		})
 
 		t.Run("handle inbound request unmarshalling error", func(t *testing.T) {

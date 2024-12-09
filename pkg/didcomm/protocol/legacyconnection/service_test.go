@@ -176,7 +176,7 @@ func TestService_Handle_Inviter(t *testing.T) {
 	require.NoError(t, err)
 
 	completedFlag := make(chan struct{})
-	respondedFlag := make(chan struct{})
+	respondedFlag := make(chan string)
 
 	go msgEventListener(t, statusCh, respondedFlag, completedFlag)
 
@@ -247,7 +247,153 @@ func TestService_Handle_Inviter(t *testing.T) {
 	validateState(t, s, thid, findNamespace(AckMsgType), (&completed{}).Name())
 }
 
-func msgEventListener(t *testing.T, statusCh chan service.StateMsg, respondedFlag, completedFlag chan struct{}) {
+func TestService_Handle_Inviter_With_ProblemReport(t *testing.T) {
+	mockStore := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
+	storeProv := mockstorage.NewCustomMockStoreProvider(mockStore)
+	k := newKMS(t, storeProv)
+	prov := &protocol.MockProvider{
+		StoreProvider: storeProv,
+		ServiceMap: map[string]interface{}{
+			mediator.Coordination: &mockroute.MockMediatorSvc{},
+		},
+		CustomKMS:             k,
+		KeyTypeValue:          kms.ED25519Type,
+		KeyAgreementTypeValue: kms.X25519ECDHKWType,
+	}
+
+	ctx := &context{
+		outboundDispatcher: prov.OutboundDispatcher(),
+		crypto:             &tinkcrypto.Crypto{},
+		kms:                k,
+		keyType:            kms.ED25519Type,
+		keyAgreementType:   kms.X25519ECDHKWType,
+	}
+
+	_, pubKey, err := ctx.kms.CreateAndExportPubKeyBytes(kms.ED25519Type)
+	require.NoError(t, err)
+
+	ctx.vdRegistry = &mockvdr.MockVDRegistry{CreateValue: createDIDDocWithKey(pubKey)}
+
+	connRec, err := connection.NewRecorder(prov)
+	require.NoError(t, err)
+	require.NotNil(t, connRec)
+
+	ctx.connectionRecorder = connRec
+
+	doc, err := ctx.vdRegistry.Create(testMethod, nil)
+	require.NoError(t, err)
+
+	s, err := New(prov)
+	require.NoError(t, err)
+
+	actionCh := make(chan service.DIDCommAction, 10)
+	err = s.RegisterActionEvent(actionCh)
+	require.NoError(t, err)
+
+	statusCh := make(chan service.StateMsg, 10)
+	err = s.RegisterMsgEvent(statusCh)
+	require.NoError(t, err)
+
+	completedFlag := make(chan struct{})
+	respondedFlag := make(chan string)
+
+	go msgEventListener(t, statusCh, respondedFlag, completedFlag)
+	go func() { service.AutoExecuteActionEvent(actionCh) }()
+
+	invitation := &Invitation{
+		Type:            InvitationMsgType,
+		ID:              randomString(),
+		Label:           "Bob",
+		RecipientKeys:   []string{base58.Encode(pubKey)},
+		ServiceEndpoint: "http://alice.agent.example.com:8081",
+	}
+
+	err = ctx.connectionRecorder.SaveInvitation(invitation.ID, invitation)
+	require.NoError(t, err)
+
+	thid := randomString()
+
+	// Invitation was previously sent by Alice to Bob.
+	// Bob now sends a connection Request
+	connRequest, err := json.Marshal(
+		&Request{
+			Type:  RequestMsgType,
+			ID:    thid,
+			Label: "Bob",
+			Thread: &decorator.Thread{
+				PID: invitation.ID,
+			},
+			Connection: &Connection{
+				DID:    doc.DIDDocument.ID,
+				DIDDoc: doc.DIDDocument,
+			},
+		})
+	require.NoError(t, err)
+	requestMsg, err := service.ParseDIDCommMsgMap(connRequest)
+	require.NoError(t, err)
+	_, err = s.HandleInbound(requestMsg, service.NewDIDCommContext(doc.DIDDocument.ID, "", nil))
+	require.NoError(t, err)
+
+	var connID string
+	select {
+	case connID = <-respondedFlag:
+	case <-time.After(2 * time.Second):
+		require.Fail(t, "didn't receive connection ID")
+	}
+
+	connRecord, err := s.connectionRecorder.GetConnectionRecord(connID)
+	require.NoError(t, err)
+
+	// Alice automatically sends connection Response to Bob
+	// Bob replies with Problem Report
+	prbRpt, err := json.Marshal(
+		&problemReport{
+			ID:     randomString(),
+			Type:   ProblemReportMsgType,
+			Thread: &decorator.Thread{ID: connRecord.ThreadID},
+		})
+	require.NoError(t, err)
+
+	prbRptMsg, err := service.ParseDIDCommMsgMap(prbRpt)
+	require.NoError(t, err)
+
+	_, err = s.HandleInbound(prbRptMsg, service.NewDIDCommContext(doc.DIDDocument.ID, "", nil))
+	require.NoError(t, err)
+
+	validateState(t, s, thid, findNamespace(RequestMsgType), (&responded{}).Name())
+
+	_, err = ctx.connectionRecorder.GetConnectionRecord(connID)
+	require.ErrorContains(t, err, "data not found")
+
+	_, err = s.HandleInbound(requestMsg, service.NewDIDCommContext(doc.DIDDocument.ID, "", nil))
+	require.NoError(t, err)
+
+	// Finally Bob replies with an ACK
+	ack, err := json.Marshal(
+		&model.Ack{
+			Type:   AckMsgType,
+			ID:     randomString(),
+			Status: "OK",
+			Thread: &decorator.Thread{ID: connRecord.ThreadID},
+		})
+	require.NoError(t, err)
+
+	ackMsg, err := service.ParseDIDCommMsgMap(ack)
+	require.NoError(t, err)
+
+	_, err = s.HandleInbound(ackMsg, service.NewDIDCommContext(doc.DIDDocument.ID, "", nil))
+	require.NoError(t, err)
+
+	select {
+	case <-completedFlag:
+	case <-time.After(4 * time.Second):
+		require.Fail(t, "didn't receive post event complete")
+	}
+
+	validateState(t, s, connRecord.ThreadID, findNamespace(AckMsgType), (&completed{}).Name())
+}
+
+func msgEventListener(t *testing.T, statusCh chan service.StateMsg, respondedFlag chan string, completedFlag chan struct{}) { //nolint: lll
 	for e := range statusCh {
 		require.Equal(t, LegacyConnection, e.ProtocolName)
 
@@ -272,11 +418,11 @@ func msgEventListener(t *testing.T, statusCh chan service.StateMsg, respondedFla
 				close(completedFlag)
 			}
 
-			if e.StateID == "responded" {
+			if e.StateID == "responded" && e.Msg.Type() != ProblemReportMsgType {
 				// validate connectionID received during state transition with original connectionID
 				require.NotNil(t, prop.ConnectionID())
 				require.NotNil(t, prop.InvitationID())
-				close(respondedFlag)
+				respondedFlag <- prop.ConnectionID()
 			}
 		}
 	}
