@@ -1,0 +1,389 @@
+service: aries-agent-lambda
+
+frameworkVersion: 2.57.0
+variablesResolutionMode: '20210326'
+configValidationMode: off
+disabledDeprecations:
+  - '*'
+
+plugins:
+  - serverless-dotenv-plugin
+  - serverless-dynamodb-local
+  - serverless-plugin-resource-tagging
+  - serverless-offline
+
+provider:
+  name: aws
+  runtime: go1.x
+  lambdaHashingVersion: '20201221'
+  stage: ${opt:stage, "local"}
+  logRetentionInDays: 1
+  apiGateway:
+    restApiId: ${env:AWS_REST_API_ID, "0000000000"}
+    restApiRootResourceId: ${env:AWS_REST_API_ROOT_RESOURCE_ID, "0000000000"}
+    websocketApiId: ${env:AWS_WEBSOCKET_API_ID, "0000000000"}
+    websocketsApiRouteSelectionExpression: $request.body.action
+  tracing:
+    lambda: true
+  environment:
+    SERVICE_NAME: "aries-agent-lambda"
+    SERVICE_SLUG: "aries"
+    STAGE: ${opt:stage, "local"}
+  stackTags:
+    ServiceName: ${self:service}
+    ServiceSlug: "aries"
+    ServiceStage: ${opt:stage, "local"}
+
+package:
+  patterns:
+    - '!./**'
+    - ./bin/**
+
+functions:
+  lambda-handler:
+    handler: bin/aries-agent-lambda
+    timeout: 30
+    events:
+      - http:
+          path: /
+          method: any
+      - http:
+          path: /
+          method: options
+      - http:
+          path: /{proxy+}
+          method: any
+      - http:
+          path: /{proxy+}
+          method: options
+      - websocket:
+          route: $connect
+      - websocket:
+          route: $disconnect
+      - websocket:
+          route: $default
+          routeResponseSelectionExpression: $default
+
+resources:
+  Resources:
+    Secret:
+      Type: AWS::SecretsManager::Secret
+      Properties:
+        Name: lambda/${opt:stage, "local"}/${self:service}
+        SecretString: '{}'
+
+    CoordinateMediation:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${opt:stage, "local"}-${self:service}-coordinatemediation
+        KeySchema:
+          - AttributeName: Key
+            KeyType: HASH
+        AttributeDefinitions:
+          - AttributeName: Key
+            AttributeType: S
+        StreamSpecification:
+          StreamViewType: NEW_AND_OLD_IMAGES
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+        SSESpecification:
+          SSEEnabled: true
+        BillingMode: PAY_PER_REQUEST
+    DidConnection:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${opt:stage, "local"}-${self:service}-didconnection
+        KeySchema:
+          - AttributeName: Key
+            KeyType: HASH
+        AttributeDefinitions:
+          - AttributeName: Key
+            AttributeType: S
+        StreamSpecification:
+          StreamViewType: NEW_AND_OLD_IMAGES
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+        SSESpecification:
+          SSEEnabled: true
+        BillingMode: PAY_PER_REQUEST
+    DidExchange:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${opt:stage, "local"}-${self:service}-didexchange
+        KeySchema:
+          - AttributeName: Key
+            KeyType: HASH
+        AttributeDefinitions:
+          - AttributeName: Key
+            AttributeType: S
+        StreamSpecification:
+          StreamViewType: NEW_AND_OLD_IMAGES
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+        SSESpecification:
+          SSEEnabled: true
+        BillingMode: PAY_PER_REQUEST
+    DidStore:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${opt:stage, "local"}-${self:service}-didstore
+        KeySchema:
+          - AttributeName: Key
+            KeyType: HASH
+        AttributeDefinitions:
+          - AttributeName: Key
+            AttributeType: S
+        StreamSpecification:
+          StreamViewType: NEW_AND_OLD_IMAGES
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+        SSESpecification:
+          SSEEnabled: true
+        BillingMode: PAY_PER_REQUEST
+    Introduce:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${opt:stage, "local"}-${self:service}-introduce
+        KeySchema:
+          - AttributeName: Key
+            KeyType: HASH
+        AttributeDefinitions:
+          - AttributeName: Key
+            AttributeType: S
+        StreamSpecification:
+          StreamViewType: NEW_AND_OLD_IMAGES
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+        SSESpecification:
+          SSEEnabled: true
+        BillingMode: PAY_PER_REQUEST
+    IssueCredential:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${opt:stage, "local"}-${self:service}-issue-credential
+        KeySchema:
+          - AttributeName: Key
+            KeyType: HASH
+        AttributeDefinitions:
+          - AttributeName: Key
+            AttributeType: S
+        StreamSpecification:
+          StreamViewType: NEW_AND_OLD_IMAGES
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+        SSESpecification:
+          SSEEnabled: true
+        BillingMode: PAY_PER_REQUEST
+    KmsDb:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${opt:stage, "local"}-${self:service}-kmsdb
+        KeySchema:
+          - AttributeName: Key
+            KeyType: HASH
+        AttributeDefinitions:
+          - AttributeName: Key
+            AttributeType: S
+        StreamSpecification:
+          StreamViewType: NEW_AND_OLD_IMAGES
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+        SSESpecification:
+          SSEEnabled: true
+        BillingMode: PAY_PER_REQUEST
+    LdContexts:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${opt:stage, "local"}-${self:service}-ldcontexts
+        KeySchema:
+          - AttributeName: Key
+            KeyType: HASH
+        AttributeDefinitions:
+          - AttributeName: Key
+            AttributeType: S
+        StreamSpecification:
+          StreamViewType: NEW_AND_OLD_IMAGES
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+        SSESpecification:
+          SSEEnabled: true
+        BillingMode: PAY_PER_REQUEST
+    Mailbox:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${opt:stage, "local"}-${self:service}-mailbox
+        KeySchema:
+          - AttributeName: Key
+            KeyType: HASH
+        AttributeDefinitions:
+          - AttributeName: Key
+            AttributeType: S
+        StreamSpecification:
+          StreamViewType: NEW_AND_OLD_IMAGES
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+        SSESpecification:
+          SSEEnabled: true
+        BillingMode: PAY_PER_REQUEST
+    MessengerStore:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${opt:stage, "local"}-${self:service}-messenger_store
+        KeySchema:
+          - AttributeName: Key
+            KeyType: HASH
+        AttributeDefinitions:
+          - AttributeName: Key
+            AttributeType: S
+        StreamSpecification:
+          StreamViewType: NEW_AND_OLD_IMAGES
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+        SSESpecification:
+          SSEEnabled: true
+        BillingMode: PAY_PER_REQUEST
+    Peer:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${opt:stage, "local"}-${self:service}-peer
+        KeySchema:
+          - AttributeName: Key
+            KeyType: HASH
+        AttributeDefinitions:
+          - AttributeName: Key
+            AttributeType: S
+        StreamSpecification:
+          StreamViewType: NEW_AND_OLD_IMAGES
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+        SSESpecification:
+          SSEEnabled: true
+        BillingMode: PAY_PER_REQUEST
+    PresentProof:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${opt:stage, "local"}-${self:service}-present-proof
+        KeySchema:
+          - AttributeName: Key
+            KeyType: HASH
+        AttributeDefinitions:
+          - AttributeName: Key
+            AttributeType: S
+        StreamSpecification:
+          StreamViewType: NEW_AND_OLD_IMAGES
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+        SSESpecification:
+          SSEEnabled: true
+        BillingMode: PAY_PER_REQUEST
+    RemoteProviders:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${opt:stage, "local"}-${self:service}-remoteproviders
+        KeySchema:
+          - AttributeName: Key
+            KeyType: HASH
+        AttributeDefinitions:
+          - AttributeName: Key
+            AttributeType: S
+        StreamSpecification:
+          StreamViewType: NEW_AND_OLD_IMAGES
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+        SSESpecification:
+          SSEEnabled: true
+        BillingMode: PAY_PER_REQUEST
+    Verifiable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${opt:stage, "local"}-${self:service}-verifiable
+        KeySchema:
+          - AttributeName: Key
+            KeyType: HASH
+        AttributeDefinitions:
+          - AttributeName: Key
+            AttributeType: S
+        StreamSpecification:
+          StreamViewType: NEW_AND_OLD_IMAGES
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+        SSESpecification:
+          SSEEnabled: true
+        BillingMode: PAY_PER_REQUEST
+    OutOfBand:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${opt:stage, "local"}-${self:service}-out-of-band
+        KeySchema:
+          - AttributeName: Key
+            KeyType: HASH
+        AttributeDefinitions:
+          - AttributeName: Key
+            AttributeType: S
+        StreamSpecification:
+          StreamViewType: NEW_AND_OLD_IMAGES
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+        SSESpecification:
+          SSEEnabled: true
+        BillingMode: PAY_PER_REQUEST
+    OutOfBandv2:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${opt:stage, "local"}-${self:service}-_outofband2
+        KeySchema:
+          - AttributeName: Key
+            KeyType: HASH
+        AttributeDefinitions:
+          - AttributeName: Key
+            AttributeType: S
+        StreamSpecification:
+          StreamViewType: NEW_AND_OLD_IMAGES
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+        SSESpecification:
+          SSEEnabled: true
+        BillingMode: PAY_PER_REQUEST
+    WSConnections:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${opt:stage, "local"}-${self:service}-wsconnections
+        KeySchema:
+          - AttributeName: Key
+            KeyType: HASH
+        AttributeDefinitions:
+          - AttributeName: Key
+            AttributeType: S
+        StreamSpecification:
+          StreamViewType: NEW_AND_OLD_IMAGES
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+        SSESpecification:
+          SSEEnabled: true
+        BillingMode: PAY_PER_REQUEST
+
+custom:
+  serverless-offline:
+    useChildProcesses: false
+    noPrependStageInUrl: true
+    prefix: "aries"
+    # debugging:
+    host: 0.0.0.0
+    #dockerImagePull: true
+    #dockerLambdaStayOpen: true
+    #dockerLambdaWatch: false
+    #dockerRuntimeDebug: true
+    #dockerExposePorts: 5985:5985
+    # no debugging:
+    dockerImagePull: true
+    dockerLambdaStayOpen: true
+    dockerLambdaWatch: true
+    dockerRuntimeDebug: false
+
+  dynamodb:
+    stages:
+      - local
+    start:
+      port: 8100
+      dbPath: /tmp
+      migrate: true
